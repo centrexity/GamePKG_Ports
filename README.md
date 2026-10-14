@@ -4,15 +4,15 @@ Source recipes for games adapted to [GamePKG](https://github.com/centrexity/Game
 
 | Port | Recipe | Requirements |
 | --- | --- | --- |
-| Zelda3 | [ports/zelda3](ports/zelda3) | GamePKG 0.1.6 or newer and your own Zelda: A Link to the Past (USA) ROM |
-| Arkanoo | [ports/arkanoo](ports/arkanoo) | GamePKG |
-| 2048 | [ports/2048](ports/2048) | GamePKG |
+| Zelda3 | [zelda3](zelda3) | GamePKG 0.1.6 or newer and your own Zelda: A Link to the Past (USA) ROM |
+| Arkanoo | [arkanoo](arkanoo) | GamePKG |
+| 2048 | [2048](2048) | GamePKG |
 
 Use the GamePKG CLI to create a package with your creator key:
 
 ```sh
 gamepkg keygen --output creator.key
-gamepkg pack ports/arkanoo --output arkanoo.gamepkg --key creator.key
+gamepkg pack arkanoo --output arkanoo.gamepkg --key creator.key
 gamepkg install arkanoo.gamepkg --trust-creator
 gamepkg build com.gamepkg.arkanoo
 gamepkg run com.gamepkg.arkanoo
@@ -26,4 +26,4 @@ The trusted Zelda engine and runtime security controls remain in GamePKG. Existi
 
 ## Provenance and licensing
 
-These recipes were moved without source changes from Centrexity/GamePKG commit `1ed7ffd11a6237db288c08fd334d74f07ebd6a07`: `examples/ports/zelda3`, `examples/good/arkanoo`, and `examples/good/2048`. Each port retains its upstream LICENSE, NOTICE, and CREDITS documents. Upstream code remains under those licenses; Centrexity additions are Apache-2.0 unless a file states otherwise.
+These recipes were moved without source changes from Centrexity/GamePKG commit `1ed7ffd11a6237db288c08fd334d74f07ebd6a07`: `examples/zelda3`, `examples/good/arkanoo`, and `examples/good/2048`. Each port retains its upstream LICENSE, NOTICE, and CREDITS documents. Upstream code remains under those licenses; Centrexity additions are Apache-2.0 unless a file states otherwise.
