@@ -15,7 +15,7 @@ gamepkg keygen --output creator.key
 gamepkg pack arkanoo --output arkanoo.gamepkg --key creator.key
 gamepkg install arkanoo.gamepkg --trust-creator
 gamepkg build com.gamepkg.arkanoo
-gamepkg run com.gamepkg.arkanoo
+gamepkg-gui --play com.gamepkg.arkanoo
 ```
 
 Players do not need signing keys or Python. Zelda uses a registered ROM in place; this repository contains no ROM or extracted ROM assets. See the [Zelda setup guide](https://github.com/centrexity/GamePKG/blob/main/engines/zelda3/README.md).
