@@ -25,8 +25,8 @@ pub fn game_tick(input: u32, state: u64) -> u64 {
                 game.sound = 0;
             }
             if game.dirty {
-                let best = game.best.to_le_bytes();
-                let level = game.unlocked.to_le_bytes();
+                let best = u32::to_le_bytes(game.best);
+                let level = u32::to_le_bytes(game.unlocked);
                 let bytes = [
                     65, 82, 75, 49, best[0], best[1], best[2], best[3], level[0], level[1],
                     level[2], level[3], 0, 0, 0, 0,
