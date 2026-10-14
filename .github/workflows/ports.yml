@@ -1,0 +1,19 @@
+name: Port validation
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: centrexity/GamePKG
+          path: host
+      - uses: actions/checkout@v4
+        with:
+          path: host/ports
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Check port gameplay, signing, policy, and lock hashes
+        working-directory: host
+        run: cargo test --locked --test game_2048 --test game_arkanoo --test zelda3_policy --test examples
