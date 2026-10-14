@@ -1,0 +1,4 @@
+target/
+*.key
+*.gamepkg
+__pycache__/
