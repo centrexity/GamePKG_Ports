@@ -4,6 +4,7 @@ Source recipes for games adapted to [GamePKG](https://github.com/centrexity/Game
 
 | Port | Recipe | Requirements |
 | --- | --- | --- |
+| DOOM | [doom](doom) | Current GamePKG main with the pinned DOOM engine and your own DOOM.WAD/DOOM2.WAD |
 | Zelda3 | [zelda3](zelda3) | GamePKG 0.1.6 or newer and your own Zelda: A Link to the Past (USA) ROM |
 | Arkanoo | [arkanoo](arkanoo) | GamePKG |
 | 2048 | [2048](2048) | GamePKG |
@@ -22,7 +23,9 @@ Players do not need signing keys or Python. Zelda uses a registered ROM in place
 
 GamePKG pins this repository as its `ports` Git submodule. Host integration tests exercise these recipes, including gameplay rules, source validation, isolated builds, GUI play, and compiler exchanges. Clone the host with `git clone --recurse-submodules https://github.com/centrexity/GamePKG.git`; update an existing checkout with `git submodule update --init --recursive`.
 
-The trusted Zelda engine and runtime security controls remain in GamePKG. Existing official signed package download and update endpoints remain available in the host repository.
+See [DOOM setup and controls](DOOM.md) for the new source recipe.
+
+The trusted DOOM and Zelda engines and runtime security controls remain in GamePKG. Existing official signed package download and update endpoints remain available in the host repository.
 
 ## Provenance and licensing
 

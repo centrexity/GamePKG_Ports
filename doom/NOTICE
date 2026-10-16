@@ -1,0 +1,6 @@
+DOOM engine: id Software and Chocolate Doom/doomgeneric contributors.
+Source: https://github.com/ozkl/doomgeneric
+Pinned revision: e257a09527062bfb986b6e5e0780839b6cbd5b71
+Engine and adapter: GPL-2.0-or-later. Full corresponding source is in Centrexity/GamePKG engines/doom.
+GamePKG icon: Copyright 2026 GamePKG contributors, Apache-2.0.
+No WAD files or extracted game assets are included.
