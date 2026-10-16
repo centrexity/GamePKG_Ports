@@ -3,27 +3,27 @@ format_version = 1
 [[games]]
 id = "com.gamepkg.2048"
 title = "2048"
-version = "0.1.2"
+version = "0.1.3"
 requires_rom = false
-download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.2/2048.gamepkg"
+download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.3/2048.gamepkg"
 
 [[games]]
 id = "com.gamepkg.arkanoo"
 title = "Arkanoo"
-version = "0.1.2"
+version = "0.1.3"
 requires_rom = false
-download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.2/arkanoo.gamepkg"
+download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.3/arkanoo.gamepkg"
 
 [[games]]
 id = "com.gamepkg.zelda3"
 title = "Zelda3 — requires your supported USA ROM"
-version = "0.1.2"
+version = "0.1.3"
 requires_rom = true
-download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.2/zelda3.gamepkg"
+download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.3/zelda3.gamepkg"
 
 [[games]]
 id = "com.gamepkg.doom"
 title = "DOOM — requires your PC IWAD"
-version = "0.1.2"
+version = "0.1.3"
 requires_rom = true
-download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.2/doom.gamepkg"
+download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.3/doom.gamepkg"

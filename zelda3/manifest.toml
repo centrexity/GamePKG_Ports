@@ -1,6 +1,6 @@
 format_version = 1
 id = "com.gamepkg.zelda3"
-version = "0.1.2"
+version = "0.1.3"
 entry_world = "game"
 update_url = "https://github.com/centrexity/GamePKG_Ports/releases/latest/download/zelda3.gamepkg"
 builtin_engine = "zelda3-45a149d8"

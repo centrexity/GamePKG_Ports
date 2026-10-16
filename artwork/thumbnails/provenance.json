@@ -1,0 +1,34 @@
+[
+  {
+    "game": "doom",
+    "source": "https://game-icons.net/1x1/lorc/skull-crack.html",
+    "author": "Lorc",
+    "license": "CC-BY-3.0",
+    "source_sha256": "2906543d9841ce519dd1ae0679f07c96c5881d5fbb6ce429da930a7667e1b3b3",
+    "thumbnail_sha256": "6b4ebd6c9d9f1dc3d349fc22c56188fcbe4495030dadcedb74298feb5f24aca4"
+  },
+  {
+    "game": "zelda3",
+    "source": "https://game-icons.net/1x1/lorc/broadsword.html",
+    "author": "Lorc",
+    "license": "CC-BY-3.0",
+    "source_sha256": "cdc7e9388edc4e626bbbc904ba76aaf013ad329cc9e6c38ec762240a35d82cfc",
+    "thumbnail_sha256": "8595b7e2688964d5e98d577df1cc270252d87a0138f7b0542600f1fb60c7b24a"
+  },
+  {
+    "game": "arkanoo",
+    "source": "https://game-icons.net/1x1/delapouite/brick-wall.html",
+    "author": "Delapouite",
+    "license": "CC-BY-3.0",
+    "source_sha256": "c02e61e3e8fb4bc10e0ffb62c08cd811e75c592f85b89c51b7d5dfe73fe622b6",
+    "thumbnail_sha256": "3aa127b291d03ab5ca64bb432028de695f09b157ea28999e720aa140f07f1cf2"
+  },
+  {
+    "game": "2048",
+    "source": "https://github.com/gabrielecirulli/2048",
+    "author": "Gabriele Cirulli",
+    "license": "MIT",
+    "source_revision": "350e673835c8074a7a249858c9ccf91ceba56d04",
+    "thumbnail_sha256": "d7b9d5872e420480a4b93134b095dbbe8f035fdf9ec2154971bc28e0a4d897b2"
+  }
+]

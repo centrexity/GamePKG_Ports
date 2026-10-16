@@ -15,3 +15,14 @@ for game in catalog['games']:
  assert hashlib.sha256((source/'source/Cargo.lock').read_bytes()).hexdigest()==m['lockfile_sha256']
  assert not tomllib.loads((source/'source/Cargo.toml').read_text()).get('dependencies')
 print('All four catalog entries match their dependency-free recipes and release/update URLs.')
+
+# Artwork provenance and signed attribution travel with each thumbnail update.
+import struct
+for item in json.loads((ROOT/'artwork/thumbnails/provenance.json').read_text()):
+ data=(ROOT/item['game']/'thumbnail.png').read_bytes()
+ assert data[:8]==b'\x89PNG\r\n\x1a\n'
+ width,height=struct.unpack('>II',data[16:24]);assert 16<=width<=512 and 16<=height<=512
+ assert hashlib.sha256(data).hexdigest()==item['thumbnail_sha256']
+ notice=(ROOT/item['game']/'NOTICE').read_text()
+ assert item['author'] in notice and item['license'].split('-')[0] in notice
+print('All four thumbnails have bounded PNG dimensions, matching hashes and author/license notices.')

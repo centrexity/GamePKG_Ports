@@ -1,6 +1,6 @@
 format_version = 1
 id = "com.gamepkg.doom"
-version = "0.1.2"
+version = "0.1.3"
 entry_world = "game"
 update_url = "https://github.com/centrexity/GamePKG_Ports/releases/latest/download/doom.gamepkg"
 builtin_engine = "doom-e257a095"
