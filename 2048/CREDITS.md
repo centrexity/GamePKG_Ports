@@ -6,3 +6,5 @@ Row sliding and merge logic is adapted from src/utils.rs under the MIT license.
 The terminal UI, solver, lookup-table macros and dependencies are replaced with
 direct GamePKG drawing and input. Tiles cap at 32768 to fit the upstream nibble representation.
 Full upstream license is included in assets/LICENSE-2048.txt.
+
+Thumbnail artwork credits, source links, modifications and license terms are included in NOTICE.

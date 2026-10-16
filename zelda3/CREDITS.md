@@ -13,3 +13,5 @@ Only game SRAM is written through the creator-scoped save API.
 
 Arrows/WASD move; Z sword/B; X equipped item/Y; C interact/A; V map/X;
 Enter Start/pause; Tab Select/save menu; Q/E L/R.
+
+Thumbnail artwork credits, source links, modifications and license terms are included in NOTICE.

@@ -21,3 +21,5 @@ Controls: Left/Right or A/D move; Up/W launches, fires a rocket, and confirms
 start/next level/restart; Down/S pauses/resumes. Three lives, nine campaign
 levels, then endless play. High score and unlocked level persist in the game's
 scoped save. Active play state stays inside this game's own Wasm memory.
+
+Thumbnail artwork credits, source links, modifications and license terms are included in NOTICE.
