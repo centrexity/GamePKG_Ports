@@ -1,7 +1,8 @@
 format_version = 1
 id = "com.gamepkg.doom"
-version = "0.1.0"
+version = "0.1.2"
 entry_world = "game"
+update_url = "https://github.com/centrexity/GamePKG_Ports/releases/latest/download/doom.gamepkg"
 builtin_engine = "doom-e257a095"
 engine_version = ">=0.1.6"
 lockfile_sha256 = "28385a27f421a8cc8b417127fdbd67aef322b4394d8d26ad6f8556da0552d843"

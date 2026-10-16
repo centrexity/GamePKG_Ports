@@ -16,4 +16,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Check port gameplay, signing, policy, and lock hashes
         working-directory: host
-        run: cargo test --locked --test game_2048 --test game_arkanoo --test zelda3_policy --test examples
+        run: cargo test --locked --test game_2048 --test game_arkanoo --test zelda3_policy --test doom_policy --test examples
+      - name: Check import catalog and release metadata
+        working-directory: host/ports
+        run: python3 tools/check_catalog.py
