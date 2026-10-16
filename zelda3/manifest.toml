@@ -1,10 +1,15 @@
+title = "Zelda3"
+description = "Explore Hyrule in the A Link to the Past engine port using your supported USA ROM. Your ROM stays on your drive; no original game data is included in this package."
+author = "snesrev and contributors; GamePKG contributors"
+homepage = "https://github.com/snesrev/zelda3"
+genres = ["Adventure", "Action"]
+engine_version = ">=0.1.13, <0.2.0"
 format_version = 1
 id = "com.gamepkg.zelda3"
-version = "0.1.3"
+version = "0.1.4"
 entry_world = "game"
 update_url = "https://github.com/centrexity/GamePKG_Ports/releases/latest/download/zelda3.gamepkg"
 builtin_engine = "zelda3-45a149d8"
-engine_version = ">=0.1.6"
 lockfile_sha256 = "28385a27f421a8cc8b417127fdbd67aef322b4394d8d26ad6f8556da0552d843"
 shader_profile = "slang"
 

@@ -69,3 +69,5 @@ This is a maintainer tool; players need no Python. It checks catalog/package met
 ## Thumbnail artwork
 
 2048 uses Gabriele Cirulli’s original MIT-licensed icon. The other covers adapt Game-icons.net icons by Lorc and Delapouite under CC BY 3.0. Their signed package NOTICE files include source links, author credits, changes and full license text. The covers are generic illustrations; no ROM-derived artwork is included. Original sources, checksums and editable compositions are in [artwork/thumbnails](artwork/thumbnails).
+
+Version 0.1.4 packages and catalogs require GamePKG 0.1.13 or newer for signed titles, descriptions, authors, project links and genres. Update the host before importing the new catalog. Catalog descriptions are unverified previews; installed game pages use the signed manifest metadata.

@@ -9,6 +9,8 @@ assert {g['id'] for g in catalog['games']}=={'com.gamepkg.'+n for n in ['2048','
 for game in catalog['games']:
  name=game['id'].removeprefix('com.gamepkg.');source=ROOT/name;m=tomllib.loads((source/'manifest.toml').read_text())
  assert game['version']==m['version'] and game['id']==m['id']
+ assert game.get('description')==m.get('description') and m.get('description')
+ assert m.get('title') and m.get('author') and m.get('homepage') and m.get('genres')
  assert game['requires_rom']==bool(m.get('requires_rom') or m.get('roms'))
  assert game['download_url']==f"https://github.com/centrexity/GamePKG_Ports/releases/download/v{m['version']}/{name}.gamepkg"
  assert m['update_url']==f'https://github.com/centrexity/GamePKG_Ports/releases/latest/download/{name}.gamepkg'
