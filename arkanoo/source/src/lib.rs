@@ -10,12 +10,11 @@ pub fn game_tick(input: u32, state: u64) -> u64 {
             let mut game = physics::Game::new();
             let mut bytes = [0u8; 16];
             if gamepkg::save_read(0, &mut bytes) == Some(16) && bytes[0..4] == *b"ARK1" {
-                game.best =
-                    u32::from_le_bytes([bytes[4], bytes[5], bytes[6], bytes[7]]).min(9999999);
+                game.best = u32::from_le_bytes([bytes[4], bytes[5], bytes[6], bytes[7]]);
                 game.gravity =
                     u32::from_le_bytes([bytes[12], bytes[13], bytes[14], bytes[15]]) == 1;
                 game.unlocked =
-                    u32::from_le_bytes([bytes[8], bytes[9], bytes[10], bytes[11]]).clamp(1, 999);
+                    u32::from_le_bytes([bytes[8], bytes[9], bytes[10], bytes[11]]).max(1);
             }
             *slot = Some(game);
         }

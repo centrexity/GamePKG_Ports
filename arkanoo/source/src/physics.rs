@@ -1,3 +1,4 @@
+use crate::gamepkg;
 // Original 1280x720 world is uniformly scaled by 1/2 and letterboxed at y=60.
 // Ball positions are centers; other positions are rectangle top-lefts.
 pub const TOP: f32 = 60.0;
@@ -25,6 +26,15 @@ pub fn overlap(first: [f32; 4], second: [f32; 4]) -> (f32, f32) {
         (0.0, 0.0)
     }
 }
+pub fn below(bound: u64) -> u64 {
+    let threshold = bound.wrapping_neg() % bound;
+    loop {
+        let value = gamepkg::random_u64();
+        if value >= threshold {
+            return value % bound;
+        }
+    }
+}
 pub struct Ball {
     pub x: f32,
     pub y: f32,
@@ -32,8 +42,35 @@ pub struct Ball {
     pub vy: f32,
     pub spin: f32,
     pub attached: bool,
+    pub launch_timer: u32,
 }
 impl Ball {
+    pub fn new(x: f32, y: f32) -> Self {
+        Self {
+            x,
+            y,
+            vx: 0.0,
+            vy: 0.0,
+            spin: 0.0,
+            attached: true,
+            launch_timer: 30,
+        }
+    }
+    pub fn launch(&mut self) {
+        if self.attached {
+            let direction = below(3);
+            self.vx = if direction == 0 {
+                -2.0
+            } else if direction == 1 {
+                0.0
+            } else {
+                2.0
+            };
+            self.vy = -2.0;
+            self.attached = false;
+        }
+    }
+
     pub fn advance(&mut self, gravity: bool) {
         self.apply_forces(gravity);
         self.x += self.vx;
@@ -142,8 +179,7 @@ pub struct Game {
     pub portal_timer: u32,
     pub max_speed: f32,
     pub frame: u32,
-    pub seed: u32,
-    pub launch: u32,
+    pub lost_life: bool,
     pub cooldown: u32,
     pub sound: u32,
     pub dirty: bool,
@@ -175,21 +211,14 @@ impl Game {
             portal_timer: 0,
             max_speed: 0.0,
             frame: 0,
-            seed: 54321,
-            launch: 90,
-            cooldown: 60,
+            lost_life: false,
+            cooldown: 0,
             sound: 0,
             dirty: false,
         };
         game.populate();
         game.attach();
         game
-    }
-    pub fn random(&mut self) -> u32 {
-        self.seed ^= self.seed << 13;
-        self.seed ^= self.seed >> 17;
-        self.seed ^= self.seed << 5;
-        self.seed
     }
     pub fn populate(&mut self) {
         self.portal = false;
@@ -208,22 +237,31 @@ impl Game {
     pub fn attach(&mut self) {
         self.long = 0;
         self.ghost = 0;
+        self.ammo = 0;
         self.width = 70.0;
-        self.paddle = self.paddle.clamp(0.0, 640.0 - self.width);
+        self.paddle = 285.0;
+        self.last_paddle = self.paddle;
+        self.lost_life = false;
         self.balls.clear();
-        self.balls.push(Ball {
-            x: self.paddle + self.width / 2.0,
-            y: PADDLE_Y - BALL_RADIUS,
-            vx: 2.0,
-            vy: -3.0,
-            spin: 0.0,
-            attached: true,
-        });
-        self.launch = 90;
+        self.respawn();
         self.drops.clear();
         self.rockets.clear();
         self.particles.clear();
-        self.paddle = self.paddle.clamp(0.0, 640.0 - self.width);
+    }
+    pub fn respawn(&mut self) {
+        self.balls.push(Ball::new(
+            self.paddle + self.width / 2.0,
+            PADDLE_Y - BALL_RADIUS,
+        ));
+    }
+    pub fn finish_level(&mut self) {
+        if self.lost_life && self.lives < 3 {
+            self.lives += 1;
+        }
+        self.mode = if self.level == 9 { 5 } else { 3 };
+        self.unlocked = self.unlocked.max(self.level.saturating_add(1));
+        self.dirty = true;
+        self.sound = 3;
     }
     pub fn burst(&mut self, x: f32, y: f32) {
         for n in 0..8 {
@@ -282,7 +320,7 @@ impl Game {
         }
     }
     pub fn award(&mut self, points: u32) {
-        self.score = self.score.saturating_add(points).min(9999999);
+        self.score = self.score.saturating_add(points);
         // Persist only completed-level/lost-life checkpoints, never every frame.
         if self.score > self.best {
             self.best = self.score;
@@ -298,9 +336,9 @@ impl Game {
         let x = self.block_x[index];
         let y = self.block_y[index];
         self.burst(x + BLOCK_WIDTH / 2.0, y + BLOCK_HEIGHT / 2.0);
-        let roll = self.random();
-        if roll % 100 < 15 && self.cooldown >= 60 && self.drops.len() < 8 {
-            let weight = (roll / 100) % 100;
+        let roll = below(100);
+        if roll < 15 && self.cooldown >= 60 {
+            let weight = below(100);
             let kind = if weight < 50 {
                 0
             } else if weight < 75 {
@@ -332,19 +370,15 @@ impl Game {
                 self.paddle = self.paddle.clamp(0.0, 640.0 - self.width);
             }
             1 => {
-                if self.balls.len() < 4 {
-                    self.balls.push(Ball {
-                        x: self.paddle + self.width / 2.0,
-                        y: PADDLE_Y - BALL_RADIUS,
-                        vx: -2.5,
-                        vy: -3.0,
-                        spin: 0.0,
-                        attached: false,
-                    });
-                }
+                // Original bonus initially spawns offset from the paddle; on the
+                // following attached update it aligns with the normal launch point.
+                self.balls.push(Ball::new(
+                    self.paddle + self.width / 2.0 + BALL_RADIUS,
+                    PADDLE_Y - 7.0,
+                ));
             }
             2 => self.ghost = 600,
-            _ => self.ammo = (self.ammo + 1).min(9),
+            _ => self.ammo = self.ammo.saturating_add(1),
         }
     }
     pub fn update_paddle(&mut self, input: u32) -> f32 {
@@ -387,48 +421,57 @@ impl Game {
                     self.populate();
                     self.attach();
                 }
-                if self.mode == 3 {
-                    self.level = (self.level + 1).min(999);
+                if self.mode == 3 || self.mode == 5 {
+                    self.level = self.level.saturating_add(1);
                     self.populate();
                     self.attach();
                 }
                 if self.mode == 4 {
-                    self.level = 1;
-                    self.lives = 3;
-                    self.score = 0;
-                    self.ammo = 0;
-                    self.populate();
-                    self.attach();
+                    let best = self.best;
+                    let unlocked = self.unlocked;
+                    *self = Self::new();
+                    self.best = best;
+                    self.unlocked = unlocked;
+                    self.dirty = true;
                 }
                 self.mode = 1;
             }
             return;
         }
         self.frame = self.frame.wrapping_add(1);
-        let movement = self.update_paddle(input);
-        self.cooldown = self.cooldown.saturating_add(1);
-        if self.launch > 0 {
-            self.launch -= 1;
-        }
-        if input & 4 != 0 && self.ammo > 0 && self.rockets.len() < 4 {
-            self.ammo -= 1;
-            self.rockets
-                .push((self.paddle + self.width / 2.0, PADDLE_Y - 10.0));
-            self.sound = 3;
-        }
-        for i in 0..self.balls.len() {
-            let orbiting = self.portal;
-            if !orbiting && self.balls[i].attached {
-                self.balls[i].x = self.paddle + self.width / 2.0;
-                if self.launch == 0 || input & 4 != 0 {
-                    self.balls[i].attached = false;
+        // Launch/fire are input events before the original per-frame update.
+        if input & 4 != 0 {
+            let mut launched = false;
+            for ball in &mut self.balls {
+                if ball.attached {
+                    ball.launch();
+                    launched = true;
                     self.sound = 1;
-                } else {
-                    continue;
                 }
             }
+            if !launched && self.ammo > 0 {
+                self.ammo -= 1;
+                self.rockets
+                    .push((self.paddle + self.width / 2.0 - 2.5, PADDLE_Y - 10.0));
+                self.sound = 3;
+            }
+        }
+        let movement = self.update_paddle(input);
+        self.cooldown = self.cooldown.saturating_add(1);
+        for i in 0..self.balls.len() {
+            let orbiting = self.portal;
             if !orbiting {
-                self.balls[i].advance(self.gravity);
+                if self.balls[i].attached {
+                    self.balls[i].x = self.paddle + self.width / 2.0;
+                    self.balls[i].y = PADDLE_Y - BALL_RADIUS;
+                    if self.balls[i].launch_timer > 0 {
+                        self.balls[i].launch_timer -= 1;
+                    } else {
+                        self.balls[i].launch();
+                    }
+                } else {
+                    self.balls[i].advance(self.gravity);
+                }
                 let ball = &self.balls[i];
                 let speed = (ball.vx * ball.vx + ball.vy * ball.vy).sqrt() * 120.0;
                 self.max_speed = self.max_speed.max(speed);
@@ -560,25 +603,23 @@ impl Game {
             }
         }
         if self.balls.is_empty() && !self.portal {
-            self.lives -= 1;
+            self.lives = self.lives.saturating_sub(1);
+            self.lost_life = true;
             self.score = self.score.saturating_sub(20);
             self.dirty = true;
             self.sound = 4;
             if self.lives == 0 {
                 self.mode = 4;
             } else {
-                self.attach();
+                self.respawn();
             }
         }
         let mut remaining = 0;
         for index in 0..200 {
             remaining += self.blocks[index] as u32;
         }
-        if remaining == 0 && self.mode == 1 && !self.portal {
-            self.mode = 3;
-            self.unlocked = self.unlocked.max((self.level + 1).min(999));
-            self.dirty = true;
-            self.sound = 3;
+        if remaining == 0 && !self.portal {
+            self.finish_level();
         }
     }
     pub fn pull_blocks(&mut self) {
@@ -602,10 +643,7 @@ impl Game {
         if empty {
             self.portal_timer += 1;
             if self.portal_timer >= 270 {
-                self.mode = 3;
-                self.unlocked = self.unlocked.max((self.level + 1).min(999));
-                self.dirty = true;
-                self.sound = 3;
+                self.finish_level();
             }
         }
     }

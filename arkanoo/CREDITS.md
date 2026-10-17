@@ -12,13 +12,13 @@ game.rs. The engine integration has been rewritten for GamePKG's safe APIs.
 
 Rendering, bitmap lettering and synthesized effects are new; upstream Pixabay
 music/sound, fonts, logos and generated background art are not redistributed.
-The port uses a 640x480 canvas, bounded particles/balls/bonuses,
-and a deterministic local generator instead of SDL2, rand or filesystem access.
+The port uses a 640x480 canvas and GamePKG host randomness instead of SDL2,
+rand or filesystem access. Launch directions use rejection sampling, and bonus
+selection uses independent probability/weight draws.
 Endless levels use new bounded procedural patterns. The upstream editor,
-mouse controls, original menus and music are not included. Launch/bonus timing,
-editor block types, life/level transitions and visual effects still need fidelity
-work. Level progression and several entity counts
-also retain port limits.
+mouse controls, original menus and music are not included. Editor block types,
+rocket explosions, particle/trail effects, the penguin/heart-loss animation and
+accurate endless generation still need fidelity work.
 
 Controls: Left/Right or A/D move; Up/W launches, fires a rocket, and confirms
 start/next level/restart; Down/S pauses/resumes; V/controller X toggles gravity. Three lives, nine campaign
@@ -68,5 +68,25 @@ The original brick-resolution fragment also verifies all four sides, corner
 ties, fractional positions, misses and ghost pass-through.
 Native/Wasm tests verify brick resolution and pair-before-paddle ordering;
 desktop/browser checks verify playable controls and the projected geometry.
-Rocket blast selection, launch timing/randomization, bonus/life behavior and
-other remaining features above still need their separate fidelity work.
+Rocket blast selection, visual effects and other remaining features above
+still need their separate fidelity work.
+
+Every ball now starts stationary with its own 30-frame countdown. Automatic
+launch occurs on the following update and moves on the next frame; manual
+launch moves immediately. All three original initial directions and vertical
+speed are retained. Input launches attached balls before considering rocket
+fire, so launching does not spend ammo. Extra balls start attached using the
+original spawn offset. The old four-ball, nine-ammo, four-rocket, eight-drop,
+9,999,999-score and level-999 restrictions are removed; portable integer/time/
+memory bounds still apply. Number rendering and legacy ARK1 saves preserve
+larger scores and levels.
+Losing a life deducts up to 20 points, preserves the paddle, bonus timers,
+ammo, drops and rockets, and creates a fresh attached ball if lives remain.
+A cleared level restores one life when any life was lost on that level, up to
+three. Level nine has a distinct victory screen before endless mode. Starting
+a new level resets paddle/items/portal state, while game-over restart resets
+the run and retains persisted best/unlocked metadata. Compiled unchanged
+original launch/update/loss/completion fragments verify these logic paths;
+native and Wasm checks also cover save compatibility, launch frame timing,
+bonus preservation, victory and progression through level 1000. Heart-loss
+animation and original menu presentation remain separate unfinished work.

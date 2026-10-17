@@ -73,16 +73,22 @@ pub fn text(label: &str, x: f32, y: f32, scale: f32, color: u32) {
     letters(label.as_bytes(), x, y, scale, color);
 }
 fn number(mut value: u32, x: f32, y: f32) {
-    let mut digits = [48u8; 7];
+    let mut digits = [48u8; 10];
     let mut count = 1;
-    digits[6] = 48 + (value % 10) as u8;
+    digits[9] = 48 + (value % 10) as u8;
     value /= 10;
-    while value > 0 && count < 7 {
-        digits[6 - count] = 48 + (value % 10) as u8;
+    while value > 0 && count < 10 {
+        digits[9 - count] = 48 + (value % 10) as u8;
         value /= 10;
         count += 1;
     }
-    letters(&digits[7 - count..], x, y, 2.0, 0xe5f3ffff);
+    letters(
+        &digits[10 - count..],
+        x,
+        y,
+        if count > 7 { 1.0 } else { 2.0 },
+        0xe5f3ffff,
+    );
 }
 
 pub fn draw(game: &Game) {
@@ -175,6 +181,7 @@ pub fn draw(game: &Game) {
             0 => "ARKANOO",
             2 => "PAUSED",
             3 => "LEVEL CLEARED",
+            5 => "VICTORY",
             _ => "GAME OVER",
         };
         text(title, 100.0, 284.0, 3.0, 0x68e5ffff);
@@ -182,6 +189,7 @@ pub fn draw(game: &Game) {
             0 => "NINE LEVELS THEN ENDLESS PLAY",
             2 => "DOWN TO RESUME",
             3 => "UP FOR NEXT LEVEL",
+            5 => "UP FOR ENDLESS MODE",
             _ => "UP TO PLAY AGAIN",
         };
         text(detail, 100.0, 323.0, 2.0, 0xe5f3ffff);
