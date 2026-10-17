@@ -1,5 +1,5 @@
 use crate::gamepkg;
-use crate::physics::Game;
+use crate::physics::{Game, BLOCK_HEIGHT, BLOCK_WIDTH, PADDLE_Y};
 fn glyph(character: u8) -> u64 {
     match character {
         65 => 18842895918,
@@ -87,11 +87,11 @@ fn number(mut value: u32, x: f32, y: f32) {
 
 pub fn draw(game: &Game) {
     gamepkg::draw_clear(0x0b1020ff);
-    for n in 0..12 {
+    for n in 0..11 {
         gamepkg::draw_rect(0.0, 60.0 + n as f32 * 32.0, 640.0, 1.0, 0x17233aff);
     }
-    gamepkg::draw_rect(6.0, 56.0, 2.0, 392.0, 0x345476ff);
-    gamepkg::draw_rect(632.0, 56.0, 2.0, 392.0, 0x345476ff);
+    gamepkg::draw_rect(0.0, 60.0, 1.0, 360.0, 0x345476ff);
+    gamepkg::draw_rect(639.0, 60.0, 1.0, 360.0, 0x345476ff);
     text("ARKANOO", 16.0, 10.0, 2.0, 0x68e5ffff);
     text("SCORE", 136.0, 8.0, 1.0, 0x8ba2c9ff);
     number(game.score, 136.0, 23.0);
@@ -110,8 +110,8 @@ pub fn draw(game: &Game) {
         if game.blocks[index] > 0 {
             let x = game.block_x[index];
             let y = game.block_y[index];
-            gamepkg::draw_rect(x, y, 28.0, 16.0, colors[(index / 20) % 6]);
-            gamepkg::draw_rect(x + 2.0, y + 2.0, 24.0, 2.0, 0xffffff65);
+            gamepkg::draw_rect(x, y, BLOCK_WIDTH, BLOCK_HEIGHT, colors[(index / 20) % 6]);
+            gamepkg::draw_rect(x + 2.0, y + 2.0, 26.0, 1.0, 0xffffff65);
         }
     }
     let color = if game.ghost > 0 {
@@ -119,8 +119,14 @@ pub fn draw(game: &Game) {
     } else {
         0x63dcffff
     };
-    gamepkg::draw_rect(game.paddle, 428.0, game.width, 10.0, color);
-    gamepkg::draw_rect(game.paddle + 3.0, 429.0, game.width - 6.0, 2.0, 0xffffffff);
+    gamepkg::draw_rect(game.paddle, PADDLE_Y, game.width, 11.0, color);
+    gamepkg::draw_rect(
+        game.paddle + 3.0,
+        PADDLE_Y + 1.0,
+        game.width - 6.0,
+        2.0,
+        0xffffffff,
+    );
     if game.gravity {
         text("GRAVITY", 266.0, 452.0, 1.0, 0xffcd60ff);
     }
@@ -136,27 +142,21 @@ pub fn draw(game: &Game) {
         }
     }
     for ball in &game.balls {
-        gamepkg::draw_circle(ball.x, ball.y, 4.0, 0xffffffff);
+        gamepkg::draw_circle(ball.x, ball.y, 3.0, 0xffffffff);
     }
     for drop in &game.drops {
         let colors = [0x62de9eff, 0xffcd60ff, 0xb28cffff, 0xff647fff];
-        gamepkg::draw_rect(
-            drop.x - 8.0,
-            drop.y - 8.0,
-            16.0,
-            16.0,
-            colors[drop.kind as usize],
-        );
+        gamepkg::draw_rect(drop.x, drop.y, 20.0, 20.0, colors[drop.kind as usize]);
         let label = match drop.kind {
             0 => "L",
             1 => "B",
             2 => "G",
             _ => "R",
         };
-        text(label, drop.x - 5.0, drop.y - 7.0, 2.0, 0x101828ff);
+        text(label, drop.x + 4.0, drop.y + 3.0, 2.0, 0x101828ff);
     }
     for (x, y) in &game.rockets {
-        gamepkg::draw_rect(*x - 2.0, *y, 4.0, 12.0, 0xffdd70ff);
+        gamepkg::draw_rect(*x, *y, 5.0, 10.0, 0xffdd70ff);
     }
     for particle in &game.particles {
         gamepkg::draw_rect(particle.x, particle.y, 2.0, 2.0, particle.color);

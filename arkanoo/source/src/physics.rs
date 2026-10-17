@@ -1,4 +1,30 @@
-// Campaign predicates, paddle spin, scoring and bonuses adapted from Arkanoo.
+// Original 1280x720 world is uniformly scaled by 1/2 and letterboxed at y=60.
+// Ball positions are centers; other positions are rectangle top-lefts.
+pub const TOP: f32 = 60.0;
+pub const BOTTOM: f32 = 420.0;
+pub const PADDLE_Y: f32 = 395.0;
+pub const BALL_RADIUS: f32 = 3.0;
+pub const BLOCK_WIDTH: f32 = 30.0;
+pub const BLOCK_HEIGHT: f32 = 10.0;
+
+// SDL constructs integer rectangles in original coordinates before intersecting.
+pub fn overlap(first: [f32; 4], second: [f32; 4]) -> (f32, f32) {
+    let [x, y, width, height] = first;
+    let [other_x, other_y, other_width, other_height] = second;
+    let left = (x * 2.0) as i32;
+    let top = ((y - TOP) * 2.0) as i32;
+    let right = left + (width * 2.0) as i32;
+    let bottom = top + (height * 2.0) as i32;
+    let other_left = (other_x * 2.0) as i32;
+    let other_top = ((other_y - TOP) * 2.0) as i32;
+    let w = right.min(other_left + (other_width * 2.0) as i32) - left.max(other_left);
+    let h = bottom.min(other_top + (other_height * 2.0) as i32) - top.max(other_top);
+    if w > 0 && h > 0 {
+        (w as f32 * 0.5, h as f32 * 0.5)
+    } else {
+        (0.0, 0.0)
+    }
+}
 pub struct Ball {
     pub x: f32,
     pub y: f32,
@@ -8,6 +34,63 @@ pub struct Ball {
     pub attached: bool,
 }
 impl Ball {
+    pub fn advance(&mut self, gravity: bool) {
+        self.apply_forces(gravity);
+        self.x += self.vx;
+        self.y += self.vy;
+        if self.x <= BALL_RADIUS {
+            self.x = BALL_RADIUS;
+            self.vx = self.vx.abs();
+        } else if self.x >= 640.0 - BALL_RADIUS {
+            self.x = 640.0 - BALL_RADIUS;
+            self.vx = -self.vx.abs();
+        }
+        if self.y <= TOP + BALL_RADIUS {
+            self.y = TOP + BALL_RADIUS;
+            self.vy = self.vy.abs();
+        }
+        if self.vx.abs() < 1.0 {
+            self.vx = if self.vx >= 0.0 { 1.0 } else { -1.0 };
+        }
+    }
+    pub fn active(&self) -> bool {
+        self.y < BOTTOM + BALL_RADIUS
+    }
+    pub fn intersects(&self, x: f32, y: f32, width: f32, height: f32) -> (f32, f32) {
+        overlap(
+            [
+                self.x - BALL_RADIUS,
+                self.y - BALL_RADIUS,
+                BALL_RADIUS * 2.0,
+                BALL_RADIUS * 2.0,
+            ],
+            [x, y, width, height],
+        )
+    }
+    pub fn resolve_block(&mut self, x: f32, y: f32, ghost: bool) -> bool {
+        let (width, height) = self.intersects(x, y, BLOCK_WIDTH, BLOCK_HEIGHT);
+        if width == 0.0 {
+            return false;
+        }
+        if !ghost {
+            if width < height {
+                if self.x < x + BLOCK_WIDTH / 2.0 {
+                    self.x -= width;
+                } else {
+                    self.x += width;
+                }
+                self.vx = -self.vx;
+            } else {
+                if self.y < y + BLOCK_HEIGHT / 2.0 {
+                    self.y -= height;
+                } else {
+                    self.y += height;
+                }
+                self.vy = -self.vy;
+            }
+        }
+        true
+    }
     // Velocities/spin use half of the original 1280-wide world's units.
     pub fn apply_forces(&mut self, gravity: bool) {
         if gravity {
@@ -42,6 +125,7 @@ pub struct Game {
     pub best: u32,
     pub lives: u32,
     pub paddle: f32,
+    pub last_paddle: f32,
     pub width: f32,
     pub long: u32,
     pub ghost: u32,
@@ -74,6 +158,7 @@ impl Game {
             best: 0,
             lives: 3,
             paddle: 285.0,
+            last_paddle: 285.0,
             width: 70.0,
             long: 0,
             ghost: 0,
@@ -112,7 +197,7 @@ impl Game {
         self.max_speed = 0.0;
         for index in 0..200 {
             self.block_x[index] = 20.0 + (index % 20) as f32 * 30.0;
-            self.block_y[index] = 72.0 + (index / 20) as f32 * 18.0;
+            self.block_y[index] = 100.0 + (index / 20) as f32 * BLOCK_HEIGHT;
         }
         for row in 0..10 {
             for col in 0..20 {
@@ -124,11 +209,11 @@ impl Game {
         self.long = 0;
         self.ghost = 0;
         self.width = 70.0;
-        self.paddle = self.paddle.clamp(8.0, 632.0 - self.width);
+        self.paddle = self.paddle.clamp(0.0, 640.0 - self.width);
         self.balls.clear();
         self.balls.push(Ball {
             x: self.paddle + self.width / 2.0,
-            y: 423.0,
+            y: PADDLE_Y - BALL_RADIUS,
             vx: 2.0,
             vy: -3.0,
             spin: 0.0,
@@ -138,7 +223,7 @@ impl Game {
         self.drops.clear();
         self.rockets.clear();
         self.particles.clear();
-        self.paddle = self.paddle.clamp(8.0, 632.0 - self.width);
+        self.paddle = self.paddle.clamp(0.0, 640.0 - self.width);
     }
     pub fn burst(&mut self, x: f32, y: f32) {
         for n in 0..8 {
@@ -167,7 +252,7 @@ impl Game {
             for j in i + 1..self.balls.len() {
                 let first = &self.balls[i];
                 let second = &self.balls[j];
-                if first.y > 485.0 || second.y > 485.0 {
+                if !first.active() || !second.active() {
                     continue;
                 }
                 let dx = second.x - first.x;
@@ -212,7 +297,7 @@ impl Game {
         self.sound = 2;
         let x = self.block_x[index];
         let y = self.block_y[index];
-        self.burst(x + 14.0, y + 8.0);
+        self.burst(x + BLOCK_WIDTH / 2.0, y + BLOCK_HEIGHT / 2.0);
         let roll = self.random();
         if roll % 100 < 15 && self.cooldown >= 60 && self.drops.len() < 8 {
             let weight = (roll / 100) % 100;
@@ -226,7 +311,7 @@ impl Game {
                 3
             };
             self.drops.push(Drop {
-                x: x + 14.0,
+                x: x + BLOCK_WIDTH / 2.0,
                 y,
                 kind,
             });
@@ -238,15 +323,19 @@ impl Game {
         self.sound = 3;
         match kind {
             0 => {
-                self.width = 100.0;
+                if self.width == 70.0 {
+                    let center = self.paddle + self.width / 2.0;
+                    self.width = 90.0;
+                    self.paddle = center - self.width / 2.0;
+                }
                 self.long = 300;
-                self.paddle = self.paddle.clamp(8.0, 632.0 - self.width);
+                self.paddle = self.paddle.clamp(0.0, 640.0 - self.width);
             }
             1 => {
                 if self.balls.len() < 4 {
                     self.balls.push(Ball {
                         x: self.paddle + self.width / 2.0,
-                        y: 420.0,
+                        y: PADDLE_Y - BALL_RADIUS,
                         vx: -2.5,
                         vy: -3.0,
                         spin: 0.0,
@@ -257,6 +346,28 @@ impl Game {
             2 => self.ghost = 600,
             _ => self.ammo = (self.ammo + 1).min(9),
         }
+    }
+    pub fn update_paddle(&mut self, input: u32) -> f32 {
+        if input & 257 != 0 {
+            self.paddle = (self.paddle - 9.0).max(0.0);
+        }
+        if input & 514 != 0 {
+            self.paddle = (self.paddle + 9.0).min(640.0 - self.width);
+        }
+        let movement = self.paddle - self.last_paddle;
+        self.last_paddle = self.paddle;
+        if self.long > 0 {
+            self.long -= 1;
+            if self.long == 0 {
+                let center = self.paddle + self.width / 2.0;
+                self.width = 70.0;
+                self.paddle = (center - self.width / 2.0).clamp(0.0, 640.0 - self.width);
+            }
+        }
+        if self.ghost > 0 {
+            self.ghost -= 1;
+        }
+        movement
     }
     pub fn update(&mut self, input: u32) {
         if input & 131072 != 0 {
@@ -294,31 +405,15 @@ impl Game {
             return;
         }
         self.frame = self.frame.wrapping_add(1);
-        let previous = self.paddle;
-        if input & 257 != 0 {
-            self.paddle -= 6.0;
-        }
-        if input & 514 != 0 {
-            self.paddle += 6.0;
-        }
-        self.paddle = self.paddle.clamp(8.0, 632.0 - self.width);
-        let movement = self.paddle - previous;
-        if self.long > 0 {
-            self.long -= 1;
-            if self.long == 0 {
-                self.width = 70.0;
-            }
-        }
-        if self.ghost > 0 {
-            self.ghost -= 1;
-        }
+        let movement = self.update_paddle(input);
         self.cooldown = self.cooldown.saturating_add(1);
         if self.launch > 0 {
             self.launch -= 1;
         }
         if input & 4 != 0 && self.ammo > 0 && self.rockets.len() < 4 {
             self.ammo -= 1;
-            self.rockets.push((self.paddle + self.width / 2.0, 422.0));
+            self.rockets
+                .push((self.paddle + self.width / 2.0, PADDLE_Y - 10.0));
             self.sound = 3;
         }
         for i in 0..self.balls.len() {
@@ -333,7 +428,7 @@ impl Game {
                 }
             }
             if !orbiting {
-                self.balls[i].apply_forces(self.gravity);
+                self.balls[i].advance(self.gravity);
                 let ball = &self.balls[i];
                 let speed = (ball.vx * ball.vx + ball.vy * ball.vy).sqrt() * 120.0;
                 self.max_speed = self.max_speed.max(speed);
@@ -349,127 +444,54 @@ impl Game {
                 self.balls[i].x = 320.0 + angle.cos() * 75.0;
                 self.balls[i].y = 240.0 + angle.sin() * 75.0;
             }
-            // Four bounded substeps prevent tunnelling through thin bricks/paddle.
-            let substeps = if orbiting { 1 } else { 4 };
-            for _ in 0..substeps {
-                if !orbiting {
-                    let ball = &mut self.balls[i];
-                    ball.x += ball.vx * 0.25;
-                    ball.y += ball.vy * 0.25;
-                    if ball.x < 12.0 {
-                        ball.x = 12.0;
-                        ball.vx = ball.vx.abs();
-                        self.sound = 1;
-                    }
-                    if ball.x > 628.0 {
-                        ball.x = 628.0;
-                        ball.vx = -ball.vx.abs();
-                        self.sound = 1;
-                    }
-                    if ball.y < 60.0 {
-                        ball.y = 60.0;
-                        ball.vy = ball.vy.abs();
-                        self.sound = 1;
-                    }
-                    if ball.vy > 0.0
-                        && ball.y >= 423.0
-                        && ball.y <= 438.0
-                        && ball.x >= self.paddle - 4.0
-                        && ball.x <= self.paddle + self.width + 4.0
-                    {
-                        ball.y = 423.0;
-                        ball.vy = -ball.vy.abs();
-                        let offset = ball.x - (self.paddle + self.width / 2.0);
-                        ball.vx += offset * 0.1;
-                        ball.spin = if movement.abs() > 1.0 {
-                            movement * 0.3 + offset * 0.05
-                        } else {
-                            offset * 0.02
-                        };
-                        self.award(5);
-                        self.sound = 1;
-                    }
-                }
-                let mut collided = 200;
-                for index in 0..200 {
-                    if self.blocks[index] == 0 {
-                        continue;
-                    }
-                    let x = self.block_x[index];
-                    let y = self.block_y[index];
-                    let ball = &mut self.balls[i];
-                    if ball.x + 4.0 > x
-                        && ball.x - 4.0 < x + 28.0
-                        && ball.y + 4.0 > y
-                        && ball.y - 4.0 < y + 16.0
-                    {
-                        if self.ghost == 0 {
-                            let overlap_x = (ball.x + 4.0).min(x + 28.0) - (ball.x - 4.0).max(x);
-                            let overlap_y = (ball.y + 4.0).min(y + 16.0) - (ball.y - 4.0).max(y);
-                            if overlap_x < overlap_y {
-                                ball.x = if ball.x < x + 14.0 { x - 4.0 } else { x + 32.0 };
-                                ball.vx = -ball.vx;
-                            } else {
-                                ball.y = if ball.y < y + 8.0 { y - 4.0 } else { y + 20.0 };
-                                ball.vy = -ball.vy;
-                            }
-                        }
-                        collided = index;
-                        break;
-                    }
-                }
-                if collided < 200 {
-                    self.hit(collided);
-                }
-            }
         }
         self.collide_balls();
-        let mut i = 0;
-        while i < self.balls.len() {
-            if self.balls[i].y > 485.0 {
-                self.balls.remove(i);
-            } else {
-                i += 1;
+        for i in 0..self.balls.len() {
+            if !self.balls[i].active() {
+                continue;
             }
-        }
-        if self.balls.is_empty() && !self.portal {
-            self.lives -= 1;
-            self.score = self.score.saturating_sub(20);
-            self.dirty = true;
-            self.sound = 4;
-            if self.lives == 0 {
-                self.mode = 4;
-            } else {
-                self.attach();
+            let paddle_overlap = self.balls[i].intersects(self.paddle, PADDLE_Y, self.width, 11.0);
+            if paddle_overlap.0 > 0.0 {
+                let ball = &mut self.balls[i];
+                ball.vy = -ball.vy.abs();
+                let original_center = ((ball.x - BALL_RADIUS) * 2.0) as i32 + 6;
+                let paddle_center = (self.paddle * 2.0) as i32 + (self.width * 2.0) as i32 / 2;
+                let offset = (original_center - paddle_center) as f32 * 0.5;
+                ball.vx += offset * 0.1;
+                ball.spin = if movement.abs() > 1.0 {
+                    movement * 0.3 + offset * 0.05
+                } else {
+                    offset * 0.02
+                };
+                self.award(5);
+                self.sound = 1;
             }
-        }
-        let mut i = 0;
-        while i < self.drops.len() {
-            self.drops[i].y += 1.4;
-            let drop = &self.drops[i];
-            if drop.y >= 422.0
-                && drop.y <= 440.0
-                && drop.x >= self.paddle - 8.0
-                && drop.x <= self.paddle + self.width + 8.0
-            {
-                let kind = drop.kind;
-                self.drops.remove(i);
-                self.collect(kind);
-            } else if drop.y > 480.0 {
-                self.drops.remove(i);
-            } else {
-                i += 1;
+            for index in 0..200 {
+                if self.blocks[index] == 0 {
+                    continue;
+                }
+                let x = self.block_x[index];
+                let y = self.block_y[index];
+                if !self.balls[i].resolve_block(x, y, self.ghost > 0) {
+                    continue;
+                }
+                self.hit(index);
+                if self.ghost == 0 {
+                    break;
+                }
             }
         }
         let mut i = 0;
         while i < self.rockets.len() {
-            self.rockets[i].1 -= 6.0;
+            self.rockets[i].1 -= 4.0;
             let (rx, ry) = self.rockets[i];
             let mut struck = 200;
             for index in 0..200 {
                 let x = self.block_x[index];
                 let y = self.block_y[index];
-                if self.blocks[index] > 0 && rx >= x && rx <= x + 28.0 && ry >= y && ry <= y + 18.0
+                if self.blocks[index] > 0
+                    && ry >= TOP
+                    && overlap([rx, ry, 5.0, 10.0], [x, y, BLOCK_WIDTH, BLOCK_HEIGHT]).0 > 0.0
                 {
                     struck = index;
                     break;
@@ -487,8 +509,28 @@ impl Game {
                 }
                 self.rockets.remove(i);
                 self.sound = 4;
-            } else if ry < 56.0 {
+            } else if ry < TOP {
                 self.rockets.remove(i);
+            } else {
+                i += 1;
+            }
+        }
+        let mut i = 0;
+        while i < self.drops.len() {
+            self.drops[i].y += 1.0;
+            let drop = &self.drops[i];
+            if overlap(
+                [drop.x, drop.y, 20.0, 20.0],
+                [self.paddle, PADDLE_Y, self.width, 11.0],
+            )
+            .0 > 0.0
+                && drop.y <= BOTTOM
+            {
+                let kind = drop.kind;
+                self.drops.remove(i);
+                self.collect(kind);
+            } else if drop.y > BOTTOM {
+                self.drops.remove(i);
             } else {
                 i += 1;
             }
@@ -509,6 +551,25 @@ impl Game {
                 i += 1;
             }
         }
+        let mut i = 0;
+        while i < self.balls.len() {
+            if !self.balls[i].active() {
+                self.balls.remove(i);
+            } else {
+                i += 1;
+            }
+        }
+        if self.balls.is_empty() && !self.portal {
+            self.lives -= 1;
+            self.score = self.score.saturating_sub(20);
+            self.dirty = true;
+            self.sound = 4;
+            if self.lives == 0 {
+                self.mode = 4;
+            } else {
+                self.attach();
+            }
+        }
         let mut remaining = 0;
         for index in 0..200 {
             remaining += self.blocks[index] as u32;
@@ -527,8 +588,8 @@ impl Game {
                 continue;
             }
             empty = false;
-            let dx = 320.0 - (self.block_x[index] + 14.0);
-            let dy = 240.0 - (self.block_y[index] + 8.0);
+            let dx = 320.0 - (self.block_x[index] + BLOCK_WIDTH / 2.0);
+            let dy = 240.0 - (self.block_y[index] + BLOCK_HEIGHT / 2.0);
             let distance = (dx * dx + dy * dy).sqrt();
             if distance > 2.5 {
                 self.block_x[index] += (dx / distance * 8.0) as i32 as f32 * 0.5;

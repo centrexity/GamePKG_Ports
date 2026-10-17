@@ -12,13 +12,13 @@ game.rs. The engine integration has been rewritten for GamePKG's safe APIs.
 
 Rendering, bitmap lettering and synthesized effects are new; upstream Pixabay
 music/sound, fonts, logos and generated background art are not redistributed.
-The port uses a 640x480 canvas, bounded particles/balls/bonuses, swept substeps,
+The port uses a 640x480 canvas, bounded particles/balls/bonuses,
 and a deterministic local generator instead of SDL2, rand or filesystem access.
 Endless levels use new bounded procedural patterns. The upstream editor,
-mouse controls, original menus and music are not included. Collision geometry,
-launch/bonus timing, collision ordering and editor block types still need
-fidelity work; the current 640x480 presentation is not yet the original world
-geometry. Level progression and several entity counts also retain port limits.
+mouse controls, original menus and music are not included. Launch/bonus timing,
+editor block types, life/level transitions and visual effects still need fidelity
+work. Level progression and several entity counts
+also retain port limits.
 
 Controls: Left/Right or A/D move; Up/W launches, fires a rocket, and confirms
 start/next level/restart; Down/S pauses/resumes; V/controller X toggles gravity. Three lives, nine campaign
@@ -49,5 +49,24 @@ minimum-speed ejection and horizontal separation, including coincident balls,
 simultaneous pairs and portal exclusion. Seven fixtures execute the unchanged
 contact block from the pinned original and match the port's half-scale velocities
 and 36-particle counts. The cyan shockwave is rendered by the real native/Wasm
-fixtures. Particle lifetimes/shapes and movement/paddle/block collision ordering
-still differ from upstream; this does not establish complete physics parity.
+fixtures. Particle lifetimes/shapes still differ from upstream; this does not establish
+complete physics parity.
+
+World coordinates now preserve the original 1280x720 proportions at uniform
+half scale, letterboxed at y=60: balls have radius 3, bricks are 30x10, the
+paddle is 70x11 at y=395 and moves 9 units/frame. The long paddle is 90 units
+wide, keeps its center on activation/expiry and retains the original velocity
+history. Both-direction input applies original per-direction clamping.
+Unattached balls use the original single movement step, wall clamps, downward
+loss boundary and minimum horizontal velocity. Contacts run after movement in
+the original order: ball pairs, paddle, blocks, rockets, bonuses, portal,
+particles and lost-ball cleanup. Ghost balls can hit every intersected block;
+normal balls stop after the first block. Collision rectangles reproduce SDL's
+original integer truncation before intersection. Compiled unchanged ball and
+paddle code plus actual SDL intersections supply independent regression data.
+The original brick-resolution fragment also verifies all four sides, corner
+ties, fractional positions, misses and ghost pass-through.
+Native/Wasm tests verify brick resolution and pair-before-paddle ordering;
+desktop/browser checks verify playable controls and the projected geometry.
+Rocket blast selection, launch timing/randomization, bonus/life behavior and
+other remaining features above still need their separate fidelity work.
