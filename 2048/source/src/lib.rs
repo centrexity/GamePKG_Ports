@@ -1,84 +1,57 @@
 // 2048-rs adaptation. Upstream MIT notice: assets/LICENSE-2048.txt.
-mod rows;
-fn tile(board: u64, index: u32) -> u32 { ((board >> (4 * index)) & 15) as u32 }
-// Rejection sampling keeps every empty square equally likely. Modulo alone
-// biases choices when the number of empty squares does not divide 2^64.
-fn random_below(bound: u64) -> u64 {
-    let threshold = bound.wrapping_neg() % bound;
-    loop {
-        let value = gamepkg::random_u64();
-        if value >= threshold { return value % bound; }
-    }
+mod model;
+mod render;
+use std::sync::Mutex;
+struct Session {
+    game: model::Game,
+    damaged: bool,
+    save_failed: bool,
 }
-fn spawn(board: u64) -> u64 {
-    let mut empty = 0u64;
-    for index in 0..16 { if tile(board,index) == 0 { empty += 1; } }
-    if empty == 0 { return board; }
-    // The pinned application's CLI default is 10% fours (the library's
-    // GameBuilder default differs). Choose a value and then an empty square.
-    let exponent = if random_below(10) == 0 { 2u64 } else { 1u64 };
-    let mut rank = random_below(empty);
-    for index in 0..16 {
-        if tile(board,index) == 0 {
-            if rank == 0 { return board | (exponent << (4 * index)); }
-            rank -= 1;
-        }
-    }
-    board
-}
-pub fn slide(board: u64, direction: u32) -> u64 {
-    let mut output = 0u64;
-    for line in 0..4 {
-        let mut row = 0u16;
-        for position in 0..4 {
-            let index = if direction < 2 { line * 4 + position } else { position * 4 + line };
-            row |= (tile(board, index) as u16) << (4 * (3 - position));
-        }
-        let moved = if direction == 0 || direction == 2 { rows::get_left_move(row) } else { rows::get_right_move(row) };
-        for position in 0..4 {
-            let index = if direction < 2 { line * 4 + position } else { position * 4 + line };
-            output |= (((moved >> (4 * (3 - position))) & 15) as u64) << (4 * index);
-        }
-    }
-    output
-}
-fn digit(value: u32, x: f32, y: f32) {
-    let patterns = [63u32,6,91,79,102,109,125,7,127,111];
-    let pattern = patterns[value as usize];
-    for segment in 0..7 {
-        if pattern & (1 << segment) != 0 {
-            let xs = [0.0,12.0,12.0,0.0,0.0,0.0,0.0];
-            let ys = [0.0,0.0,12.0,24.0,12.0,0.0,12.0];
-            let horizontal = segment == 0 || segment == 3 || segment == 6;
-            let _ = gamepkg::draw_rect(x+xs[segment],y+ys[segment],if horizontal {14.0} else {2.0},if horizontal {2.0} else {14.0},0x202020ff);
-        }
-    }
-}
+static GAME: Mutex<Option<Session>> = Mutex::new(None);
 pub fn game_tick(input: u32, state: u64) -> u64 {
-    let mut board = if state == 0 { spawn(0x10) } else { state };
-    let direction = if input & 1 != 0 { 0 } else if input & 2 != 0 { 1 } else if input & 4 != 0 { 2 } else { 3 };
-    if input & 15 != 0 {
-        let moved = slide(board, direction);
-        if moved != board { board = spawn(moved); }
-    }
-    let _ = gamepkg::draw_clear(0x302b27ff);
-    for index in 0..16 {
-        let exponent = tile(board,index);
-        let x = 115.0 + (index % 4) as f32 * 104.0;
-        let y = 25.0 + (index / 4) as f32 * 104.0;
-        let colors = [0x57504affu32,0xeee4daff,0xede0c8ff,0xf2b179ff,0xf59563ff,0xf67c5fff,0xf65e3bff,0xedcf72ff];
-        let color = colors[exponent.min(7) as usize];
-        let _ = gamepkg::draw_rect(x,y,96.0,96.0,color);
-        if exponent != 0 {
-            let mut number = 1u32 << exponent;
-            let mut place = 4;
-            loop {
-                digit(number % 10,x + 5.0 + place as f32 * 17.0,y + 34.0);
-                number /= 10;
-                if number == 0 { break; }
-                place -= 1;
+    if let Ok(mut slot) = GAME.lock() {
+        if slot.is_none() {
+            let size = gamepkg::save_size().unwrap_or(0);
+            let mut loaded = None;
+            if (52..=3636).contains(&size) {
+                let mut bytes = Vec::new();
+                bytes.resize(size as usize, 0u8);
+                if gamepkg::save_read(0, &mut bytes) == Some(size) {
+                    loaded = model::Game::decode(&bytes);
+                }
+            }
+            let damaged = size != 0 && loaded.is_none();
+            *slot = Some(Session {
+                game: match loaded {
+                    Some(game) => game,
+                    None => model::Game::new(0),
+                },
+                damaged,
+                save_failed: false,
+            });
+        } else if state == 0 {
+            if let Some(session) = slot.as_mut() {
+                session.game = model::Game::new(session.game.best);
+                session.damaged = false;
             }
         }
+        if let Some(session) = slot.as_mut() {
+            if !session.damaged || input & 64 != 0 {
+                session.game.update(input);
+                if input & 64 != 0 {
+                    session.damaged = false;
+                }
+            }
+            if session.game.dirty && !session.damaged {
+                session.save_failed = !gamepkg::save_write(&session.game.encode());
+                if !session.save_failed {
+                    session.game.dirty = false;
+                }
+            }
+            render::draw(&session.game, session.damaged, session.save_failed);
+            return (session.game.position.score.min(u64::from(u32::MAX)) << 32)
+                | u64::from(session.game.revision);
+        }
     }
-    board
+    state
 }
