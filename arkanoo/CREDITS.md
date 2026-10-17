@@ -16,12 +16,14 @@ The port uses a 640x480 canvas and GamePKG host randomness instead of SDL2,
 rand or filesystem access. Launch directions use rejection sampling, and bonus
 selection uses independent probability/weight draws.
 Endless levels now use the original twelve procedural patterns. The upstream editor,
-mouse controls, original menus and music are not included. Particle/trail effects,
+original menus and music are not included. Particle/trail effects,
 the penguin/heart-loss animation and custom-pattern import/selection still need
 fidelity work.
 
-Controls: Left/Right or A/D move; Up/W launches, fires a rocket, and confirms
-start/next level/restart; Down/S pauses/resumes; V/controller X toggles gravity. Three lives, nine campaign
+Controls: mouse or Left/Right/A/D move; Space launches attached balls or fires
+a rocket. Escape pauses/resumes; R restarts from pause/game-over/victory; Q skips
+a playing level. Up/W and Down/S retain their controller-friendly aliases;
+Enter confirms start/next level, and V/controller X toggles gravity. Three lives, nine campaign
 levels, then endless play. High score and unlocked level persist in the game's
 scoped save. Active play state stays inside this game's isolated process or Wasm
 instance and is not yet saved across launches.
@@ -124,3 +126,16 @@ levels through u32::MAX. Raw streams and integer/float/Bernoulli distributions
 also match independently. Actual native and wasm32 runtime fixtures compare
 all 106 rendered boards, including brick coordinates. Custom patterns in the original endless selection
 pool still require the editor's scoped save/import workflow; that remains open.
+
+The port now consumes focused, ordered GamePKG input events. Mouse coordinates
+are projected into the original world and truncated to original integer paddle
+positions, preserving motion-derived spin. Space launches/fires in event order;
+Escape toggles pause, and transition/victory screens accept a left click.
+The browser Restart action also resets the active run instead of retaining the
+old static state. Native/core/component SDK probes verify pointer positions,
+physical key repeat bits, committed Unicode and denied input permissions.
+Actual native-window and both browser profiles verify scaled mouse movement
+and Escape pause; runtime fixtures verify Space and paused mouse behavior.
+Original cursor hiding/confinement, fullscreen/window settings, Q-to-quit outside
+play, initial modifier state and the editor/menu workflow remain unfinished. This does not claim
+complete original input/window parity.

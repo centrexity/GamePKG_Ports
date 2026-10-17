@@ -8,7 +8,7 @@ static GAME: Mutex<Option<physics::Game>> = Mutex::new(None);
 
 pub fn game_tick(input: u32, state: u64) -> u64 {
     if let Ok(mut slot) = GAME.lock() {
-        if slot.is_none() {
+        if slot.is_none() || state == 0 {
             let mut game = physics::Game::new();
             let mut bytes = [0u8; 16];
             if gamepkg::save_read(0, &mut bytes) == Some(16) && bytes[0..4] == *b"ARK1" {
@@ -21,6 +21,11 @@ pub fn game_tick(input: u32, state: u64) -> u64 {
             *slot = Some(game);
         }
         if let Some(game) = slot.as_mut() {
+            if let Some(events) = gamepkg::input_events() {
+                for event in events {
+                    game.source_input(event.kind, event.x, event.y, event.code);
+                }
+            }
             game.update(input);
             render::draw(game);
             if game.sound > 0 {

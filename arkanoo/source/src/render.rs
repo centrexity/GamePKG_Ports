@@ -239,7 +239,7 @@ pub fn draw(game: &Game) {
         gamepkg::draw_rect(particle.x, particle.y, 2.0, 2.0, particle.color);
     }
     text(
-        "LEFT/RIGHT MOVE   UP FIRE   DOWN PAUSE",
+        "ARROWS/A/D MOVE SPACE/UP FIRE ESC/DOWN PAUSE",
         42.0,
         461.0,
         1.0,

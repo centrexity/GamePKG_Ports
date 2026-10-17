@@ -520,6 +520,58 @@ impl Game {
         }
         movement
     }
+    pub fn fire_or_launch(&mut self) {
+        let mut launched = false;
+        for ball in &mut self.balls {
+            if ball.attached {
+                ball.launch();
+                launched = true;
+                self.sound = 1;
+            }
+        }
+        if !launched && self.ammo > 0 {
+            self.ammo -= 1;
+            self.rockets
+                .push((self.paddle + self.width / 2.0 - 2.5, PADDLE_Y - 10.0));
+            self.sound = 3;
+        }
+    }
+    pub fn source_input(&mut self, kind: u32, x: f32, y: f32, code: u32) {
+        if kind == 1 && self.mode == 1 && x.is_finite() && y.is_finite() {
+            let original_x = (x.clamp(0.0, 640.0) * 2.0) as i32;
+            let half_width = (self.width * 2.0) as i32 / 2;
+            self.paddle = ((original_x - half_width) as f32 * 0.5).clamp(0.0, 640.0 - self.width);
+        }
+        if kind == 2 && code == 1 && (self.mode == 3 || self.mode == 5) {
+            self.update(4);
+        }
+        if kind == 5 {
+            let key = code & 65535;
+            if key == 44 && self.mode == 1 {
+                self.fire_or_launch();
+            }
+            if key == 41 && (self.mode == 1 || self.mode == 2) {
+                self.mode = if self.mode == 1 { 2 } else { 1 };
+            }
+            if key == 40 && (self.mode == 0 || self.mode == 3 || self.mode == 5) {
+                self.update(4);
+            }
+        }
+        if kind == 9 {
+            let key = code & 0x7fff_ffff;
+            if key == 113 && self.mode == 1 {
+                self.blocks = [0; 200];
+            }
+            if key == 114 && (self.mode == 2 || self.mode == 4 || self.mode == 5) {
+                let best = self.best;
+                let unlocked = self.unlocked;
+                *self = Self::new();
+                self.best = best;
+                self.unlocked = unlocked;
+                self.dirty = true;
+            }
+        }
+    }
     pub fn update(&mut self, input: u32) {
         if input & 131072 != 0 {
             self.gravity = !self.gravity;
@@ -558,20 +610,7 @@ impl Game {
         self.frame = self.frame.wrapping_add(1);
         // Launch/fire are input events before the original per-frame update.
         if input & 4 != 0 {
-            let mut launched = false;
-            for ball in &mut self.balls {
-                if ball.attached {
-                    ball.launch();
-                    launched = true;
-                    self.sound = 1;
-                }
-            }
-            if !launched && self.ammo > 0 {
-                self.ammo -= 1;
-                self.rockets
-                    .push((self.paddle + self.width / 2.0 - 2.5, PADDLE_Y - 10.0));
-                self.sound = 3;
-            }
+            self.fire_or_launch();
         }
         let movement = self.update_paddle(input);
         self.cooldown = self.cooldown.saturating_add(1);
