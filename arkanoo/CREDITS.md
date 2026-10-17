@@ -18,8 +18,9 @@ selection uses independent probability/weight draws.
 Endless levels use the original twelve procedural patterns plus saved custom
 patterns. The editor supports painting/erasing, all nine brick choices, names,
 save/load, clear confirmation and test play through scoped host APIs. Original
-menus/music, particle/trail effects, penguin/heart-loss animation and external
-pattern-file import/export still need fidelity work.
+menus/music, particle/trail effects and penguin/heart-loss animation still need
+fidelity work. Original ASCII pattern files can now be imported/exported through
+player-selected files.
 
 Controls: mouse or Left/Right/A/D move; Space launches attached balls or fires
 a rocket. Escape pauses/resumes; R restarts from pause/game-over/victory; Q skips
@@ -115,7 +116,7 @@ upstream gradient, refraction or animated fire/shine effect.
 The pinned upstream generator deliberately disables special bricks in ordinary
 procedural campaign/endless layouts; custom patterns can contain them. The
 validated type-setting logic is now used by the editor and its test game.
-External pattern-file import/export remains unfinished.
+Original ASCII pattern-file import/export is now mediated by the host file picker.
 
 Procedural generation matches the pinned original `create_blocks` with no custom
 patterns installed: the level/attempt seed formula, twelve pattern choices,
@@ -165,7 +166,7 @@ are preserved without overwriting; denied/failed saves are shown in the editor. 
 Names are blob identifiers, never host paths. Active runs and unsaved editor
 changes do not persist. Older port packages do not understand the new archive format.
 The original ASCII reader/writer is retained and compared with original files;
-external file selection/import/export is not yet connected to a host workflow.
+external import/export now uses the signed, host-mediated file workflow described below.
 
 `tests/reference/arkanoo_editor.py` compiles the complete unchanged original
 editor module with filesystem operations confined to a temporary maintainer
@@ -179,3 +180,26 @@ for the pool; upstream directory enumeration order is filesystem-dependent.
 Actual native and wasm32 fixtures cover all 106 custom-pool boards, editor
 save/load/test return, denied saving and damaged-save preservation. Native-window
 and both browser profiles also exercise editor painting and scoped persistence.
+
+
+I imports an original ASCII `.txt` pattern; X exports the current board. Native
+playback uses explicit system Open/Save dialogs. Browser playback uses a file
+upload control and an explicit Save/download action. Cancellation, invalid UTF-8,
+denied file permissions and unavailable headless dialogs preserve the working
+board. Imported files stay unchanged. S commits an imported/edited pattern to
+the game-scoped collection; exporting does not change the save. Existing ASCII
+comments, short rows, empty cells and legacy I/E/U symbols retain the original
+parser behavior. Names are derived from the selected basename, without exposing
+the host path. Filename suggestions are sanitized and remain editable in Save.
+Both imported text and save archives use bounded 64 KiB reads; archives larger
+than one chunk now reload correctly. The new file API requires an updated source
+host and is not a grant of general filesystem access or Cargo dependencies.
+
+`tests/arkanoo.py` verifies native system-file-dialog cancellation/import/export
+and both browser profiles' actual file upload/download actions. The actual
+native/core/component runtime tests also cover invalid UTF-8, omitted file
+permissions, headless denial, unchanged source files and exports to a player
+chosen destination. A play-history write failure cannot expose a new dialog.
+Archives beyond 64 KiB reload through chunked reads, while damaged data stays
+preserved. Scoped directory browsing and multi-file resource workflows remain
+separate host requirements; this is single-file pattern selection.

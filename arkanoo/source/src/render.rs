@@ -421,6 +421,10 @@ fn draw_editor(game: &Game) {
         gamepkg::draw_rect(x, 390.0, 75.0, 20.0, 0x284260ff);
         text(label, x + 5.0, 397.0, 1.0, 0xffffffff);
     }
+    gamepkg::draw_rect(20.0, 425.0, 75.0, 20.0, 0x284260ff);
+    text("IMPORT I", 25.0, 432.0, 1.0, 0xffffffff);
+    gamepkg::draw_rect(105.0, 425.0, 75.0, 20.0, 0x284260ff);
+    text("EXPORT X", 110.0, 432.0, 1.0, 0xffffffff);
     if edit.browser {
         gamepkg::draw_rect(170.0, 115.0, 300.0, 250.0, 0x101b35ff);
         text(

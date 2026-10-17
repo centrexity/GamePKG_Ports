@@ -601,6 +601,9 @@ impl Game {
             if action == 2 {
                 self.editor_test();
             }
+            if action == 3 || action == 4 {
+                self.editor.file_requested = action - 2;
+            }
             if self.editor.save_requested {
                 self.dirty = true;
             }

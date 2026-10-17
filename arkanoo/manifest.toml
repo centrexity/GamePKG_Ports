@@ -6,7 +6,7 @@ genres = ["Arcade", "Action"]
 engine_version = ">=0.1.17, <0.2.0"
 format_version = 1
 id = "com.gamepkg.arkanoo"
-version = "0.1.12"
+version = "0.1.13"
 entry_world = "game"
 update_url = "https://github.com/centrexity/GamePKG_Ports/releases/latest/download/arkanoo.gamepkg"
 lockfile_sha256 = "28385a27f421a8cc8b417127fdbd67aef322b4394d8d26ad6f8556da0552d843"
@@ -37,3 +37,11 @@ description = "Clear the first level."
 id = "campaign"
 title = "Nine lives of bricks"
 description = "Clear all nine campaign levels."
+
+[[permissions.files]]
+id = "patterns"
+title = "Level pattern text"
+extensions = ["txt"]
+max_bytes = 1048576
+read = true
+write = true

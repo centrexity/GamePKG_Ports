@@ -52,6 +52,9 @@ impl Pattern {
     }
 }
 pub struct Editor {
+    pub file_requested: u32,
+    pub file_handle: Option<u32>,
+    pub file_operation: u32,
     pub cells: [u8; 200],
     pub health: [u8; 200],
     pub selected: u8,
@@ -72,6 +75,9 @@ pub struct Editor {
 impl Editor {
     pub fn new() -> Self {
         Self {
+            file_requested: 0,
+            file_handle: None,
+            file_operation: 0,
             cells: [255; 200],
             health: [1; 200],
             selected: 0,
@@ -254,6 +260,8 @@ impl Editor {
     }
     pub fn editor_command(&mut self, key: u32) -> u32 {
         match key {
+            105 => return 3,
+            120 => return 4,
             27 => {
                 self.editor_cancel();
                 if self.browser {
@@ -322,6 +330,14 @@ impl Editor {
             self.dragging = 0;
         }
         if kind == 2 && code == 1 {
+            if (425.0..445.0).contains(&y) {
+                if (20.0..95.0).contains(&x) {
+                    return 3;
+                }
+                if (105.0..180.0).contains(&x) {
+                    return 4;
+                }
+            }
             // Half-size equivalents of the original editor toolbar positions.
             if (390.0..410.0).contains(&y) && (112.5..527.5).contains(&x) {
                 let button = ((x - 112.5) / 85.0) as u32;
