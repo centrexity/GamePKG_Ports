@@ -149,8 +149,11 @@ use the bounded GamePKG window API and commit only after a successful tick.
 Focus loss, file selection and emergency release restore the host cursor.
 Native window tests verify actual fullscreen, visibility and clean quitting;
 core/component/native runtime tests verify bindings and repeat rejection.
-Saved window preferences, original splash/menu transitions, initial modifier
-state and full platform coverage remain unfinished. This does not claim complete
+The native host now remembers normal window size, fullscreen and maximized state
+per game/creator/library. Linux window tests verify resize and combined-mode
+reopen, original normal-size restoration, game/OS close and damaged-record
+preservation. Original splash/menu transitions, resolution/VSync settings UI,
+initial modifier state and full platform coverage remain unfinished. This does not claim complete
 original input/window parity. The updated source host is required.
 
 
