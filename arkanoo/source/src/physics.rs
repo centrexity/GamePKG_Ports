@@ -32,6 +32,7 @@ pub struct Particle {
     pub vx: f32,
     pub vy: f32,
     pub life: u32,
+    pub color: u32,
 }
 pub struct Game {
     pub mode: u32,
@@ -151,7 +152,48 @@ impl Game {
                 vx: angle.cos() * 2.0,
                 vy: angle.sin() * 2.0,
                 life: 22,
+                color: 0xffcc70ff,
             });
+        }
+    }
+    pub fn collide_balls(&mut self) {
+        if self.portal {
+            return;
+        }
+        // Snapshot contacts before responses, as the original does. Coordinates
+        // are ball centers and distances/velocities are half original units.
+        let mut contacts = Vec::new();
+        for i in 0..self.balls.len() {
+            for j in i + 1..self.balls.len() {
+                let first = &self.balls[i];
+                let second = &self.balls[j];
+                if first.y > 485.0 || second.y > 485.0 {
+                    continue;
+                }
+                let dx = second.x - first.x;
+                let dy = second.y - first.y;
+                if (dx * dx + dy * dy).sqrt() < 6.0 {
+                    contacts.push((i, j, first.x + dx / 2.0, first.y + dy / 2.0));
+                }
+            }
+        }
+        for (i, j, x, y) in contacts {
+            self.balls[i].vy = -self.balls[i].vy.abs().max(4.0);
+            self.balls[i].vx = if self.balls[i].x < x { -2.5 } else { 2.5 };
+            self.balls[j].vy = -self.balls[j].vy.abs().max(4.0);
+            self.balls[j].vx = if self.balls[j].x < x { -2.5 } else { 2.5 };
+            for k in 0..36 {
+                let angle = (k as f32 * 10.0).to_radians();
+                self.particles.push(Particle {
+                    x,
+                    y,
+                    vx: angle.cos() * 3.0,
+                    vy: angle.sin() * 3.0,
+                    life: 30,
+                    color: 0xc8ffffff,
+                });
+            }
+            self.sound = 1;
         }
     }
     pub fn award(&mut self, points: u32) {
@@ -381,6 +423,7 @@ impl Game {
                 }
             }
         }
+        self.collide_balls();
         let mut i = 0;
         while i < self.balls.len() {
             if self.balls[i].y > 485.0 {

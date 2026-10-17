@@ -159,7 +159,7 @@ pub fn draw(game: &Game) {
         gamepkg::draw_rect(*x - 2.0, *y, 4.0, 12.0, 0xffdd70ff);
     }
     for particle in &game.particles {
-        gamepkg::draw_rect(particle.x, particle.y, 2.0, 2.0, 0xffcc70ff);
+        gamepkg::draw_rect(particle.x, particle.y, 2.0, 2.0, particle.color);
     }
     text(
         "LEFT/RIGHT MOVE   UP FIRE   DOWN PAUSE",

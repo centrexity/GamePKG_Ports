@@ -16,7 +16,7 @@ The port uses a 640x480 canvas, bounded particles/balls/bonuses, swept substeps,
 and a deterministic local generator instead of SDL2, rand or filesystem access.
 Endless levels use new bounded procedural patterns. The upstream editor,
 mouse controls, original menus and music are not included. Collision geometry,
-launch/bonus timing, ball-to-ball interaction and editor block types still need
+launch/bonus timing, collision ordering and editor block types still need
 fidelity work; the current 640x480 presentation is not yet the original world
 geometry. Level progression and several entity counts also retain port limits.
 
@@ -43,3 +43,11 @@ Native and Wasm fixtures exercise the production physics and renderer directly.
 Gravity selection uses the formerly reserved word of the existing 16-byte ARK1
 save, retaining legacy best/unlocked fields and old saves. Full run saving and
 the broader physics/geometry differences above remain unfinished.
+
+Ball-to-ball contacts now restore the original strict distance test, upward
+minimum-speed ejection and horizontal separation, including coincident balls,
+simultaneous pairs and portal exclusion. Seven fixtures execute the unchanged
+contact block from the pinned original and match the port's half-scale velocities
+and 36-particle counts. The cyan shockwave is rendered by the real native/Wasm
+fixtures. Particle lifetimes/shapes and movement/paddle/block collision ordering
+still differ from upstream; this does not establish complete physics parity.
