@@ -1,11 +1,28 @@
 // 2048-rs adaptation. Upstream MIT notice: assets/LICENSE-2048.txt.
 mod rows;
 fn tile(board: u64, index: u32) -> u32 { ((board >> (4 * index)) & 15) as u32 }
+// Rejection sampling keeps every empty square equally likely. Modulo alone
+// biases choices when the number of empty squares does not divide 2^64.
+fn random_below(bound: u64) -> u64 {
+    let threshold = bound.wrapping_neg() % bound;
+    loop {
+        let value = gamepkg::random_u64();
+        if value >= threshold { return value % bound; }
+    }
+}
 fn spawn(board: u64) -> u64 {
-    let start = ((board ^ (board >> 23)).wrapping_mul(6364136223846793005) >> 32) as u32 % 16;
-    for offset in 0..16 {
-        let index = (start + offset) % 16;
-        if tile(board, index) == 0 { return board | (1u64 << (4 * index)); }
+    let mut empty = 0u64;
+    for index in 0..16 { if tile(board,index) == 0 { empty += 1; } }
+    if empty == 0 { return board; }
+    // The pinned application's CLI default is 10% fours (the library's
+    // GameBuilder default differs). Choose a value and then an empty square.
+    let exponent = if random_below(10) == 0 { 2u64 } else { 1u64 };
+    let mut rank = random_below(empty);
+    for index in 0..16 {
+        if tile(board,index) == 0 {
+            if rank == 0 { return board | (exponent << (4 * index)); }
+            rank -= 1;
+        }
     }
     board
 }
@@ -38,7 +55,7 @@ fn digit(value: u32, x: f32, y: f32) {
     }
 }
 pub fn game_tick(input: u32, state: u64) -> u64 {
-    let mut board = if state == 0 { spawn(spawn(0)) } else { state };
+    let mut board = if state == 0 { spawn(0x10) } else { state };
     let direction = if input & 1 != 0 { 0 } else if input & 2 != 0 { 1 } else if input & 4 != 0 { 2 } else { 3 };
     if input & 15 != 0 {
         let moved = slide(board, direction);
