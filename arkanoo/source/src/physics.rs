@@ -156,6 +156,8 @@ pub struct Particle {
     pub color: u32,
 }
 pub struct Game {
+    pub fullscreen_requests: u32,
+    pub quit_requested: bool,
     pub editor: crate::editor::Editor,
     pub testing: bool,
     pub block_color: [u8; 200],
@@ -194,6 +196,8 @@ pub struct Game {
 impl Game {
     pub fn new() -> Self {
         let mut game = Self {
+            fullscreen_requests: 0,
+            quit_requested: false,
             editor: crate::editor::Editor::new(),
             testing: false,
             block_color: [0; 200],
@@ -561,9 +565,11 @@ impl Game {
         let best = self.best;
         let unlocked = self.unlocked;
         let gravity = self.gravity;
+        let fullscreen_requests = self.fullscreen_requests;
         let saved_editor = core::mem::replace(&mut self.editor, crate::editor::Editor::new());
         *self = Self::new();
         self.editor = saved_editor;
+        self.fullscreen_requests = fullscreen_requests;
         self.best = best;
         self.unlocked = unlocked;
         self.gravity = gravity;
@@ -591,7 +597,17 @@ impl Game {
             self.block_y[index] = 100.0 + (index / 20) as f32 * BLOCK_HEIGHT;
         }
     }
+    pub fn cursor_confined(&self) -> bool {
+        self.mode == 1 || self.mode == 3 || self.mode == 4 || self.mode == 5
+    }
     pub fn source_input(&mut self, kind: u32, x: f32, y: f32, code: u32) {
+        if self.quit_requested {
+            return;
+        }
+        if kind == 5 && code == 68 {
+            self.fullscreen_requests = self.fullscreen_requests.saturating_add(1);
+            return;
+        }
         if self.mode == 6 {
             let action = self.editor.editor_event(kind, x, y, code);
             if action == 1 {
@@ -639,6 +655,10 @@ impl Game {
             let key = code & 0x7fff_ffff;
             if key == 113 && self.mode == 1 {
                 self.blocks = [0; 200];
+            } else if key == 113 && (self.mode == 2 || self.mode == 4 || self.mode == 5) {
+                self.quit_requested = true;
+                self.dirty = true;
+                return;
             }
             if key == 114 && (self.mode == 2 || self.mode == 4 || self.mode == 5) {
                 self.reset_run();
@@ -646,6 +666,9 @@ impl Game {
         }
     }
     pub fn update(&mut self, input: u32) {
+        if self.quit_requested {
+            return;
+        }
         self.editor.editor_tick();
         if self.mode == 6 {
             return;

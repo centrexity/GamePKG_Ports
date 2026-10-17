@@ -142,9 +142,16 @@ old static state. Native/core/component SDK probes verify pointer positions,
 physical key repeat bits, committed Unicode and denied input permissions.
 Actual native-window and both browser profiles verify scaled mouse movement
 and Escape pause; runtime fixtures verify Space and paused mouse behavior.
-Original cursor hiding/confinement, fullscreen/window settings, Q-to-quit outside
-play, initial modifier state and the original menu workflow remain unfinished. This does not claim
-complete original input/window parity.
+Gameplay now requests hidden, confined absolute input, while pause and the
+editor release it. F11 toggles the host's actual fullscreen state; Q quits from
+pause/game-over/victory while retaining its original play cheat. These requests
+use the bounded GamePKG window API and commit only after a successful tick.
+Focus loss, file selection and emergency release restore the host cursor.
+Native window tests verify actual fullscreen, visibility and clean quitting;
+core/component/native runtime tests verify bindings and repeat rejection.
+Saved window preferences, original splash/menu transitions, initial modifier
+state and full platform coverage remain unfinished. This does not claim complete
+original input/window parity. The updated source host is required.
 
 
 The editor adapts the pinned `editor.rs` and preserves its integer grid bounds,
