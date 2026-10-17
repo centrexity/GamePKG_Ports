@@ -10,3 +10,6 @@
 
 # Preserve the exact upstream bytes recorded in the engine provenance lock.
 engines/zelda3/upstream/** -text -whitespace
+
+# Preserve the original engine license/readme bytes.
+cube2/LICENSE -text -whitespace conflict-marker-size=32

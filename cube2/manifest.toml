@@ -1,0 +1,29 @@
+format_version = 1
+id = "com.gamepkg.cube2"
+version = "0.1.0"
+title = "Cube 2: Sauerbraten"
+description = "The original Cube 2 engine, built locally from pinned source. Choose your original Sauerbraten installation to use its maps, textures and sounds in place."
+author = "Cube 2 developers; GamePKG contributors"
+homepage = "https://sauerbraten.org/"
+genres = ["Action", "First-person shooter"]
+engine_version = ">=0.1.15, <0.2.0"
+entry_world = "game"
+builtin_engine = "cube2-r6889"
+lockfile_sha256 = "28385a27f421a8cc8b417127fdbd67aef322b4394d8d26ad6f8556da0552d843"
+shader_profile = "slang"
+update_url = "https://github.com/centrexity/GamePKG_Ports/releases/latest/download/cube2.gamepkg"
+
+[game_data]
+title = "Original Sauerbraten installation folder"
+user_selected_servers = true
+
+[limits]
+hard_memory_bytes = 4294967296
+recommended_memory_bytes = 2147483648
+recommended_storage_bytes = 33554432
+
+[permissions]
+input = true
+audio = true
+save = true
+network = "multiplayer"

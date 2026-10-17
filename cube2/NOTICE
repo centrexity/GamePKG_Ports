@@ -1,0 +1,6 @@
+GamePKG adaptation of Cube 2: Sauerbraten, official source revision 6889.
+The host's engines/cube2 directory includes source provenance, the upstream Zlib
+notice, ENet license and separately marked GamePKG adaptations.
+
+Thumbnail: original geometric cube illustration by GamePKG contributors (2026),
+under the Zlib license. It uses no original Sauerbraten media or logo.

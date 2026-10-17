@@ -31,3 +31,11 @@ title = "DOOM — requires your PC IWAD"
 version = "0.1.4"
 requires_rom = true
 download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.4/doom.gamepkg"
+
+[[games]]
+id = "com.gamepkg.cube2"
+description = "Build the original Cube 2 engine locally. Requires GamePKG 0.1.15 on Linux and your original Sauerbraten installation; maps, textures and sounds are read in place and are not included."
+title = "Cube 2: Sauerbraten — requires original game data"
+version = "0.1.0"
+requires_rom = false
+download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.5/cube2.gamepkg"

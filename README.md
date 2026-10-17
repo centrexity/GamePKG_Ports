@@ -10,7 +10,7 @@ In the desktop Library source field paste:
 https://github.com/centrexity/GamePKG_Ports
 ```
 
-Choose **Import .gamepkglist (no game downloads)**. The repository URL selects the catalog from the latest published stable release. Games appear as **Not downloaded**. Choose a game's **Download / inspect**, review the creator, install, then Build and Play. The ROM/WAD-required recipes still need your own selected files. Use GamePKG 0.1.10 or newer for native Linux builds and the current engines.
+Choose **Import .gamepkglist (no game downloads)**. The repository URL selects the catalog from the latest published stable release. Games appear as **Not downloaded**. Choose a game's **Download / inspect**, review the creator, install, then Build and Play. ROM/WAD-required recipes need your own selected files. Cube 2 needs GamePKG 0.1.15 on Linux and your original game-data installation.
 
 You can also download [ports.gamepkglist](https://github.com/centrexity/GamePKG_Ports/releases/latest/download/ports.gamepkglist) and drag it into GamePKG. The [catalog source](ports.gamepkglist) pins each package to its published release. Importing a list downloads no game packages. Package signatures and creator continuity are verified when you download a game; catalog metadata alone is untrusted.
 
@@ -29,6 +29,7 @@ Review the [published creator fingerprint](creator-identity.json) before approvi
 
 | Port | Recipe | Requirements |
 | --- | --- | --- |
+| Cube 2: Sauerbraten | [cube2](cube2) | GamePKG 0.1.15 on Linux and an original Sauerbraten installation; see [setup](CUBE2.md) |
 | DOOM | [doom](doom) | Current GamePKG main with the pinned DOOM engine and your own DOOM.WAD/DOOM2.WAD |
 | Zelda3 | [zelda3](zelda3) | GamePKG 0.1.6 or newer and your own Zelda: A Link to the Past (USA) ROM |
 | Arkanoo | [arkanoo](arkanoo) | GamePKG |
@@ -64,7 +65,7 @@ Use the existing private release creator key, kept outside this repository and r
 python3 tools/package_ports.py --cli /path/to/gamepkg --key /private/release.key --output /path/to/fresh/release-output
 ```
 
-This is a maintainer tool; players need no Python. It checks catalog/package metadata, creator identity, signatures, dependency-free source and excluded file types, then writes four signed packages, the catalog, the public identity and checksums. Upload only the explicit `release_assets` it reports, never the verification folder or private key. Verify builds/playback locally, publish the tagged release, then test repository-URL import and each downloaded signature in a fresh library. Never replace assets in an already published release; create a higher version for changes.
+This is a maintainer tool; players need no Python. It checks catalog/package metadata, creator identity, signatures, dependency-free source and excluded file types, then writes the signed packages listed in the catalog, the catalog, the public identity and checksums. Upload only the explicit `release_assets` it reports, never the verification folder or private key. Verify builds/playback locally, publish the tagged release, then test repository-URL import and each downloaded signature in a fresh library. Never replace assets in an already published release; create a higher version for changes.
 
 ## Thumbnail artwork
 
