@@ -16,9 +16,9 @@ The port uses a 640x480 canvas and GamePKG host randomness instead of SDL2,
 rand or filesystem access. Launch directions use rejection sampling, and bonus
 selection uses independent probability/weight draws.
 Endless levels use new bounded procedural patterns. The upstream editor,
-mouse controls, original menus and music are not included. Editor block types,
-rocket explosions, particle/trail effects, the penguin/heart-loss animation and
-accurate endless generation still need fidelity work.
+mouse controls, original menus and music are not included. Particle/trail effects,
+the penguin/heart-loss animation and accurate endless generation still need
+fidelity work.
 
 Controls: Left/Right or A/D move; Up/W launches, fires a rocket, and confirms
 start/next level/restart; Down/S pauses/resumes; V/controller X toggles gravity. Three lives, nine campaign
@@ -68,8 +68,8 @@ The original brick-resolution fragment also verifies all four sides, corner
 ties, fractional positions, misses and ghost pass-through.
 Native/Wasm tests verify brick resolution and pair-before-paddle ordering;
 desktop/browser checks verify playable controls and the projected geometry.
-Rocket blast selection, visual effects and other remaining features above
-still need their separate fidelity work.
+Visual effects and other remaining features above still need their separate
+fidelity work.
 
 Every ball now starts stationary with its own 30-frame countdown. Automatic
 launch occurs on the following update and moves on the next frame; manual
@@ -90,3 +90,22 @@ original launch/update/loss/completion fragments verify these logic paths;
 native and Wasm checks also cover save compatibility, launch frame timing,
 bonus preservation, victory and progression through level 1000. Heart-loss
 animation and original menu presentation remain separate unfinished work.
+
+Brick logic now includes normal, two-hit ice, explosive and metal types. Metal
+resists ball hits and is ignored when deciding whether a level is clear; portals
+still consume it. Ice keeps damage between hits and shows cracks. Explosive
+ball hits queue a 60-original-pixel radius blast; rockets use 120 original pixels.
+Both use actual block centers, including blocks moved by a portal. Indirect
+blast damage bypasses ice health and metal armor, never rolls a bonus, and does
+not chain through explosive bricks. Only directly destroyed ball-hit bricks roll
+bonuses. Repeated rockets and ghost-mode contacts retain original ordering.
+Ten fixtures execute the unchanged original brick and rocket phases against
+actual SDL intersections. Native/Wasm tests verify ice damage and type rendering,
+world-distance boundaries/no chaining, and a complete 200-special-brick screen
+within normal time, image and drawing budgets. The added ice/magma/metal images
+retain the original base colors and damage cues but do not reproduce every
+upstream gradient, refraction or animated fire/shine effect.
+The pinned upstream generator deliberately disables special bricks in ordinary
+campaign/endless levels; this port does the same. The validated type-setting
+logic is ready for editor integration. The editor UI/import workflow itself
+remains unfinished; these tests do not claim it is available yet.

@@ -172,6 +172,8 @@ pub struct Game {
     pub rockets: Vec<(f32, f32)>,
     pub particles: Vec<Particle>,
     pub blocks: [u8; 200],
+    pub block_type: [u8; 200],
+    pub block_health: [u8; 200],
     pub block_x: [f32; 200],
     pub block_y: [f32; 200],
     pub gravity: bool,
@@ -204,6 +206,8 @@ impl Game {
             rockets: Vec::new(),
             particles: Vec::new(),
             blocks: [0; 200],
+            block_type: [0; 200],
+            block_health: [1; 200],
             block_x: [0.0; 200],
             block_y: [0.0; 200],
             gravity: false,
@@ -225,6 +229,8 @@ impl Game {
         self.portal_timer = 0;
         self.max_speed = 0.0;
         for index in 0..200 {
+            self.block_type[index] = 0;
+            self.block_health[index] = 1;
             self.block_x[index] = 20.0 + (index % 20) as f32 * 30.0;
             self.block_y[index] = 100.0 + (index / 20) as f32 * BLOCK_HEIGHT;
         }
@@ -326,16 +332,51 @@ impl Game {
             self.best = self.score;
         }
     }
-    pub fn hit(&mut self, index: usize) {
+    pub fn set_block(&mut self, index: usize, kind: u8) -> bool {
+        if index >= 200 || kind > 3 {
+            return false;
+        }
+        self.blocks[index] = 1;
+        self.block_type[index] = kind;
+        self.block_health[index] = if kind == 1 {
+            2
+        } else if kind == 3 {
+            255
+        } else {
+            1
+        };
+        true
+    }
+    pub fn destroy(&mut self, index: usize) {
         if self.blocks[index] == 0 {
             return;
         }
         self.blocks[index] = 0;
         self.award(10);
         self.sound = 2;
+        self.burst(
+            self.block_x[index] + BLOCK_WIDTH / 2.0,
+            self.block_y[index] + BLOCK_HEIGHT / 2.0,
+        );
+    }
+    pub fn hit(&mut self, index: usize) -> bool {
+        if self.blocks[index] == 0 {
+            return false;
+        }
+        if self.block_type[index] == 3 {
+            self.sound = 1;
+            return false;
+        }
+        if self.block_type[index] == 1 {
+            self.block_health[index] = self.block_health[index].saturating_sub(1);
+            if self.block_health[index] != 0 {
+                self.sound = 2;
+                return false;
+            }
+        }
+        self.destroy(index);
         let x = self.block_x[index];
         let y = self.block_y[index];
-        self.burst(x + BLOCK_WIDTH / 2.0, y + BLOCK_HEIGHT / 2.0);
         let roll = below(100);
         if roll < 15 && self.cooldown >= 60 {
             let weight = below(100);
@@ -354,6 +395,85 @@ impl Game {
                 kind,
             });
             self.cooldown = 0;
+        }
+        true
+    }
+    pub fn explode(&mut self, x: f32, y: f32, rocket: bool) {
+        for index in 0..200 {
+            if self.blocks[index] == 0 {
+                continue;
+            }
+            let dx = self.block_x[index] + BLOCK_WIDTH / 2.0 - x;
+            let dy = self.block_y[index] + BLOCK_HEIGHT / 2.0 - y;
+            let squared = dx * dx + dy * dy;
+            // These different radii and sqrt/squared comparisons are deliberate:
+            // rocket code uses 120 original pixels; explosive bricks use 60.
+            let inside = if rocket {
+                squared.sqrt() <= 60.0
+            } else {
+                squared <= 30.0 * 30.0
+            };
+            if inside {
+                self.destroy(index);
+            }
+        }
+        // Blast damage bypasses health/metal armor and never chains or drops bonuses.
+        self.sound = 4;
+    }
+    pub fn collide_blocks(&mut self, ball: usize) {
+        if ball >= self.balls.len() || !self.balls[ball].active() {
+            return;
+        }
+        let mut explosions = Vec::new();
+        for index in 0..200 {
+            if self.blocks[index] == 0 {
+                continue;
+            }
+            let x = self.block_x[index];
+            let y = self.block_y[index];
+            if !self.balls[ball].resolve_block(x, y, self.ghost > 0) {
+                continue;
+            }
+            if self.hit(index) && self.block_type[index] == 2 {
+                explosions.push((x + BLOCK_WIDTH / 2.0, y + BLOCK_HEIGHT / 2.0));
+            }
+            if self.ghost == 0 {
+                break;
+            }
+        }
+        for (x, y) in explosions {
+            self.explode(x, y, false);
+        }
+    }
+    pub fn update_rockets(&mut self) {
+        let mut i = 0;
+        while i < self.rockets.len() {
+            self.rockets[i].1 -= 4.0;
+            let (rx, ry) = self.rockets[i];
+            let mut struck = 200;
+            for index in 0..200 {
+                let x = self.block_x[index];
+                let y = self.block_y[index];
+                if self.blocks[index] > 0
+                    && ry >= TOP
+                    && overlap([rx, ry, 5.0, 10.0], [x, y, BLOCK_WIDTH, BLOCK_HEIGHT]).0 > 0.0
+                {
+                    struck = index;
+                    break;
+                }
+            }
+            if struck < 200 {
+                let x = self.block_x[struck] + BLOCK_WIDTH / 2.0;
+                let y = self.block_y[struck] + BLOCK_HEIGHT / 2.0;
+                self.destroy(struck);
+                self.explode(x, y, true);
+                self.rockets.remove(i);
+                self.sound = 4;
+            } else if ry < TOP {
+                self.rockets.remove(i);
+            } else {
+                i += 1;
+            }
         }
     }
     pub fn collect(&mut self, kind: u32) {
@@ -509,55 +629,9 @@ impl Game {
                 self.award(5);
                 self.sound = 1;
             }
-            for index in 0..200 {
-                if self.blocks[index] == 0 {
-                    continue;
-                }
-                let x = self.block_x[index];
-                let y = self.block_y[index];
-                if !self.balls[i].resolve_block(x, y, self.ghost > 0) {
-                    continue;
-                }
-                self.hit(index);
-                if self.ghost == 0 {
-                    break;
-                }
-            }
+            self.collide_blocks(i);
         }
-        let mut i = 0;
-        while i < self.rockets.len() {
-            self.rockets[i].1 -= 4.0;
-            let (rx, ry) = self.rockets[i];
-            let mut struck = 200;
-            for index in 0..200 {
-                let x = self.block_x[index];
-                let y = self.block_y[index];
-                if self.blocks[index] > 0
-                    && ry >= TOP
-                    && overlap([rx, ry, 5.0, 10.0], [x, y, BLOCK_WIDTH, BLOCK_HEIGHT]).0 > 0.0
-                {
-                    struck = index;
-                    break;
-                }
-            }
-            if struck < 200 {
-                let col = struck % 20;
-                let row = struck / 20;
-                for index in 0..200 {
-                    let dx = (index % 20) as i32 - col as i32;
-                    let dy = (index / 20) as i32 - row as i32;
-                    if dx * dx + dy * dy <= 4 {
-                        self.hit(index);
-                    }
-                }
-                self.rockets.remove(i);
-                self.sound = 4;
-            } else if ry < TOP {
-                self.rockets.remove(i);
-            } else {
-                i += 1;
-            }
-        }
+        self.update_rockets();
         let mut i = 0;
         while i < self.drops.len() {
             self.drops[i].y += 1.0;
@@ -616,7 +690,9 @@ impl Game {
         }
         let mut remaining = 0;
         for index in 0..200 {
-            remaining += self.blocks[index] as u32;
+            if self.block_type[index] != 3 {
+                remaining += self.blocks[index] as u32;
+            }
         }
         if remaining == 0 && !self.portal {
             self.finish_level();

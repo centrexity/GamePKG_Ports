@@ -91,6 +91,73 @@ fn number(mut value: u32, x: f32, y: f32) {
     );
 }
 
+fn brick_line(pixels: &mut [u8], points: [i32; 4], rgba: [u8; 4]) {
+    let [mut x, mut y, end_x, end_y] = points;
+    let dx = (end_x - x).abs();
+    let dy = -(end_y - y).abs();
+    let step_x = if x < end_x { 1 } else { -1 };
+    let step_y = if y < end_y { 1 } else { -1 };
+    let mut error = dx + dy;
+    loop {
+        if x >= 0 && x < 60 && y >= 0 && y < 20 {
+            let offset = (y as usize * 60 + x as usize) * 4;
+            pixels[offset..offset + 4].copy_from_slice(&rgba);
+        }
+        if x == end_x && y == end_y {
+            break;
+        }
+        let twice = error * 2;
+        if twice >= dy {
+            error += dy;
+            x += step_x;
+        }
+        if twice <= dx {
+            error += dx;
+            y += step_y;
+        }
+    }
+}
+fn special_brick(game: &Game, index: usize, x: f32, y: f32) {
+    let kind = game.block_type[index];
+    let time = game.frame as f64 * 0.05;
+    let rgba = if kind == 1 {
+        [200, 240, 255, (180.0 + (time.sin() * 20.0)) as u8]
+    } else if kind == 2 {
+        [
+            220u8.saturating_add((time.sin() * 20.0) as u8),
+            80u8.saturating_add((time.cos() * 30.0) as u8),
+            0,
+            255,
+        ]
+    } else {
+        [30, 35, 40, 255]
+    };
+    let mut pixels = Vec::new();
+    pixels.resize(60 * 20 * 4, 0u8);
+    for pixel in pixels.chunks_exact_mut(4) {
+        pixel.copy_from_slice(&rgba);
+    }
+    if kind == 1 && game.block_health[index] < 2 {
+        brick_line(&mut pixels, [30, 10, 5, 5], [255, 255, 255, 220]);
+        brick_line(&mut pixels, [30, 10, 55, 12], [255, 255, 255, 220]);
+        brick_line(&mut pixels, [30, 10, 10, 18], [255, 255, 255, 220]);
+        brick_line(&mut pixels, [5, 5, 0, 15], [255, 255, 255, 220]);
+        brick_line(&mut pixels, [55, 12, 60, 5], [255, 255, 255, 220]);
+    }
+    if kind == 3 {
+        for row in [2usize, 15] {
+            for col in [2usize, 55] {
+                for dy in 0..3 {
+                    for dx in 0..3 {
+                        let offset = ((row + dy) * 60 + col + dx) * 4;
+                        pixels[offset..offset + 4].copy_from_slice(&[150, 150, 160, 255]);
+                    }
+                }
+            }
+        }
+    }
+    gamepkg::draw_image(x, y, BLOCK_WIDTH, BLOCK_HEIGHT, 60, 20, &pixels);
+}
 pub fn draw(game: &Game) {
     gamepkg::draw_clear(0x0b1020ff);
     for n in 0..11 {
@@ -116,8 +183,12 @@ pub fn draw(game: &Game) {
         if game.blocks[index] > 0 {
             let x = game.block_x[index];
             let y = game.block_y[index];
-            gamepkg::draw_rect(x, y, BLOCK_WIDTH, BLOCK_HEIGHT, colors[(index / 20) % 6]);
-            gamepkg::draw_rect(x + 2.0, y + 2.0, 26.0, 1.0, 0xffffff65);
+            if game.block_type[index] == 0 {
+                gamepkg::draw_rect(x, y, BLOCK_WIDTH, BLOCK_HEIGHT, colors[(index / 20) % 6]);
+                gamepkg::draw_rect(x + 2.0, y + 2.0, 26.0, 1.0, 0xffffff65);
+            } else {
+                special_brick(game, index, x, y);
+            }
         }
     }
     let color = if game.ghost > 0 {
