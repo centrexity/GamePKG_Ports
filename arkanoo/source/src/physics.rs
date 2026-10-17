@@ -156,6 +156,9 @@ pub struct Particle {
     pub color: u32,
 }
 pub struct Game {
+    pub editor: crate::editor::Editor,
+    pub testing: bool,
+    pub block_color: [u8; 200],
     pub mode: u32,
     pub level: u32,
     pub unlocked: u32,
@@ -175,6 +178,7 @@ pub struct Game {
     pub blocks: [u8; 200],
     pub block_type: [u8; 200],
     pub block_health: [u8; 200],
+    pub block_max_health: [u8; 200],
     pub block_x: [f32; 200],
     pub block_y: [f32; 200],
     pub gravity: bool,
@@ -190,6 +194,9 @@ pub struct Game {
 impl Game {
     pub fn new() -> Self {
         let mut game = Self {
+            editor: crate::editor::Editor::new(),
+            testing: false,
+            block_color: [0; 200],
             mode: 0,
             level: 1,
             unlocked: 1,
@@ -209,6 +216,7 @@ impl Game {
             blocks: [0; 200],
             block_type: [0; 200],
             block_health: [1; 200],
+            block_max_health: [1; 200],
             block_x: [0.0; 200],
             block_y: [0.0; 200],
             gravity: false,
@@ -231,11 +239,23 @@ impl Game {
         self.max_speed = 0.0;
         for index in 0..200 {
             self.block_type[index] = 0;
+            self.block_color[index] = ((index / 20) % 6) as u8;
             self.block_health[index] = 1;
+            self.block_max_health[index] = 1;
             self.block_x[index] = 20.0 + (index % 20) as f32 * 30.0;
             self.block_y[index] = 100.0 + (index / 20) as f32 * BLOCK_HEIGHT;
         }
         self.blocks = levels::generate(self.level);
+        if !self.editor.patterns.is_empty() && self.level > 9 {
+            let cells = levels::generate_cells(self.level, &self.editor.patterns);
+            self.blocks = [0; 200];
+            for (index, cell) in cells.iter().enumerate() {
+                if *cell <= 8 {
+                    self.set_block(index, if *cell < 6 { 0 } else { *cell - 5 });
+                    self.block_color[index] = if *cell < 6 { *cell } else { 0 };
+                }
+            }
+        }
     }
     pub fn attach(&mut self) {
         self.long = 0;
@@ -342,6 +362,7 @@ impl Game {
         } else {
             1
         };
+        self.block_max_health[index] = self.block_health[index];
         true
     }
     pub fn destroy(&mut self, index: usize) {
@@ -536,7 +557,61 @@ impl Game {
             self.sound = 3;
         }
     }
+    pub fn reset_run(&mut self) {
+        let best = self.best;
+        let unlocked = self.unlocked;
+        let gravity = self.gravity;
+        let saved_editor = core::mem::replace(&mut self.editor, crate::editor::Editor::new());
+        *self = Self::new();
+        self.editor = saved_editor;
+        self.best = best;
+        self.unlocked = unlocked;
+        self.gravity = gravity;
+        self.dirty = true;
+    }
+    pub fn editor_test(&mut self) {
+        self.attach();
+        self.portal = false;
+        self.portal_timer = 0;
+        self.max_speed = 0.0;
+        self.score = 0;
+        self.lives = 3;
+        self.testing = true;
+        self.mode = 1;
+        self.blocks = [0; 200];
+        for index in 0..200 {
+            let cell = self.editor.cells[index];
+            if cell <= 8 {
+                self.set_block(index, if cell < 6 { 0 } else { cell - 5 });
+                self.block_color[index] = if cell < 6 { cell } else { 0 };
+                self.block_health[index] = self.editor.health[index];
+                self.block_max_health[index] = self.editor.health[index];
+            }
+            self.block_x[index] = 20.0 + (index % 20) as f32 * 30.0;
+            self.block_y[index] = 100.0 + (index / 20) as f32 * BLOCK_HEIGHT;
+        }
+    }
     pub fn source_input(&mut self, kind: u32, x: f32, y: f32, code: u32) {
+        if self.mode == 6 {
+            let action = self.editor.editor_event(kind, x, y, code);
+            if action == 1 {
+                self.mode = 0;
+                self.editor.dragging = 0;
+            }
+            if action == 2 {
+                self.editor_test();
+            }
+            if self.editor.save_requested {
+                self.dirty = true;
+            }
+            return;
+        }
+        if kind == 9 && (code & 0x7fff_ffff) == 101 && (self.mode == 0 || self.mode == 2) {
+            self.mode = 6;
+            self.testing = false;
+            self.editor.dragging = 0;
+            return;
+        }
         if kind == 1 && self.mode == 1 && x.is_finite() && y.is_finite() {
             let original_x = (x.clamp(0.0, 640.0) * 2.0) as i32;
             let half_width = (self.width * 2.0) as i32 / 2;
@@ -563,16 +638,23 @@ impl Game {
                 self.blocks = [0; 200];
             }
             if key == 114 && (self.mode == 2 || self.mode == 4 || self.mode == 5) {
-                let best = self.best;
-                let unlocked = self.unlocked;
-                *self = Self::new();
-                self.best = best;
-                self.unlocked = unlocked;
-                self.dirty = true;
+                self.reset_run();
             }
         }
     }
     pub fn update(&mut self, input: u32) {
+        self.editor.editor_tick();
+        if self.mode == 6 {
+            return;
+        }
+        self.update_frame(input);
+        if self.testing && (self.mode == 3 || self.mode == 4 || self.mode == 5) {
+            self.mode = 6;
+            self.testing = false;
+            self.editor.dragging = 0;
+        }
+    }
+    pub fn update_frame(&mut self, input: u32) {
         if input & 131072 != 0 {
             self.gravity = !self.gravity;
             self.dirty = true;
@@ -596,12 +678,7 @@ impl Game {
                     self.attach();
                 }
                 if self.mode == 4 {
-                    let best = self.best;
-                    let unlocked = self.unlocked;
-                    *self = Self::new();
-                    self.best = best;
-                    self.unlocked = unlocked;
-                    self.dirty = true;
+                    self.reset_run();
                 }
                 self.mode = 1;
             }

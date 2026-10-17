@@ -17,6 +17,8 @@ fn glyph(character: u8) -> u64 {
         78 => 18842507057,
         79 => 15621211694,
         80 => 17734518334,
+        63 => 4299228718,
+        95 => 33285996544,
         82 => 18879563326,
         83 => 32247333391,
         84 => 4433514655,
@@ -35,6 +37,11 @@ fn glyph(character: u8) -> u64 {
         56 => 15621113390,
         57 => 15067498030,
         47 => 17725261857,
+        74 => 13507823687,
+        81 => 14585218606,
+        88 => 18834663985,
+        90 => 33831389247,
+        45 => 1015808,
         _ => 0,
     }
 }
@@ -118,8 +125,17 @@ fn brick_line(pixels: &mut [u8], points: [i32; 4], rgba: [u8; 4]) {
     }
 }
 fn special_brick(game: &Game, index: usize, x: f32, y: f32) {
-    let kind = game.block_type[index];
-    let time = game.frame as f64 * 0.05;
+    brick_picture(
+        game.block_type[index],
+        game.block_health[index],
+        game.block_max_health[index],
+        game.frame,
+        x,
+        y,
+    );
+}
+fn brick_picture(kind: u8, health: u8, max_health: u8, frame: u32, x: f32, y: f32) {
+    let time = frame as f64 * 0.05;
     let rgba = if kind == 1 {
         [200, 240, 255, (180.0 + (time.sin() * 20.0)) as u8]
     } else if kind == 2 {
@@ -137,7 +153,7 @@ fn special_brick(game: &Game, index: usize, x: f32, y: f32) {
     for pixel in pixels.chunks_exact_mut(4) {
         pixel.copy_from_slice(&rgba);
     }
-    if kind == 1 && game.block_health[index] < 2 {
+    if kind == 1 && health < max_health {
         brick_line(&mut pixels, [30, 10, 5, 5], [255, 255, 255, 220]);
         brick_line(&mut pixels, [30, 10, 55, 12], [255, 255, 255, 220]);
         brick_line(&mut pixels, [30, 10, 10, 18], [255, 255, 255, 220]);
@@ -159,6 +175,10 @@ fn special_brick(game: &Game, index: usize, x: f32, y: f32) {
     gamepkg::draw_image(x, y, BLOCK_WIDTH, BLOCK_HEIGHT, 60, 20, &pixels);
 }
 pub fn draw(game: &Game) {
+    if game.mode == 6 {
+        draw_editor(game);
+        return;
+    }
     gamepkg::draw_clear(0x0b1020ff);
     for n in 0..11 {
         gamepkg::draw_rect(0.0, 60.0 + n as f32 * 32.0, 640.0, 1.0, 0x17233aff);
@@ -177,14 +197,20 @@ pub fn draw(game: &Game) {
     text("AMMO", 546.0, 8.0, 1.0, 0x8ba2c9ff);
     number(game.ammo, 546.0, 23.0);
     let colors = [
-        0xff627fff, 0xffa45bff, 0xffdb70ff, 0x65de9eff, 0x5db9ffff, 0xb28cffff,
+        0xff0000ff, 0xffa500ff, 0xffff00ff, 0x00ff00ff, 0x0000ffff, 0x8a2be2ff,
     ];
     for index in 0..200 {
         if game.blocks[index] > 0 {
             let x = game.block_x[index];
             let y = game.block_y[index];
             if game.block_type[index] == 0 {
-                gamepkg::draw_rect(x, y, BLOCK_WIDTH, BLOCK_HEIGHT, colors[(index / 20) % 6]);
+                gamepkg::draw_rect(
+                    x,
+                    y,
+                    BLOCK_WIDTH,
+                    BLOCK_HEIGHT,
+                    colors[game.block_color[index] as usize % 6],
+                );
                 gamepkg::draw_rect(x + 2.0, y + 2.0, 26.0, 1.0, 0xffffff65);
             } else {
                 special_brick(game, index, x, y);
@@ -265,7 +291,7 @@ pub fn draw(game: &Game) {
         };
         text(detail, 100.0, 323.0, 2.0, 0xe5f3ffff);
         if game.mode == 0 {
-            text("UP TO START", 100.0, 356.0, 2.0, 0xffdb70ff);
+            text("UP TO START / E EDITOR", 100.0, 356.0, 2.0, 0xffdb70ff);
         }
         text(
             "L LONG   B BALL   G GHOST   R ROCKET",
@@ -293,4 +319,127 @@ pub fn sound(kind: u32, frame: u32) {
         samples[i] = (sign * (800 - i) as i32 * 5) as i16;
     }
     gamepkg::audio_submit(&samples);
+}
+
+fn editor_name(label: &str, x: f32, y: f32, editing: bool) {
+    let mut shown = String::new();
+    let skip = if editing {
+        label.chars().count().saturating_sub(78)
+    } else {
+        0
+    };
+    for character in label.chars().skip(skip).take(78) {
+        shown.push(if character.is_ascii() {
+            character.to_ascii_uppercase()
+        } else {
+            '?'
+        });
+    }
+    text(&shown, x, y, 1.0, 0xe5f3ffff);
+}
+fn draw_editor(game: &Game) {
+    let edit = &game.editor;
+    let backgrounds = [
+        0x0b1020ff, 0x10201bff, 0x201420ff, 0x201a10ff, 0x101c28ff, 0x201018ff,
+    ];
+    gamepkg::draw_clear(backgrounds[(edit.background.saturating_sub(1) as usize) % 6]);
+    text("LEVEL EDITOR", 5.0, 65.0, 2.0, 0x68e5ffff);
+    text(
+        if edit.naming {
+            "NAME / ENTER TO FINISH"
+        } else {
+            "NAME / N TO EDIT"
+        },
+        5.0,
+        80.0,
+        1.0,
+        0x8ba2c9ff,
+    );
+    editor_name(&edit.name, 5.0, 92.0, edit.naming);
+    let colors = [
+        0xff0000ff, 0xffa500ff, 0xffff00ff, 0x00ff00ff, 0x0000ffff, 0x8a2be2ff, 0xc8f0ffff,
+        0xdc5000ff, 0x404550ff,
+    ];
+    for chosen in 0..9 {
+        let x = 430.0 + chosen as f32 * 22.5;
+        if usize::from(edit.selected) == chosen {
+            gamepkg::draw_rect(x - 1.0, 69.0, 22.0, 17.0, 0xffffffff);
+        }
+        gamepkg::draw_rect(x, 70.0, 20.0, 15.0, colors[chosen]);
+        number(chosen as u32, x + 5.0, 88.0);
+    }
+    for row in 0..=10 {
+        gamepkg::draw_rect(20.0, 100.0 + row as f32 * 10.0, 600.0, 0.5, 0x505064c8);
+    }
+    for col in 0..=20 {
+        gamepkg::draw_rect(20.0 + col as f32 * 30.0, 100.0, 0.5, 100.0, 0x505064c8);
+    }
+    for index in 0..200 {
+        let cell = edit.cells[index];
+        let x = 20.0 + (index % 20) as f32 * 30.0;
+        let y = 100.0 + (index / 20) as f32 * 10.0;
+        if cell < 6 {
+            gamepkg::draw_rect(x, y, 30.0, 10.0, colors[cell as usize]);
+        }
+        if (6..=8).contains(&cell) {
+            brick_picture(
+                cell - 5,
+                edit.health[index],
+                edit.health[index],
+                game.frame,
+                x,
+                y,
+            );
+        }
+    }
+    text(
+        "LEFT DRAG PAINT / RIGHT DRAG ERASE",
+        20.0,
+        220.0,
+        1.0,
+        0xe5f3ffff,
+    );
+    text(
+        "0-5 NORMAL / 6 ICE / 7 EXPLOSIVE / 8 METAL",
+        20.0,
+        235.0,
+        1.0,
+        0x8ba2c9ff,
+    );
+    if edit.message_time > 0 {
+        text(&edit.message, 20.0, 345.0, 1.0, 0xffdb70ff);
+    }
+    gamepkg::draw_rect(510.0, 365.0, 60.0, 17.5, 0x284260ff);
+    text("BG PREV", 514.0, 370.0, 1.0, 0xffffffff);
+    gamepkg::draw_rect(575.0, 365.0, 60.0, 17.5, 0x284260ff);
+    text("BG NEXT", 579.0, 370.0, 1.0, 0xffffffff);
+    for (index, label) in ["SAVE S", "CLEAR C", "TEST T", "LOAD L", "EXIT ESC"]
+        .iter()
+        .enumerate()
+    {
+        let x = 112.5 + index as f32 * 85.0;
+        gamepkg::draw_rect(x, 390.0, 75.0, 20.0, 0x284260ff);
+        text(label, x + 5.0, 397.0, 1.0, 0xffffffff);
+    }
+    if edit.browser {
+        gamepkg::draw_rect(170.0, 115.0, 300.0, 250.0, 0x101b35ff);
+        text(
+            "PATTERNS / UP DOWN ENTER / ESC",
+            180.0,
+            125.0,
+            1.0,
+            0x68e5ffff,
+        );
+        let first = (edit.selection / 10) * 10;
+        for (index, pattern) in edit.patterns.iter().enumerate().skip(first).take(10) {
+            let y = 145.0 + (index - first) as f32 * 17.5;
+            if index == edit.selection {
+                gamepkg::draw_rect(180.0, y, 280.0, 15.0, 0x284260ff);
+            }
+            editor_name(&pattern.name, 185.0, y + 4.0, false);
+        }
+        if edit.patterns.is_empty() {
+            text("NO SAVED PATTERNS", 180.0, 148.0, 1.0, 0xe5f3ffff);
+        }
+    }
 }

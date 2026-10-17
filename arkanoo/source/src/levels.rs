@@ -7,6 +7,9 @@ pub struct Recipe {
 }
 impl Recipe {
     pub fn new(level: u32, attempt: u32) -> Self {
+        Self::with_patterns(level, attempt, 0)
+    }
+    pub fn with_patterns(level: u32, attempt: u32, custom: usize) -> Self {
         let level = u64::from(level);
         let seed = level
             .wrapping_mul(54321)
@@ -14,7 +17,7 @@ impl Recipe {
             .wrapping_add((level / 5).wrapping_mul(99999))
             .wrapping_add(u64::from(attempt).wrapping_mul(77777));
         let mut rng = Rng::new(seed);
-        let kind = rng.range(0, 12);
+        let kind = rng.range(0, 12 + custom as u64);
         let mut recipe = Self {
             kind,
             value: 0.0,
@@ -130,5 +133,32 @@ pub fn campaign(level: u32, row: usize, col: usize) -> bool {
                 || col % 4 == 2 && row % 4 == 2)
         }
         _ => true,
+    }
+}
+
+// Original twelve procedural recipes and saved patterns share one seeded pool.
+pub fn generate_cells(level: u32, patterns: &[crate::editor::Pattern]) -> [u8; 200] {
+    let mut attempt = 0;
+    loop {
+        let recipe = Recipe::with_patterns(level, attempt, patterns.len());
+        if level > 9 && recipe.kind >= 12 {
+            return patterns[(recipe.kind - 12) as usize].cells;
+        }
+        let mut cells = [255; 200];
+        let mut count = 0;
+        for row in 0..10 {
+            for col in 0..20 {
+                if (level <= 9 && campaign(level, row, col))
+                    || (level > 9 && recipe.includes(level, row, col, attempt))
+                {
+                    cells[row * 20 + col] = (row % 6) as u8;
+                    count += 1;
+                }
+            }
+        }
+        if level <= 9 || count >= 20 || attempt >= 10 {
+            return cells;
+        }
+        attempt += 1;
     }
 }

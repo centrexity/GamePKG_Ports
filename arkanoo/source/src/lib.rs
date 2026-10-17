@@ -1,4 +1,5 @@
 // Adapted from c0m4r/arkanoo; see CREDITS.md for revision and changes.
+mod editor;
 mod levels;
 mod pattern_rng;
 mod physics;
@@ -10,13 +11,25 @@ pub fn game_tick(input: u32, state: u64) -> u64 {
     if let Ok(mut slot) = GAME.lock() {
         if slot.is_none() || state == 0 {
             let mut game = physics::Game::new();
-            let mut bytes = [0u8; 16];
-            if gamepkg::save_read(0, &mut bytes) == Some(16) && bytes[0..4] == *b"ARK1" {
-                game.best = u32::from_le_bytes([bytes[4], bytes[5], bytes[6], bytes[7]]);
-                game.gravity =
-                    u32::from_le_bytes([bytes[12], bytes[13], bytes[14], bytes[15]]) == 1;
-                game.unlocked =
-                    u32::from_le_bytes([bytes[8], bytes[9], bytes[10], bytes[11]]).max(1);
+            if let Some(size) = gamepkg::save_size() {
+                if size > 0 && size <= 1048576 {
+                    let mut bytes = Vec::new();
+                    bytes.resize(size as usize, 0);
+                    if gamepkg::save_read(0, &mut bytes) == Some(size) {
+                        if let Some(metadata) = game.editor.save_decode(&bytes) {
+                            game.best = metadata[0];
+                            game.unlocked = metadata[1].max(1);
+                            game.gravity = metadata[2] == 1;
+                        } else {
+                            game.editor.readable = false;
+                            game.editor.editor_message("SAVE DAMAGED / PRESERVED");
+                        }
+                    } else {
+                        game.editor.readable = false;
+                    }
+                } else if size > 1048576 {
+                    game.editor.readable = false;
+                }
             }
             *slot = Some(game);
         }
@@ -32,29 +45,16 @@ pub fn game_tick(input: u32, state: u64) -> u64 {
                 render::sound(game.sound, game.frame);
                 game.sound = 0;
             }
-            if game.dirty {
-                let best = u32::to_le_bytes(game.best);
-                let level = u32::to_le_bytes(game.unlocked);
-                let bytes = [
-                    65,
-                    82,
-                    75,
-                    49,
-                    best[0],
-                    best[1],
-                    best[2],
-                    best[3],
-                    level[0],
-                    level[1],
-                    level[2],
-                    level[3],
-                    u8::from(game.gravity),
-                    0,
-                    0,
-                    0,
-                ];
+            if game.dirty && game.editor.readable {
+                let bytes = game
+                    .editor
+                    .save_encode(game.best, game.unlocked, game.gravity);
                 if gamepkg::save_write(&bytes) {
                     game.dirty = false;
+                    game.editor.editor_commit(true);
+                } else if game.editor.save_requested {
+                    game.dirty = false;
+                    game.editor.editor_commit(false);
                 }
             }
             if game.score >= 10 {

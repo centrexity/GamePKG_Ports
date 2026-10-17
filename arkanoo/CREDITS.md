@@ -15,15 +15,20 @@ music/sound, fonts, logos and generated background art are not redistributed.
 The port uses a 640x480 canvas and GamePKG host randomness instead of SDL2,
 rand or filesystem access. Launch directions use rejection sampling, and bonus
 selection uses independent probability/weight draws.
-Endless levels now use the original twelve procedural patterns. The upstream editor,
-original menus and music are not included. Particle/trail effects,
-the penguin/heart-loss animation and custom-pattern import/selection still need
-fidelity work.
+Endless levels use the original twelve procedural patterns plus saved custom
+patterns. The editor supports painting/erasing, all nine brick choices, names,
+save/load, clear confirmation and test play through scoped host APIs. Original
+menus/music, particle/trail effects, penguin/heart-loss animation and external
+pattern-file import/export still need fidelity work.
 
 Controls: mouse or Left/Right/A/D move; Space launches attached balls or fires
 a rocket. Escape pauses/resumes; R restarts from pause/game-over/victory; Q skips
 a playing level. Up/W and Down/S retain their controller-friendly aliases;
-Enter confirms start/next level, and V/controller X toggles gravity. Three lives, nine campaign
+Enter confirms start/next level, and V/controller X toggles gravity. E opens the
+editor from the title/pause screen. In the editor, 0–8 selects a brick, left drag
+paints and right drag erases. N edits the name, S saves, C twice clears, L browses
+saved patterns, Up/Down and Enter loads, T tests and Escape exits. Test completion
+or game over returns to the unchanged editor board. Three lives, nine campaign
 levels, then endless play. High score and unlocked level persist in the game's
 scoped save. Active play state stays inside this game's isolated process or Wasm
 instance and is not yet saved across launches.
@@ -108,9 +113,9 @@ within normal time, image and drawing budgets. The added ice/magma/metal images
 retain the original base colors and damage cues but do not reproduce every
 upstream gradient, refraction or animated fire/shine effect.
 The pinned upstream generator deliberately disables special bricks in ordinary
-campaign/endless levels; this port does the same. The validated type-setting
-logic is ready for editor integration. The editor UI/import workflow itself
-remains unfinished; these tests do not claim it is available yet.
+procedural campaign/endless layouts; custom patterns can contain them. The
+validated type-setting logic is now used by the editor and its test game.
+External pattern-file import/export remains unfinished.
 
 Procedural generation matches the pinned original `create_blocks` with no custom
 patterns installed: the level/attempt seed formula, twelve pattern choices,
@@ -124,8 +129,8 @@ original generator and pinned original Rand dependency supply 106 independent
 layout fixtures, including all twelve types, five low-density retries and
 levels through u32::MAX. Raw streams and integer/float/Bernoulli distributions
 also match independently. Actual native and wasm32 runtime fixtures compare
-all 106 rendered boards, including brick coordinates. Custom patterns in the original endless selection
-pool still require the editor's scoped save/import workflow; that remains open.
+all 106 rendered boards, including brick coordinates. The custom-pattern pool is
+now verified separately against the unchanged original generator and converter.
 
 The port now consumes focused, ordered GamePKG input events. Mouse coordinates
 are projected into the original world and truncated to original integer paddle
@@ -137,5 +142,40 @@ physical key repeat bits, committed Unicode and denied input permissions.
 Actual native-window and both browser profiles verify scaled mouse movement
 and Escape pause; runtime fixtures verify Space and paused mouse behavior.
 Original cursor hiding/confinement, fullscreen/window settings, Q-to-quit outside
-play, initial modifier state and the editor/menu workflow remain unfinished. This does not claim
+play, initial modifier state and the original menu workflow remain unfinished. This does not claim
 complete original input/window parity.
+
+
+The editor adapts the pinned `editor.rs` and preserves its integer grid bounds,
+paint-without-replacement behavior, left-drag priority when both buttons are
+held, all nine color/type choices, clear confirmation, sorted saved-pattern
+browser, name editing and test return. Newly painted ice has two hits; loading
+an editor pattern gives blocks one hit and a matching maximum health, preserving
+its undamaged appearance just as the original loader does. Patterns
+selected by the endless generator instead use the original `Block::new` health.
+The original six normal-brick RGB colors are restored in play and the palette.
+Background selection currently changes replacement colors; original background
+art and fonts remain absent. Unicode names persist but the bitmap font displays
+non-ASCII characters as question marks. Native IME activation still needs work.
+
+`ARK2` saves contain high score/unlocked level/gravity and a named pattern
+collection in the existing 1 MiB creator/game-scoped blob. Legacy 16-byte `ARK1`
+metadata migrates on the next successful save. Oversized or malformed archives
+are preserved without overwriting; denied/failed saves are shown in the editor. Failed writes roll back the saved-pattern browser collection while preserving the working board.
+Names are blob identifiers, never host paths. Active runs and unsaved editor
+changes do not persist. Older port packages do not understand the new archive format.
+The original ASCII reader/writer is retained and compared with original files;
+external file selection/import/export is not yet connected to a host workflow.
+
+`tests/reference/arkanoo_editor.py` compiles the complete unchanged original
+editor module with filesystem operations confined to a temporary maintainer
+folder. Its fixtures verify editing, duplicate placement, erasing, boundaries,
+loaded health, ASCII compatibility, clear confirmation, Unicode backspace and
+background cycling. Rendering/button hover is outside that reference fixture.
+`arkanoo_levels.py --custom` compares 106 layouts with the original generator
+and pattern-to-block converter using a three-pattern pool, including special
+bricks and an empty pattern. Production uses the saved browser's sorted order
+for the pool; upstream directory enumeration order is filesystem-dependent.
+Actual native and wasm32 fixtures cover all 106 custom-pool boards, editor
+save/load/test return, denied saving and damaged-save preservation. Native-window
+and both browser profiles also exercise editor painting and scoped persistence.
