@@ -1,4 +1,5 @@
 use crate::gamepkg;
+use crate::levels;
 // Original 1280x720 world is uniformly scaled by 1/2 and letterboxed at y=60.
 // Ball positions are centers; other positions are rectangle top-lefts.
 pub const TOP: f32 = 60.0;
@@ -234,11 +235,7 @@ impl Game {
             self.block_x[index] = 20.0 + (index % 20) as f32 * 30.0;
             self.block_y[index] = 100.0 + (index / 20) as f32 * BLOCK_HEIGHT;
         }
-        for row in 0..10 {
-            for col in 0..20 {
-                self.blocks[row * 20 + col] = if pattern(self.level, row, col) { 1 } else { 0 };
-            }
-        }
+        self.blocks = levels::generate(self.level);
     }
     pub fn attach(&mut self) {
         self.long = 0;
@@ -721,38 +718,6 @@ impl Game {
             if self.portal_timer >= 270 {
                 self.finish_level();
             }
-        }
-    }
-}
-// Upstream's nine handcrafted campaign layout predicates, scaled to our canvas.
-pub fn pattern(level: u32, row: usize, col: usize) -> bool {
-    match level {
-        1 => true,
-        2 => (row + col).is_multiple_of(2),
-        3 => row.is_multiple_of(2),
-        4 => col.is_multiple_of(2) || !col.is_multiple_of(2) && row == 0 || row == 9,
-        5 => (col as i32 - 10).abs() <= row as i32,
-        6 => (col as i32 - 10).abs() + (row as i32 - 5).abs() <= 7,
-        7 => {
-            let dx = col as f32 - 10.0;
-            let dy = row as f32 - 5.0;
-            (dy.atan2(dx) * 2.0 + (dx * dx + dy * dy).sqrt() * 0.5).sin() > 0.0
-        }
-        8 => {
-            let dx = col as f32 - 10.0;
-            let dy = row as f32 - 5.0;
-            ((dx * dx + dy * dy).sqrt() as i32) % 3 != 1
-        }
-        9 => {
-            !((col + row).is_multiple_of(7)
-                || col % 4 == 1 && row % 4 == 1
-                || col % 4 == 2 && row % 4 == 2)
-        }
-        _ => {
-            let seed = level
-                .wrapping_mul(54321)
-                .wrapping_add((row * 20 + col) as u32 * 77777);
-            seed.wrapping_mul(1664525).wrapping_add(1013904223) % 100 < 65
         }
     }
 }

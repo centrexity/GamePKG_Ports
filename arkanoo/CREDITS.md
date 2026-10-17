@@ -5,7 +5,7 @@ Upstream revision: 9d613e78c9ed5657ae7fda9206cd4a82a893b7c8
 Copyright (C) 2025 c0m4r. Upstream code: WTFPL version 2.
 Upstream credits: c0m4r, Gemini 3 Pro, Claude Sonnet/Opus 4.5.
 
-This port adapts the nine campaign layout predicates from entities.rs,
+This port adapts nine campaign and twelve procedural layout rules from entities.rs,
 paddle/ball motion and spin, overlap collision response, scoring, and the
 long-paddle, extra-ball, ghost-ball and rocket mechanics from entities.rs and
 game.rs. The engine integration has been rewritten for GamePKG's safe APIs.
@@ -15,9 +15,9 @@ music/sound, fonts, logos and generated background art are not redistributed.
 The port uses a 640x480 canvas and GamePKG host randomness instead of SDL2,
 rand or filesystem access. Launch directions use rejection sampling, and bonus
 selection uses independent probability/weight draws.
-Endless levels use new bounded procedural patterns. The upstream editor,
+Endless levels now use the original twelve procedural patterns. The upstream editor,
 mouse controls, original menus and music are not included. Particle/trail effects,
-the penguin/heart-loss animation and accurate endless generation still need
+the penguin/heart-loss animation and custom-pattern import/selection still need
 fidelity work.
 
 Controls: Left/Right or A/D move; Up/W launches, fires a rocket, and confirms
@@ -109,3 +109,18 @@ The pinned upstream generator deliberately disables special bricks in ordinary
 campaign/endless levels; this port does the same. The validated type-setting
 logic is ready for editor integration. The editor UI/import workflow itself
 remains unfinished; these tests do not claim it is available yet.
+
+Procedural generation matches the pinned original `create_blocks` with no custom
+patterns installed: the level/attempt seed formula, twelve pattern choices,
+per-cell and mirror seeding, parameter ranges and the 20-brick/10-retry rule.
+The public seeded stream is a scalar ChaCha12/PCG and rand 0.8.5 sampler
+adaptation; it adds no guest crates and never consumes gameplay entropy.
+Explicit fixed-width sampling preserves the pinned 64-bit layouts on both native
+and wasm32, avoiding the original `usize`-dependent selection. Rand attribution
+and MIT terms are in NOTICE and assets/LICENSE-RAND.txt. The complete unchanged
+original generator and pinned original Rand dependency supply 106 independent
+layout fixtures, including all twelve types, five low-density retries and
+levels through u32::MAX. Raw streams and integer/float/Bernoulli distributions
+also match independently. Actual native and wasm32 runtime fixtures compare
+all 106 rendered boards, including brick coordinates. Custom patterns in the original endless selection
+pool still require the editor's scoped save/import workflow; that remains open.
