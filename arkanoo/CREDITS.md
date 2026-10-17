@@ -15,11 +15,31 @@ music/sound, fonts, logos and generated background art are not redistributed.
 The port uses a 640x480 canvas, bounded particles/balls/bonuses, swept substeps,
 and a deterministic local generator instead of SDL2, rand or filesystem access.
 Endless levels use new bounded procedural patterns. The upstream editor,
-mouse controls, menus, portal/gravity effects and music are not included.
+mouse controls, original menus and music are not included. Collision geometry,
+launch/bonus timing, ball-to-ball interaction and editor block types still need
+fidelity work; the current 640x480 presentation is not yet the original world
+geometry. Level progression and several entity counts also retain port limits.
 
 Controls: Left/Right or A/D move; Up/W launches, fires a rocket, and confirms
-start/next level/restart; Down/S pauses/resumes. Three lives, nine campaign
+start/next level/restart; Down/S pauses/resumes; V/controller X toggles gravity. Three lives, nine campaign
 levels, then endless play. High score and unlocked level persist in the game's
-scoped save. Active play state stays inside this game's own Wasm memory.
+scoped save. Active play state stays inside this game's isolated process or Wasm
+instance and is not yet saved across launches.
 
 Thumbnail artwork credits, source links, modifications and license terms are included in NOTICE.
+
+Gravity uses the original downward-only acceleration (0.3 original units/frame),
+terminal speed 9, spin suppression in gravity mode and 0.98 spin decay otherwise.
+Velocity/spin are represented at half scale in this port. Six trajectories match
+a compiled, unchanged fragment of the pinned original source. Paddle acceleration
+no longer clamps the ball below the original portal threshold.
+
+At 3600 original pixels/second, the portal activates once per level and awards
+5000 points. Balls orbit at radius 150 original pixels and 0.1 radians/frame;
+blocks move inward at 8 original pixels/frame with original integer rounding.
+After absorption, the 270-frame completion delay precedes level transition.
+New levels clear portal state. Portal animations and absorption freeze on pause.
+Native and Wasm fixtures exercise the production physics and renderer directly.
+Gravity selection uses the formerly reserved word of the existing 16-byte ARK1
+save, retaining legacy best/unlocked fields and old saves. Full run saving and
+the broader physics/geometry differences above remain unfinished.

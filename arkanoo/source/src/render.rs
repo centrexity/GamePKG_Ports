@@ -108,8 +108,8 @@ pub fn draw(game: &Game) {
     ];
     for index in 0..200 {
         if game.blocks[index] > 0 {
-            let x = 20.0 + (index % 20) as f32 * 30.0;
-            let y = 72.0 + (index / 20) as f32 * 18.0;
+            let x = game.block_x[index];
+            let y = game.block_y[index];
             gamepkg::draw_rect(x, y, 28.0, 16.0, colors[(index / 20) % 6]);
             gamepkg::draw_rect(x + 2.0, y + 2.0, 24.0, 2.0, 0xffffff65);
         }
@@ -121,6 +121,20 @@ pub fn draw(game: &Game) {
     };
     gamepkg::draw_rect(game.paddle, 428.0, game.width, 10.0, color);
     gamepkg::draw_rect(game.paddle + 3.0, 429.0, game.width - 6.0, 2.0, 0xffffffff);
+    if game.gravity {
+        text("GRAVITY", 266.0, 452.0, 1.0, 0xffcd60ff);
+    }
+    if game.portal {
+        for point in 0..48 {
+            let angle = point as f32 * core::f32::consts::TAU / 48.0 + game.frame as f32 * 0.04;
+            gamepkg::draw_circle(
+                320.0 + angle.cos() * 75.0,
+                240.0 + angle.sin() * 75.0,
+                2.0,
+                0xb777ffff,
+            );
+        }
+    }
     for ball in &game.balls {
         gamepkg::draw_circle(ball.x, ball.y, 4.0, 0xffffffff);
     }
@@ -154,6 +168,7 @@ pub fn draw(game: &Game) {
         1.0,
         0x8ba2c9ff,
     );
+    text("V GRAVITY", 430.0, 461.0, 1.0, 0x8ba2c9ff);
     if game.mode != 1 {
         gamepkg::draw_rect(64.0, 268.0, 512.0, 138.0, 0x101b35ff);
         let title = match game.mode {

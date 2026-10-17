@@ -7,6 +7,20 @@ pub struct Ball {
     pub spin: f32,
     pub attached: bool,
 }
+impl Ball {
+    // Velocities/spin use half of the original 1280-wide world's units.
+    pub fn apply_forces(&mut self, gravity: bool) {
+        if gravity {
+            if self.vy > 0.0 && self.vy < 4.5 {
+                self.vy = (self.vy + 0.15).min(4.5);
+            }
+            self.spin = 0.0;
+        } else {
+            self.vx += self.spin * 0.05;
+            self.spin *= 0.98;
+        }
+    }
+}
 pub struct Drop {
     pub x: f32,
     pub y: f32,
@@ -36,6 +50,12 @@ pub struct Game {
     pub rockets: Vec<(f32, f32)>,
     pub particles: Vec<Particle>,
     pub blocks: [u8; 200],
+    pub block_x: [f32; 200],
+    pub block_y: [f32; 200],
+    pub gravity: bool,
+    pub portal: bool,
+    pub portal_timer: u32,
+    pub max_speed: f32,
     pub frame: u32,
     pub seed: u32,
     pub launch: u32,
@@ -62,6 +82,12 @@ impl Game {
             rockets: Vec::new(),
             particles: Vec::new(),
             blocks: [0; 200],
+            block_x: [0.0; 200],
+            block_y: [0.0; 200],
+            gravity: false,
+            portal: false,
+            portal_timer: 0,
+            max_speed: 0.0,
             frame: 0,
             seed: 54321,
             launch: 90,
@@ -80,6 +106,13 @@ impl Game {
         self.seed
     }
     pub fn populate(&mut self) {
+        self.portal = false;
+        self.portal_timer = 0;
+        self.max_speed = 0.0;
+        for index in 0..200 {
+            self.block_x[index] = 20.0 + (index % 20) as f32 * 30.0;
+            self.block_y[index] = 72.0 + (index / 20) as f32 * 18.0;
+        }
         for row in 0..10 {
             for col in 0..20 {
                 self.blocks[row * 20 + col] = if pattern(self.level, row, col) { 1 } else { 0 };
@@ -135,8 +168,8 @@ impl Game {
         self.blocks[index] = 0;
         self.award(10);
         self.sound = 2;
-        let x = 20.0 + (index % 20) as f32 * 30.0;
-        let y = 72.0 + (index / 20) as f32 * 18.0;
+        let x = self.block_x[index];
+        let y = self.block_y[index];
         self.burst(x + 14.0, y + 8.0);
         let roll = self.random();
         if roll % 100 < 15 && self.cooldown >= 60 && self.drops.len() < 8 {
@@ -184,10 +217,15 @@ impl Game {
         }
     }
     pub fn update(&mut self, input: u32) {
-        self.frame = self.frame.wrapping_add(1);
+        if input & 131072 != 0 {
+            self.gravity = !self.gravity;
+            self.dirty = true;
+        }
         if input & 8 != 0 && (self.mode == 1 || self.mode == 2) {
             self.mode = if self.mode == 1 { 2 } else { 1 };
-            return;
+            if self.mode == 2 {
+                return;
+            }
         }
         if self.mode != 1 {
             if input & 4 != 0 {
@@ -213,6 +251,7 @@ impl Game {
             }
             return;
         }
+        self.frame = self.frame.wrapping_add(1);
         let previous = self.paddle;
         if input & 257 != 0 {
             self.paddle -= 6.0;
@@ -241,7 +280,8 @@ impl Game {
             self.sound = 3;
         }
         for i in 0..self.balls.len() {
-            if self.balls[i].attached {
+            let orbiting = self.portal;
+            if !orbiting && self.balls[i].attached {
                 self.balls[i].x = self.paddle + self.width / 2.0;
                 if self.launch == 0 || input & 4 != 0 {
                     self.balls[i].attached = false;
@@ -250,52 +290,71 @@ impl Game {
                     continue;
                 }
             }
+            if !orbiting {
+                self.balls[i].apply_forces(self.gravity);
+                let ball = &self.balls[i];
+                let speed = (ball.vx * ball.vx + ball.vy * ball.vy).sqrt() * 120.0;
+                self.max_speed = self.max_speed.max(speed);
+                if self.max_speed >= 3600.0 {
+                    self.portal = true;
+                    self.award(5000);
+                    self.burst(320.0, 240.0);
+                    self.sound = 4;
+                }
+            }
+            if orbiting {
+                let angle = self.frame as f32 * 0.1 + i as f32 * (core::f32::consts::TAU / 3.0);
+                self.balls[i].x = 320.0 + angle.cos() * 75.0;
+                self.balls[i].y = 240.0 + angle.sin() * 75.0;
+            }
             // Four bounded substeps prevent tunnelling through thin bricks/paddle.
-            for _ in 0..4 {
-                let ball = &mut self.balls[i];
-                ball.vx = (ball.vx + ball.spin * 0.0125).clamp(-5.5, 5.5);
-                ball.spin *= 0.995;
-                ball.x += ball.vx * 0.25;
-                ball.y += ball.vy * 0.25;
-                if ball.x < 12.0 {
-                    ball.x = 12.0;
-                    ball.vx = ball.vx.abs();
-                    self.sound = 1;
-                }
-                if ball.x > 628.0 {
-                    ball.x = 628.0;
-                    ball.vx = -ball.vx.abs();
-                    self.sound = 1;
-                }
-                if ball.y < 60.0 {
-                    ball.y = 60.0;
-                    ball.vy = ball.vy.abs();
-                    self.sound = 1;
-                }
-                if ball.vy > 0.0
-                    && ball.y >= 423.0
-                    && ball.y <= 438.0
-                    && ball.x >= self.paddle - 4.0
-                    && ball.x <= self.paddle + self.width + 4.0
-                {
-                    ball.y = 423.0;
-                    ball.vy = -ball.vy.abs().min(5.5);
-                    let offset = (ball.x - (self.paddle + self.width / 2.0)) / (self.width / 2.0);
-                    ball.vx = (offset * 3.5 + movement * 0.18).clamp(-5.5, 5.5);
-                    if ball.vx.abs() < 1.0 {
-                        ball.vx = if offset < 0.0 { -1.0 } else { 1.0 };
+            let substeps = if orbiting { 1 } else { 4 };
+            for _ in 0..substeps {
+                if !orbiting {
+                    let ball = &mut self.balls[i];
+                    ball.x += ball.vx * 0.25;
+                    ball.y += ball.vy * 0.25;
+                    if ball.x < 12.0 {
+                        ball.x = 12.0;
+                        ball.vx = ball.vx.abs();
+                        self.sound = 1;
                     }
-                    ball.spin = movement * 0.25;
-                    self.award(5);
-                    self.sound = 1;
+                    if ball.x > 628.0 {
+                        ball.x = 628.0;
+                        ball.vx = -ball.vx.abs();
+                        self.sound = 1;
+                    }
+                    if ball.y < 60.0 {
+                        ball.y = 60.0;
+                        ball.vy = ball.vy.abs();
+                        self.sound = 1;
+                    }
+                    if ball.vy > 0.0
+                        && ball.y >= 423.0
+                        && ball.y <= 438.0
+                        && ball.x >= self.paddle - 4.0
+                        && ball.x <= self.paddle + self.width + 4.0
+                    {
+                        ball.y = 423.0;
+                        ball.vy = -ball.vy.abs();
+                        let offset = ball.x - (self.paddle + self.width / 2.0);
+                        ball.vx += offset * 0.1;
+                        ball.spin = if movement.abs() > 1.0 {
+                            movement * 0.3 + offset * 0.05
+                        } else {
+                            offset * 0.02
+                        };
+                        self.award(5);
+                        self.sound = 1;
+                    }
                 }
                 let mut collided = 200;
                 for index in 0..200 {
                     if self.blocks[index] == 0 {
                         continue;
                     }
-                    let x = 20.0 + (index % 20) as f32 * 30.0;
-                    let y = 72.0 + (index / 20) as f32 * 18.0;
+                    let x = self.block_x[index];
+                    let y = self.block_y[index];
                     let ball = &mut self.balls[i];
                     if ball.x + 4.0 > x
                         && ball.x - 4.0 < x + 28.0
@@ -330,7 +389,7 @@ impl Game {
                 i += 1;
             }
         }
-        if self.balls.is_empty() {
+        if self.balls.is_empty() && !self.portal {
             self.lives -= 1;
             self.score = self.score.saturating_sub(20);
             self.dirty = true;
@@ -365,8 +424,8 @@ impl Game {
             let (rx, ry) = self.rockets[i];
             let mut struck = 200;
             for index in 0..200 {
-                let x = 20.0 + (index % 20) as f32 * 30.0;
-                let y = 72.0 + (index / 20) as f32 * 18.0;
+                let x = self.block_x[index];
+                let y = self.block_y[index];
                 if self.blocks[index] > 0 && rx >= x && rx <= x + 28.0 && ry >= y && ry <= y + 18.0
                 {
                     struck = index;
@@ -392,6 +451,9 @@ impl Game {
             }
         }
         let mut i = 0;
+        if self.portal {
+            self.pull_blocks();
+        }
         while i < self.particles.len() {
             let particle = &mut self.particles[i];
             particle.x += particle.vx;
@@ -408,11 +470,39 @@ impl Game {
         for index in 0..200 {
             remaining += self.blocks[index] as u32;
         }
-        if remaining == 0 && self.mode == 1 {
+        if remaining == 0 && self.mode == 1 && !self.portal {
             self.mode = 3;
             self.unlocked = self.unlocked.max((self.level + 1).min(999));
             self.dirty = true;
             self.sound = 3;
+        }
+    }
+    pub fn pull_blocks(&mut self) {
+        let mut empty = true;
+        for index in 0..200 {
+            if self.blocks[index] == 0 {
+                continue;
+            }
+            empty = false;
+            let dx = 320.0 - (self.block_x[index] + 14.0);
+            let dy = 240.0 - (self.block_y[index] + 8.0);
+            let distance = (dx * dx + dy * dy).sqrt();
+            if distance > 2.5 {
+                self.block_x[index] += (dx / distance * 8.0) as i32 as f32 * 0.5;
+                self.block_y[index] += (dy / distance * 8.0) as i32 as f32 * 0.5;
+            } else {
+                self.blocks[index] = 0;
+                self.burst(320.0, 240.0);
+            }
+        }
+        if empty {
+            self.portal_timer += 1;
+            if self.portal_timer >= 270 {
+                self.mode = 3;
+                self.unlocked = self.unlocked.max((self.level + 1).min(999));
+                self.dirty = true;
+                self.sound = 3;
+            }
         }
     }
 }
