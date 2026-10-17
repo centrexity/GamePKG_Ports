@@ -23,6 +23,7 @@ fn glyph(character: u8) -> u64 {
         85 => 15621211697,
         86 => 4648912433,
         87 => 11464787505,
+        88 => 18834663985,
         90 => 33831389247,
         89 => 4433521201,
         48 => 15629733422,
@@ -86,12 +87,18 @@ fn number(value: u64, x: f32, y: f32, scale: f32, color: u32) {
     }
     letters(&digits[start..], x, y, scale, color);
 }
-pub fn draw(game: &Game, damaged: bool, save_failed: bool) {
+pub fn draw(game: &Game, damaged: bool, save_failed: bool, thinking: bool, autoplay: bool) {
     gamepkg::draw_clear(0xfaf8efff);
     text("2048", 20.0, 12.0, 3.0, 0x776e65ff);
     text("SCORE", 180.0, 8.0, 1.0, 0x776e65ff);
     number(game.position.score, 180.0, 24.0, 1.0, 0x776e65ff);
     text("BEST", 350.0, 8.0, 1.0, 0x776e65ff);
+    if thinking {
+        text("THINKING", 500.0, 8.0, 1.0, 0x776e65ff);
+    }
+    if autoplay {
+        text("AUTO", 500.0, 23.0, 1.0, 0x776e65ff);
+    }
     number(game.best, 350.0, 24.0, 1.0, 0x776e65ff);
     text(
         "Z UNDO  ENTER NEW  C CONTINUE",
@@ -100,6 +107,7 @@ pub fn draw(game: &Game, damaged: bool, save_failed: bool) {
         1.0,
         0x776e65ff,
     );
+    text("X AI MOVE  V AUTO", 380.0, 451.0, 1.0, 0x776e65ff);
     if save_failed {
         text("SAVE UNAVAILABLE", 430.0, 35.0, 1.0, 0xb03030ff);
     }

@@ -26,8 +26,28 @@ and C/controller A continues after winning. Held input does not repeat moves.
 A restart keeps the best score. Undo restores the previous board and score;
 it keeps the best score and does not consume random values.
 
-No random crate, OS device or clock is exposed to the game. Solver assistance
-and autoplay from the original application remain unfinished. Building this
+X/controller Y asks the original expectimax solver for one move; V/controller X
+toggles autoplay. Undo/new-game input stops autoplay and cancels pending work.
+Manual moves cancel the current search. Autoplay waits at the win prompt until
+C/continue is pressed, and starts disabled on each launch, as in the original.
+
+The solver retains the original CLI's combined evaluator (monotonicity power 4,
+empty-space weight 200, alignment weight 500), adaptive depth starting at 3,
+0.1 four probability, 0.001 branch cutoff and last-direction tie handling.
+Search proceeds cooperatively across frames; it does not abandon unfinished
+branches or substitute a shallower/greedy decision. The memo table is limited to
+32768 positions to respect game memory; when full, uncached branches still run.
+Tiles beyond 32768 use the highest original adaptive-depth tier. No guest
+crates, function pointers, trait objects, macros or threads are needed.
+
+Reference fixtures come from the unchanged pinned upstream executable, not
+from this port. Unit tests match its decisions/evaluations and compare chunk
+sizes. One complete deterministic game reached 2048 after 932 turns with score
+20676; this is a regression fixture, not a promise that every autoplay game wins.
+Native, Wasm and Chromium tests cover actual assistance, autoplay stop, undo,
+win/continue, cancellation and persistence.
+
+No random crate, OS device or clock is exposed to the game. Building this
 source requires the updated GamePKG source host with `gamepkg::random_u64()`;
 previously published host binaries may lack that API. GamePKG's integration code
 uses Apache-2.0 terms; original upstream code keeps its MIT notice.
