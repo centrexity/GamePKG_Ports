@@ -113,6 +113,9 @@ impl Rng {
     pub fn unit(&mut self) -> f32 {
         (self.next_u32() >> 8) as f32 * (1.0 / 16777216.0)
     }
+    pub fn half_probability(&mut self) -> bool {
+        self.next_u64() < 9223372036854775808
+    }
     pub fn sixty_percent(&mut self) -> bool {
         self.next_u64() < 11068046444225730560
     }

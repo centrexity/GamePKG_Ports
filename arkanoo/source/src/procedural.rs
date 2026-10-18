@@ -19,6 +19,8 @@ pub fn procedural_background(level: u32, frame: u64) -> Option<Background> {
         7 => Some(draw_snow(level, frame)),
         9 => Some(draw_smoke(level, frame)),
         11 => Some(draw_fire(level, frame)),
+        16 => Some(draw_supernova(level, frame)),
+        17 => Some(draw_space_wars(level, frame)),
         18 => Some(draw_deep_sea(level, frame)),
         19 => Some(draw_tornado(level, frame)),
         _ => None,
@@ -172,6 +174,75 @@ fn draw_deep_sea(level: u32, frame: u64) -> Background {
     }
     Background {
         color: 0x000514ff,
+        points: dots,
+    }
+}
+fn draw_supernova(level: u32, frame: u64) -> Background {
+    let time = frame as f32;
+    let mut dots = Vec::new();
+    let pulse = (time * 0.1).sin() * 20.0 + 50.0;
+    rectangle(
+        &mut dots,
+        640 - pulse as i32 / 2,
+        360 - pulse as i32 / 2,
+        pulse as i32,
+        pulse as i32,
+        0xffc864c8,
+    );
+    for i in 0..5 {
+        let wave_dist = (time * 2.0 + i as f32 * 100.0) % 600.0;
+        let opacity = (255.0 * (1.0 - wave_dist / 600.0)) as u8;
+        for p in 0..32 {
+            let angle = (p as f32 / 32.0) * core::f32::consts::PI * 2.0;
+            let x = 640.0 + angle.cos() * wave_dist;
+            let y = 360.0 + angle.sin() * wave_dist;
+            dots.push(crate::physics::EffectPoint {
+                x: x as i32,
+                y: y as i32,
+                color: 0xff643200 | u32::from(opacity),
+            });
+        }
+    }
+    for i in 0..100u64 {
+        let mut rng = Rng::new(u64::from(level) * 11000 + i);
+        let angle = rng.float(0.0, core::f32::consts::PI * 2.0);
+        let speed = rng.float(1.0, 5.0);
+        let distance = (time * speed + rng.float(0.0, 1000.0)) % 800.0;
+        let x = 640.0 + angle.cos() * distance;
+        let y = 360.0 + angle.sin() * distance;
+        let red = rng.range_u8(100, 255);
+        let green = rng.range_u8(50, 150);
+        let blue = rng.range_u8(50, 100);
+        let color =
+            (u32::from(red) << 24) | (u32::from(green) << 16) | (u32::from(blue) << 8) | 255;
+        rectangle(&mut dots, x as i32, y as i32, 3, 3, color);
+    }
+    Background {
+        color: 0x050005ff,
+        points: dots,
+    }
+}
+fn draw_space_wars(level: u32, frame: u64) -> Background {
+    let time = frame as f32;
+    let mut dots = Vec::new();
+    for i in 0..20u64 {
+        let mut rng = Rng::new(u64::from(level) * 12000 + i);
+        let interval = rng.range(50, 200);
+        let offset = rng.range(0, 200);
+        let phase = (time as u64).wrapping_add(offset) % interval;
+        if phase < 10 {
+            let y = rng.range_i32(0, 720);
+            let color = if rng.half_probability() {
+                0xff0000c8
+            } else {
+                0x00ff00c8
+            };
+            let x_start = phase as f32 * 30.0;
+            rectangle(&mut dots, x_start as i32, y, 100, 4, color);
+        }
+    }
+    Background {
+        color: 0x00000aff,
         points: dots,
     }
 }
