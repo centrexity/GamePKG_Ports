@@ -358,6 +358,91 @@ pub fn effect_circle(dots: &mut Vec<EffectPoint>, x: i32, y: i32, radius: i32, c
         }
     }
 }
+pub fn portal_points(frame: u64, timer: u64) -> Vec<EffectPoint> {
+    let mut dots = Vec::new();
+    if timer <= 150 {
+        portal_rings(&mut dots, frame, timer);
+    } else if timer <= 180 {
+        let progress = (timer - 151) as f32 / 30.0;
+        let radius = (50.0 + progress * 200.0) as i32;
+        let point_opacity = ((1.0 - progress) * 255.0) as u8;
+        portal_glow(&mut dots, radius, point_opacity, 0xffc8ff00);
+        effect_circle(
+            &mut dots,
+            640,
+            360,
+            30,
+            0xffffff00 | u32::from(point_opacity),
+        );
+    } else if timer < 270 {
+        let progress = (timer - 181) as f32 / 89.0;
+        let point_opacity = ((1.0 - progress) * 150.0) as u8;
+        portal_glow(&mut dots, 80, point_opacity, 0xc896ff00);
+    }
+    dots
+}
+fn portal_glow(dots: &mut Vec<EffectPoint>, radius: i32, opacity: u8, color: u32) {
+    for dy in -radius..=radius {
+        for dx in -radius..=radius {
+            let square = dx * dx + dy * dy;
+            if square <= radius * radius {
+                let distance = (square as f32).sqrt();
+                let edge = 1.0 - distance / radius as f32;
+                let point_opacity = (opacity as f32 * edge) as u8;
+                dots.push(EffectPoint {
+                    x: 640 + dx,
+                    y: 360 + dy,
+                    color: color | u32::from(point_opacity),
+                });
+            }
+        }
+    }
+}
+fn portal_rings(dots: &mut Vec<EffectPoint>, frame: u64, timer: u64) {
+    let closing = timer >= 31;
+    let progress = if closing {
+        (timer - 31) as f32 / 120.0
+    } else {
+        0.0
+    };
+    for i in 0..10 {
+        let base_radius = 150 - i * 10;
+        let radius = if closing {
+            (base_radius as f32 * (1.0 - progress)).max(0.0) as i32
+        } else {
+            base_radius
+        };
+        if radius <= 0 {
+            continue;
+        }
+        let rotation = frame as f32 * if closing { 0.15 } else { 0.1 } + i as f32 * 0.3;
+        let base_alpha = ((frame as f32 * 0.05 + i as f32 * 0.5).sin() * 100.0 + 155.0) as u8;
+        let point_opacity = if closing {
+            (base_alpha as f32 * (1.0 - progress * 0.3)) as u8
+        } else {
+            base_alpha
+        };
+        let shift = (i as f32 / 10.0 * 100.0) as u8;
+        let red = if closing {
+            (150u16 + shift as u16 + (progress * 50.0) as u16).min(255) as u8
+        } else {
+            150 + shift
+        };
+        let blue = if closing {
+            (255 - shift).saturating_sub((progress * 100.0) as u8)
+        } else {
+            255 - shift
+        };
+        let color =
+            (u32::from(red) << 24) | (50 << 16) | (u32::from(blue) << 8) | u32::from(point_opacity);
+        for j in 0..32 {
+            let angle = (j as f32 / 32.0) * core::f32::consts::PI * 2.0 + rotation;
+            let x = 640 + (angle.cos() * radius as f32) as i32;
+            let y = 360 + (angle.sin() * radius as f32) as i32;
+            effect_circle(dots, x, y, 4, color);
+        }
+    }
+}
 pub fn ball_effect_points(ball: &Ball, frame: u64) -> Vec<EffectPoint> {
     let mut dots = Vec::new();
     let cx = ((ball.x - BALL_RADIUS) * 2.0) as i32 + 6;

@@ -492,3 +492,13 @@ software rasterization (all source primitives are opaque). Its 10x20 pixels draw
 at 5x10 with nearest sampling and original integer-truncated coordinates. One
 shared cached image replaces the previous flat yellow rectangle without changing
 collision or flight behavior. Copyright (C) 2025 c0m4r, WTFPL version 2.
+
+The portal now follows the original draw_portal procedure: ten rings of 32
+filled discs, accelerated shrinking, the expanding radial flash and white core,
+and the final purple fade. Original f32 phase calculations, integer point
+coordinates, draw order and 0/30/31/150/151/180/181/269/270 boundaries are retained.
+The points are grouped through the bounded host image API; comparison over the
+original dark backdrop measures up to four 8-bit levels of software-SDL rounding
+difference. Nearest scaling and complete original-window framebuffer parity are
+not established by the ordered-point fixtures. No new assets or dependencies.
+Adapted from c0m4r's pinned rendering.rs, copyright 2025 c0m4r, WTFPL version 2.

@@ -346,15 +346,7 @@ pub fn draw(game: &Game) {
     draw_particles(&game.particles);
     if let Some(penguin)=&game.penguin {draw_penguin(penguin);}
     if game.portal {
-        for point in 0..48 {
-            let angle = point as f32 * core::f32::consts::TAU / 48.0 + game.frame as f32 * 0.04;
-            gamepkg::draw_circle(
-                320.0 + angle.cos() * 75.0,
-                240.0 + angle.sin() * 75.0,
-                2.0,
-                0xb777ffff,
-            );
-        }
+        draw_portal(game.frame, u64::from(game.portal_timer));
     }
     draw_hearts(game);
 
@@ -440,6 +432,10 @@ pub fn draw_hearts(game:&Game) {
 }
 pub fn draw_particles(particles: &[crate::physics::Particle]) {
     if let Some(image)=crate::physics::particle_image(particles) {draw_effect_layer(&image);}
+}
+pub fn draw_portal(frame: u64, timer: u64) {
+    let dots = crate::physics::portal_points(frame, timer);
+    if let Some(image) = crate::physics::effect_image(&dots) { draw_effect_layer(&image); }
 }
 pub fn draw_ball_effects(ball: &crate::physics::Ball,frame:u64) {
     let dots=crate::physics::ball_effect_points(ball,frame);
