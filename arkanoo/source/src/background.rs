@@ -5,7 +5,7 @@ pub struct Background {
     pub color: u32,
     pub points: Vec<EffectPoint>,
 }
-fn rectangle(dots: &mut Vec<EffectPoint>, x: i32, y: i32, width: i32, height: i32, color: u32) {
+pub fn rectangle(dots: &mut Vec<EffectPoint>, x: i32, y: i32, width: i32, height: i32, color: u32) {
     for row in y.max(0)..(y + height).min(720) {
         for column in x.max(0)..(x + width).min(1280) {
             dots.push(EffectPoint {

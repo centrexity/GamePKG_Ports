@@ -81,6 +81,16 @@ impl Rng {
             }
         }
     }
+    pub fn range_u8(&mut self, low: u8, high: u8) -> u8 {
+        let span = u32::from(high - low);
+        let zone = u32::MAX - (u32::MAX - span + 1) % span;
+        loop {
+            let product = u64::from(self.next_u32()) * u64::from(span);
+            if product as u32 <= zone {
+                return low + (product >> 32) as u8;
+            }
+        }
+    }
     pub fn range_i32(&mut self, low: i32, high: i32) -> i32 {
         let span = (high - low) as u32;
         let zone = (span << span.leading_zeros()).wrapping_sub(1);

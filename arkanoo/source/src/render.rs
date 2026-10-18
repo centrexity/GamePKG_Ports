@@ -302,7 +302,7 @@ pub fn draw(game: &Game) {
         return;
     }
     gamepkg::draw_clear(0x0b1020ff);
-    if !draw_campaign_background(game.level, game.frame) {
+    if !draw_background(game.level, game.frame) {
     for n in 0..11 {
         gamepkg::draw_rect(0.0, 60.0 + n as f32 * 32.0, 640.0, 1.0, 0x17233aff);
     }
@@ -435,10 +435,15 @@ pub fn draw_hearts(game:&Game) {
 pub fn draw_particles(particles: &[crate::physics::Particle]) {
     if let Some(image)=crate::physics::particle_image(particles) {draw_effect_layer(&image);}
 }
-pub fn draw_campaign_background(level: u32, frame: u64) -> bool {
-    if let Some(scene) = crate::background::campaign(level, frame) {
+pub fn draw_background(level: u32, frame: u64) -> bool {
+    let background = if level <= 9 { crate::background::campaign(level, frame) }
+        else { crate::procedural::procedural_background(level, frame) };
+    if let Some(scene) = background {
         gamepkg::draw_rect(0.0, 60.0, 640.0, 360.0, scene.color);
-        if let Some(image) = crate::physics::effect_image(&scene.points) { draw_effect_tiles(&image, 64); }
+        if let Some(image) = crate::physics::effect_image(&scene.points) {
+            let tile = if level > 9 && scene.points.len() > 10000 { 128 } else { 64 };
+            draw_effect_tiles(&image, tile);
+        }
         true
     } else { false }
 }

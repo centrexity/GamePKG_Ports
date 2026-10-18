@@ -509,5 +509,17 @@ match the pinned original campaign branches. Star x addition explicitly wraps
 like the original release build at very large frame counts. Visible background
 pixels use non-overlapping 64-pixel tiles, preserving room for brick and particle
 layers under the existing limits. Levels 1–6 image artwork, editor backgrounds
-and the twenty endless procedural themes remain unfinished. Adapted from
+and the seventeen remaining endless procedural themes are unfinished. Adapted from
 c0m4r's rendering.rs, copyright 2025 c0m4r, WTFPL version 2.
+
+Endless levels selecting the original Snow, Smoke or Tornado themes now use their
+original seeded positions, sizes, colors, motion and alpha. The original theme
+selection seed and i32 sampler are preserved. Rand 0.8.5's separate u8 range
+sampler is now reproduced for color draws; it consumes a different rejection
+sequence from the i32 sampler. This scalar code remains covered by the existing
+Rand MIT attribution. Dense smoke uses non-overlapping 128-pixel tiles; sparse
+themes retain 64-pixel tiles. The unchanged source/real-Rand/SDL oracle supplies
+33 cases across three levels per theme and frame extremes. Grouped transparent
+layers differ from direct software SDL by at most four color levels in these
+cases. This does not complete whole-frame, edge, other-theme or platform parity.
+Adapted from c0m4r's rendering.rs, copyright 2025 c0m4r, WTFPL version 2.

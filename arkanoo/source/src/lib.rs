@@ -1,3 +1,4 @@
+mod procedural;
 mod background;
 // Adapted from c0m4r/arkanoo; see CREDITS.md for revision and changes.
 mod audio;
