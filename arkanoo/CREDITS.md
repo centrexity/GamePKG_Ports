@@ -689,3 +689,19 @@ most one RGB level difference. Original bonus primitives over the restored image
 also pass 480 comparisons within the existing three-level bound; rockets pass
 672 comparisons within one level. Editor/menu presentation and whole-window
 scaling remain open.
+
+The editor now reuses the original six image backdrops with the original full-
+brightness copy followed by a black alpha-153 overlay. Guarded actual SDL
+captures verify every logical RGBA byte. Both 56-check signed runs pass with
+full 200-metal-brick boards under unchanged budgets. Real Previous/Next buttons
+and both wraparound directions pass in six desktop and two browser profiles:
+9,152 sampled RGB pixels differ from original canonical values by at most one.
+Background selection survives testing a board and returning to the editor.
+
+Tiles retain exactly the same decoded pixels but now store opaque RGB scanlines
+without PNG prediction or Deflate compression, avoiding repeated expensive
+work outside the bounded 1 MiB LRU. A release-mode 512x512 decode benchmark
+measured about 2.23 ms before and 0.14 ms after; no execution, image, drawing or
+memory limit was increased. The larger source files are reflected in a 40 MiB
+storage recommendation. Grid composition, original editor fonts/menu artwork
+and whole-window scaling remain separately unfinished.

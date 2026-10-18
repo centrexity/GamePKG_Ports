@@ -575,10 +575,10 @@ fn editor_name(label: &str, x: f32, y: f32, editing: bool) {
 }
 fn draw_editor(game: &Game) {
     let edit = &game.editor;
-    let backgrounds = [
-        0x0b1020ff, 0x10201bff, 0x201420ff, 0x201a10ff, 0x101c28ff, 0x201018ff,
-    ];
-    gamepkg::draw_clear(backgrounds[(edit.background.saturating_sub(1) as usize) % 6]);
+    gamepkg::draw_clear(0x0b1020ff);
+    if !draw_image_background(edit.background,153) {
+        gamepkg::draw_rect(0.0,60.0,640.0,360.0,0x000000ff);
+    }
     text("LEVEL EDITOR", 5.0, 65.0, 2.0, 0x68e5ffff);
     text(
         if edit.naming {

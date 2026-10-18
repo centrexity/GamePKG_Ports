@@ -6,14 +6,14 @@ genres = ["Arcade", "Action"]
 engine_version = ">=0.1.17, <0.2.0"
 format_version = 1
 id = "com.gamepkg.arkanoo"
-version = "0.1.44"
+version = "0.1.45"
 entry_world = "game"
 update_url = "https://github.com/centrexity/GamePKG_Ports/releases/latest/download/arkanoo.gamepkg"
 lockfile_sha256 = "28385a27f421a8cc8b417127fdbd67aef322b4394d8d26ad6f8556da0552d843"
 shader_profile = "slang"
 
 [limits]
-recommended_storage_bytes = 33554432
+recommended_storage_bytes = 41943040
 recommended_memory_bytes = 8388608
 hard_memory_bytes = 16777216
 
