@@ -895,3 +895,29 @@ graphical path; all 60 states have signed canonical runtime checks. All 120
 original captures and the nine solid-edge fixtures reproduce byte-identically.
 Shared clipping/blending and original HUD/menu/browser/end-state graphics
 regressions pass without changing thresholds; strict lint and formatting pass.
+
+
+Recipe 0.1.56 makes the original Fullscreen/Windowed caption follow the host's
+observed own-window state, including saved fullscreen startup and external exits.
+An accepted toggle no longer changes the caption speculatively. Unavailable
+observation preserves its last confirmed value. The bounded, permission-gated
+SDK works through native/core/component and browser bindings without guest
+handles, OS access or dependencies. Actual X11/window restoration/F11 and browser
+API/native-Escape/restart paths are verified; other native platforms remain open.
+Trusted X11 UI observation and idempotent own-window requests work around winit's
+stale cache after external WM changes, using the existing display connection and
+bounded property reads. No runtime limit or input gesture requirement is relaxed.
+Recorded audio/music, remaining settings/project/version controls, arbitrary
+whole-game scaling and untested platforms remain unfinished. Source only.
+
+Dense-scene deadline checks also prompted lossless buffer changes: particles
+compose directly into occupied 128-pixel tiles in the original grid/order, with
+unchanged RGBA bytes and charges. The four-corner 3,000-shard case avoids a
+3,686,400-byte temporary while retaining the same 212,992 bytes of visible tiles.
+Background initialization repeats the original RGBA byte pattern with bounded
+copies. All 91 logic checks and both 67-check signed suites pass at default
+parallelism and unchanged limits, plus native/core/component browser gameplay,
+editor and file workflows. Saved-window regressions and actual fullscreen/exit/
+reopen tests pass. Host Windows32/64 compile checks pass, not platform gameplay.
+Pending native fullscreen toggles wait for a known host state; unavailable is
+never treated as windowed. Final controller/window/browser regressions pass.

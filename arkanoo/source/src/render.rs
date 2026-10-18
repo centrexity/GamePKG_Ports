@@ -662,8 +662,16 @@ pub fn draw_hearts(game: &Game) {
     }
 }
 pub fn draw_particles(particles: &[crate::physics::Particle]) {
-    if let Some(image) = crate::physics::particle_image(particles) {
-        draw_effect_tiles(&image, 128);
+    for image in crate::physics::particle_tiles(particles) {
+        gamepkg::draw_image(
+            image.left as f32 * 0.5,
+            60.0 + image.top as f32 * 0.5,
+            image.width as f32 * 0.5,
+            image.height as f32 * 0.5,
+            image.width,
+            image.height,
+            &image.pixels,
+        );
     }
 }
 pub fn draw_image_background(level: u32, darkness: u8) -> bool {

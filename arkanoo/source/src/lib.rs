@@ -66,6 +66,7 @@ pub fn game_tick(input: u32, state: u64) -> u64 {
             }
             pattern_files(game);
             game.update(input);
+            if let Some(fullscreen) = gamepkg::window_fullscreen() { game.menu.fullscreen = fullscreen; }
             render::draw(game);
             if game.sound > 0 {
                 render::sound(
@@ -100,7 +101,7 @@ pub fn game_tick(input: u32, state: u64) -> u64 {
             gamepkg::window_control(0, u32::from(!confined));
             gamepkg::window_control(1, u32::from(confined));
             while game.fullscreen_requests > 0 {
-                if gamepkg::window_control(2, 0) {game.menu.fullscreen=!game.menu.fullscreen;}
+                gamepkg::window_control(2, 0);
                 game.fullscreen_requests -= 1;
             }
             if game.quit_requested {

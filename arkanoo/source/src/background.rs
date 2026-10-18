@@ -190,6 +190,22 @@ pub struct BackgroundLine {
 // Precompose the recorded default SDL/OpenGL opaque color convention: source
 // and destination products round separately before addition. Untouched pixels
 // remain sparse/transparent, preserving tile counts and drawing budgets.
+// Repeat encoded RGBA bytes with bounded block copies rather than one Vec
+// append per source pixel. This retains hidden RGB and alpha exactly.
+fn filled_background_pixels(width: u32, height: u32, color: u32) -> Vec<u8> {
+    let length = width as usize * height as usize * 4;
+    let mut pixels = Vec::with_capacity(length);
+    if length == 0 {
+        return pixels;
+    }
+    let background = u32::to_be_bytes(color);
+    pixels.extend_from_slice(&[background[0], background[1], background[2], 0]);
+    while pixels.len() < length {
+        let count = pixels.len().min(length - pixels.len());
+        pixels.extend_from_within(0..count);
+    }
+    pixels
+}
 pub fn composited_background(scene: &Background) -> Option<crate::physics::ParticleImage> {
     let mut left = 1280i32;
     let mut top = 720i32;
@@ -208,11 +224,7 @@ pub fn composited_background(scene: &Background) -> Option<crate::physics::Parti
     }
     let width = (right - left + 1) as u32;
     let height = (bottom - top + 1) as u32;
-    let background = u32::to_be_bytes(scene.color);
-    let mut pixels = Vec::with_capacity(width as usize * height as usize * 4);
-    for _ in 0..width * height {
-        pixels.extend_from_slice(&[background[0], background[1], background[2], 0]);
-    }
+    let mut pixels = filled_background_pixels(width, height, scene.color);
     for dot in &scene.points {
         let opacity = dot.color & 255;
         if dot.x >= left && dot.x <= right && dot.y >= top && dot.y <= bottom && opacity != 0 {
@@ -267,11 +279,7 @@ pub fn composited_rectangles(
     }
     let width = (right - left + 1) as u32;
     let height = (bottom - top + 1) as u32;
-    let background = u32::to_be_bytes(color);
-    let mut pixels = Vec::with_capacity(width as usize * height as usize * 4);
-    for _ in 0..width * height {
-        pixels.extend_from_slice(&[background[0], background[1], background[2], 0]);
-    }
+    let mut pixels = filled_background_pixels(width, height, color);
     for rect in rectangles {
         let opacity = rect.color & 255;
         if opacity == 0 {

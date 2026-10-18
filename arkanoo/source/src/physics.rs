@@ -293,6 +293,71 @@ pub fn particle_image(particles: &[Particle]) -> Option<ParticleImage> {
         pixels,
     })
 }
+// Compose only the occupied 128px tiles, in the original row-major order.
+// The tile grid remains anchored to the original full-image bounds.
+pub fn particle_tiles(particles: &[Particle]) -> Vec<ParticleImage> {
+    let mut left = 1280i32;
+    let mut top = 720i32;
+    let mut right = -1i32;
+    let mut bottom = -1i32;
+    for p in particles {
+        let x = p.x as i32;
+        let y = p.y as i32;
+        left = left.min((x - 5).max(0));
+        top = top.min((y - 5).max(0));
+        right = right.max((x + 5).min(1279));
+        bottom = bottom.max((y + 5).min(719));
+    }
+    let mut rendered = Vec::new();
+    if left > right || top > bottom {
+        return rendered;
+    }
+    let columns = (right - left + 128) / 128;
+    let rows = (bottom - top + 128) / 128;
+    let mut tiles: Vec<Option<ParticleImage>> = Vec::new();
+    for _ in 0..columns * rows {
+        tiles.push(None);
+    }
+    for p in particles {
+        let opacity = u32::from(p.alpha());
+        if opacity == 0 {
+            continue;
+        }
+        for [x, y] in p.shard_coordinates() {
+            if x < left || x > right || y < top || y > bottom {
+                continue;
+            }
+            let tile_x = (x - left) / 128;
+            let tile_y = (y - top) / 128;
+            let slot = &mut tiles[(tile_y * columns + tile_x) as usize];
+            if slot.is_none() {
+                let tile_left = left + tile_x * 128;
+                let tile_top = top + tile_y * 128;
+                let width = (right - tile_left + 1).min(128) as u32;
+                let height = (bottom - tile_top + 1).min(128) as u32;
+                let mut pixels = Vec::new();
+                pixels.resize(width as usize * height as usize * 4, 0u8);
+                *slot = Some(ParticleImage {
+                    left: tile_left,
+                    top: tile_top,
+                    width,
+                    height,
+                    pixels,
+                });
+            }
+            if let Some(image) = slot {
+                let offset = ((y - image.top) as usize * image.width as usize
+                    + (x - image.left) as usize)
+                    * 4;
+                blend_effect_pixel(&mut image.pixels, offset, p.color, opacity);
+            }
+        }
+    }
+    for image in tiles.into_iter().flatten() {
+        rendered.push(image);
+    }
+    rendered
+}
 pub struct EffectPoint {
     pub x: i32,
     pub y: i32,
