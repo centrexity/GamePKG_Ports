@@ -20,10 +20,12 @@ pub fn procedural_background(level: u32, frame: u64) -> Option<Background> {
     }
     match procedural_theme(level) {
         1 => Some(draw_star_voyage(level, frame)),
+        6 => Some(segment_background(rain_segments(level, frame), 0x0a0a14ff)),
         7 => Some(draw_snow(level, frame)),
         9 => Some(draw_smoke(level, frame)),
         11 => Some(draw_fire(level, frame)),
         13 => Some(draw_kaleidoscope(frame)),
+        14 => Some(segment_background(warp_segments(level, frame), 0x000000ff)),
         16 => Some(draw_supernova(level, frame)),
         17 => Some(draw_space_wars(level, frame)),
         18 => Some(draw_deep_sea(level, frame)),
@@ -341,6 +343,69 @@ fn draw_kaleidoscope(frame: u64) -> Background {
     }
     Background {
         color: 0x0a000aff,
+        points: dots,
+    }
+}
+pub fn rain_segments(level: u32, frame: u64) -> Vec<crate::background::BackgroundLine> {
+    let time = frame as f32;
+    let mut segments = Vec::new();
+    for i in 0..400u64 {
+        let mut rng = Rng::new(u64::from(level) * 2000 + i);
+        let x_base = rng.range_i32(0, 1480);
+        let speed = rng.float(15.0, 25.0);
+        let length = rng.range_i32(10, 20);
+        let y_anim = (time * speed + rng.float(0.0, 1000.0)) % 770.0;
+        let y = y_anim as i32 - 20;
+        let x = x_base - (y as f32 * 0.2) as i32;
+        if (0..1280).contains(&x) && (0..720).contains(&y) {
+            segments.push(crate::background::BackgroundLine {
+                start: [x, y],
+                end: [x - 2, y + length],
+                color: 0x9696c896,
+            });
+        }
+    }
+    segments
+}
+pub fn warp_segments(level: u32, frame: u64) -> Vec<crate::background::BackgroundLine> {
+    let time = frame as f32;
+    let mut segments = Vec::new();
+    for i in 0..300u64 {
+        let mut rng = Rng::new(u64::from(level) * 9000 + i);
+        let angle = rng.float(0.0, core::f32::consts::PI * 2.0);
+        let speed = rng.float(2.0, 10.0);
+        let base = (time * speed + rng.float(0.0, 1000.0)) % 1000.0;
+        let distance = base.powf(1.5) * 0.05;
+        let x = 640.0 + angle.cos() * distance;
+        let y = 360.0 + angle.sin() * distance;
+        if (0.0..1280.0).contains(&x) && (0.0..720.0).contains(&y) {
+            let opacity = (distance / 2.0).min(255.0) as u8;
+            let color = if speed > 8.0 { 0xc8c8ff00 } else { 0xffc8c800 } | u32::from(opacity);
+            let tail = speed * 2.0;
+            let tail_x = x - angle.cos() * tail;
+            let tail_y = y - angle.sin() * tail;
+            segments.push(crate::background::BackgroundLine {
+                start: [x as i32, y as i32],
+                end: [tail_x as i32, tail_y as i32],
+                color,
+            });
+        }
+    }
+    segments
+}
+fn segment_background(segments: Vec<crate::background::BackgroundLine>, color: u32) -> Background {
+    let mut dots = Vec::new();
+    for segment in segments {
+        crate::background::background_line_points(
+            &mut dots,
+            segment.start,
+            segment.end,
+            [1280, 720],
+            segment.color,
+        );
+    }
+    Background {
+        color,
         points: dots,
     }
 }
