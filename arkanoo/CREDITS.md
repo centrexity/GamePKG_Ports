@@ -10,14 +10,15 @@ paddle/ball motion and spin, overlap collision response, scoring, and the
 long-paddle, extra-ball, ghost-ball and rocket mechanics from entities.rs and
 game.rs. The engine integration has been rewritten for GamePKG's safe APIs.
 
-Rendering, bitmap lettering and synthesized effects are new; upstream Pixabay
+Most rendering, bitmap lettering and synthesized audio are new; original shard
+particle behavior/drawing is restored as detailed below. Upstream Pixabay
 music/sound, fonts, logos and generated background art are not redistributed.
 The port uses a 640x480 canvas and GamePKG host randomness instead of SDL2,
 rand or filesystem access. Launch directions use rejection sampling, and bonus
 selection uses independent probability/weight draws.
 Endless levels use the original twelve procedural patterns plus saved custom
 patterns. The editor supports painting/erasing, all nine brick choices, names,
-save/load, clear confirmation and test play through scoped host APIs. Remaining menu/music behavior, particle/trail effects and penguin/heart-loss animation still need
+save/load, clear confirmation and test play through scoped host APIs. Remaining menu/music behavior, ball trails and penguin/heart-loss animation still need
 fidelity work. Original ASCII pattern files can now be imported/exported through
 player-selected files.
 
@@ -56,8 +57,8 @@ minimum-speed ejection and horizontal separation, including coincident balls,
 simultaneous pairs and portal exclusion. Seven fixtures execute the unchanged
 contact block from the pinned original and match the port's half-scale velocities
 and 36-particle counts. The cyan shockwave is rendered by the real native/Wasm
-fixtures. Particle lifetimes/shapes still differ from upstream; this does not establish
-complete physics parity.
+fixtures. Original shard lifetimes, shapes and fading are now restored as
+detailed below; this does not establish complete visual/physics parity.
 
 World coordinates now preserve the original 1280x720 proportions at uniform
 half scale, letterboxed at y=60: balls have radius 3, bricks are 30x10, the
@@ -277,3 +278,31 @@ reset, pause and main-loop splash/skip/editor-exit fragments. Source hashes guar
 both complete upstream files. SDL window calls and entity allocation are stubbed
 only for these state tests. Original splash artwork/audio remain absent: the
 current title screen is replacement art, not visual parity.
+
+Original shard particles now use 20–39 update lifetimes, sizes 3–7, random rotation
+and spin, 0.3 original-pixel gravity, linear fading and integer-rotated diamond
+points. Coordinates remain in the original 1280×720 space until rendering to
+avoid accumulated scale/letterbox rounding. Original point order and repeated
+points are retained. Broken bricks queue their original-color 10–15 shards until
+after rocket processing. Manual launch creates 20 gold shards per attached ball;
+speed records create five icy shards, portal activation 100 purple shards, and
+absorbed bricks five purple shards. The shockwave retains its 36 radial shards.
+There is no replacement 64-particle cap.
+
+A clipped RGBA layer batches all shards into at most six 512×512 image tiles
+rather than silently losing effects at the host command or texture-size limits. Independent fields use disjoint
+bits of host random words with rejection sampling for unbiased lifetime/size
+ranges. This preserves random distributions without exceeding native host-call
+limits on full-board bursts. No dependencies, macros or indirect calls were added.
+The host safety budgets remain unchanged.
+
+`tests/reference/arkanoo_particles.py` compiles the complete unchanged original
+Particle implementation and draw function, with full-file SHA-256 guards. Its
+114 observations cover age/death, position/velocity/rotation, fading, negative and
+edge coordinates and the exact ordered shard points. SDL drawing calls are
+recorded rather than replaced with a second drawing algorithm. Native and wasm32
+fixtures inspect the actual image coordinates/pixels and exercise 2,000–3,000
+shards from one full-board burst. A full-viewport stress case verifies all four
+corner shards survive tiling under the unchanged memory/image limits. Ball
+trails/fireball glows, penguin/heart loss,
+remaining original artwork and music/audio are still separate open work.

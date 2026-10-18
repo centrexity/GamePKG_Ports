@@ -272,9 +272,7 @@ pub fn draw(game: &Game) {
     for (x, y) in &game.rockets {
         gamepkg::draw_rect(*x, *y, 5.0, 10.0, 0xffdd70ff);
     }
-    for particle in &game.particles {
-        gamepkg::draw_rect(particle.x, particle.y, 2.0, 2.0, particle.color);
-    }
+    draw_particles(&game.particles);
     text(
         "ARROWS/A/D MOVE SPACE/UP FIRE ESC/DOWN PAUSE",
         42.0,
@@ -311,6 +309,34 @@ pub fn draw(game: &Game) {
             1.0,
             0x8ba2c9ff,
         );
+    }
+}
+pub fn draw_particles(particles: &[crate::physics::Particle]) {
+    if let Some(image) = crate::physics::particle_image(particles) {
+        // Preserve the full layer in at most six non-overlapping 512x512 tiles.
+        for top in (0..image.height).step_by(512) {
+            for left in (0..image.width).step_by(512) {
+                let width = (image.width - left).min(512);
+                let height = (image.height - top).min(512);
+                let mut pixels = Vec::with_capacity(width as usize * height as usize * 4);
+                let mut visible = false;
+                for row in top..top + height {
+                    let start = (row as usize * image.width as usize + left as usize) * 4;
+                    let source = &image.pixels[start..start + width as usize * 4];
+                    pixels.extend_from_slice(source);
+                    if !visible {
+                        for pixel in source.chunks_exact(4) {
+                            if pixel[3] > 0 { visible = true; break; }
+                        }
+                    }
+                }
+                if visible {
+                    gamepkg::draw_image((image.left as f32 + left as f32) * 0.5,
+                        60.0 + (image.top as f32 + top as f32) * 0.5,
+                        width as f32 * 0.5, height as f32 * 0.5, width, height, &pixels);
+                }
+            }
+        }
     }
 }
 pub fn sound(kind: u32, frame: u32, volume: u32, muted: bool) {

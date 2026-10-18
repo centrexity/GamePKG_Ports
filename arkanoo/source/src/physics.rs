@@ -148,12 +148,137 @@ pub struct Drop {
     pub kind: u32,
 }
 pub struct Particle {
+    // Keep original 1280x720 coordinates so float stepping and integer shard
+    // projection do not drift through repeated scale/letterbox conversions.
     pub x: f32,
     pub y: f32,
     pub vx: f32,
     pub vy: f32,
     pub life: u32,
+    pub max_life: u32,
+    pub rotation: f32,
+    pub rotation_speed: f32,
+    pub size: i32,
     pub color: u32,
+}
+pub fn random_pair() -> [f32; 2] {
+    let word = gamepkg::random_u64();
+    [
+        (word >> 40) as f32 / 16777216.0,
+        ((word >> 16) & 16777215) as f32 / 16777216.0,
+    ]
+}
+impl Particle {
+    pub fn new(x: f32, y: f32, vx: f32, vy: f32, color: u32) -> Self {
+        // Disjoint bits keep rotation, spin, age and size independent. Rejection
+        // preserves uniform integer ranges while avoiding per-field host RPCs.
+        let word = gamepkg::random_u64();
+        let rotation = (word >> 40) as f32 / 16777216.0 * 360.0;
+        let rotation_speed = ((word >> 16) & 16777215) as f32 / 16777216.0 * 20.0 - 10.0;
+        let mut age_sample = word as u8;
+        while age_sample >= 240 {
+            age_sample = gamepkg::random_u64() as u8;
+        }
+        let mut size_sample = (word >> 8) as u8;
+        while size_sample == 255 {
+            size_sample = gamepkg::random_u64() as u8;
+        }
+        let life = u32::from(age_sample) % 20 + 20;
+        Self {
+            x: x * 2.0,
+            y: (y - TOP) * 2.0,
+            vx: vx * 2.0,
+            vy: vy * 2.0,
+            life,
+            max_life: life,
+            rotation,
+            rotation_speed,
+            size: i32::from(size_sample) % 5 + 3,
+            color,
+        }
+    }
+    pub fn advance(&mut self) {
+        self.x += self.vx;
+        self.y += self.vy;
+        self.vy += 0.3;
+        self.rotation += self.rotation_speed;
+        self.life = self.life.saturating_sub(1);
+    }
+    pub fn alpha(&self) -> u8 {
+        ((1.0 - (self.max_life - self.life) as f32 / self.max_life as f32) * 255.0) as u8
+    }
+    pub fn shard_coordinates(&self) -> Vec<[i32; 2]> {
+        let mut shard_points = Vec::new();
+        let half = self.size / 2;
+        let angle = self.rotation.to_radians();
+        for dx in -half..=half {
+            for dy in -half..=half {
+                if dx.abs() + dy.abs() <= half {
+                    let rx = (dx as f32 * angle.cos() - dy as f32 * angle.sin()) as i32;
+                    let ry = (dx as f32 * angle.sin() + dy as f32 * angle.cos()) as i32;
+                    shard_points.push([self.x as i32 + rx, self.y as i32 + ry]);
+                }
+            }
+        }
+        shard_points
+    }
+}
+pub struct ParticleImage {
+    pub left: i32,
+    pub top: i32,
+    pub width: u32,
+    pub height: u32,
+    pub pixels: Vec<u8>,
+}
+pub fn particle_image(particles: &[Particle]) -> Option<ParticleImage> {
+    let mut left = 1280i32;
+    let mut top = 720i32;
+    let mut right = -1i32;
+    let mut bottom = -1i32;
+    for p in particles {
+        let x = p.x as i32;
+        let y = p.y as i32;
+        left = left.min((x - 5).max(0));
+        top = top.min((y - 5).max(0));
+        right = right.max((x + 5).min(1279));
+        bottom = bottom.max((y + 5).min(719));
+    }
+    if left > right || top > bottom {
+        return None;
+    }
+    let width = (right - left + 1) as u32;
+    let height = (bottom - top + 1) as u32;
+    let length = width as usize * height as usize * 4;
+    let mut pixels = Vec::with_capacity(length);
+    pixels.resize(length, 0u8);
+    for p in particles {
+        let opacity = u32::from(p.alpha());
+        if opacity == 0 {
+            continue;
+        }
+        for [x, y] in p.shard_coordinates() {
+            if x < left || x > right || y < top || y > bottom {
+                continue;
+            }
+            let offset = ((y - top) as usize * width as usize + (x - left) as usize) * 4;
+            let old_alpha = u32::from(pixels[offset + 3]);
+            let denominator = opacity * 255 + old_alpha * (255 - opacity);
+            for channel in 0..3 {
+                let color = (p.color >> (24 - channel * 8)) & 255;
+                pixels[offset + channel] = ((color * opacity * 255
+                    + u32::from(pixels[offset + channel]) * old_alpha * (255 - opacity))
+                    / denominator) as u8;
+            }
+            pixels[offset + 3] = (denominator / 255) as u8;
+        }
+    }
+    Some(ParticleImage {
+        left,
+        top,
+        width,
+        height,
+        pixels,
+    })
 }
 pub struct Game {
     pub splash_timer: u32,
@@ -180,6 +305,7 @@ pub struct Game {
     pub drops: Vec<Drop>,
     pub rockets: Vec<(f32, f32)>,
     pub particles: Vec<Particle>,
+    pub particle_spawns: Vec<(f32, f32, u32)>,
     pub blocks: [u8; 200],
     pub block_type: [u8; 200],
     pub block_health: [u8; 200],
@@ -223,6 +349,7 @@ impl Game {
             drops: Vec::new(),
             rockets: Vec::new(),
             particles: Vec::new(),
+            particle_spawns: Vec::new(),
             blocks: [0; 200],
             block_type: [0; 200],
             block_health: [1; 200],
@@ -280,6 +407,7 @@ impl Game {
         self.drops.clear();
         self.rockets.clear();
         self.particles.clear();
+        self.particle_spawns.clear();
     }
     pub fn respawn(&mut self) {
         self.balls.push(Ball::new(
@@ -296,20 +424,19 @@ impl Game {
         self.dirty = true;
         self.sound = 3;
     }
-    pub fn burst(&mut self, x: f32, y: f32) {
-        for n in 0..8 {
-            if self.particles.len() >= 64 {
-                break;
-            }
-            let angle = n as f32 * core::f32::consts::FRAC_PI_4;
-            self.particles.push(Particle {
+    pub fn burst(&mut self, x: f32, y: f32, color: u32) {
+        let count = below(6) + 10;
+        for _ in 0..count {
+            let choices = random_pair();
+            let angle = choices[0] * core::f32::consts::TAU;
+            let speed = choices[1] * 2.0 + 1.0;
+            self.particles.push(Particle::new(
                 x,
                 y,
-                vx: angle.cos() * 2.0,
-                vy: angle.sin() * 2.0,
-                life: 22,
-                color: 0xffcc70ff,
-            });
+                angle.cos() * speed,
+                angle.sin() * speed - 1.0,
+                color,
+            ));
         }
     }
     pub fn collide_balls(&mut self) {
@@ -340,14 +467,13 @@ impl Game {
             self.balls[j].vx = if self.balls[j].x < x { -2.5 } else { 2.5 };
             for k in 0..36 {
                 let angle = (k as f32 * 10.0).to_radians();
-                self.particles.push(Particle {
+                self.particles.push(Particle::new(
                     x,
                     y,
-                    vx: angle.cos() * 3.0,
-                    vy: angle.sin() * 3.0,
-                    life: 30,
-                    color: 0xc8ffffff,
-                });
+                    angle.cos() * 3.0,
+                    angle.sin() * 3.0,
+                    0xc8ffffff,
+                ));
             }
             self.sound = 1;
         }
@@ -382,10 +508,14 @@ impl Game {
         self.blocks[index] = 0;
         self.award(10);
         self.sound = 2;
-        self.burst(
+        let colors = [
+            0xff0000ff, 0xffa500ff, 0xffff00ff, 0x00ff00ff, 0x0000ffff, 0x8a2be2ff,
+        ];
+        self.particle_spawns.push((
             self.block_x[index] + BLOCK_WIDTH / 2.0,
             self.block_y[index] + BLOCK_HEIGHT / 2.0,
-        );
+            colors[self.block_color[index] as usize % 6],
+        ));
     }
     pub fn hit(&mut self, index: usize) -> bool {
         if self.blocks[index] == 0 {
@@ -556,6 +686,18 @@ impl Game {
         for ball in &mut self.balls {
             if ball.attached {
                 ball.launch();
+                for _ in 0..20 {
+                    let choices = random_pair();
+                    let angle = choices[0] * core::f32::consts::TAU;
+                    let speed = choices[1] * 2.0 + 1.0;
+                    self.particles.push(Particle::new(
+                        ball.x,
+                        ball.y,
+                        angle.cos() * speed,
+                        angle.sin() * speed,
+                        0xffc832ff,
+                    ));
+                }
                 launched = true;
                 self.sound = 1;
             }
@@ -826,11 +968,49 @@ impl Game {
                 }
                 let ball = &self.balls[i];
                 let speed = (ball.vx * ball.vx + ball.vy * ball.vy).sqrt() * 120.0;
-                self.max_speed = self.max_speed.max(speed);
+                if speed > self.max_speed {
+                    self.max_speed = speed;
+                    let length = (ball.vx * ball.vx + ball.vy * ball.vy).sqrt();
+                    if length > 0.05 {
+                        let dx = -ball.vx / length;
+                        let dy = -ball.vy / length;
+                        for _ in 0..5 {
+                            let choices = random_pair();
+                            let angle = dy.atan2(dx) + choices[0] - 0.5;
+                            let drift = choices[1] + 0.5;
+                            let choice = below(12);
+                            let color = if choice == 0 {
+                                0x00ffffff
+                            } else if choice == 1 {
+                                0x64c8ffff
+                            } else {
+                                0xc8ffffff
+                            };
+                            self.particles.push(Particle::new(
+                                ball.x - dx * 5.0,
+                                ball.y - dy * 5.0,
+                                angle.cos() * drift,
+                                angle.sin() * drift,
+                                color,
+                            ));
+                        }
+                    }
+                }
                 if self.max_speed >= 3600.0 {
                     self.portal = true;
                     self.award(5000);
-                    self.burst(320.0, 240.0);
+                    for _ in 0..100 {
+                        let choices = random_pair();
+                        let angle = choices[0] * core::f32::consts::TAU;
+                        let speed = choices[1] * 7.5 + 2.5;
+                        self.particles.push(Particle::new(
+                            320.0,
+                            240.0,
+                            angle.cos() * speed,
+                            angle.sin() * speed,
+                            0x9632ffff,
+                        ));
+                    }
                     self.sound = 4;
                 }
             }
@@ -864,6 +1044,10 @@ impl Game {
             self.collide_blocks(i);
         }
         self.update_rockets();
+        let queued = core::mem::take(&mut self.particle_spawns);
+        for (x, y, color) in queued {
+            self.burst(x, y, color);
+        }
         let mut i = 0;
         while i < self.drops.len() {
             self.drops[i].y += 1.0;
@@ -890,10 +1074,7 @@ impl Game {
         }
         while i < self.particles.len() {
             let particle = &mut self.particles[i];
-            particle.x += particle.vx;
-            particle.y += particle.vy;
-            particle.vy += 0.06;
-            particle.life -= 1;
+            particle.advance();
             if particle.life == 0 {
                 self.particles.remove(i);
             } else {
@@ -945,7 +1126,18 @@ impl Game {
                 self.block_y[index] += (dy / distance * 8.0) as i32 as f32 * 0.5;
             } else {
                 self.blocks[index] = 0;
-                self.burst(320.0, 240.0);
+                for _ in 0..5 {
+                    let choices = random_pair();
+                    let angle = choices[0] * core::f32::consts::TAU;
+                    let speed = choices[1] * 1.5;
+                    self.particles.push(Particle::new(
+                        320.0,
+                        240.0,
+                        angle.cos() * speed,
+                        angle.sin() * speed,
+                        0x9632ffff,
+                    ));
+                }
             }
         }
         if empty {
