@@ -1190,7 +1190,7 @@ impl Game {
     pub fn capture_sound(&mut self) {
         if self.sound != 0 {
             self.effects
-                .effect_tone(self.sound, self.frame, self.menu.sfx_muted);
+                .effect_request(self.sound, self.frame, self.menu.sfx_muted);
             self.sound = 0;
         }
     }

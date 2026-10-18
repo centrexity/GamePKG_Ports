@@ -1,0 +1,23 @@
+Audio assets used as part of this game adaptation:
+
+  audio/life-loss.wav
+  Adapted from "Drop Sound Effect" by 11325622
+  https://pixabay.com/sound-effects/film-special-effects-drop-sound-effect-240899/
+
+  audio/explosion.wav
+  Adapted from "Swish Swoosh Woosh SFX-27" by StereogenicStudio
+  https://pixabay.com/sound-effects/film-special-effects-swish-swoosh-woosh-sfx-27-357164/
+
+These recordings use the Pixabay Content License, not the port's code license.
+License: https://pixabay.com/service/terms/#license
+Summary: https://pixabay.com/service/license-summary/
+
+The prepared WAV files preserve the original game's SDL-decoded stereo content,
+converted from the original 44,100 Hz mixer format to the host's 48,000 Hz PCM
+format. No trimming, normalization or looping was applied. They accompany the
+game adaptation and are not offered as a standalone sound library.
+
+The original source files, their hashes, creators and conversion reference are
+listed in the repository's recorded-effects fixture and CREDITS.md. Players
+need no conversion tool or MP3 decoder. Other sound effects and music are not
+covered by this notice.

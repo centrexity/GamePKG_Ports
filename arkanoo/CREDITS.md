@@ -13,7 +13,7 @@ game.rs. The engine integration has been rewritten for GamePKG's safe APIs.
 The safe host integration and synthesized audio are new. Original visual
 procedures/assets restored in the port are identified below, including brick,
 ball and paddle art, backgrounds, rasterized Roboto lettering and startup art.
-Upstream Pixabay music and recorded sound effects remain unimplemented.
+The original life-loss and explosion recordings are restored with the credits below. Bounce, glass and launch effects remain temporary tones; original music is still unfinished.
 The port uses a 640x480 canvas and GamePKG host randomness instead of SDL2,
 rand or filesystem access. Launch directions use rejection sampling, and bonus
 selection uses independent probability/weight draws.
@@ -965,3 +965,55 @@ and Wasm targets; actual core/component Chromium WebAudio buffers preserve
 stereo tails, free-channel reuse, muted progress and keyboard/controller
 rocket-plus-brick overlap. Strict lint and formatting pass. Native graphical
 window/device and broader platform workflows were not repeated this round.
+
+
+## Restored recorded effects
+
+The original life-loss request uses "Drop Sound Effect" by 11325622:
+https://pixabay.com/sound-effects/film-special-effects-drop-sound-effect-240899/
+The original explosion request uses "Swish Swoosh Woosh SFX-27" by
+StereogenicStudio:
+https://pixabay.com/sound-effects/film-special-effects-swish-swoosh-woosh-sfx-27-357164/
+Both source pages identify the Pixabay Content License; these recordings do not
+use the port's code license. See assets/LICENSE-PIXABAY-AUDIO.txt and
+https://pixabay.com/service/terms/#license . They accompany the game adaptation,
+not a standalone sound library.
+
+The pinned original MP3 files were decoded through SDL_mixer at the original
+44,100 Hz signed 16-bit stereo mixer format, then converted by SDL_AudioCVT to
+the host's 48,000 Hz format. No trimming, normalization or looping was applied.
+The resulting WAVs are loaded through bounded package-asset reads, with explicit
+little-endian samples. Players need no SDL_mixer, Python, FFmpeg or MP3 decoder.
+The maintainer reference and complete source/PCM/WAV hashes are in
+https://github.com/centrexity/GamePKG/blob/main/tests/fixtures/arkanoo-recorded-effects.json
+and the reproducible conversion tool is
+https://github.com/centrexity/GamePKG/blob/main/tests/reference/arkanoo_effects.py .
+
+The clips contain 159,242 and 254,969 stereo frames respectively, retaining their
+independent channel data. Their decoded PCM totals 1,656,844 bytes. Active voices
+share immutable cached PCM instead of copying a recording per voice. The loader
+accepts the canonical 48 kHz stereo PCM16 WAV layout, bounds a clip to 2 MiB and
+rejects truncated headers/data, trailing bytes and inconsistent lengths. Failed
+loads stay silent rather than reverting to a tone. The other three effects are
+still explicitly synthesized; original music and full asynchronous timing remain
+open.
+
+
+Recipe 0.1.59 validation: all 99 logic checks and both 71-check signed native/
+Wasm suites pass with the original memory, time, sample and image budgets and
+default test parallelism. Full-clip checks compare every original prepared PCM
+sample, including distinct stereo channels, exact frame counts and final zero
+padding. Four simultaneous voices sharing both recordings stay within the
+unchanged memory limit. Invalid headers, oversized lengths, short data and
+trailing bytes are rejected atomically; cached failures do not repeatedly read.
+The original conversion reproduces the committed hashes byte-for-byte.
+
+Actual core/component Chromium WebAudio buffers also match both entire clips.
+That longer test exposed browser timing drift: a 16 ms delay can run faster than
+60 Hz and fill the audio queue. Browser fixed-step scheduling now retains its
+fractional 1/60-second phase and avoids catch-up bursts after lateness. The
+100 ms audio queue remains unchanged. A 600-tick quantized-timer regression and
+existing browser input/window/clock/stereo checks pass, along with both portable
+browser gameplay/integrity/shutdown regressions. Strict lint and formatting pass.
+This does not establish new physical-device, graphical-window or native platform
+coverage, or finish music and fully asynchronous playback timing. Source only.

@@ -376,3 +376,8 @@ source/src/background.rs are adapted from SDL RenderDrawLineBresenham,
 RenderDrawLinesWithRectsF and SDL_IntersectRectAndLine. Copyright (C) 1997-2023 Sam Lantinga
 <slouken@libsdl.org>. Zlib license; full notice in assets/LICENSE-SDL.txt.
 This is Rust source adaptation, not an SDL library dependency.
+
+
+Recorded life-loss and explosion audio uses the Pixabay Content License,
+separately from the code license. Credits, source links and adaptation details:
+assets/LICENSE-PIXABAY-AUDIO.txt and CREDITS.md.
