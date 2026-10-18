@@ -159,7 +159,9 @@ fn draw_fire(level: u32, frame: u64) -> Background {
 }
 fn draw_deep_sea(level: u32, frame: u64) -> Background {
     let time = frame as f32;
-    let mut dots = Vec::new();
+    // Five shafts are at most 120×720, followed by 200 plankton points.
+    // Reserve once so growing the list cannot retain old and new buffers.
+    let mut dots = Vec::with_capacity(5 * 120 * 720 + 200);
     for i in 0..5 {
         let x = i * 200 + (time * 0.1).sin() as i32 * 50;
         let width = 100 + (time * 0.05 + i as f32).cos() as i32 * 20;
@@ -578,4 +580,62 @@ pub fn nebula_rectangles(
         }
     }
     (color, rectangles)
+}
+
+pub fn hex_commands(level: u32, frame: u64) -> (u32, Vec<crate::background::BackgroundCommand>) {
+    let mut rng = seeded_background_rng(level);
+    rng.range_i32(0, 20);
+    let r = rng.range_u8(5, 40);
+    let g = rng.range_u8(5, 40);
+    let b = rng.range_u8(5, 40);
+    let color = (u32::from(r) << 24) | (u32::from(g) << 16) | (u32::from(b) << 8) | 255;
+    let side = rng.range_i32(20, 60) as u32;
+    let columns = 1280 / side + 2;
+    let rows = 720 / side + 2;
+    let speed = rng.float(0.01, 0.05);
+    let red = rng.range_u8(50, 200);
+    let green = rng.range_u8(50, 200);
+    let blue = rng.range_u8(50, 200);
+    let tint = (u32::from(red) << 24) | (u32::from(green) << 16) | (u32::from(blue) << 8);
+    let mut commands = Vec::new();
+    for row in 0..rows {
+        for column in 0..columns {
+            let offset = if row % 2 == 0 { 0 } else { side / 2 };
+            let x = (column * side) as i32 + offset as i32;
+            let y = (row * side) as i32;
+            let pulse =
+                ((frame as f32 * speed + column as f32 * 0.2 + row as f32 * 0.2).sin() + 1.0) / 2.0;
+            let opacity = (10.0 + pulse * 40.0) as u8;
+            commands.push(crate::background::BackgroundCommand {
+                kind: 2,
+                values: [x, y, (side - 2) as i32, (side - 2) as i32],
+                color: tint | u32::from(opacity),
+            });
+        }
+    }
+    (color, commands)
+}
+pub fn bubble_commands(level: u32, frame: u64) -> (u32, Vec<crate::background::BackgroundCommand>) {
+    let mut commands = Vec::new();
+    for i in 0..150u64 {
+        let mut rng = Rng::new(u64::from(level) * 6000 + i);
+        let x_base = rng.range_i32(0, 1280);
+        let speed = rng.float(0.5, 2.0);
+        let size = rng.range_i32(2, 10);
+        let phase = (frame as f32 * speed + rng.float(0.0, 1000.0)) % 770.0;
+        let y = 720.0 - phase;
+        let sway = (frame as f32 * 0.02 + i as f32).sin() * 10.0;
+        let x = x_base as f32 + sway;
+        commands.push(crate::background::BackgroundCommand {
+            kind: 2,
+            values: [x as i32, y as i32, size, size],
+            color: 0x64c8ff64,
+        });
+        commands.push(crate::background::BackgroundCommand {
+            kind: 0,
+            values: [x as i32 + 1, y as i32 + 1, 0, 0],
+            color: 0xffffff96,
+        });
+    }
+    (0x001428ff, commands)
 }

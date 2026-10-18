@@ -301,6 +301,15 @@ pub fn blend_effect_pixel(pixels: &mut [u8], offset: usize, rgba: u32, opacity: 
         return;
     }
     let old_alpha = u32::from(pixels[offset + 3]);
+    // The original expression cancels exactly for a transparent destination.
+    // Avoid three integer divisions for each first contribution to a pixel.
+    if old_alpha == 0 {
+        pixels[offset] = (rgba >> 24) as u8;
+        pixels[offset + 1] = (rgba >> 16) as u8;
+        pixels[offset + 2] = (rgba >> 8) as u8;
+        pixels[offset + 3] = opacity as u8;
+        return;
+    }
     let denominator = opacity * 255 + old_alpha * (255 - opacity);
     for channel in 0..3 {
         let color = (rgba >> (24 - channel * 8)) & 255;

@@ -304,3 +304,108 @@ pub fn composited_rectangles(
         pixels,
     })
 }
+
+// Original SDL default rectangle outlines are four endpoint-exclusive strips.
+// Altered scalar Rust adaptation of SDL RenderDrawLinesWithRectsF; same zlib
+// attribution and license as the line helper above.
+pub struct BackgroundCommand {
+    // 0: point; 1: line endpoint; 2: outline dimensions; 3: fill dimensions.
+    pub kind: u32,
+    pub values: [i32; 4],
+    pub color: u32,
+}
+pub fn background_command_points(dots: &mut Vec<EffectPoint>, command: &BackgroundCommand) {
+    let [x, y, a, b] = command.values;
+    match command.kind {
+        0 => rectangle(dots, x, y, 1, 1, command.color),
+        1 => background_line_points(dots, [x, y], [a, b], [1280, 720], command.color),
+        2 => {
+            let w = a.max(1);
+            let h = b.max(1);
+            if w == 1 && h == 1 {
+                rectangle(dots, x, y, 1, 1, command.color);
+            } else {
+                rectangle(dots, x, y, w - 1, 1, command.color);
+                rectangle(dots, x + w - 1, y, 1, h - 1, command.color);
+                rectangle(dots, x + 1, y + h - 1, w - 1, 1, command.color);
+                rectangle(dots, x, y + 1, 1, h - 1, command.color);
+            }
+        }
+        3 => rectangle(dots, x, y, a.max(1), b.max(1), command.color),
+        _ => (),
+    }
+}
+// Preserve ordered primitive blends without retaining an expanded outline grid.
+pub fn composited_commands(
+    commands: &[BackgroundCommand],
+    color: u32,
+) -> Option<crate::physics::ParticleImage> {
+    let mut rectangles = Vec::new();
+    for command in commands {
+        let [x, y, a, b] = command.values;
+        match command.kind {
+            0 => rectangles.push(BackgroundRectangle {
+                position: [x, y],
+                size: [1, 1],
+                color: command.color,
+            }),
+            1 => {
+                let mut dots = Vec::new();
+                background_line_points(&mut dots, [x, y], [a, b], [1280, 720], command.color);
+                for dot in dots {
+                    rectangles.push(BackgroundRectangle {
+                        position: [dot.x, dot.y],
+                        size: [1, 1],
+                        color: dot.color,
+                    });
+                }
+            }
+            2 => {
+                let w = a.max(1);
+                let h = b.max(1);
+                if w == 1 && h == 1 {
+                    rectangles.push(BackgroundRectangle {
+                        position: [x, y],
+                        size: [1, 1],
+                        color: command.color,
+                    });
+                }
+                if w > 1 {
+                    rectangles.push(BackgroundRectangle {
+                        position: [x, y],
+                        size: [(w - 1) as u32, 1],
+                        color: command.color,
+                    });
+                }
+                if h > 1 {
+                    rectangles.push(BackgroundRectangle {
+                        position: [x + w - 1, y],
+                        size: [1, (h - 1) as u32],
+                        color: command.color,
+                    });
+                }
+                if w > 1 {
+                    rectangles.push(BackgroundRectangle {
+                        position: [x + 1, y + h - 1],
+                        size: [(w - 1) as u32, 1],
+                        color: command.color,
+                    });
+                }
+                if h > 1 {
+                    rectangles.push(BackgroundRectangle {
+                        position: [x, y + 1],
+                        size: [1, (h - 1) as u32],
+                        color: command.color,
+                    });
+                }
+            }
+            3 => rectangles.push(BackgroundRectangle {
+                position: [x, y],
+                size: [a.max(1) as u32, b.max(1) as u32],
+                color: command.color,
+            }),
+            _ => (),
+        }
+    }
+    composited_rectangles(&rectangles, color)
+}

@@ -371,8 +371,8 @@ in rendering.rs at revision 9d613e78c9ed5657ae7fda9206cd4a82a893b7c8 using
 real SDL line/rectangle rasterization. Copyright (C) 2025 c0m4r.
 WTFPL version 2; see assets/LICENSE-ARKANOO.txt.
 
-The altered scalar background line rasterizer and endpoint clipper in
-source/src/background.rs are adapted from SDL RenderDrawLineBresenham and
-SDL_IntersectRectAndLine. Copyright (C) 1997-2023 Sam Lantinga
+The altered scalar background line/outline rasterizers and endpoint clipper in
+source/src/background.rs are adapted from SDL RenderDrawLineBresenham,
+RenderDrawLinesWithRectsF and SDL_IntersectRectAndLine. Copyright (C) 1997-2023 Sam Lantinga
 <slouken@libsdl.org>. Zlib license; full notice in assets/LICENSE-SDL.txt.
 This is Rust source adaptation, not an SDL library dependency.

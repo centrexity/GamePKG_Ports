@@ -438,6 +438,15 @@ pub fn draw_particles(particles: &[crate::physics::Particle]) {
 pub fn draw_background(level: u32, frame: u64) -> bool {
     if level > 9 {
         let theme = crate::procedural::procedural_theme(level);
+        if theme == 2 || theme == 10 {
+            let (color, commands) = if theme == 2 { crate::procedural::hex_commands(level, frame) }
+                else { crate::procedural::bubble_commands(level, frame) };
+            gamepkg::draw_rect(0.0, 60.0, 640.0, 360.0, color);
+            if let Some(image) = crate::background::composited_commands(&commands, color) {
+                draw_effect_tiles(&image, 128);
+            }
+            return true;
+        }
         if theme == 4 || theme == 5 {
             let (color, rectangles) = if theme == 4 { crate::procedural::matrix_rectangles(level, frame) }
                 else { crate::procedural::nebula_rectangles(level, frame) };
