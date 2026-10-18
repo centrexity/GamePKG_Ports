@@ -573,6 +573,17 @@ fn editor_name(label: &str, x: f32, y: f32, editing: bool) {
     }
     text(&shown, x, y, 1.0, 0xe5f3ffff);
 }
+pub fn draw_editor_grid()->bool {
+    // Original SDL grid disables blending and includes both line endpoints.
+    let grid_pixel=[80u8,80,100,255];let mut accepted=true;
+    for row in 0..=10 {
+        if !gamepkg::draw_image(20.0,100.0+row as f32*10.0,600.5,0.5,1,1,&grid_pixel){accepted=false;}
+    }
+    for col in 0..=20 {
+        if !gamepkg::draw_image(20.0+col as f32*30.0,100.0,0.5,100.5,1,1,&grid_pixel){accepted=false;}
+    }
+    accepted
+}
 fn draw_editor(game: &Game) {
     let edit = &game.editor;
     gamepkg::draw_clear(0x0b1020ff);
@@ -604,12 +615,7 @@ fn draw_editor(game: &Game) {
         gamepkg::draw_rect(x, 70.0, 20.0, 15.0, colors[chosen]);
         number(chosen as u32, x + 5.0, 88.0);
     }
-    for row in 0..=10 {
-        gamepkg::draw_rect(20.0, 100.0 + row as f32 * 10.0, 600.0, 0.5, 0x505064c8);
-    }
-    for col in 0..=20 {
-        gamepkg::draw_rect(20.0 + col as f32 * 30.0, 100.0, 0.5, 100.0, 0x505064c8);
-    }
+    draw_editor_grid();
     for index in 0..200 {
         let cell = edit.cells[index];
         let x = 20.0 + (index % 20) as f32 * 30.0;

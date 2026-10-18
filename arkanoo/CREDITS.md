@@ -705,3 +705,15 @@ measured about 2.23 ms before and 0.14 ms after; no execution, image, drawing or
 memory limit was increased. The larger source files are reflected in a 40 MiB
 storage recommendation. Grid composition, original editor fonts/menu artwork
 and whole-window scaling remain separately unfinished.
+
+The editor grid now retains original inclusive endpoints and non-blended RGB.
+Thirty-two opaque one-texel images reproduce 1201×1 horizontal and 1×201
+vertical source-pixel footprints. Actual original SDL OpenGL grid/backdrop
+captures verify all complete logical RGBA bytes for each of the six images.
+Six desktop and two browser configurations pass real selection cycles, plus
+three client sizes per desktop configuration: 7,320 RGB samples, difference at
+most one with explicit nearest-boundary handling. A browser-only 43-level
+fractional coverage mismatch is fixed with single-texel pixel-center coverage,
+including the nearest sampler's lower-neighbor tie rule. No quotas or graphics
+requirements increase. Browser CSS/full-viewport behavior and original editor
+palette/lettering/menu presentation remain separately unfinished.
