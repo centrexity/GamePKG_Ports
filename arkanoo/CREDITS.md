@@ -717,3 +717,15 @@ fractional coverage mismatch is fixed with single-texel pixel-center coverage,
 including the nearest sampler's lower-neighbor tie rule. No quotas or graphics
 requirements increase. Browser CSS/full-viewport behavior and original editor
 palette/lettering/menu presentation remain separately unfinished.
+
+
+Recipe 0.1.47 restores the nine original editor palette colors, three-outline
+white selection, ordinary/hover gray borders and original black Roboto Medium
+26 digit glyphs. Existing OFL font attribution applies to these generated
+rasters. A hash-guarded actual SDL oracle covers 28 complete palette states;
+signed native/core-Wasm composition matches within one color level. Original
+integer hover hitboxes and selected-border precedence are retained. Six Linux
+desktop configurations compare every pixel of the original-size palette region
+across three states and revisit: 329,664 RGB comparisons, maximum difference
+one. Direct half-size SDL rendering, browser/full-window scaling, Colors label
+and other editor/menu lettering remain unfinished. Budgets remain unchanged.

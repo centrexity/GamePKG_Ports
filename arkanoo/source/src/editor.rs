@@ -61,6 +61,7 @@ pub struct Editor {
     pub cells: [u8; 200],
     pub health: [u8; 200],
     pub selected: u8,
+    pub hovered_color: u8,
     pub name: String,
     pub naming: bool,
     pub confirm: bool,
@@ -87,6 +88,7 @@ impl Editor {
             cells: [255; 200],
             health: [1; 200],
             selected: 0,
+            hovered_color: 255,
             name: String::from("my_pattern"),
             naming: false,
             confirm: false,
@@ -319,6 +321,21 @@ impl Editor {
         0
     }
     pub fn editor_event(&mut self, kind: u32, x: f32, y: f32, code: u32) -> u32 {
+        if kind == 1 {
+            self.hovered_color = 255;
+            if x.is_finite() && y.is_finite() {
+                let px = (x * 2.0) as i32;
+                let py = ((y - 60.0) * 2.0) as i32;
+                if (20..50).contains(&py) {
+                    for index in 0..9 {
+                        let left = 860 + index * 45;
+                        if (left..left + 40).contains(&px) {
+                            self.hovered_color = index as u8;
+                        }
+                    }
+                }
+            }
+        }
         if kind == 0 || kind == 8 {
             self.dragging = 0;
         }

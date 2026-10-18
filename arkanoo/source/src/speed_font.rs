@@ -283,3 +283,17 @@ pub fn raster(speed: u32) -> Label {
         pixels,
     }
 }
+pub fn palette_number(index: u8) -> Label {
+    let mut pixels = Vec::new();
+    pixels.resize(15 * 31 * 4, 0u8);
+    if index < 10 {
+        let mut offset = 0;
+        for pair in glyph(48 + index).chunks(2) {
+            for _ in 0..pair[0] {
+                pixels[offset * 4 + 3] = pair[1];
+                offset += 1;
+            }
+        }
+    }
+    Label { width: 15, pixels }
+}

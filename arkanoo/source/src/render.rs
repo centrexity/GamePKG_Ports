@@ -584,36 +584,26 @@ pub fn draw_editor_grid()->bool {
     }
     accepted
 }
+pub fn draw_editor_palette(selected:u8,hovered:u8)->bool {
+    let palette_colors=[[255u8,0,0,255],[255,165,0,255],[255,255,0,255],[0,255,0,255],[0,0,255,255],[138,43,226,255],[200,240,255,255],[255,100,0,255],[30,35,40,255]];
+    let mut accepted=true;
+    for index in 0..9 {
+        let px=860+index as i32*45;
+        let border_shade=if selected==index as u8 {255} else if hovered==index as u8 {150} else {100};
+        let border_pixel=[border_shade,border_shade,border_shade,255];
+        let expansion=if selected==index as u8 {2} else {0};
+        if !gamepkg::draw_image((px-expansion) as f32*0.5,60.0+(20-expansion) as f32*0.5,(40+expansion*2) as f32*0.5,(30+expansion*2) as f32*0.5,1,1,&border_pixel){accepted=false;}
+        if !gamepkg::draw_image((px+1) as f32*0.5,70.5,19.0,14.0,1,1,&palette_colors[index]){accepted=false;}
+        let label=crate::speed_font::palette_number(index as u8);
+        if !gamepkg::draw_image_linear((px+12) as f32*0.5,70.0,7.5,15.5,15,31,&label.pixels){accepted=false;}
+    }
+    accepted
+}
 fn draw_editor(game: &Game) {
     let edit = &game.editor;
     gamepkg::draw_clear(0x0b1020ff);
     if !draw_image_background(edit.background,153) {
         gamepkg::draw_rect(0.0,60.0,640.0,360.0,0x000000ff);
-    }
-    text("LEVEL EDITOR", 5.0, 65.0, 2.0, 0x68e5ffff);
-    text(
-        if edit.naming {
-            "NAME / ENTER TO FINISH"
-        } else {
-            "NAME / N TO EDIT"
-        },
-        5.0,
-        80.0,
-        1.0,
-        0x8ba2c9ff,
-    );
-    editor_name(&edit.name, 5.0, 92.0, edit.naming);
-    let colors = [
-        0xff0000ff, 0xffa500ff, 0xffff00ff, 0x00ff00ff, 0x0000ffff, 0x8a2be2ff, 0xc8f0ffff,
-        0xdc5000ff, 0x404550ff,
-    ];
-    for chosen in 0..9 {
-        let x = 430.0 + chosen as f32 * 22.5;
-        if usize::from(edit.selected) == chosen {
-            gamepkg::draw_rect(x - 1.0, 69.0, 22.0, 17.0, 0xffffffff);
-        }
-        gamepkg::draw_rect(x, 70.0, 20.0, 15.0, colors[chosen]);
-        number(chosen as u32, x + 5.0, 88.0);
     }
     draw_editor_grid();
     for index in 0..200 {
@@ -634,6 +624,20 @@ fn draw_editor(game: &Game) {
             );
         }
     }
+    text("LEVEL EDITOR", 5.0, 65.0, 2.0, 0x68e5ffff);
+    text(
+        if edit.naming {
+            "NAME / ENTER TO FINISH"
+        } else {
+            "NAME / N TO EDIT"
+        },
+        5.0,
+        80.0,
+        1.0,
+        0x8ba2c9ff,
+    );
+    editor_name(&edit.name, 5.0, 92.0, edit.naming);
+    draw_editor_palette(edit.selected,edit.hovered_color);
     text(
         "LEFT DRAG PAINT / RIGHT DRAG ERASE",
         20.0,
