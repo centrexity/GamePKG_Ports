@@ -943,3 +943,25 @@ alpha/color checks preserve every tested result and original SDL image fixtures
 remain exact. All 93 logic checks and both 68-check signed suites pass at default
 parallelism and unchanged deadlines/budgets/tolerances; strict lint and formatting
 pass. This round did not repeat graphical window/platform workflows. Source only.
+
+
+Recipe 0.1.58 adds a four-slot 48 kHz stereo PCM effects mixer. Clips retain
+independent positions across output frames, reuse the first free channel and
+reject a fifth active effect. Gain, per-channel saturation and channel order
+match actual SDL_MixAudioFormat output. Muting prevents new effects while
+existing effects advance silently; a run reset preserves active clips, as the
+original AudioManager outlives Game resets. Event sounds are captured after
+each input; controller fire is captured before physics. The final physics
+callback remains separate, so a rocket launch and collision can both sound.
+
+Production still supplies the temporary synthesized one-frame tones. Long
+stereo fixture clips prove the mixer path, not restoration of the original
+recordings or their durations. Original recordings/provenance, compressed asset
+playback, music and full callback/wall-clock timing remain open. No assets or
+binary packages are added. All 96 logic checks, four source-attack checks and
+both 69-check signed suites pass without changing caps, parallelism or pixel
+tolerances. Expanded six-case signed tests pass in explicitly selected native
+and Wasm targets; actual core/component Chromium WebAudio buffers preserve
+stereo tails, free-channel reuse, muted progress and keyboard/controller
+rocket-plus-brick overlap. Strict lint and formatting pass. Native graphical
+window/device and broader platform workflows were not repeated this round.

@@ -62,20 +62,16 @@ pub fn game_tick(input: u32, state: u64) -> u64 {
             if let Some(events) = gamepkg::input_events() {
                 for event in events {
                     game.source_input(event.kind, event.x, event.y, event.code);
+                    game.capture_sound();
                 }
             }
             pattern_files(game);
             game.update(input);
             if let Some(fullscreen) = gamepkg::window_fullscreen() { game.menu.fullscreen = fullscreen; }
             render::draw(game);
-            if game.sound > 0 {
-                render::sound(
-                    game.sound,
-                    game.frame,
-                    game.menu.sfx_volume,
-                    game.menu.sfx_muted,
-                );
-                game.sound = 0;
+            game.capture_sound();
+            if let Some(samples) = game.effects.effect_render(game.menu.sfx_volume, game.menu.sfx_muted) {
+                gamepkg::audio_submit_stereo(&samples);
             }
             if game.dirty && game.editor.readable {
                 let bytes = game.editor.save_encode_settings(

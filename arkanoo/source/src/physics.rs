@@ -775,6 +775,7 @@ pub struct Game {
     pub lost_life: bool,
     pub cooldown: u32,
     pub sound: u32,
+    pub effects: crate::audio::Mixer,
     pub dirty: bool,
 }
 impl Game {
@@ -825,6 +826,7 @@ impl Game {
             lost_life: false,
             cooldown: 0,
             sound: 0,
+            effects: crate::audio::Mixer::new(),
             dirty: false,
         };
         game.populate();
@@ -1185,7 +1187,15 @@ impl Game {
         self.fps_times.push(now);
         self.fps = self.fps_times.len() as u32;
     }
+    pub fn capture_sound(&mut self) {
+        if self.sound != 0 {
+            self.effects
+                .effect_tone(self.sound, self.frame, self.menu.sfx_muted);
+            self.sound = 0;
+        }
+    }
     pub fn reset_run(&mut self) {
+        let effects = core::mem::replace(&mut self.effects, crate::audio::Mixer::new());
         let fps = self.fps;
         let fps_times = core::mem::take(&mut self.fps_times);
         let splash_timer = self.splash_timer;
@@ -1199,6 +1209,7 @@ impl Game {
         let fullscreen_requests = self.fullscreen_requests;
         let saved_editor = core::mem::replace(&mut self.editor, crate::editor::Editor::new());
         *self = Self::new();
+        self.effects = effects;
         self.fps = fps;
         self.fps_times = fps_times;
         self.splash_timer = splash_timer;
@@ -1432,6 +1443,7 @@ impl Game {
         // Launch/fire are input events before the original per-frame update.
         if input & 4 != 0 {
             self.fire_or_launch();
+            self.capture_sound();
         }
         let movement = self.update_paddle(input);
         self.cooldown = self.cooldown.saturating_add(1);
