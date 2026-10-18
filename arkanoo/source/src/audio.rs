@@ -1,42 +1,22 @@
-// Bounce, glass and launch remain temporary tones; two credited recordings load below.
-pub fn effect_samples(kind: u32, frame: u64, volume: u32, muted: bool) -> [i16; 800] {
-    let mut samples = [0i16; 800];
-    if muted || volume == 0 {
-        return samples;
-    }
-    let period = match kind {
-        1 => 100,
-        2 => 64,
-        3 => 48,
-        _ => 180,
-    };
-    let gain = volume.min(128) as i32;
-    for (index, sample) in samples.iter_mut().enumerate() {
-        // Reduce the phase before adding: identical on 32/64-bit targets at u64::MAX.
-        let phase = (frame % period + index as u64) % period;
-        let sign = if phase < period / 2 { 1 } else { -1 };
-        *sample = (sign * (800 - index) as i32 * 5 * gain / 64) as i16;
-    }
-    samples
-}
-
 // Four SDL-style effect channels. Clips are 48 kHz interleaved stereo PCM.
-// Life-loss and explosion are recorded; the other effects remain temporary tones.
+// All five clips are original recordings; see the audio license and provenance.
 pub struct Voice {
     samples: std::sync::Arc<Vec<i16>>,
     offset: usize,
 }
 pub struct Mixer {
     channels: [Option<Voice>; 4],
-    recordings: [Option<std::sync::Arc<Vec<i16>>>; 2],
-    recording_attempted: [bool; 2],
+    recordings: [Option<std::sync::Arc<Vec<i16>>>; 5],
+    recording_attempted: [bool; 5],
+    recording_bytes: u32,
 }
 impl Mixer {
     pub fn new() -> Self {
         Self {
             channels: [None, None, None, None],
-            recordings: [None, None],
-            recording_attempted: [false, false],
+            recordings: [None, None, None, None, None],
+            recording_attempted: [false; 5],
+            recording_bytes: 0,
         }
     }
     pub fn effect_start(&mut self, samples: Vec<i16>, muted: bool) -> bool {
@@ -78,33 +58,30 @@ impl Mixer {
             None
         }
     }
-    pub fn effect_request(&mut self, kind: u32, frame: u64, muted: bool) -> bool {
-        if muted {
+    pub fn effect_request(&mut self, kind: u32, _frame: u64, muted: bool) -> bool {
+        // Each clip starts at its first sample, independent of the game frame.
+        if muted || !(1..=5).contains(&kind) {
             return false;
         }
-        if kind == 4 || kind == 5 {
-            let at = if kind == 4 { 0 } else { 1 };
-            if !self.recording_attempted[at] {
-                self.recording_attempted[at] = true;
-                let path = if kind == 4 {
-                    "audio/explosion.wav"
-                } else {
-                    "audio/life-loss.wav"
-                };
-                self.recordings[at] = read_recording(path);
-            }
+        let at = (kind - 1) as usize;
+        if !self.recording_attempted[at] {
+            self.recording_attempted[at] = true;
+            let path = match kind {
+                1 => "audio/bounce.wav",
+                2 => "audio/glass.wav",
+                3 => "audio/launch.wav",
+                4 => "audio/explosion.wav",
+                _ => "audio/life-loss.wav",
+            };
+            self.recordings[at] = read_recording(path, 4194304 - self.recording_bytes);
             if let Some(recorded) = &self.recordings[at] {
-                return self.effect_start_shared(recorded.clone(), false);
+                self.recording_bytes += recorded.len() as u32 * 2;
             }
-            return false;
         }
-        let mono = effect_samples(kind, frame, 128, false);
-        let mut stereo = Vec::with_capacity(1600);
-        for sample in mono {
-            stereo.push(sample);
-            stereo.push(sample);
+        if let Some(recorded) = &self.recordings[at] {
+            return self.effect_start_shared(recorded.clone(), false);
         }
-        self.effect_start(stereo, false)
+        false
     }
 }
 
@@ -130,12 +107,15 @@ pub fn recording_length(header: &[u8]) -> Option<u32> {
     }
     Some(size)
 }
-fn read_recording(path: &str) -> Option<std::sync::Arc<Vec<i16>>> {
+fn read_recording(path: &str, budget: u32) -> Option<std::sync::Arc<Vec<i16>>> {
     let mut header = [0u8; 44];
     if crate::gamepkg::asset_read(path, 0, &mut header) != Some(44) {
         return None;
     }
     let size = recording_length(&header)?;
+    if size > budget {
+        return None;
+    }
     let mut pcm = Vec::with_capacity(size as usize / 2);
     let mut block = [0u8; 65536];
     let mut offset = 0u32;

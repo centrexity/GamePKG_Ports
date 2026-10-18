@@ -859,13 +859,6 @@ fn draw_effect_tiles(image: &crate::physics::ParticleImage, tile: u32) {
         }
     }
 }
-pub fn sound(kind: u32, frame: u64, volume: u32, muted: bool) {
-    if muted || volume == 0 {
-        return;
-    }
-    let samples = crate::audio::effect_samples(kind, frame, volume, false);
-    gamepkg::audio_submit(&samples);
-}
 
 pub fn draw_dynamic_label(
     label: &str,

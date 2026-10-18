@@ -10,10 +10,10 @@ paddle/ball motion and spin, overlap collision response, scoring, and the
 long-paddle, extra-ball, ghost-ball and rocket mechanics from entities.rs and
 game.rs. The engine integration has been rewritten for GamePKG's safe APIs.
 
-The safe host integration and synthesized audio are new. Original visual
+The safe host integration and bounded PCM mixer are new. Original visual
 procedures/assets restored in the port are identified below, including brick,
 ball and paddle art, backgrounds, rasterized Roboto lettering and startup art.
-The original life-loss and explosion recordings are restored with the credits below. Bounce, glass and launch effects remain temporary tones; original music is still unfinished.
+All five original recorded sound effects are restored with the provenance below. Original music remains unfinished. Individual artist/item credits for bounce, glass and launch were not supplied by upstream.
 The port uses a 640x480 canvas and GamePKG host randomness instead of SDL2,
 rand or filesystem access. Launch directions use rejection sampling, and bonus
 selection uses independent probability/weight draws.
@@ -1017,3 +1017,40 @@ existing browser input/window/clock/stereo checks pass, along with both portable
 browser gameplay/integrity/shutdown regressions. Strict lint and formatting pass.
 This does not establish new physical-device, graphical-window or native platform
 coverage, or finish music and fully asynchronous playback timing. Source only.
+
+
+Recipe 0.1.60 restores the remaining exact upstream ball.mp3, breaking-glass.mp3
+and load.mp3 recordings as bounce.wav, glass.wav and launch.wav. The pinned
+upstream README identifies sounds/music as Pixabay content. History records the
+generic filenames, with no individual artist/item links for these three files;
+that credit basis is explicit in the metadata and audio license notice. Creator
+fields are null when upstream did not supply a name. These files are not assigned
+to an invented artist or relabeled under the code license. Complete original
+MP3, prepared WAV and PCM hashes remain reproducible through the SDL reference.
+
+All five effects now use their recordings; the synthesized generator and old
+render::sound path are removed. Initial silence, original durations and stereo
+content remain intact, including the mono glass source duplicated by SDL into
+both output channels. Five immutable cached clips total 2,208,852 decoded bytes.
+A shared 4 MiB resident budget retains the previous worst-case two-clip bound,
+and each clip still has the same 2 MiB bound; four voices share the cached data.
+No frame/sample/image/memory/deadline limit is increased.
+
+Gain and overlap checks compare an audible window after the originals' initial
+silence, and the input-plus-physics test compares complete combined clip output.
+Invalid effect IDs are rejected before reads/indexing; cache exhaustion rejects
+before allocating another clip. All five full PCM streams and cached playback
+remain architecture-independent through explicit little-endian samples. Music,
+fully asynchronous timing, individual artist/item identification for the three
+generic source files and untested native platforms remain open.
+
+
+Final 0.1.60 checks: 100 logic tests and both 71-check signed native/Wasm suites
+pass at unchanged limits, tolerances and default parallelism. Every prepared PCM
+sample is checked through all five clips in one session, retaining all five
+cached recordings. Actual core/component WebAudio buffers match all five full
+PCM hashes and endings. Audible-window and complete mixed-output checks verify
+gain, original silence, keyboard/controller requests and independent channel
+content. The SDL conversion metadata reproduces byte-for-byte; strict lint,
+formatting and the browser fractional-clock regression pass. No new physical
+device, native graphical-window or broader platform coverage is claimed.

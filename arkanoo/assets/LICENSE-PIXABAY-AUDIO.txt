@@ -1,5 +1,14 @@
 Audio assets used as part of this game adaptation:
 
+  audio/bounce.wav     adapted from upstream assets/ball.mp3
+  audio/glass.wav      adapted from upstream assets/breaking-glass.mp3
+  audio/launch.wav     adapted from upstream assets/load.mp3
+
+  The pinned upstream README credits sounds and music to Pixabay:
+  https://github.com/c0m4r/arkanoo/blob/9d613e78c9ed5657ae7fda9206cd4a82a893b7c8/README.md#credits
+  Individual artist names and item URLs for these three files were not supplied.
+  Their exact upstream-file hashes and credit basis are recorded in the fixture.
+
   audio/life-loss.wav
   Adapted from "Drop Sound Effect" by 11325622
   https://pixabay.com/sound-effects/film-special-effects-drop-sound-effect-240899/
@@ -19,5 +28,5 @@ game adaptation and are not offered as a standalone sound library.
 
 The original source files, their hashes, creators and conversion reference are
 listed in the repository's recorded-effects fixture and CREDITS.md. Players
-need no conversion tool or MP3 decoder. Other sound effects and music are not
+need no conversion tool or MP3 decoder. Original music is not included or
 covered by this notice.
