@@ -99,7 +99,7 @@ pub fn game_tick(input: u32, state: u64) -> u64 {
             gamepkg::window_control(0, u32::from(!confined));
             gamepkg::window_control(1, u32::from(confined));
             while game.fullscreen_requests > 0 {
-                gamepkg::window_control(2, 0);
+                if gamepkg::window_control(2, 0) {game.menu.fullscreen=!game.menu.fullscreen;}
                 game.fullscreen_requests -= 1;
             }
             if game.quit_requested {

@@ -2,6 +2,7 @@
 // Original 1280x720 rectangles use the same half scale and y=60 projection.
 pub struct Menu {
     pub settings: bool,
+    pub fullscreen: bool,
     pub sfx_volume: u32,
     pub sfx_muted: bool,
     pub save_failed: bool,
@@ -13,6 +14,7 @@ impl Menu {
     pub fn new() -> Self {
         Self {
             settings: false,
+            fullscreen: false,
             sfx_volume: 64,
             sfx_muted: false,
             save_failed: false,

@@ -789,3 +789,20 @@ physical-pixel rule, fixing disappearing half-pixel borders. Shared clip/image/
 shader/resize and editor-grid regressions pass afterward. Both 61-check suites
 and native/core/component browser editor/file workflows pass. Full editor/menu
 frames, arbitrary viewport/CSS scaling and untested platforms remain unfinished.
+
+Recipe 0.1.51 restores the implemented main/SFX/fullscreen/back menu layer's
+original Roboto captions, layout, hover fills, borders, slider percentages and
+background-one dimming. `menu-background1-{0..5}.png` are overlapping tiles of
+the original WTFPL background, captured at the canonical SDL viewport; users
+need no capture/compiler tools. The independent 38-frame partial-layer oracle
+and tiles reproduce exactly. Signed native/core-Wasm checks and six desktop/two
+browser rendering configurations pass within unchanged budgets and a two-level
+pixel tolerance. The port retains its accessible Back-button extension. Gravity
+mode persistence is checked without an invented visual stripe; accepted
+fullscreen requests update the caption and survive run restart. External window
+state readback, original music/resolution/VSync controls, project/version display,
+splash/HUD artwork, arbitrary original scaling and other platforms remain open.
+The advisory storage estimate is 48 MiB after measuring 43.0 MiB with package,
+recovery copy and native/Wasm builds; hard memory and drawing limits are unchanged.
+Final native and both browser-profile gameplay/editor and player-selected file
+import/cancel/export workflows pass. Publication is source only.

@@ -558,11 +558,14 @@ pub fn sound(kind: u32, frame: u64, volume: u32, muted: bool) {
 }
 
 pub fn draw_dynamic_label(label:&str,original_x:i32,original_y:i32,color:[u8;3],centered:bool,row_height:i32)->bool {
+    draw_viewport_label(label,original_x,original_y,color,centered,row_height,720)
+}
+fn draw_viewport_label(label:&str,original_x:i32,original_y:i32,color:[u8;3],centered:bool,row_height:i32,bottom:i32)->bool {
     let Some(layout_data)=crate::dynamic_font::unicode_layout(label) else {return false;};
     let left=if centered {original_x-layout_data.width/2} else {original_x};
     let top=if row_height>=0 {original_y+(row_height-layout_data.height)/2} else {original_y};
     let visible_left=(-left).clamp(0,layout_data.width);let visible_right=(1280-left).clamp(0,layout_data.width);
-    let clip_top=top.max(0);let clip_bottom=(top+layout_data.height).min(720);
+    let clip_top=top.max(0);let clip_bottom=(top+layout_data.height).min(bottom);
     if visible_left>=visible_right || clip_top>=clip_bottom {return true;}
     let mut column=visible_left;let mut accepted=true;
     while column<visible_right {
@@ -681,133 +684,45 @@ fn draw_editor(game: &Game) {
     if edit.message_time>0 {draw_dynamic_label(&edit.message,640,590,[100,255,100],true,-1);}
 }
 
-fn draw_menu(game: &Game) {
-    gamepkg::draw_clear(0x101b35ff);
-    let heading = if game.menu.settings {
-        "SETTINGS"
-    } else if game.mode == 2 {
-        "PAUSED"
-    } else {
-        "ARKANOO"
-    };
-    text(
-        heading,
-        320.0 - heading.len() as f32 * 6.0,
-        150.0,
-        2.0,
-        0x68e5ffff,
-    );
-    if game.menu.settings {
-        for action in [10, 7, 8] {
-            draw_menu_button(game, action);
-        }
-        gamepkg::draw_rect(270.0, 240.0, 100.0, 10.0, 0x505050c8);
-        gamepkg::draw_rect(
-            270.0,
-            240.0,
-            (game.menu.sfx_volume.min(128) * 200 / 128) as f32 * 0.5,
-            10.0,
-            0x64c864dc,
-        );
-        gamepkg::draw_rect(270.0, 240.0, 100.0, 0.5, 0xc8c8c8ff);
-        gamepkg::draw_rect(270.0, 249.5, 100.0, 0.5, 0xc8c8c8ff);
-        gamepkg::draw_rect(270.0, 240.0, 0.5, 10.0, 0xc8c8c8ff);
-        gamepkg::draw_rect(369.5, 240.0, 0.5, 10.0, 0xc8c8c8ff);
-        let percent = game.menu.sfx_volume.min(128) * 100 / 128;
-        let mut shown = String::new();
-        if percent == 100 {
-            shown.push_str("100");
-        } else {
-            if percent >= 10 {
-                shown.push(char::from(48 + (percent / 10) as u8));
-            }
-            shown.push(char::from(48 + (percent % 10) as u8));
-        }
-        shown.push('%');
-        text(
-            &shown,
-            320.0 - shown.len() as f32 * 3.0,
-            241.5,
-            1.0,
-            0xffffffff,
-        );
-        if !game.editor.readable {
-            text("SAVE DAMAGED / PRESERVED", 251.0, 330.0, 1.0, 0xffdb70ff);
-        } else if game.menu.save_failed {
-            text("SAVING UNAVAILABLE", 266.0, 330.0, 1.0, 0xffdb70ff);
-        }
-    } else {
-        for action in 1..=6 {
-            draw_menu_button(game, action);
-        }
+pub fn draw_menu_background()->bool {
+    let paths=["menu-background1-0.png","menu-background1-1.png","menu-background1-2.png","menu-background1-3.png","menu-background1-4.png","menu-background1-5.png"];let mut accepted=true;
+    for index in 0..6 {
+        let core_x=(index%3)*510usize;let core_y=(index/3)*510usize;let core_w=(1280-core_x).min(510);let core_h=(720-core_y).min(510);let source_left=core_x.saturating_sub(1);let source_top=core_y.saturating_sub(1);let source_right=(core_x+core_w+1).min(1280);let source_bottom=(core_y+core_h+1).min(720);
+        if !gamepkg::draw_clip(core_x as f32*0.5,60.0+core_y as f32*0.5,core_w as f32*0.5,core_h as f32*0.5){accepted=false;}
+        if !gamepkg::draw_asset_image_linear(paths[index],source_left as f32*0.5,60.0+source_top as f32*0.5,(source_right-source_left) as f32*0.5,(source_bottom-source_top) as f32*0.5){accepted=false;}
+        if !gamepkg::draw_clip_reset(){accepted=false;}
     }
+    if !gamepkg::draw_rect(0.0,60.0,640.0,360.0,150){accepted=false;}accepted
+}
+pub fn draw_menu(game:&Game) {
+    gamepkg::draw_clear(0x101b35ff);
+    draw_menu_background();
+    let heading=if game.menu.settings {"SETTINGS"} else if game.started {"PAUSED"} else {"ARKANOO"};
+    draw_dynamic_label(heading,640,if game.menu.settings {160} else {180},[255,255,255],true,-1);
     if game.menu.settings {
-        text("F11 ALSO TOGGLES FULLSCREEN", 242.0, 300.0, 1.0, 0x8ba2c9ff);
+        for action in [10,7,8] {draw_menu_button(game,action);}
+        draw_sfx_slider(game.menu.sfx_volume);
+        if !game.editor.readable {text("SAVE DAMAGED / PRESERVED",251.0,330.0,1.0,0xffdb70ff);} else if game.menu.save_failed {text("SAVING UNAVAILABLE",266.0,330.0,1.0,0xffdb70ff);}
     } else {
-        text(
-            "UP START / DOWN PAUSE / E EDITOR",
-            227.0,
-            355.0,
-            1.0,
-            0x8ba2c9ff,
-        );
-        text(
-            "V GRAVITY / R RESTART / Q QUIT",
-            233.0,
-            375.0,
-            1.0,
-            0x8ba2c9ff,
-        );
+        for action in 1..=6 {draw_menu_button(game,action);}
     }
 }
-
-fn draw_menu_button(game: &Game, action: u32) {
-    let [left, top, width, height] = crate::menu::Menu::bounds(action);
-    let label = match action {
-        1 => {
-            if game.started {
-                "RESUME"
-            } else {
-                "NEW GAME"
-            }
-        }
-        2 => "RESTART",
-        3 => "GRAVITY MODE",
-        4 => "LEVEL EDITOR",
-        5 => "SETTINGS",
-        6 => "QUIT",
-        7 => "FULLSCREEN",
-        10 => {
-            if game.menu.sfx_muted {
-                "SFX OFF"
-            } else {
-                "SFX ON"
-            }
-        }
-        _ => "BACK",
-    };
-    let hovered = game.menu.hover == action;
-    gamepkg::draw_rect(
-        left,
-        top,
-        width,
-        height,
-        if hovered { 0x646496c8 } else { 0x3c3c64b4 },
-    );
-    gamepkg::draw_rect(left, top, width, 0.5, 0xc8c8c8ff);
-    gamepkg::draw_rect(left, top + height - 0.5, width, 0.5, 0xc8c8c8ff);
-    gamepkg::draw_rect(left, top, 0.5, height, 0xc8c8c8ff);
-    gamepkg::draw_rect(left + width - 0.5, top, 0.5, height, 0xc8c8c8ff);
-    if action == 3 && game.gravity {
-        gamepkg::draw_rect(left + 2.0, top + 2.0, 2.0, height - 4.0, 0x64c864ff);
-    }
-    text(
-        label,
-        left + (width - label.len() as f32 * 7.5) * 0.5,
-        top + 5.5,
-        1.25,
-        0xffffffff,
-    );
+pub fn draw_sfx_slider(volume:u32) {
+    let width=volume.min(128)*200/128;
+    gamepkg::draw_image(270.0,240.0,100.0,10.0,1,1,&[80,80,80,200]);
+    gamepkg::draw_image(270.0,240.0,width as f32*0.5,10.0,1,1,&[100,200,100,220]);
+    for edge in [[270.0,240.0,100.0,0.5],[270.0,249.5,100.0,0.5],[270.0,240.0,0.5,10.0],[369.5,240.0,0.5,10.0]] {gamepkg::draw_image(edge[0],edge[1],edge[2],edge[3],1,1,&[200,200,200,255]);}
+    let percent=volume.min(128)*100/128;let mut shown=String::new();
+    if percent==100 {shown.push_str("100");} else {if percent>=10 {shown.push(char::from(48+(percent/10) as u8));}shown.push(char::from(48+(percent%10) as u8));}shown.push('%');
+    if let Some(volume_label)=crate::dynamic_font::unicode_layout(&shown) {draw_dynamic_label(&shown,540+(200-volume_label.width)/2,360,[255,255,255],false,20);}
+}
+pub fn draw_menu_button(game:&Game,action:u32) {
+    let [left,top,width,height]=crate::menu::Menu::bounds(action);
+    let caption=match action {1=>if game.started {"Resume"} else {"New Game"},2=>"Restart",3=>"Gravity Mode",4=>"Level Editor",5=>"Settings",6=>"Quit",7=>if game.menu.fullscreen {"Fullscreen"} else {"Windowed"},10=>if game.menu.sfx_muted {"SFX: OFF"} else {"SFX: ON"},_=>"Back"};
+    let fill=if game.menu.hover==action {[100u8,100,150,200]} else {[60u8,60,100,180]};
+    gamepkg::draw_image(left,top,width,height,1,1,&fill);
+    for edge in [[left,top,width,0.5],[left,top+height-0.5,width,0.5],[left,top,0.5,height],[left+width-0.5,top,0.5,height]] {gamepkg::draw_image(edge[0],edge[1],edge[2],edge[3],1,1,&[200,200,200,255]);}
+    if let Some(caption_layout)=crate::dynamic_font::unicode_layout(caption) {draw_viewport_label(caption,(left*2.0) as i32+((width*2.0) as i32-caption_layout.width)/2,((top-60.0)*2.0) as i32,[255,255,255],false,(height*2.0) as i32,840);}
 }
 
 // Body pixels come from the unchanged original SDL procedure. Overlay rectangles

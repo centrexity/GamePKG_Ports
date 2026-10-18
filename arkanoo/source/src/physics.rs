@@ -1112,6 +1112,7 @@ impl Game {
         let gravity = self.gravity;
         let sfx_volume = self.menu.sfx_volume;
         let sfx_muted = self.menu.sfx_muted;
+        let fullscreen = self.menu.fullscreen;
         let fullscreen_requests = self.fullscreen_requests;
         let saved_editor = core::mem::replace(&mut self.editor, crate::editor::Editor::new());
         *self = Self::new();
@@ -1124,6 +1125,7 @@ impl Game {
         self.gravity = gravity;
         self.menu.sfx_volume = sfx_volume;
         self.menu.sfx_muted = sfx_muted;
+        self.menu.fullscreen = fullscreen;
         self.dirty = true;
     }
     pub fn editor_test(&mut self) {
