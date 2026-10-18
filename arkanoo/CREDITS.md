@@ -18,7 +18,7 @@ rand or filesystem access. Launch directions use rejection sampling, and bonus
 selection uses independent probability/weight draws.
 Endless levels use the original twelve procedural patterns plus saved custom
 patterns. The editor supports painting/erasing, all nine brick choices, names,
-save/load, clear confirmation and test play through scoped host APIs. Remaining menu/music behavior, ball trails and penguin/heart-loss animation still need
+save/load, clear confirmation and test play through scoped host APIs. Remaining menu/music behavior, penguin/heart-loss animation still needs
 fidelity work. Original ASCII pattern files can now be imported/exported through
 player-selected files.
 
@@ -303,6 +303,34 @@ edge coordinates and the exact ordered shard points. SDL drawing calls are
 recorded rather than replaced with a second drawing algorithm. Native and wasm32
 fixtures inspect the actual image coordinates/pixels and exercise 2,000–3,000
 shards from one full-board burst. A full-viewport stress case verifies all four
-corner shards survive tiling under the unchanged memory/image limits. Ball
-trails/fireball glows, penguin/heart loss,
-remaining original artwork and music/audio are still separate open work.
+corner shards survive tiling under the unchanged memory/image limits. Penguin/
+heart loss, original ball artwork/speed lettering and remaining music/audio are
+still separate open work.
+
+Ball trails now track original top-left positions before force/movement updates
+at 800/1400 original px/s. The original retains eight or twenty positions by
+popping a single entry after each insertion; dropping from the higher tier
+therefore retains its longer history until speed drops below 800. Attached balls
+and portal-orbit updates preserve existing history; a new ball starts empty.
+
+Regular/super fireball effects restore 20/30 trail samples, original integer
+circle points/radii, color gradients and alpha, super-fireball pulse, and twelve
+spinning glowing particles. Effects draw before their own ball through the same
+bounded tiled RGBA layer used by shards, preserving per-ball order and clipping.
+No new host capability, crate, macro, indirect call or resource-limit increase is
+required. Original metal ball artwork and speed-text font remain separate work.
+
+`tests/reference/arkanoo_trails.py` compiles the unchanged original Ball update
+and effect-drawing fragments with full-file SHA-256 guards. Forty-nine history
+observations cover threshold crossings, tier downgrade, pre-force timing and
+attached-state freezing. Sixteen effect cases record all 15,909 point/color
+operations at ordinary/threshold/high speeds, negative/edge positions, wide
+history and large frame values. Source tests match exact point order/colors;
+actual runtime tests inspect the resulting RGBA images and tiled coordinates.
+
+The original u64 animation clock is preserved rather than resetting at 32-bit
+wraparound. Original-code effect cases include u32::MAX, the following frame,
+and u64::MAX. Signed runtime probes verify the stored clock crosses the 32-bit
+boundary and remains paused when requested. Synthesized effect phase now also
+uses u64 modulo reduction before adding its bounded sample index; independent
+u128 vectors and actual native/wasm32 PCM verify both integer-limit boundaries.

@@ -37,6 +37,7 @@ pub fn below(bound: u64) -> u64 {
     }
 }
 pub struct Ball {
+    pub trail: Vec<[f32; 2]>,
     pub x: f32,
     pub y: f32,
     pub vx: f32,
@@ -48,6 +49,7 @@ pub struct Ball {
 impl Ball {
     pub fn new(x: f32, y: f32) -> Self {
         Self {
+            trail: Vec::new(),
             x,
             y,
             vx: 0.0,
@@ -73,6 +75,7 @@ impl Ball {
     }
 
     pub fn advance(&mut self, gravity: bool) {
+        self.record_trail();
         self.apply_forces(gravity);
         self.x += self.vx;
         self.y += self.vy;
@@ -89,6 +92,22 @@ impl Ball {
         }
         if self.vx.abs() < 1.0 {
             self.vx = if self.vx >= 0.0 { 1.0 } else { -1.0 };
+        }
+    }
+    pub fn record_trail(&mut self) {
+        let speed = (self.vx * self.vx + self.vy * self.vy).sqrt() * 120.0;
+        if speed >= 800.0 {
+            self.trail.push([
+                (self.x - BALL_RADIUS) * 2.0,
+                (self.y - TOP - BALL_RADIUS) * 2.0,
+            ]);
+            let maximum = if speed >= 1400.0 { 20 } else { 8 };
+            // The original pops one entry, rather than truncating on a tier drop.
+            if self.trail.len() > maximum {
+                self.trail.remove(0);
+            }
+        } else {
+            self.trail.clear();
         }
     }
     pub fn active(&self) -> bool {
@@ -261,15 +280,7 @@ pub fn particle_image(particles: &[Particle]) -> Option<ParticleImage> {
                 continue;
             }
             let offset = ((y - top) as usize * width as usize + (x - left) as usize) * 4;
-            let old_alpha = u32::from(pixels[offset + 3]);
-            let denominator = opacity * 255 + old_alpha * (255 - opacity);
-            for channel in 0..3 {
-                let color = (p.color >> (24 - channel * 8)) & 255;
-                pixels[offset + channel] = ((color * opacity * 255
-                    + u32::from(pixels[offset + channel]) * old_alpha * (255 - opacity))
-                    / denominator) as u8;
-            }
-            pixels[offset + 3] = (denominator / 255) as u8;
+            blend_effect_pixel(&mut pixels, offset, p.color, opacity);
         }
     }
     Some(ParticleImage {
@@ -279,6 +290,145 @@ pub fn particle_image(particles: &[Particle]) -> Option<ParticleImage> {
         height,
         pixels,
     })
+}
+pub struct EffectPoint {
+    pub x: i32,
+    pub y: i32,
+    pub color: u32,
+}
+pub fn blend_effect_pixel(pixels: &mut [u8], offset: usize, rgba: u32, opacity: u32) {
+    if opacity == 0 {
+        return;
+    }
+    let old_alpha = u32::from(pixels[offset + 3]);
+    let denominator = opacity * 255 + old_alpha * (255 - opacity);
+    for channel in 0..3 {
+        let color = (rgba >> (24 - channel * 8)) & 255;
+        pixels[offset + channel] = ((color * opacity * 255
+            + u32::from(pixels[offset + channel]) * old_alpha * (255 - opacity))
+            / denominator) as u8;
+    }
+    pixels[offset + 3] = (denominator / 255) as u8;
+}
+pub fn effect_image(dots: &[EffectPoint]) -> Option<ParticleImage> {
+    let mut left = 1280i32;
+    let mut top = 720i32;
+    let mut right = -1i32;
+    let mut bottom = -1i32;
+    for dot in dots {
+        if (0..1280).contains(&dot.x) && (0..720).contains(&dot.y) && dot.color & 255 != 0 {
+            left = left.min(dot.x);
+            right = right.max(dot.x);
+            top = top.min(dot.y);
+            bottom = bottom.max(dot.y);
+        }
+    }
+    if left > right || top > bottom {
+        return None;
+    }
+    let width = (right - left + 1) as u32;
+    let height = (bottom - top + 1) as u32;
+    let length = width as usize * height as usize * 4;
+    let mut pixels = Vec::with_capacity(length);
+    pixels.resize(length, 0u8);
+    for dot in dots {
+        if dot.x >= left && dot.x <= right && dot.y >= top && dot.y <= bottom {
+            let offset = ((dot.y - top) as usize * width as usize + (dot.x - left) as usize) * 4;
+            blend_effect_pixel(&mut pixels, offset, dot.color, dot.color & 255);
+        }
+    }
+    Some(ParticleImage {
+        left,
+        top,
+        width,
+        height,
+        pixels,
+    })
+}
+pub fn effect_circle(dots: &mut Vec<EffectPoint>, x: i32, y: i32, radius: i32, color: u32) {
+    for dy in -radius..=radius {
+        for dx in -radius..=radius {
+            if dx * dx + dy * dy <= radius * radius {
+                dots.push(EffectPoint {
+                    x: x + dx,
+                    y: y + dy,
+                    color,
+                });
+            }
+        }
+    }
+}
+pub fn ball_effect_points(ball: &Ball, frame: u64) -> Vec<EffectPoint> {
+    let mut dots = Vec::new();
+    let cx = ((ball.x - BALL_RADIUS) * 2.0) as i32 + 6;
+    let cy = ((ball.y - TOP - BALL_RADIUS) * 2.0) as i32 + 6;
+    let vx = ball.vx * 2.0;
+    let vy = ball.vy * 2.0;
+    let speed = (vx.powi(2) + vy.powi(2)).sqrt();
+    let speed_per_second = speed * 60.0;
+    for (index, position) in ball.trail.iter().enumerate() {
+        let opacity = ((index + 1) as f32 / ball.trail.len() as f32 * 180.0) as u8;
+        for dy in 0i32..9 {
+            for dx in 0i32..9 {
+                let cdx = dx - 4;
+                let cdy = dy - 4;
+                if cdx * cdx + cdy * cdy <= 16 {
+                    dots.push(EffectPoint {
+                        x: position[0] as i32 + dx,
+                        y: position[1] as i32 + dy,
+                        color: 0xc8c8ff00 | u32::from(opacity),
+                    });
+                }
+            }
+        }
+    }
+    if speed_per_second >= 800.0 {
+        let super_fireball = speed_per_second >= 1400.0;
+        let dx = -vx / speed;
+        let dy = -vy / speed;
+        let length = if super_fireball { 30 } else { 20 };
+        let intensity = if super_fireball { 220.0 } else { 180.0 };
+        for index in 1..=length {
+            let distance = index as f32 * 2.0;
+            let x = cx + (dx * distance) as i32;
+            let y = cy + (dy * distance) as i32;
+            let pulse = if super_fireball {
+                (frame as f32 * 0.3).sin() * 0.2 + 0.8
+            } else {
+                1.0
+            };
+            let opacity = ((length - index) as f32 / length as f32 * intensity * pulse) as u8;
+            let radius = 6 - index / 4;
+            let color = if super_fireball {
+                if index < 10 {
+                    0xffffc800
+                } else if index < 20 {
+                    0xff000000 | (((220 - (index - 10) * 8) as u32) << 16) | 0x6400
+                } else {
+                    0xff643200
+                }
+            } else if index < 7 {
+                0xff000000 | (((255 - index * 20) as u32) << 16) | 0x6400
+            } else if index < 14 {
+                0xff000000 | (((140 - (index - 7) * 15) as u32) << 16) | 0x3200
+            } else {
+                0xc8321400
+            };
+            effect_circle(&mut dots, x, y, radius, color | u32::from(opacity));
+        }
+        if super_fireball {
+            let spin = frame as f32 * 0.2;
+            for index in 0..12 {
+                let angle = (index as f32 / 12.0) * core::f32::consts::PI * 2.0 + spin;
+                let x = cx + (angle.cos() * 18.0) as i32;
+                let y = cy + (angle.sin() * 18.0) as i32;
+                let opacity =
+                    ((frame as f32 * 0.3 + index as f32 * 0.5).sin() * 80.0 + 175.0) as u8;
+                effect_circle(&mut dots, x, y, 3, 0xffffc800 | u32::from(opacity));
+            }
+        }
+    }
+    dots
 }
 pub struct Game {
     pub splash_timer: u32,
@@ -316,7 +466,7 @@ pub struct Game {
     pub portal: bool,
     pub portal_timer: u32,
     pub max_speed: f32,
-    pub frame: u32,
+    pub frame: u64,
     pub lost_life: bool,
     pub cooldown: u32,
     pub sound: u32,

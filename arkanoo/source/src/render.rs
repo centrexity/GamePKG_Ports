@@ -135,7 +135,7 @@ fn special_brick(game: &Game, index: usize, x: f32, y: f32) {
         y,
     );
 }
-fn brick_picture(kind: u8, health: u8, max_health: u8, frame: u32, x: f32, y: f32) {
+fn brick_picture(kind: u8, health: u8, max_health: u8, frame: u64, x: f32, y: f32) {
     let time = frame as f64 * 0.05;
     let rgba = if kind == 1 {
         [200, 240, 255, (180.0 + (time.sin() * 20.0)) as u8]
@@ -256,6 +256,7 @@ pub fn draw(game: &Game) {
         }
     }
     for ball in &game.balls {
+        draw_ball_effects(ball,game.frame);
         gamepkg::draw_circle(ball.x, ball.y, 3.0, 0xffffffff);
     }
     for drop in &game.drops {
@@ -312,7 +313,14 @@ pub fn draw(game: &Game) {
     }
 }
 pub fn draw_particles(particles: &[crate::physics::Particle]) {
-    if let Some(image) = crate::physics::particle_image(particles) {
+    if let Some(image)=crate::physics::particle_image(particles) {draw_effect_layer(&image);}
+}
+pub fn draw_ball_effects(ball: &crate::physics::Ball,frame:u64) {
+    let dots=crate::physics::ball_effect_points(ball,frame);
+    if let Some(image)=crate::physics::effect_image(&dots) {draw_effect_layer(&image);}
+}
+fn draw_effect_layer(image: &crate::physics::ParticleImage) {
+
         // Preserve the full layer in at most six non-overlapping 512x512 tiles.
         for top in (0..image.height).step_by(512) {
             for left in (0..image.width).step_by(512) {
@@ -338,8 +346,7 @@ pub fn draw_particles(particles: &[crate::physics::Particle]) {
             }
         }
     }
-}
-pub fn sound(kind: u32, frame: u32, volume: u32, muted: bool) {
+pub fn sound(kind: u32, frame: u64, volume: u32, muted: bool) {
     if muted || volume == 0 {
         return;
     }
