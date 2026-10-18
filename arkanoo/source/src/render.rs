@@ -362,36 +362,37 @@ pub fn draw(game: &Game) {
         0x8ba2c9ff,
     );
     text("V GRAVITY", 430.0, 461.0, 1.0, 0x8ba2c9ff);
-    if game.mode != 1 {
-        gamepkg::draw_rect(64.0, 268.0, 512.0, 138.0, 0x101b35ff);
-        let title = match game.mode {
-            0 => "ARKANOO",
-            2 => "PAUSED",
-            3 => "LEVEL CLEARED",
-            5 => "VICTORY",
-            _ => "GAME OVER",
-        };
-        text(title, 100.0, 284.0, 3.0, 0x68e5ffff);
-        let detail = match game.mode {
-            0 => "NINE LEVELS THEN ENDLESS PLAY",
-            2 => "DOWN TO RESUME",
-            3 => "UP FOR NEXT LEVEL",
-            5 => "UP FOR ENDLESS MODE",
-            _ => "UP TO PLAY AGAIN",
-        };
-        text(detail, 100.0, 323.0, 2.0, 0xe5f3ffff);
-        if game.mode == 0 {
-            text("UP TO START / E EDITOR", 100.0, 356.0, 2.0, 0xffdb70ff);
-        }
-        text(
-            "L LONG   B BALL   G GHOST   R ROCKET",
-            100.0,
-            386.0,
-            1.0,
-            0x8ba2c9ff,
-        );
-    }
+    draw_end_screen(game);
 }
+fn append_u32(digits_out:&mut String,mut value:u32) {
+    let mut digits=[0u8;10];let mut length=0usize;
+    loop {digits[length]=(value%10) as u8;length+=1;value/=10;if value==0 {break;}}
+    while length>0 {length-=1;digits_out.push(char::from(48+digits[length]));}
+}
+pub fn draw_end_screen(game:&Game)->bool {
+    if game.mode!=3 && game.mode!=4 && game.mode!=5 {return true;}
+    let mut accepted=gamepkg::draw_rect(0.0,60.0,640.0,360.0,if game.mode==3 {150} else {180});
+    let mut score=String::from(if game.mode==3 {"Score: "} else {"Final Score: "});append_u32(&mut score,game.score);
+    if game.mode==3 {
+        let mut title=String::from("Level ");append_u32(&mut title,game.level);title.push_str(" Complete!");
+        if !draw_dynamic_label(&title,640,260,[0,255,100],true,-1){accepted=false;}
+        if !draw_dynamic_label(&score,640,320,[255,255,255],true,-1){accepted=false;}
+        if !draw_dynamic_label("Click to start next level",640,400,[255,255,100],true,-1){accepted=false;}
+    } else if game.mode==4 {
+        let mut empty=true;for block in &game.blocks {if *block!=0 {empty=false;}}
+        if !draw_dynamic_label(if empty {"VICTORY!"} else {"GAME OVER"},640,260,if empty {[0,255,0]} else {[255,100,100]},true,-1){accepted=false;}
+        if !draw_dynamic_label(&score,640,320,[255,255,255],true,-1){accepted=false;}
+        if !draw_dynamic_label("Press R to Restart or Q to Quit",640,380,[200,200,200],true,-1){accepted=false;}
+    } else {
+        if !draw_dynamic_label("CONGRATULATIONS!",640,240,[255,215,0],true,-1){accepted=false;}
+        if !draw_dynamic_label("Campaign Complete!",640,290,[0,255,0],true,-1){accepted=false;}
+        if !draw_dynamic_label(&score,640,340,[255,255,255],true,-1){accepted=false;}
+        if !draw_dynamic_label("Press ENTER for Infinite Mode",640,400,[255,215,0],true,-1){accepted=false;}
+        if !draw_dynamic_label("Press R to Restart or Q to Quit",640,440,[200,200,200],true,-1){accepted=false;}
+    }
+    accepted
+}
+
 pub fn draw_rocket(x: f32, y: f32) -> bool {
     let original_x = (x * 2.0) as i32;
     let original_y = ((y - 60.0) * 2.0) as i32;
@@ -527,19 +528,20 @@ fn draw_effect_tiles(image: &crate::physics::ParticleImage, tile: u32) {
             for left in (0..image.width).step_by(tile as usize) {
                 let width = (image.width - left).min(tile);
                 let height = (image.height - top).min(tile);
-                let mut pixels = Vec::with_capacity(width as usize * height as usize * 4);
                 let mut visible = false;
                 for row in top..top + height {
                     let start = (row as usize * image.width as usize + left as usize) * 4;
-                    let source = &image.pixels[start..start + width as usize * 4];
-                    pixels.extend_from_slice(source);
-                    if !visible {
-                        for pixel in source.chunks_exact(4) {
-                            if pixel[3] > 0 { visible = true; break; }
-                        }
+                    for pixel in image.pixels[start..start + width as usize * 4].chunks_exact(4) {
+                        if pixel[3] > 0 { visible = true; break; }
                     }
+                    if visible {break;}
                 }
                 if visible {
+                    let mut pixels = Vec::with_capacity(width as usize * height as usize * 4);
+                    for row in top..top + height {
+                        let start = (row as usize * image.width as usize + left as usize) * 4;
+                        pixels.extend_from_slice(&image.pixels[start..start + width as usize * 4]);
+                    }
                     gamepkg::draw_image((image.left as f32 + left as f32) * 0.5,
                         60.0 + (image.top as f32 + top as f32) * 0.5,
                         width as f32 * 0.5, height as f32 * 0.5, width, height, &pixels);

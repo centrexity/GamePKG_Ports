@@ -826,3 +826,22 @@ Both 63-check signed suites and native/core/component browser gameplay/editor
 and file workflows pass. The advisory storage estimate is 56 MiB after measuring
 48.3 MiB with the package, recovery copy and native/Wasm builds. Execution and
 memory/drawing budgets remain unchanged. Publication is source only.
+
+Recipe 0.1.53 restores original level-complete, game-over and campaign-victory
+overlays: full-world dimming, Roboto captions, colors, centering, final scores
+and original instructions. The game-over green VICTORY! branch remains distinct
+from campaign completion. Zero and ten-digit u32 scores/levels use explicit
+portable decimal formatting. A guarded independent SDL oracle supplies 28 full
+contrast-backdrop overlay frames and reproduces byte-identically. Six desktop
+configurations match canonical overlay frames within one level, and both web
+profiles match a separate smaller native capture within two levels. Full-scene
+suffix checks cover every end state, including 200-metal-board and animated
+background scenes, without increasing command/image/memory/time limits. This
+restores the end-screen layer; original HUD/FPS, audio/music, remaining settings,
+full-window scaling and other platforms are separate unfinished requirements.
+Particle drawing now reuses each shard's sine/cosine and avoids allocating/copying
+fully transparent temporary tiles. Visible pixel data and draw commands remain
+unchanged. All 87 logic checks and both 64-check signed suites pass with the
+original runtime limits and default parallel execution; strict lint passes.
+Final native and core/component browser gameplay/editor and player-selected
+file import/cancel/export workflows pass. Publication is source only.

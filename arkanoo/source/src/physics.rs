@@ -230,11 +230,13 @@ impl Particle {
         let mut shard_points = Vec::new();
         let half = self.size / 2;
         let angle = self.rotation.to_radians();
+        let cosine = angle.cos();
+        let sine = angle.sin();
         for dx in -half..=half {
             for dy in -half..=half {
                 if dx.abs() + dy.abs() <= half {
-                    let rx = (dx as f32 * angle.cos() - dy as f32 * angle.sin()) as i32;
-                    let ry = (dx as f32 * angle.sin() + dy as f32 * angle.cos()) as i32;
+                    let rx = (dx as f32 * cosine - dy as f32 * sine) as i32;
+                    let ry = (dx as f32 * sine + dy as f32 * cosine) as i32;
                     shard_points.push([self.x as i32 + rx, self.y as i32 + ry]);
                 }
             }
