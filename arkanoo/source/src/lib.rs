@@ -58,6 +58,7 @@ pub fn game_tick(input: u32, state: u64) -> u64 {
             *slot = Some(game);
         }
         if let Some(game) = slot.as_mut() {
+            game.frame_clock(gamepkg::frame_time_us());
             if let Some(events) = gamepkg::input_events() {
                 for event in events {
                     game.source_input(event.kind, event.x, event.y, event.code);

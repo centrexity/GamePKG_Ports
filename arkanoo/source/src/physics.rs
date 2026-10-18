@@ -703,6 +703,9 @@ pub struct Game {
     pub portal: bool,
     pub portal_timer: u32,
     pub max_speed: f32,
+    pub max_speed_record_frame: u64,
+    pub fps: u32,
+    pub fps_times: Vec<u64>,
     pub frame: u64,
     pub lost_life: bool,
     pub cooldown: u32,
@@ -750,6 +753,9 @@ impl Game {
             portal: false,
             portal_timer: 0,
             max_speed: 0.0,
+            max_speed_record_frame: 0,
+            fps: 0,
+            fps_times: Vec::new(),
             frame: 0,
             lost_life: false,
             cooldown: 0,
@@ -1106,7 +1112,21 @@ impl Game {
             self.sound = 3;
         }
     }
+    pub fn frame_clock(&mut self, now: u64) {
+        let mut kept = 0usize;
+        for index in 0..self.fps_times.len() {
+            if now.saturating_sub(self.fps_times[index]) < 1000000 {
+                self.fps_times[kept] = self.fps_times[index];
+                kept += 1;
+            }
+        }
+        self.fps_times.truncate(kept);
+        self.fps_times.push(now);
+        self.fps = self.fps_times.len() as u32;
+    }
     pub fn reset_run(&mut self) {
+        let fps = self.fps;
+        let fps_times = core::mem::take(&mut self.fps_times);
         let splash_timer = self.splash_timer;
         let started = self.started;
         let best = self.best;
@@ -1118,6 +1138,8 @@ impl Game {
         let fullscreen_requests = self.fullscreen_requests;
         let saved_editor = core::mem::replace(&mut self.editor, crate::editor::Editor::new());
         *self = Self::new();
+        self.fps = fps;
+        self.fps_times = fps_times;
         self.splash_timer = splash_timer;
         self.started = started;
         self.editor = saved_editor;
@@ -1370,6 +1392,7 @@ impl Game {
                 let speed = (ball.vx * ball.vx + ball.vy * ball.vy).sqrt() * 120.0;
                 if speed > self.max_speed {
                     self.max_speed = speed;
+                    self.max_speed_record_frame = self.frame;
                     let length = (ball.vx * ball.vx + ball.vy * ball.vy).sqrt();
                     if length > 0.05 {
                         let dx = -ball.vx / length;
@@ -1560,4 +1583,21 @@ impl Game {
             }
         }
     }
+}
+
+pub fn speed_record_color(frame: u64, record: u64) -> [u8; 3] {
+    if frame.saturating_sub(record) < 120 {
+        let pulse = (frame as f32 * 0.15).sin() * 0.3 + 0.7;
+        [
+            (255.0 * pulse) as u8,
+            (255.0 * pulse) as u8,
+            (100.0 * pulse + 100.0) as u8,
+        ]
+    } else {
+        [200, 200, 200]
+    }
+}
+pub fn gravity_color(frame: u64) -> [u8; 3] {
+    let pulse = (frame as f32 * 0.1).sin() * 0.3 + 0.7;
+    [(255.0 * pulse) as u8, (100.0 * pulse) as u8, 0]
 }

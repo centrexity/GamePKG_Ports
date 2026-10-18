@@ -845,3 +845,29 @@ unchanged. All 87 logic checks and both 64-check signed suites pass with the
 original runtime limits and default parallel execution; strict lint passes.
 Final native and core/component browser gameplay/editor and player-selected
 file import/cancel/export workflows pass. Publication is source only.
+
+
+Recipe 0.1.54 restores original score, lives/stolen heart, level/TEST,
+maximum-speed record pulse, gravity and FPS placement/Roboto lettering. The FPS
+counter uses the host's per-tick relative monotonic sample and the original
+sliding one-second history. A guarded SDL/TTF reference supplies 29 full HUD
+frames; canonical desktop and smaller browser comparisons preserve existing
+pixel tolerances. Original heart pixels use straight-alpha linear sampling.
+
+To retain the complete original HUD in dense scenes, fire-brick layers compose
+at original 61x21 resolution once per frame and bonus icons are captured from
+the unchanged original SDL primitives into 41x41 source textures. The bonus-icon
+PNGs derive from the same upstream rendering source and license credited above.
+Original per-layer reference captures remain available; full images are checked
+over six backgrounds without relaxing the earlier three-level tolerance.
+Sparse 128-pixel particle tiles preserve all visible shards. Runtime memory,
+execution, command and image limits remain unchanged. HUD-layer fidelity does
+not establish arbitrary original viewport, recorded audio/music, remaining
+settings or platform completion. Publication is source only.
+
+Final verification passes all 90 logic checks and both 66-check signed suites at
+default parallelism, plus native and core/component browser gameplay/editor and
+player-selected file import/cancel/export workflows. All 924 shared clip/image/
+shader/resize samples remain exact and eight end-screen comparisons still pass.
+Strict lint and formatting pass; no runtime threshold is relaxed.
+HUD, filtered-edge, fire and bonus fixtures reproduce byte-identically.
