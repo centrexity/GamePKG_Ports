@@ -625,6 +625,20 @@ pub fn draw_editor_button(which:u32,hovered:bool)->bool {
     if !draw_editor_label(which_label,box_rect[0]+(box_rect[2]-lettering.width as i32)/2,box_rect[1]+(box_rect[3]-31)/2){accepted=false;}
     accepted
 }
+pub fn draw_pattern_browser(edit:&crate::editor::Editor) {
+    gamepkg::draw_image(0.0,60.0,640.0,360.0,1,1,&[0,0,0,200]);
+    gamepkg::draw_image(170.0,115.0,300.0,250.0,1,1,&[40,45,52,255]);
+    for edge in [[170.0,115.0,300.0,0.5],[170.0,364.5,300.0,0.5],[170.0,115.0,0.5,250.0],[469.5,115.0,0.5,250.0]] {gamepkg::draw_image(edge[0],edge[1],edge[2],edge[3],1,1,&[100,110,120,255]);}
+    draw_editor_label(16,565,125);
+    let first=(edit.selection/10)*10;
+    for (index,pattern) in edit.patterns.iter().enumerate().skip(first).take(10) {
+        let row_y=145.0+(index-first) as f32*17.5;
+        let row_color=if index==edit.selection {[70u8,130,180,255]} else {[55u8,60,68,255]};
+        gamepkg::draw_image(180.0,row_y,280.0,15.0,1,1,&row_color);
+        draw_dynamic_label(&pattern.name,370,170+(index-first) as i32*35,[255,255,255],false,30);
+    }
+    draw_editor_label(17,432,570);
+}
 fn draw_editor(game: &Game) {
     let edit = &game.editor;
     gamepkg::draw_clear(0x0b1020ff);
@@ -661,22 +675,7 @@ fn draw_editor(game: &Game) {
     text("IMPORT I", 25.0, 432.0, 1.0, 0xffffffff);
     gamepkg::draw_rect(105.0, 425.0, 75.0, 20.0, 0x284260ff);
     text("EXPORT X", 110.0, 432.0, 1.0, 0xffffffff);
-    if edit.browser {
-        gamepkg::draw_rect(170.0, 115.0, 300.0, 250.0, 0x101b35ff);
-        draw_editor_label(16,565,125);
-        draw_editor_label(17,432,570);
-        let first = (edit.selection / 10) * 10;
-        for (index, pattern) in edit.patterns.iter().enumerate().skip(first).take(10) {
-            let y = 145.0 + (index - first) as f32 * 17.5;
-            if index == edit.selection {
-                gamepkg::draw_rect(180.0, y, 280.0, 15.0, 0x284260ff);
-            }
-            draw_dynamic_label(&pattern.name,370,170+(index-first) as i32*35,[255,255,255],false,30);
-        }
-        if edit.patterns.is_empty() {
-            text("NO SAVED PATTERNS", 180.0, 148.0, 1.0, 0xe5f3ffff);
-        }
-    }
+    if edit.browser {draw_pattern_browser(edit);}
     draw_editor_label(2,296,620);
     draw_editor_label(9+edit.background.clamp(1,6),1084,570);
     if edit.message_time>0 {draw_dynamic_label(&edit.message,640,590,[100,255,100],true,-1);}

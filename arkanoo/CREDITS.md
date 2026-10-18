@@ -771,3 +771,21 @@ hard scissor bounds; shared clip/image/shader/resize checks remain exact.
 End users need no Python, C, FreeType, HarfBuzz or font dependencies for this
 rendering. Budgets remain unchanged. Browser panel/row geometry, full editor
 composition and whole-window/CSS scaling remain separate unfinished work.
+
+
+Recipe 0.1.50 restores original saved-pattern browser composition: black
+alpha-200 world dimming, opaque panel, border, normal/selected row colors and
+original font placement/order. Empty lists use the original empty panel;
+existing extra paging is retained. An independent guarded SDL oracle records
+twelve complete canonical frames (empty, one entry and all ten selections).
+Signed native/core-Wasm full-frame composition matches within two levels,
+including a dense 200-metal board plus ten mixed/long-name rows without dropped
+browser commands or raised budgets. Six original-size desktop configurations
+pass 22,118,400 complete-world RGB comparisons within one level. Both browser
+profiles pass 1,843,200 comparisons with a separately captured smaller native
+canvas within two levels; this is backend consistency, not direct scaled-
+original equivalence. Native single-texel image bounds now share the browser's
+physical-pixel rule, fixing disappearing half-pixel borders. Shared clip/image/
+shader/resize and editor-grid regressions pass afterward. Both 61-check suites
+and native/core/component browser editor/file workflows pass. Full editor/menu
+frames, arbitrary viewport/CSS scaling and untested platforms remain unfinished.
