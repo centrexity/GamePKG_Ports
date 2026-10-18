@@ -99,17 +99,19 @@ fn number(mut value: u32, x: f32, y: f32) {
     );
 }
 
-fn brick_line(pixels: &mut [u8], points: [i32; 4], rgba: [u8; 4]) {
+fn ice_line(mask: &mut [u8], size: [i32; 2], points: [i32; 4], opacity: u8) {
     let [mut x, mut y, end_x, end_y] = points;
     let dx = (end_x - x).abs();
     let dy = -(end_y - y).abs();
-    let step_x = if x < end_x { 1 } else { -1 };
-    let step_y = if y < end_y { 1 } else { -1 };
+    let sx = if x < end_x { 1 } else { -1 };
+    let sy = if y < end_y { 1 } else { -1 };
     let mut error = dx + dy;
     loop {
-        if x >= 0 && x < 60 && y >= 0 && y < 20 {
-            let offset = (y as usize * 60 + x as usize) * 4;
-            pixels[offset..offset + 4].copy_from_slice(&rgba);
+        if x >= 0 && x < size[0] && y >= 0 && y < size[1] {
+            let offset = (y * size[0] + x) as usize;
+            let previous = u32::from(mask[offset]);
+            mask[offset] =
+                (u32::from(opacity) + (previous * (255 - u32::from(opacity))) / 255) as u8;
         }
         if x == end_x && y == end_y {
             break;
@@ -117,14 +119,68 @@ fn brick_line(pixels: &mut [u8], points: [i32; 4], rgba: [u8; 4]) {
         let twice = error * 2;
         if twice >= dy {
             error += dy;
-            x += step_x;
+            x += sx;
         }
         if twice <= dx {
             error += dx;
-            y += step_y;
+            y += sy;
         }
     }
 }
+fn ice_pixels(mask: &[u8]) -> Vec<u8> {
+    let mut pixels = Vec::new();
+    for opacity in mask {
+        pixels.extend_from_slice(&[255, 255, 255, *opacity]);
+    }
+    pixels
+}
+pub fn draw_ice_brick(health: u8, max_health: u8, frame: u64, x: f32, y: f32) -> bool {
+    // Original integer world rectangles, projected at half scale.
+    let bx = (x * 2.0) as i32;
+    let by = ((y - 60.0) * 2.0) as i32;
+    let x = bx as f32 * 0.5;
+    let y = 60.0 + by as f32 * 0.5;
+    let pulse = (frame as f32 * 0.05).sin() * 20.0;
+    let opacity = (180.0 + pulse) as u8;
+    let base = gamepkg::draw_rect(x, y, 30.0, 10.0, 0xc8f0ff00 | u32::from(opacity));
+    // Glints extend through the original inclusive right/bottom endpoints.
+    let mut overlay = Vec::new();
+    overlay.resize(61 * 21, 0u8);
+    ice_line(&mut overlay, [61, 21], [0, 0, 60, 0], 150);
+    ice_line(&mut overlay, [61, 21], [0, 0, 0, 20], 150);
+    let mut rng = crate::pattern_rng::Rng::new((bx * by) as u64);
+    for _ in 0..3 {
+        let x1 = rng.range_i32(5, 55);
+        let y1 = rng.range_i32(5, 15);
+        let x2 = rng.range_i32(5, 55);
+        let y2 = rng.range_i32(5, 15);
+        ice_line(&mut overlay, [61, 21], [x1, y1, x2, y2], 80);
+    }
+    if health < max_health {
+        ice_line(&mut overlay, [61, 21], [30, 10, 5, 5], 220);
+        ice_line(&mut overlay, [61, 21], [30, 10, 55, 12], 220);
+        ice_line(&mut overlay, [61, 21], [30, 10, 10, 18], 220);
+        ice_line(&mut overlay, [61, 21], [5, 5, 0, 15], 220);
+        ice_line(&mut overlay, [61, 21], [55, 12, 60, 5], 220);
+    }
+    let pixels = ice_pixels(&overlay);
+    let glints = gamepkg::draw_image(x, y, 30.5, 10.5, 61, 21, &pixels);
+    let mut shine = Vec::new();
+    shine.resize(60 * 20, 0u8);
+    let offset = (frame as f32 * 2.0) as i32 % 120 - 20;
+    for i in 0..10 {
+        ice_line(
+            &mut shine,
+            [60, 20],
+            [offset + i, 20, offset + 20 + i, 0],
+            150,
+        );
+    }
+    let pixels = ice_pixels(&shine);
+    let band = gamepkg::draw_image(x, y, 30.0, 10.0, 60, 20, &pixels);
+    base && glints && band
+}
+
 fn special_brick(game: &Game, index: usize, x: f32, y: f32) {
     brick_picture(
         game.block_type[index],
@@ -136,14 +192,16 @@ fn special_brick(game: &Game, index: usize, x: f32, y: f32) {
     );
 }
 fn brick_picture(kind: u8, health: u8, max_health: u8, frame: u64, x: f32, y: f32) {
+    if kind == 1 {
+        draw_ice_brick(health, max_health, frame, x, y);
+        return;
+    }
     if kind == 3 {
         draw_metal_brick(x, y);
         return;
     }
     let time = frame as f64 * 0.05;
-    let rgba = if kind == 1 {
-        [200, 240, 255, (180.0 + (time.sin() * 20.0)) as u8]
-    } else if kind == 2 {
+    let rgba = if kind == 2 {
         [
             220u8.saturating_add((time.sin() * 20.0) as u8),
             80u8.saturating_add((time.cos() * 30.0) as u8),
@@ -157,13 +215,6 @@ fn brick_picture(kind: u8, health: u8, max_health: u8, frame: u64, x: f32, y: f3
     pixels.resize(60 * 20 * 4, 0u8);
     for pixel in pixels.chunks_exact_mut(4) {
         pixel.copy_from_slice(&rgba);
-    }
-    if kind == 1 && health < max_health {
-        brick_line(&mut pixels, [30, 10, 5, 5], [255, 255, 255, 220]);
-        brick_line(&mut pixels, [30, 10, 55, 12], [255, 255, 255, 220]);
-        brick_line(&mut pixels, [30, 10, 10, 18], [255, 255, 255, 220]);
-        brick_line(&mut pixels, [5, 5, 0, 15], [255, 255, 255, 220]);
-        brick_line(&mut pixels, [55, 12, 60, 5], [255, 255, 255, 220]);
     }
     gamepkg::draw_image(x, y, BLOCK_WIDTH, BLOCK_HEIGHT, 60, 20, &pixels);
 }
@@ -423,7 +474,7 @@ fn draw_editor(game: &Game) {
                 cell - 5,
                 edit.health[index],
                 edit.health[index],
-                game.frame,
+                edit.frame_count,
                 x,
                 y,
             );

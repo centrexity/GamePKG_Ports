@@ -1,6 +1,6 @@
 // Scalar ChaCha12/PCG seed expansion and rand 0.8.5 sampling compatibility.
 // Adapted from the Rand project (MIT); see assets/LICENSE-RAND.txt.
-// This public, level-seeded stream is only for reproducible level layouts.
+// This public seeded stream reproduces level layouts and brick refraction lines.
 pub struct Rng {
     key: [u32; 8],
     counter: u64,
@@ -78,6 +78,16 @@ impl Rng {
             let product = u128::from(self.next_u64()) * u128::from(span);
             if product as u64 <= zone {
                 return low + (product >> 64) as u64;
+            }
+        }
+    }
+    pub fn range_i32(&mut self, low: i32, high: i32) -> i32 {
+        let span = (high - low) as u32;
+        let zone = (span << span.leading_zeros()).wrapping_sub(1);
+        loop {
+            let product = u64::from(self.next_u32()) * u64::from(span);
+            if product as u32 <= zone {
+                return low + (product >> 32) as i32;
             }
         }
     }

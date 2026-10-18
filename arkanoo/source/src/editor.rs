@@ -52,6 +52,7 @@ impl Pattern {
     }
 }
 pub struct Editor {
+    pub frame_count: u64,
     pub sfx_volume: u32,
     pub sfx_muted: bool,
     pub file_requested: u32,
@@ -77,6 +78,7 @@ pub struct Editor {
 impl Editor {
     pub fn new() -> Self {
         Self {
+            frame_count: 0,
             sfx_volume: 64,
             sfx_muted: false,
             file_requested: 0,

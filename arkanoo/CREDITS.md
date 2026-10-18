@@ -109,9 +109,9 @@ bonuses. Repeated rockets and ghost-mode contacts retain original ordering.
 Ten fixtures execute the unchanged original brick and rocket phases against
 actual SDL intersections. Native/Wasm tests verify ice damage and type rendering,
 world-distance boundaries/no chaining, and a complete 200-special-brick screen
-within normal time, image and drawing budgets. The added ice/magma/metal images
-retain the original base colors and damage cues but do not reproduce every
-upstream gradient, refraction or animated fire/shine effect.
+within normal time, image and drawing budgets. Later rendering changes below restore the normal/graphite textures and ice
+refraction, glints and moving shine. Explosive fire/glass and full-frame
+compositing fidelity remain separate unfinished work.
 The pinned upstream generator deliberately disables special bricks in ordinary
 procedural campaign/endless layouts; custom patterns can contain them. The
 validated type-setting logic is now used by the editor and its test game.
@@ -380,8 +380,8 @@ clipping and beveled borders under WTFPL-2.0. GamePKG's maintainer reference
 `tests/reference/arkanoo_blocks.py` compiles that procedure and rasterizes its
 commands through real SDL; every decoded pixel is checked. Gameplay and placed
 editor bricks share the filtered textures and original integer coordinates.
-The original palette remains flat colors. Ice refraction/glints/moving shine,
-explosive glass/fire detail and full frame compositing equivalence remain unfinished;
+The original palette remains flat colors. Explosive glass/fire detail and
+full frame compositing equivalence remain unfinished;
 this does not establish complete brick, art or presentation parity.
 
 The graphite brick now uses `metal-body.png`, `metal-stripes.png` and
@@ -402,3 +402,28 @@ geometry or outside coverage is deliberately omitted to hide that difference.
 The signed runtime checks exercise both cold and warm full 200-metal boards
 within the existing command, transfer and tick limits; the host asset cache
 retains multiple immutable images within its existing 1 MiB pixel budget.
+
+
+Recipe 0.1.25 restores the ice branch's f32 pulse, two inclusive edge glints,
+three position-seeded refraction lines, five health-dependent crack segments,
+and ten diagonals of the moving clipped shine. The scalar dependency-free Rand
+compatibility stream now also implements the original i32 range sampler.
+Gameplay and the editor share this path. The editor advances its own clock while
+active, independently of the gameplay clock, as the original LevelEditor does.
+
+`tests/reference/arkanoo_ice.py` compiles the unchanged original ice branch with
+pinned Rand 0.8.5 and checks the original rendering/entities hashes. Its SDL
+helper records 96 cases across twelve frame values (including f32 precision and
+u64 maximum cases), four positions and both health states. Both alpha masks and
+pulse colors match exactly in the signed native/Wasm tests. Glints retain
+x=60/y=20 outside endpoints; only the diagonal band is clipped to 60×20.
+Three ordered draw commands per brick keep a complete damaged 200-ice board
+within unchanged command, pixel-byte and tick budgets. No new guest crates,
+permissions, player tools or external assets are introduced.
+
+The white overlays are grouped to stay within those budgets. Real SDL software
+comparisons against the original per-line rendering over six backdrops record
+up to three 8-bit levels of rounding difference. That reference bound does not
+establish exact native/browser framebuffer equivalence; full-frame comparison
+remains open. The source-derived rendering code retains WTFPL-2.0 attribution,
+and the scalar Rand compatibility code retains its existing MIT notice.

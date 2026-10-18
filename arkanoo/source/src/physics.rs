@@ -1199,6 +1199,7 @@ impl Game {
             return;
         }
         if self.mode == 6 {
+            self.editor.frame_count = self.editor.frame_count.wrapping_add(1);
             return;
         }
         self.update_frame(input);
