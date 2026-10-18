@@ -505,3 +505,77 @@ pub fn aurora_segments(level: u32, frame: u64) -> (u32, Vec<crate::background::B
     }
     (background, segments)
 }
+
+pub fn matrix_rectangles(
+    level: u32,
+    frame: u64,
+) -> (u32, Vec<crate::background::BackgroundRectangle>) {
+    let mut rng = seeded_background_rng(level);
+    rng.range_i32(0, 20);
+    let streams = rng.range(30, 60);
+    let multiplier = rng.float(0.5, 1.5);
+    let time = frame as f32;
+    let mut rectangles = Vec::new();
+    for i in 0..streams {
+        let mut stream_rng = Rng::new(u64::from(level) * 1000 + i);
+        let x = stream_rng.range_i32(0, 1280);
+        let speed = stream_rng.float(2.0, 5.0) * multiplier;
+        let length = stream_rng.range_i32(5, 15);
+        let head = ((time * speed) as i32).wrapping_add(stream_rng.range_i32(0, 500)) % 920 - 100;
+        for j in 0..length {
+            let y = head - j * 15;
+            if (0..720).contains(&y) {
+                let opacity = if j == 0 {
+                    255
+                } else {
+                    (255 - j * 20).max(0) as u8
+                };
+                let green = if j == 0 { 255 } else { 150 };
+                rectangles.push(crate::background::BackgroundRectangle {
+                    position: [x, y],
+                    size: [8, 12],
+                    color: (green << 16) | u32::from(opacity),
+                });
+            }
+        }
+    }
+    (0x000a00ff, rectangles)
+}
+pub fn nebula_rectangles(
+    level: u32,
+    frame: u64,
+) -> (u32, Vec<crate::background::BackgroundRectangle>) {
+    let mut rng = seeded_background_rng(level);
+    rng.range_i32(0, 20);
+    let r = rng.range_u8(10, 30);
+    let g = rng.range_u8(10, 30);
+    let b = rng.range_u8(20, 40);
+    let color = (u32::from(r) << 24) | (u32::from(g) << 16) | (u32::from(b) << 8) | 255;
+    let clouds = rng.range(15, 30);
+    let time = frame as f32;
+    let mut rectangles = Vec::new();
+    for i in 0..clouds {
+        let mut cloud_rng = Rng::new(u64::from(level) * 1000 + i);
+        let x_base = cloud_rng.range_i32(0, 1280);
+        let y_base = cloud_rng.range_i32(0, 720);
+        let size = cloud_rng.range_i32(50, 150);
+        let red = cloud_rng.range_u8(50, 150);
+        let green = cloud_rng.range_u8(0, 100);
+        let blue = cloud_rng.range_u8(100, 200);
+        let x_drift = ((time * 0.05 + i as f32).sin() * 50.0) as i32;
+        let y_drift = ((time * 0.03 + i as f32 * 0.5).cos() * 30.0) as i32;
+        let x = x_base + x_drift;
+        let y = y_base + y_drift;
+        let tint = (u32::from(red) << 24) | (u32::from(green) << 16) | (u32::from(blue) << 8) | 10;
+        for s in (0..size).step_by(10) {
+            let side = size - s;
+            let offset = s / 2;
+            rectangles.push(crate::background::BackgroundRectangle {
+                position: [x + offset, y + offset],
+                size: [side as u32, side as u32],
+                color: tint,
+            });
+        }
+    }
+    (color, rectangles)
+}

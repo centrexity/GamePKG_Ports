@@ -234,3 +234,73 @@ pub fn composited_background(scene: &Background) -> Option<crate::physics::Parti
         pixels,
     })
 }
+
+pub struct BackgroundRectangle {
+    pub position: [i32; 2],
+    pub size: [u32; 2],
+    pub color: u32,
+}
+// Replay original filled rectangles directly into the canonical logical image.
+// Do not retain a point for every overlapping translucent rectangle pixel.
+pub fn composited_rectangles(
+    rectangles: &[BackgroundRectangle],
+    color: u32,
+) -> Option<crate::physics::ParticleImage> {
+    let mut left = 1280i32;
+    let mut top = 720i32;
+    let mut right = -1i32;
+    let mut bottom = -1i32;
+    for rect in rectangles {
+        let l = rect.position[0].max(0);
+        let t = rect.position[1].max(0);
+        let r = (i64::from(rect.position[0]) + i64::from(rect.size[0].max(1)) - 1).min(1279) as i32;
+        let b = (i64::from(rect.position[1]) + i64::from(rect.size[1].max(1)) - 1).min(719) as i32;
+        if rect.color & 255 != 0 && l <= r && t <= b {
+            left = left.min(l);
+            top = top.min(t);
+            right = right.max(r);
+            bottom = bottom.max(b);
+        }
+    }
+    if left > right || top > bottom {
+        return None;
+    }
+    let width = (right - left + 1) as u32;
+    let height = (bottom - top + 1) as u32;
+    let background = u32::to_be_bytes(color);
+    let mut pixels = Vec::with_capacity(width as usize * height as usize * 4);
+    for _ in 0..width * height {
+        pixels.extend_from_slice(&[background[0], background[1], background[2], 0]);
+    }
+    for rect in rectangles {
+        let opacity = rect.color & 255;
+        if opacity == 0 {
+            continue;
+        }
+        let l = rect.position[0].max(left);
+        let t = rect.position[1].max(top);
+        let r = (i64::from(rect.position[0]) + i64::from(rect.size[0].max(1)) - 1)
+            .min(i64::from(right)) as i32;
+        let b = (i64::from(rect.position[1]) + i64::from(rect.size[1].max(1)) - 1)
+            .min(i64::from(bottom)) as i32;
+        for y in t..=b {
+            for x in l..=r {
+                let at = ((y - top) as usize * width as usize + (x - left) as usize) * 4;
+                for channel in 0..3 {
+                    let value = (rect.color >> (24 - channel * 8)) & 255;
+                    pixels[at + channel] = (((value * opacity + 127) / 255)
+                        + ((u32::from(pixels[at + channel]) * (255 - opacity) + 127) / 255))
+                        as u8;
+                }
+                pixels[at + 3] = 255;
+            }
+        }
+    }
+    Some(crate::physics::ParticleImage {
+        left,
+        top,
+        width,
+        height,
+        pixels,
+    })
+}
