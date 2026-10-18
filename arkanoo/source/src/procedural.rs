@@ -639,3 +639,127 @@ pub fn bubble_commands(level: u32, frame: u64) -> (u32, Vec<crate::background::B
     }
     (0x001428ff, commands)
 }
+
+pub fn night_commands(level: u32, frame: u64) -> (u32, Vec<crate::background::BackgroundCommand>) {
+    let time = frame as f32;
+    let mut commands = Vec::new();
+    for i in 0..200u64 {
+        let mut rng = Rng::new(u64::from(level) * 4000 + i);
+        let x = rng.range_i32(0, 1280);
+        let y = rng.range_i32(0, 720);
+        let side = if rng.ten_percent() { 2 } else { 1 };
+        let speed = rng.float(0.05, 0.2);
+        let opacity = ((time * speed + i as f32).sin() * 100.0 + 155.0) as u8;
+        commands.push(crate::background::BackgroundCommand {
+            kind: 3,
+            values: [x, y, side, side],
+            color: 0xffffff00 | u32::from(opacity),
+        });
+    }
+    let sat_x = (time * 0.5) % 1330.0 - 20.0;
+    let sat_y = 100.0 + (time * 0.01).sin() * 20.0;
+    commands.push(crate::background::BackgroundCommand {
+        kind: 3,
+        values: [sat_x as i32, sat_y as i32, 3, 3],
+        color: 0xc8c8ffff,
+    });
+    if (time as u64 / 30) % 2 == 0 {
+        commands.push(crate::background::BackgroundCommand {
+            kind: 0,
+            values: [sat_x as i32 + 1, sat_y as i32 + 1, 0, 0],
+            color: 0xff0000ff,
+        });
+    }
+    let mut rng = Rng::new(((time * 0.005) as u64).wrapping_add(u64::from(level)));
+    if rng.thirty_percent() {
+        let progress = (time % 200.0) / 200.0;
+        if progress < 0.3 {
+            let x = rng.range_i32(0, 1280) as f32 + progress * 800.0;
+            let y = rng.range_i32(0, 360) as f32 + progress * 600.0;
+            commands.push(crate::background::BackgroundCommand {
+                kind: 1,
+                values: [x as i32, y as i32, (x - 40.0) as i32, (y - 30.0) as i32],
+                color: 0xffffffc8,
+            });
+        }
+    }
+    (0x00000aff, commands)
+}
+pub fn circuit_commands(
+    level: u32,
+    frame: u64,
+) -> (u32, Vec<crate::background::BackgroundCommand>) {
+    let time = frame as f32;
+    let mut commands = Vec::new();
+    for row in 0..8u32 {
+        for column in 0..13u32 {
+            let x = (column * 100) as i32;
+            let y = (row * 100) as i32;
+            let opacity = ((time * 0.05 + (column + row) as f32).sin() * 100.0 + 100.0) as u8;
+            commands.push(crate::background::BackgroundCommand {
+                kind: 3,
+                values: [x - 2, y - 2, 5, 5],
+                color: 0x00ff0000 | u32::from(opacity),
+            });
+            let mut rng =
+                Rng::new(u64::from(level) * 8000 + u64::from(row) * 100 + u64::from(column));
+            if rng.seventy_percent() {
+                let phase = (time * 2.0) % 100.0;
+                commands.push(crate::background::BackgroundCommand {
+                    kind: 1,
+                    values: [x, y, x + 100, y],
+                    color: 0x00640064,
+                });
+                commands.push(crate::background::BackgroundCommand {
+                    kind: 3,
+                    values: [x + phase as i32, y - 1, 4, 3],
+                    color: 0x64ff64c8,
+                });
+            }
+            if rng.seventy_percent() {
+                let phase = (time * 2.0 + 50.0) % 100.0;
+                commands.push(crate::background::BackgroundCommand {
+                    kind: 1,
+                    values: [x, y, x, y + 100],
+                    color: 0x00640064,
+                });
+                commands.push(crate::background::BackgroundCommand {
+                    kind: 3,
+                    values: [x - 1, y + phase as i32, 3, 4],
+                    color: 0x64ff64c8,
+                });
+            }
+        }
+    }
+    (0x000a00ff, commands)
+}
+pub fn maze_commands(level: u32, frame: u64) -> (u32, Vec<crate::background::BackgroundCommand>) {
+    let time = frame as f32;
+    let mut commands = Vec::new();
+    for row in 0..19u32 {
+        for column in 0..33u32 {
+            let mut rng =
+                Rng::new(u64::from(level) * 10000 + u64::from(row) * 100 + u64::from(column));
+            let x = (column * 40) as i32;
+            let y = (row * 40) as i32;
+            let values = if rng.half_probability() {
+                [x, y, x + 40, y + 40]
+            } else {
+                [x + 40, y, x, y + 40]
+            };
+            commands.push(crate::background::BackgroundCommand {
+                kind: 1,
+                values,
+                color: 0x1e1e3cff,
+            });
+        }
+    }
+    let x = (time * 2.0) % 1280.0;
+    let y = (time * 1.5) % 720.0;
+    commands.push(crate::background::BackgroundCommand {
+        kind: 3,
+        values: [x as i32 - 3, y as i32 - 3, 6, 6],
+        color: 0x00ff00ff,
+    });
+    (0x0a0a14ff, commands)
+}

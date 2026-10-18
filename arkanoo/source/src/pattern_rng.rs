@@ -113,6 +113,17 @@ impl Rng {
     pub fn unit(&mut self) -> f32 {
         (self.next_u32() >> 8) as f32 * (1.0 / 16777216.0)
     }
+    // Rand 0.8.5 Bernoulli uses the f64 probability multiplied by 2^64.
+    // Fixed thresholds preserve those exact distributions without guest crates.
+    pub fn ten_percent(&mut self) -> bool {
+        self.next_u64() < 1844674407370955264
+    }
+    pub fn thirty_percent(&mut self) -> bool {
+        self.next_u64() < 5534023222112865280
+    }
+    pub fn seventy_percent(&mut self) -> bool {
+        self.next_u64() < 12912720851596685312
+    }
     pub fn half_probability(&mut self) -> bool {
         self.next_u64() < 9223372036854775808
     }

@@ -509,7 +509,7 @@ match the pinned original campaign branches. Star x addition explicitly wraps
 like the original release build at very large frame counts. Visible background
 pixels use non-overlapping 64-pixel tiles, preserving room for brick and particle
 layers under the existing limits. Levels 1–6 image artwork, editor backgrounds
-and the three remaining endless procedural themes are unfinished. Adapted from
+and complete-window background parity are unfinished. Adapted from
 c0m4r's rendering.rs, copyright 2025 c0m4r, WTFPL version 2.
 
 Endless levels selecting the original Snow, Smoke or Tornado themes now use their
@@ -530,8 +530,8 @@ and sizes. Deep Sea retains the original integer casts before scaling its light
 shaft motion/width, ordered translucent bands and seeded drifting plankton.
 Twenty-two unchanged-source/real-Rand/SDL cases cover three actual level seeds
 per theme and extreme frame phases. Tiles share the existing density-based
-64/128-pixel path; command, byte, time and memory limits are unchanged. Three
-procedural themes still need restoration. Adapted from c0m4r's rendering.rs,
+64/128-pixel path; command, byte, time and memory limits are unchanged. Complete
+scaled-window and platform parity still need verification. Adapted from c0m4r's rendering.rs,
 copyright 2025 c0m4r, WTFPL version 2.
 
 Supernova now uses the original pulsing core, ordered shockwave points and seeded
@@ -540,14 +540,14 @@ red/green probability and four-pixel-high laser bars. Frame-derived u64 addition
 explicitly wraps like the original release build at extreme phases. The scalar
 half-probability sampler matches Rand 0.8.5 and retains its existing MIT credit.
 Twenty-two original-function/real-Rand/SDL cases cover these themes, including an
-empty interval; four seeds check 1,024 probability draws. Three themes remain.
+empty interval; four seeds check 1,024 probability draws. Whole-window parity remains open.
 The existing grouping/sampling, full-window and platform limits still apply.
 Adapted from c0m4r's rendering.rs, copyright 2025 c0m4r, WTFPL version 2.
 
 Star Voyage now preserves the shared typed level RNG stream: theme selection,
 u8 background colors, u64 star count, f32 speed multiplier and u8 tint are consumed
 before per-star seeded draws. Eleven original-function/real-Rand/SDL cases verify
-three level seeds and extreme phases. Three procedural themes remain.
+three level seeds and extreme phases. Complete viewport/platform parity remains open.
 
 background.rs also contains an altered scalar Rust adaptation of SDL's default
 point-line rasterizer and integer endpoint clipping. Copyright (C) 1997-2023
@@ -565,8 +565,8 @@ the complete unchanged original procedure through actual SDL 2.30 OpenGL and
 software line drawing. Command order/hash and all five per-layer pixel contribution maps match exactly.
 The final known-background precompositor also matches complete logical default
 OpenGL framebuffers byte-for-byte, including extreme repeated overlaps; software
-SDL remains a separately measured renderer. Sparse tiles and limits are unchanged. This is the first restored line-based
-procedural theme; three other themes still need restoration. Copyright 2025
+SDL remains a separately measured renderer. Sparse tiles and limits are unchanged.
+The helper also supports the later restored line-based procedural themes. Copyright 2025
 c0m4r, WTFPL version 2; helper license remains assets/LICENSE-SDL.txt.
 
 Rain and Warp now use the original seeded line commands, including rain slant,
@@ -577,8 +577,8 @@ compare complete default OpenGL framebuffers exactly and verify 116 independent
 ordered-segment-group pixel count maps. The original software renderer differs
 by up to 15 RGB levels on overlapping faint warp streaks; it is recorded separately.
 Rain uses 128-pixel tiles to retain all later brick/particle drawing under the
-unchanged limits; other sparse themes keep their existing tiling. Three themes
-remain. Copyright 2025 c0m4r, WTFPL version 2; helper license is LICENSE-SDL.txt.
+unchanged limits; other sparse themes keep their existing tiling. Whole-window parity
+remains open. Copyright 2025 c0m4r, WTFPL version 2; helper license is LICENSE-SDL.txt.
 
 Cyber Grid and Aurora Waves now retain the original typed shared RNG draws,
 background and line colors, perspective/horizon motion and both aurora strip
@@ -587,8 +587,8 @@ complete canonical SDL 2.30 default OpenGL framebuffer exactly; 185 independent
 48-command-group pixel contribution maps also match. Original software SDL
 itself differs by up to six RGB levels and is preserved as a separate reference.
 The existing attributed line helper and known-background compositor are reused;
-all budgets and source restrictions remain unchanged. Three procedural themes
-remain. Copyright 2025 c0m4r, WTFPL version 2; helper license is LICENSE-SDL.txt.
+all budgets and source restrictions remain unchanged. Complete viewport/platform parity
+remains open. Copyright 2025 c0m4r, WTFPL version 2; helper license is LICENSE-SDL.txt.
 
 Matrix Rain and Nebula Clouds now retain their original root/per-object typed RNG
 streams, dimensions, colors, drift, phase and translucent rectangle order. Matrix
@@ -599,7 +599,7 @@ contribution maps and complete canonical framebuffers exactly. Original software
 SDL differs by up to 23 RGB levels after many faint cloud layers and remains a
 separate measured reference. Rectangles composite directly into the logical
 image, avoiding an expanded per-pixel list and retaining the original 16 MiB
-memory limit and all drawing/time/source budgets. Three procedural themes remain.
+memory limit and all drawing/time/source budgets. Complete viewport/platform parity remains open.
 Adapted from c0m4r's rendering.rs, copyright 2025 c0m4r, WTFPL version 2.
 
 Hex Pulse and Bubbles now retain the original grid/pulse RNG and motion,
@@ -612,5 +612,19 @@ real SDL outline baselines and 22 unchanged-original/real-Rand game cases verify
 all commands, 306 independent grouped pixel contribution maps and every canonical
 OpenGL framebuffer byte. The smallest original grid size is explicitly included.
 Original software renderer differences are at most two RGB levels for these
-cases. Three procedural themes remain. Adapted game drawing: copyright 2025
+cases. Complete viewport/platform parity remains open. Adapted game drawing: copyright 2025
 c0m4r, WTFPL version 2; no SDL library is required by players.
+
+Starry Night, Digital Circuit and Maze now restore the last three missing
+procedural draw paths. Twinkling stars, satellite motion/blink, shooting-star
+intervals/cutoffs, circuit nodes and independently selected moving connections,
+maze diagonals and the moving solver retain original commands and order. Scalar
+10%, 30% and 70% Bernoulli samplers preserve Rand 0.8.5's exact f64-derived u64
+thresholds; 3,072 independent real-Rand samples verify their streams. Forty-three
+unchanged-original/real-Rand/actual-SDL cases verify all raw commands, 349 grouped
+contribution maps and complete canonical default OpenGL frames exactly. The
+original software renderer differs by at most two RGB levels in these cases.
+All twenty procedural paths are now adapted. Earlier point-based themes retain
+their documented software-SDL grouping bounds; full canonical composition for
+those paths, scaled-window/viewport parity and other artwork remain open.
+Copyright 2025 c0m4r, WTFPL version 2; existing Rand MIT and SDL zlib notices apply.
