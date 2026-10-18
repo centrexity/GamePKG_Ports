@@ -599,6 +599,30 @@ pub fn draw_editor_palette(selected:u8,hovered:u8)->bool {
     }
     accepted
 }
+pub fn draw_editor_label(which:u32,original_x:i32,original_y:i32)->bool {
+    let lettering=crate::editor_font::editor_raster(which);
+    let full_width=lettering.width as usize;let mut accepted=true;let mut column=0;
+    while column<full_width {
+        let core_right=(column+256).min(full_width);let source_left=column.saturating_sub(1);let source_right=(core_right+1).min(full_width);let tile_width=source_right-source_left;
+        let mut tile_pixels=Vec::new();tile_pixels.reserve(tile_width*31*4);
+        for row in 0..31 {tile_pixels.extend_from_slice(&lettering.pixels[(row*full_width+source_left)*4..(row*full_width+source_right)*4]);}
+        if !gamepkg::draw_clip((original_x as f32+column as f32)*0.5,60.0+original_y as f32*0.5,(core_right-column) as f32*0.5,15.5) {accepted=false;}
+        if !gamepkg::draw_image_linear((original_x as f32+source_left as f32)*0.5,60.0+original_y as f32*0.5,tile_width as f32*0.5,15.5,tile_width as u32,31,&tile_pixels){accepted=false;}
+        if !gamepkg::draw_clip_reset(){accepted=false;}
+        column=core_right;
+    }
+    accepted
+}
+pub fn draw_editor_button(which:u32,hovered:bool)->bool {
+    let box_rect=crate::editor::Editor::toolbar_bounds(which);
+    let x=box_rect[0] as f32*0.5;let y=60.0+box_rect[1] as f32*0.5;let w=box_rect[2] as f32*0.5;let h=box_rect[3] as f32*0.5;
+    let fill=if hovered {[100u8,100,150,200]} else {[60u8,60,100,180]};let border=[200u8,200,200,255];let mut accepted=true;
+    if !gamepkg::draw_image(x,y,w,h,1,1,&fill){accepted=false;}
+    for edge in [[x,y,w,0.5],[x,y+h-0.5,w,0.5],[x,y,0.5,h],[x+w-0.5,y,0.5,h]] {if !gamepkg::draw_image(edge[0],edge[1],edge[2],edge[3],1,1,&border){accepted=false;}}
+    let which_label=which+3;let lettering=crate::editor_font::editor_raster(which_label);
+    if !draw_editor_label(which_label,box_rect[0]+(box_rect[2]-lettering.width as i32)/2,box_rect[1]+(box_rect[3]-31)/2){accepted=false;}
+    accepted
+}
 fn draw_editor(game: &Game) {
     let edit = &game.editor;
     gamepkg::draw_clear(0x0b1020ff);
@@ -624,7 +648,8 @@ fn draw_editor(game: &Game) {
             );
         }
     }
-    text("LEVEL EDITOR", 5.0, 65.0, 2.0, 0x68e5ffff);
+    draw_editor_label(0,10,10);
+    draw_editor_label(1,760,25);
     text(
         if edit.naming {
             "NAME / ENTER TO FINISH"
@@ -638,48 +663,15 @@ fn draw_editor(game: &Game) {
     );
     editor_name(&edit.name, 5.0, 92.0, edit.naming);
     draw_editor_palette(edit.selected,edit.hovered_color);
-    text(
-        "LEFT DRAG PAINT / RIGHT DRAG ERASE",
-        20.0,
-        220.0,
-        1.0,
-        0xe5f3ffff,
-    );
-    text(
-        "0-5 NORMAL / 6 ICE / 7 EXPLOSIVE / 8 METAL",
-        20.0,
-        235.0,
-        1.0,
-        0x8ba2c9ff,
-    );
-    if edit.message_time > 0 {
-        text(&edit.message, 20.0, 345.0, 1.0, 0xffdb70ff);
-    }
-    gamepkg::draw_rect(510.0, 365.0, 60.0, 17.5, 0x284260ff);
-    text("BG PREV", 514.0, 370.0, 1.0, 0xffffffff);
-    gamepkg::draw_rect(575.0, 365.0, 60.0, 17.5, 0x284260ff);
-    text("BG NEXT", 579.0, 370.0, 1.0, 0xffffffff);
-    for (index, label) in ["SAVE S", "CLEAR C", "TEST T", "LOAD L", "EXIT ESC"]
-        .iter()
-        .enumerate()
-    {
-        let x = 112.5 + index as f32 * 85.0;
-        gamepkg::draw_rect(x, 390.0, 75.0, 20.0, 0x284260ff);
-        text(label, x + 5.0, 397.0, 1.0, 0xffffffff);
-    }
+    for which in 0..7 {draw_editor_button(which,edit.hovered_button==which as u8);}
     gamepkg::draw_rect(20.0, 425.0, 75.0, 20.0, 0x284260ff);
     text("IMPORT I", 25.0, 432.0, 1.0, 0xffffffff);
     gamepkg::draw_rect(105.0, 425.0, 75.0, 20.0, 0x284260ff);
     text("EXPORT X", 110.0, 432.0, 1.0, 0xffffffff);
     if edit.browser {
         gamepkg::draw_rect(170.0, 115.0, 300.0, 250.0, 0x101b35ff);
-        text(
-            "PATTERNS / UP DOWN ENTER / ESC",
-            180.0,
-            125.0,
-            1.0,
-            0x68e5ffff,
-        );
+        draw_editor_label(16,565,125);
+        draw_editor_label(17,432,570);
         let first = (edit.selection / 10) * 10;
         for (index, pattern) in edit.patterns.iter().enumerate().skip(first).take(10) {
             let y = 145.0 + (index - first) as f32 * 17.5;
@@ -692,6 +684,9 @@ fn draw_editor(game: &Game) {
             text("NO SAVED PATTERNS", 180.0, 148.0, 1.0, 0xe5f3ffff);
         }
     }
+    draw_editor_label(2,296,620);
+    draw_editor_label(9+edit.background.clamp(1,6),1084,570);
+    if edit.message_time>0 {text(&edit.message,20.0,345.0,1.0,0xffdb70ff);}
 }
 
 fn draw_menu(game: &Game) {

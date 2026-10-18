@@ -729,3 +729,17 @@ desktop configurations compare every pixel of the original-size palette region
 across three states and revisit: 329,664 RGB comparisons, maximum difference
 one. Direct half-size SDL rendering, browser/full-window scaling, Colors label
 and other editor/menu lettering remain unfinished. Budgets remain unchanged.
+
+
+Recipe 0.1.48 restores 18 original editor static text rasters from the bundled
+Roboto Medium 26 font: title, Colors label, toolbar captions, background
+counter and editor/browser instructions. Existing SIL OFL attribution applies.
+All complete RGBA bytes and regeneration match independent guarded SDL_ttf
+captures. Toolbar background alpha, RGB, opaque borders, centered captions and
+integer hover boxes follow the pinned original. A long label uses bounded
+filtered pieces with source overlap and destination clipping; limits stay
+unchanged. Six original-size desktop configurations pass 1,760,088 complete
+label/toolbar RGB comparisons within two levels. Separate eight-player
+filtered-font seam/move/revisit checks pass 408,960 comparisons within one.
+Dynamic names/messages, browser panel/rows and complete editor/window scaling
+remain unfinished.

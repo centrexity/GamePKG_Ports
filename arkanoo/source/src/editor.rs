@@ -62,6 +62,7 @@ pub struct Editor {
     pub health: [u8; 200],
     pub selected: u8,
     pub hovered_color: u8,
+    pub hovered_button: u8,
     pub name: String,
     pub naming: bool,
     pub confirm: bool,
@@ -89,6 +90,7 @@ impl Editor {
             health: [1; 200],
             selected: 0,
             hovered_color: 255,
+            hovered_button: 255,
             name: String::from("my_pattern"),
             naming: false,
             confirm: false,
@@ -320,12 +322,30 @@ impl Editor {
         }
         0
     }
+    pub fn toolbar_bounds(which: u32) -> [i32; 4] {
+        if which < 5 {
+            [225 + which as i32 * 170, 660, 150, 40]
+        } else if which == 5 {
+            [1020, 610, 120, 35]
+        } else {
+            [1150, 610, 120, 35]
+        }
+    }
     pub fn editor_event(&mut self, kind: u32, x: f32, y: f32, code: u32) -> u32 {
         if kind == 1 {
             self.hovered_color = 255;
+            self.hovered_button = 255;
             if x.is_finite() && y.is_finite() {
                 let px = (x * 2.0) as i32;
                 let py = ((y - 60.0) * 2.0) as i32;
+                for button_index in 0..7 {
+                    let box_rect = Self::toolbar_bounds(button_index);
+                    if (box_rect[0]..box_rect[0] + box_rect[2]).contains(&px)
+                        && (box_rect[1]..box_rect[1] + box_rect[3]).contains(&py)
+                    {
+                        self.hovered_button = button_index as u8;
+                    }
+                }
                 if (20..50).contains(&py) {
                     for index in 0..9 {
                         let left = 860 + index * 45;

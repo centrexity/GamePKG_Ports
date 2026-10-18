@@ -9,6 +9,7 @@ mod pattern_rng;
 mod physics;
 mod render;
 mod speed_font;
+mod editor_font;
 use std::sync::Mutex;
 static GAME: Mutex<Option<physics::Game>> = Mutex::new(None);
 
