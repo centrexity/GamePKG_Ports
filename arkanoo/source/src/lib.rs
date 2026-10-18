@@ -10,6 +10,8 @@ mod physics;
 mod render;
 mod speed_font;
 mod editor_font;
+mod dynamic_font;
+mod dynamic_font_data;
 use std::sync::Mutex;
 static GAME: Mutex<Option<physics::Game>> = Mutex::new(None);
 

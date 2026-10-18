@@ -743,3 +743,31 @@ label/toolbar RGB comparisons within two levels. Separate eight-player
 filtered-font seam/move/revisit checks pass 408,960 comparisons within one.
 Dynamic names/messages, browser panel/rows and complete editor/window scaling
 remain unfinished.
+
+
+Recipe 0.1.49 restores original dynamic editor name, saved-pattern row and
+message lettering with all 1,321 captured Roboto Medium 26 glyphs. Names retain
+case and Unicode contents, original suffixes/colors/positions and viewport
+clipping rather than the former uppercase/question-mark/78-character display.
+The font's normalization, contextual substitutions and GPOS kerning are stored
+as explicit-endian data; font-aware normalization is adapted to this pinned
+font from HarfBuzz (Copyright 2011,2012 Google, Inc.; see
+assets/LICENSE-HARFBUZZ.txt). Unicode data uses the included Unicode License V3
+(assets/LICENSE-UNICODE.txt); existing SIL OFL font attribution also applies.
+Original missing-glyph behavior is retained, including unsupported characters.
+
+The independent SDL_ttf oracle covers 3,268 cases: 3,259 complete RGBA surfaces
+and nine empty results. Cases include every non-NUL mapped scalar, combined
+accents, kerning, negative bearings, long names and a 1,205-case compound
+joiner/variation audit. All 4,174 default-ignorable candidates are checked
+against actual original HarfBuzz, including the nine exceptions. Full source
+pixel comparisons and generation match. Signed native/core-Wasm probes verify
+source bytes, placement, color and clipping for names, rows and messages;
+both 60-check suites, 86 logic tests and native/browser file flows pass.
+Eight-player whole-region Unicode comparisons total 1,576,960 RGB pixels,
+with maximum desktop difference two/browser one. A browser clip-antialiasing
+error that halved some glyph edges is corrected with independently rounded
+hard scissor bounds; shared clip/image/shader/resize checks remain exact.
+End users need no Python, C, FreeType, HarfBuzz or font dependencies for this
+rendering. Budgets remain unchanged. Browser panel/row geometry, full editor
+composition and whole-window/CSS scaling remain separate unfinished work.

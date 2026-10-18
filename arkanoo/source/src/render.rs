@@ -557,21 +557,23 @@ pub fn sound(kind: u32, frame: u64, volume: u32, muted: bool) {
     gamepkg::audio_submit(&samples);
 }
 
-fn editor_name(label: &str, x: f32, y: f32, editing: bool) {
-    let mut shown = String::new();
-    let skip = if editing {
-        label.chars().count().saturating_sub(78)
-    } else {
-        0
-    };
-    for character in label.chars().skip(skip).take(78) {
-        shown.push(if character.is_ascii() {
-            character.to_ascii_uppercase()
-        } else {
-            '?'
-        });
+pub fn draw_dynamic_label(label:&str,original_x:i32,original_y:i32,color:[u8;3],centered:bool,row_height:i32)->bool {
+    let Some(layout_data)=crate::dynamic_font::unicode_layout(label) else {return false;};
+    let left=if centered {original_x-layout_data.width/2} else {original_x};
+    let top=if row_height>=0 {original_y+(row_height-layout_data.height)/2} else {original_y};
+    let visible_left=(-left).clamp(0,layout_data.width);let visible_right=(1280-left).clamp(0,layout_data.width);
+    let clip_top=top.max(0);let clip_bottom=(top+layout_data.height).min(720);
+    if visible_left>=visible_right || clip_top>=clip_bottom {return true;}
+    let mut column=visible_left;let mut accepted=true;
+    while column<visible_right {
+        let core_right=(column+256).min(visible_right);let source_left=column.saturating_sub(1).max(0);let source_right=(core_right+1).min(layout_data.width);let tile_width=source_right-source_left;
+        let pixels=crate::dynamic_font::unicode_raster_slice(&layout_data,color,source_left,tile_width);
+        if !gamepkg::draw_clip((left+column) as f32*0.5,60.0+clip_top as f32*0.5,(core_right-column) as f32*0.5,(clip_bottom-clip_top) as f32*0.5){accepted=false;}
+        if !gamepkg::draw_image_linear((left+source_left) as f32*0.5,60.0+top as f32*0.5,tile_width as f32*0.5,layout_data.height as f32*0.5,tile_width as u32,layout_data.height as u32,&pixels){accepted=false;}
+        if !gamepkg::draw_clip_reset(){accepted=false;}
+        column=core_right;
     }
-    text(&shown, x, y, 1.0, 0xe5f3ffff);
+    accepted
 }
 pub fn draw_editor_grid()->bool {
     // Original SDL grid disables blending and includes both line endpoints.
@@ -650,18 +652,9 @@ fn draw_editor(game: &Game) {
     }
     draw_editor_label(0,10,10);
     draw_editor_label(1,760,25);
-    text(
-        if edit.naming {
-            "NAME / ENTER TO FINISH"
-        } else {
-            "NAME / N TO EDIT"
-        },
-        5.0,
-        80.0,
-        1.0,
-        0x8ba2c9ff,
-    );
-    editor_name(&edit.name, 5.0, 92.0, edit.naming);
+    let mut pattern_label=String::from("Name: ");pattern_label.push_str(&edit.name);
+    pattern_label.push_str(if edit.naming {"_ (ESC to finish)"} else {" (N to edit)"});
+    draw_dynamic_label(&pattern_label,10,40,if edit.naming {[100,255,100]} else {[200,200,200]},false,-1);
     draw_editor_palette(edit.selected,edit.hovered_color);
     for which in 0..7 {draw_editor_button(which,edit.hovered_button==which as u8);}
     gamepkg::draw_rect(20.0, 425.0, 75.0, 20.0, 0x284260ff);
@@ -678,7 +671,7 @@ fn draw_editor(game: &Game) {
             if index == edit.selection {
                 gamepkg::draw_rect(180.0, y, 280.0, 15.0, 0x284260ff);
             }
-            editor_name(&pattern.name, 185.0, y + 4.0, false);
+            draw_dynamic_label(&pattern.name,370,170+(index-first) as i32*35,[255,255,255],false,30);
         }
         if edit.patterns.is_empty() {
             text("NO SAVED PATTERNS", 180.0, 148.0, 1.0, 0xe5f3ffff);
@@ -686,7 +679,7 @@ fn draw_editor(game: &Game) {
     }
     draw_editor_label(2,296,620);
     draw_editor_label(9+edit.background.clamp(1,6),1084,570);
-    if edit.message_time>0 {text(&edit.message,20.0,345.0,1.0,0xffdb70ff);}
+    if edit.message_time>0 {draw_dynamic_label(&edit.message,640,590,[100,255,100],true,-1);}
 }
 
 fn draw_menu(game: &Game) {
