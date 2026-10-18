@@ -249,9 +249,10 @@ pub fn draw_bonus_item(kind: u32, x: f32, y: f32) -> bool {
     let y = 60.0 + ((y - 60.0) * 2.0) as i32 as f32 * 0.5;
     // Inclusive point endpoints extend one pixel beyond the 40x40 collision box.
     let body = gamepkg::draw_asset_image(bodies[kind as usize], x, y, 20.5, 20.5);
-    let highlight = gamepkg::draw_asset_image("bonus-highlight.png", x, y, 20.5, 20.5);
+    let highlight = gamepkg::draw_asset_image("bonus-highlight.png", x+2.0, y+2.0, 10.5, 10.5);
     let outline = gamepkg::draw_asset_image("bonus-rings.png", x, y, 20.5, 20.5);
-    let symbol = gamepkg::draw_asset_image(symbols[kind as usize], x, y, 20.5, 20.5);
+    let symbol_rect=[[12.0f32,18.0,16.0,6.0],[15.0,15.0,12.0,12.0],[14.0,14.0,12.0,13.0],[17.0,14.0,6.0,13.0]][kind as usize];
+    let symbol = gamepkg::draw_asset_image(symbols[kind as usize],x+symbol_rect[0]*0.5,y+symbol_rect[1]*0.5,symbol_rect[2]*0.5,symbol_rect[3]*0.5);
     body && highlight && outline && symbol
 }
 
@@ -448,7 +449,28 @@ pub fn draw_hearts(game:&Game) {
 pub fn draw_particles(particles: &[crate::physics::Particle]) {
     if let Some(image)=crate::physics::particle_image(particles) {draw_effect_layer(&image);}
 }
+pub fn draw_image_background(level:u32,darkness:u8)->bool {
+    let paths=match level {
+        1 => ["background1-0.png","background1-1.png","background1-2.png","background1-3.png","background1-4.png","background1-5.png"],
+        2 => ["background2-0.png","background2-1.png","background2-2.png","background2-3.png","background2-4.png","background2-5.png"],
+        3 => ["background3-0.png","background3-1.png","background3-2.png","background3-3.png","background3-4.png","background3-5.png"],
+        4 => ["background4-0.png","background4-1.png","background4-2.png","background4-3.png","background4-4.png","background4-5.png"],
+        5 => ["background5-0.png","background5-1.png","background5-2.png","background5-3.png","background5-4.png","background5-5.png"],
+        6 => ["background6-0.png","background6-1.png","background6-2.png","background6-3.png","background6-4.png","background6-5.png"],
+        _ => return false,
+    };
+    let mut accepted=true;
+    for index in 0..6 {
+        let col=index%3;let row=index/3;
+        let width=if col==2 {128.0} else {256.0};
+        let height=if row==1 {104.0} else {256.0};
+        if !gamepkg::draw_asset_image(paths[index],col as f32*256.0,60.0+row as f32*256.0,width,height){accepted=false;}
+    }
+    if darkness>0 && !gamepkg::draw_rect(0.0,60.0,640.0,360.0,u32::from(darkness)){accepted=false;}
+    accepted
+}
 pub fn draw_background(level: u32, frame: u64) -> bool {
+    if level>=1 && level<=6 {return draw_image_background(level,191);}
     if level > 9 {
         let theme = crate::procedural::procedural_theme(level);
         if [2,8,10,12,15].contains(&theme) {

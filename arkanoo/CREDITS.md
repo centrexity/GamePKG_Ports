@@ -672,3 +672,20 @@ against actual original-font SDL OpenGL output through four frame transitions:
 283,424 RGB pixels, differences at most one on desktop and two in browsers.
 Browser linear sprites use explicit bilinear sampling to avoid a confirmed
 Canvas2D minification difference. Other font/HUD/window presentation remains open.
+
+Campaign image backgrounds 1–6 are derived from the six original bundled PNGs.
+The pinned upstream README credits c0m4r and says the backgrounds were generated
+with Gemini 2.5 Flash Image; the original WTFPL notice in LICENSE-ARKANOO.txt
+applies. A guarded SDL_image/OpenGL reference retains the original global linear
+texture hint, 1280×720 logical sampling and alpha-64 gameplay brightness. Each
+full-bright capture is stored in six bounded PNG tiles, reusable for different
+original overlays. No original source pixels are reduced to fit the draw quota.
+Bonus texture margins contain only zero RGBA pixels after cropping; the exact
+original layers and offsets are preserved while reducing dense-scene transfers.
+Both 55-check signed runs pass, including the full background-plus-800-layer
+bonus transfer sum. Six desktop and two browser configurations verify six image
+changes plus revisit: 4,928 samples include tile seams and world edges, with at
+most one RGB level difference. Original bonus primitives over the restored image
+also pass 480 comparisons within the existing three-level bound; rockets pass
+672 comparisons within one level. Editor/menu presentation and whole-window
+scaling remain open.
