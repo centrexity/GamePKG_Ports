@@ -23,6 +23,7 @@ pub fn procedural_background(level: u32, frame: u64) -> Option<Background> {
         7 => Some(draw_snow(level, frame)),
         9 => Some(draw_smoke(level, frame)),
         11 => Some(draw_fire(level, frame)),
+        13 => Some(draw_kaleidoscope(frame)),
         16 => Some(draw_supernova(level, frame)),
         17 => Some(draw_space_wars(level, frame)),
         18 => Some(draw_deep_sea(level, frame)),
@@ -290,6 +291,56 @@ fn draw_star_voyage(level: u32, frame: u64) -> Background {
     }
     Background {
         color,
+        points: dots,
+    }
+}
+pub fn kaleidoscope_segments(frame: u64) -> Vec<crate::background::BackgroundLine> {
+    let time = frame as f32;
+    let mut segments = Vec::new();
+    for layer in 0..5 {
+        let radius = 100.0 + layer as f32 * 80.0;
+        let rotation =
+            time * (0.01 + layer as f32 * 0.005) * if layer % 2 == 0 { 1.0 } else { -1.0 };
+        let red = (100 + layer * 30) as u8;
+        let green = (50 + layer * 20) as u8;
+        let blue = (200 - layer * 20) as u8;
+        let color =
+            (u32::from(red) << 24) | (u32::from(green) << 16) | (u32::from(blue) << 8) | 100;
+        for i in 0..12 {
+            let angle = (i as f32 / 12.0) * core::f32::consts::PI * 2.0 + rotation;
+            let x = 640.0 + angle.cos() * radius;
+            let y = 360.0 + angle.sin() * radius;
+            let size = (20 + layer * 5) as f32;
+            let vertices = [
+                [x as i32, (y - size) as i32],
+                [(x + size) as i32, y as i32],
+                [x as i32, (y + size) as i32],
+                [(x - size) as i32, y as i32],
+            ];
+            for side in 0..4 {
+                segments.push(crate::background::BackgroundLine {
+                    start: vertices[side],
+                    end: vertices[(side + 1) % 4],
+                    color,
+                });
+            }
+        }
+    }
+    segments
+}
+fn draw_kaleidoscope(frame: u64) -> Background {
+    let mut dots = Vec::new();
+    for segment in kaleidoscope_segments(frame) {
+        crate::background::background_line_points(
+            &mut dots,
+            segment.start,
+            segment.end,
+            [1280, 720],
+            segment.color,
+        );
+    }
+    Background {
+        color: 0x0a000aff,
         points: dots,
     }
 }

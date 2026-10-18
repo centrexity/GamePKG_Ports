@@ -440,7 +440,10 @@ pub fn draw_background(level: u32, frame: u64) -> bool {
         else { crate::procedural::procedural_background(level, frame) };
     if let Some(scene) = background {
         gamepkg::draw_rect(0.0, 60.0, 640.0, 360.0, scene.color);
-        if let Some(image) = crate::physics::effect_image(&scene.points) {
+        let image = if level > 9 && crate::procedural::procedural_theme(level) == 13 {
+            crate::background::composited_background(&scene)
+        } else { crate::physics::effect_image(&scene.points) };
+        if let Some(image) = image {
             let tile = if level > 9 && scene.points.len() > 10000 { 128 } else { 64 };
             draw_effect_tiles(&image, tile);
         }

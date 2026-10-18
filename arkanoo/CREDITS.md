@@ -509,7 +509,7 @@ match the pinned original campaign branches. Star x addition explicitly wraps
 like the original release build at very large frame counts. Visible background
 pixels use non-overlapping 64-pixel tiles, preserving room for brick and particle
 layers under the existing limits. Levels 1–6 image artwork, editor backgrounds
-and the twelve remaining endless procedural themes are unfinished. Adapted from
+and the eleven remaining endless procedural themes are unfinished. Adapted from
 c0m4r's rendering.rs, copyright 2025 c0m4r, WTFPL version 2.
 
 Endless levels selecting the original Snow, Smoke or Tornado themes now use their
@@ -530,7 +530,7 @@ and sizes. Deep Sea retains the original integer casts before scaling its light
 shaft motion/width, ordered translucent bands and seeded drifting plankton.
 Twenty-two unchanged-source/real-Rand/SDL cases cover three actual level seeds
 per theme and extreme frame phases. Tiles share the existing density-based
-64/128-pixel path; command, byte, time and memory limits are unchanged. Twelve
+64/128-pixel path; command, byte, time and memory limits are unchanged. Eleven
 procedural themes still need restoration. Adapted from c0m4r's rendering.rs,
 copyright 2025 c0m4r, WTFPL version 2.
 
@@ -540,14 +540,14 @@ red/green probability and four-pixel-high laser bars. Frame-derived u64 addition
 explicitly wraps like the original release build at extreme phases. The scalar
 half-probability sampler matches Rand 0.8.5 and retains its existing MIT credit.
 Twenty-two original-function/real-Rand/SDL cases cover these themes, including an
-empty interval; four seeds check 1,024 probability draws. Twelve themes remain.
+empty interval; four seeds check 1,024 probability draws. Eleven themes remain.
 The existing grouping/sampling, full-window and platform limits still apply.
 Adapted from c0m4r's rendering.rs, copyright 2025 c0m4r, WTFPL version 2.
 
 Star Voyage now preserves the shared typed level RNG stream: theme selection,
 u8 background colors, u64 star count, f32 speed multiplier and u8 tint are consumed
 before per-star seeded draws. Eleven original-function/real-Rand/SDL cases verify
-three level seeds and extreme phases. Twelve procedural themes remain.
+three level seeds and extreme phases. Eleven procedural themes remain.
 
 background.rs also contains an altered scalar Rust adaptation of SDL's default
 point-line rasterizer and integer endpoint clipping. Copyright (C) 1997-2023
@@ -557,3 +557,14 @@ baseline covers clipped/reversed/tie/degenerate/absent lines. The helper follows
 the original default OpenGL coverage; software SDL omits the two zero-length
 point cases. It is groundwork for remaining line-based themes, not completion
 of those themes or proof of all window/backend combinations.
+
+Kaleidoscope now integrates the attributed SDL point-line helper: five layers of
+twelve rotating diamonds preserve the original 240 line commands, alternating
+rotation, colors, endpoint casts and repeated corner blends. Eleven cases compare
+the complete unchanged original procedure through actual SDL 2.30 OpenGL and
+software line drawing. Command order/hash and all five per-layer pixel contribution maps match exactly.
+The final known-background precompositor also matches complete logical default
+OpenGL framebuffers byte-for-byte, including extreme repeated overlaps; software
+SDL remains a separately measured renderer. Sparse tiles and limits are unchanged. This is the first restored line-based
+procedural theme; eleven other themes still need restoration. Copyright 2025
+c0m4r, WTFPL version 2; helper license remains assets/LICENSE-SDL.txt.

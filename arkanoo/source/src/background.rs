@@ -182,3 +182,55 @@ fn clipped_background_line(
         }
     }
 }
+pub struct BackgroundLine {
+    pub start: [i32; 2],
+    pub end: [i32; 2],
+    pub color: u32,
+}
+// Precompose the recorded default SDL/OpenGL opaque color convention: source
+// and destination products round separately before addition. Untouched pixels
+// remain sparse/transparent, preserving tile counts and drawing budgets.
+pub fn composited_background(scene: &Background) -> Option<crate::physics::ParticleImage> {
+    let mut left = 1280i32;
+    let mut top = 720i32;
+    let mut right = -1i32;
+    let mut bottom = -1i32;
+    for dot in &scene.points {
+        if (0..1280).contains(&dot.x) && (0..720).contains(&dot.y) && dot.color & 255 != 0 {
+            left = left.min(dot.x);
+            right = right.max(dot.x);
+            top = top.min(dot.y);
+            bottom = bottom.max(dot.y);
+        }
+    }
+    if left > right || top > bottom {
+        return None;
+    }
+    let width = (right - left + 1) as u32;
+    let height = (bottom - top + 1) as u32;
+    let background = u32::to_be_bytes(scene.color);
+    let mut pixels = Vec::with_capacity(width as usize * height as usize * 4);
+    for _ in 0..width * height {
+        pixels.extend_from_slice(&[background[0], background[1], background[2], 0]);
+    }
+    for dot in &scene.points {
+        let opacity = dot.color & 255;
+        if dot.x >= left && dot.x <= right && dot.y >= top && dot.y <= bottom && opacity != 0 {
+            let at = ((dot.y - top) as usize * width as usize + (dot.x - left) as usize) * 4;
+            for channel in 0..3 {
+                let value = (dot.color >> (24 - channel * 8)) & 255;
+                pixels[at + channel] = (((value * opacity + 127) / 255)
+                    + ((u32::from(pixels[at + channel]) * (255 - opacity) + 127) / 255))
+                    as u8;
+            }
+            pixels[at + 3] = 255;
+        }
+    }
+    Some(crate::physics::ParticleImage {
+        left,
+        top,
+        width,
+        height,
+        pixels,
+    })
+}
