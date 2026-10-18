@@ -302,11 +302,13 @@ pub fn draw(game: &Game) {
         return;
     }
     gamepkg::draw_clear(0x0b1020ff);
+    if !draw_campaign_background(game.level, game.frame) {
     for n in 0..11 {
         gamepkg::draw_rect(0.0, 60.0 + n as f32 * 32.0, 640.0, 1.0, 0x17233aff);
     }
     gamepkg::draw_rect(0.0, 60.0, 1.0, 360.0, 0x345476ff);
     gamepkg::draw_rect(639.0, 60.0, 1.0, 360.0, 0x345476ff);
+    }
     text("ARKANOO", 16.0, 10.0, 2.0, 0x68e5ffff);
     text("SCORE", 136.0, 8.0, 1.0, 0x8ba2c9ff);
     number(game.score, 136.0, 23.0);
@@ -433,6 +435,13 @@ pub fn draw_hearts(game:&Game) {
 pub fn draw_particles(particles: &[crate::physics::Particle]) {
     if let Some(image)=crate::physics::particle_image(particles) {draw_effect_layer(&image);}
 }
+pub fn draw_campaign_background(level: u32, frame: u64) -> bool {
+    if let Some(scene) = crate::background::campaign(level, frame) {
+        gamepkg::draw_rect(0.0, 60.0, 640.0, 360.0, scene.color);
+        if let Some(image) = crate::physics::effect_image(&scene.points) { draw_effect_tiles(&image, 64); }
+        true
+    } else { false }
+}
 pub fn draw_portal(frame: u64, timer: u64) {
     let dots = crate::physics::portal_points(frame, timer);
     if let Some(image) = crate::physics::effect_image(&dots) { draw_effect_layer(&image); }
@@ -441,13 +450,14 @@ pub fn draw_ball_effects(ball: &crate::physics::Ball,frame:u64) {
     let dots=crate::physics::ball_effect_points(ball,frame);
     if let Some(image)=crate::physics::effect_image(&dots) {draw_effect_layer(&image);}
 }
-fn draw_effect_layer(image: &crate::physics::ParticleImage) {
+fn draw_effect_layer(image: &crate::physics::ParticleImage) { draw_effect_tiles(image, 512); }
+fn draw_effect_tiles(image: &crate::physics::ParticleImage, tile: u32) {
 
-        // Preserve the full layer in at most six non-overlapping 512x512 tiles.
-        for top in (0..image.height).step_by(512) {
-            for left in (0..image.width).step_by(512) {
-                let width = (image.width - left).min(512);
-                let height = (image.height - top).min(512);
+        // Non-overlapping tiles retain every visible pixel; sparse backgrounds use smaller tiles.
+        for top in (0..image.height).step_by(tile as usize) {
+            for left in (0..image.width).step_by(tile as usize) {
+                let width = (image.width - left).min(tile);
+                let height = (image.height - top).min(tile);
                 let mut pixels = Vec::with_capacity(width as usize * height as usize * 4);
                 let mut visible = false;
                 for row in top..top + height {

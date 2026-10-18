@@ -502,3 +502,12 @@ original dark backdrop measures up to four 8-bit levels of software-SDL rounding
 difference. Nearest scaling and complete original-window framebuffer parity are
 not established by the ordered-point fixtures. No new assets or dependencies.
 Adapted from c0m4r's pinned rendering.rs, copyright 2025 c0m4r, WTFPL version 2.
+
+Campaign levels 7–9 now use the original animated starfield, pulsing circles and
+digital rain. Background point order, RGBA values, f32 timing and integer clipping
+match the pinned original campaign branches. Star x addition explicitly wraps
+like the original release build at very large frame counts. Visible background
+pixels use non-overlapping 64-pixel tiles, preserving room for brick and particle
+layers under the existing limits. Levels 1–6 image artwork, editor backgrounds
+and the twenty endless procedural themes remain unfinished. Adapted from
+c0m4r's rendering.rs, copyright 2025 c0m4r, WTFPL version 2.
