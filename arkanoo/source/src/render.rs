@@ -441,7 +441,7 @@ pub fn draw_background(level: u32, frame: u64) -> bool {
     if let Some(scene) = background {
         gamepkg::draw_rect(0.0, 60.0, 640.0, 360.0, scene.color);
         let theme = if level > 9 { crate::procedural::procedural_theme(level) } else { u32::MAX };
-        let image = if [6,13,14].contains(&theme) {
+        let image = if [0,3,6,13,14].contains(&theme) {
             crate::background::composited_background(&scene)
         } else { crate::physics::effect_image(&scene.points) };
         if let Some(image) = image {

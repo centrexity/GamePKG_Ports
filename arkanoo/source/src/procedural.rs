@@ -19,7 +19,15 @@ pub fn procedural_background(level: u32, frame: u64) -> Option<Background> {
         return None;
     }
     match procedural_theme(level) {
+        0 => {
+            let (color, segments) = cyber_segments(level, frame);
+            Some(segment_background(segments, color))
+        }
         1 => Some(draw_star_voyage(level, frame)),
+        3 => {
+            let (color, segments) = aurora_segments(level, frame);
+            Some(segment_background(segments, color))
+        }
         6 => Some(segment_background(rain_segments(level, frame), 0x0a0a14ff)),
         7 => Some(draw_snow(level, frame)),
         9 => Some(draw_smoke(level, frame)),
@@ -408,4 +416,92 @@ fn segment_background(segments: Vec<crate::background::BackgroundLine>, color: u
         color,
         points: dots,
     }
+}
+
+pub fn cyber_segments(level: u32, frame: u64) -> (u32, Vec<crate::background::BackgroundLine>) {
+    let mut rng = seeded_background_rng(level);
+    rng.range_i32(0, 20);
+    let r = rng.range_u8(0, 50);
+    let g = rng.range_u8(0, 50);
+    let b = rng.range_u8(40, 100);
+    let background =
+        (u32::from(r / 2) << 24) | (u32::from(g / 2) << 16) | (u32::from(b / 2) << 8) | 255;
+    let horizon = 720 / rng.range_i32(2, 4);
+    let spacing = rng.range_i32(60, 120);
+    let speed = rng.float(0.3, 0.8);
+    let offset = (frame as f32 * speed) % 40.0;
+    let red = rng.range_u8(r, 255);
+    let green = rng.range_u8(g, 255);
+    let blue = rng.range_u8(b, 255);
+    let color = (u32::from(red) << 24) | (u32::from(green) << 16) | (u32::from(blue) << 8) | 100;
+    let mut segments = Vec::new();
+    for i in -15..25 {
+        segments.push(crate::background::BackgroundLine {
+            start: [640 + i * spacing, 720],
+            end: [640 + i * 10, horizon],
+            color,
+        });
+    }
+    for i in 0..25 {
+        let z = 1.0 + i as f32 * 0.5 - (offset / 40.0) * 0.5;
+        if z > 0.1 {
+            let y = horizon as f32 + (720.0 - horizon as f32) / z;
+            if y < 720.0 {
+                segments.push(crate::background::BackgroundLine {
+                    start: [0, y as i32],
+                    end: [1280, y as i32],
+                    color,
+                });
+            }
+        }
+    }
+    (background, segments)
+}
+pub fn aurora_segments(level: u32, frame: u64) -> (u32, Vec<crate::background::BackgroundLine>) {
+    let mut rng = seeded_background_rng(level);
+    rng.range_i32(0, 20);
+    let r = rng.range_u8(5, 25);
+    let g = rng.range_u8(5, 25);
+    let b = rng.range_u8(10, 35);
+    let background = (u32::from(r) << 24) | (u32::from(g) << 16) | (u32::from(b) << 8) | 255;
+    let waves = rng.range_i32(3, 8);
+    let vertical = rng.half_probability();
+    let mut segments = Vec::new();
+    for i in 0..waves {
+        let red = rng.range_u8(0, 100);
+        let green = rng.range_u8(50, 200);
+        let blue = rng.range_u8(100, 255);
+        let opacity = rng.range_u8(20, 50);
+        let color = (u32::from(red) << 24)
+            | (u32::from(green) << 16)
+            | (u32::from(blue) << 8)
+            | u32::from(opacity);
+        let offset = i as f32 * 40.0;
+        let speed = rng.float(0.01, 0.03);
+        let amplitude = rng.float(30.0, 80.0);
+        if vertical {
+            for x in (0..1280).step_by(5) {
+                let base = 360.0 + offset - (waves as f32 * 20.0);
+                let wave = (x as f32 * 0.01 + frame as f32 * speed).sin() * amplitude;
+                let y = (base + wave) as i32;
+                segments.push(crate::background::BackgroundLine {
+                    start: [x, y],
+                    end: [x, y + 100],
+                    color,
+                });
+            }
+        } else {
+            for y in (0..720).step_by(5) {
+                let base = 640.0 + offset - (waves as f32 * 20.0);
+                let wave = (y as f32 * 0.01 + frame as f32 * speed).sin() * amplitude;
+                let x = (base + wave) as i32;
+                segments.push(crate::background::BackgroundLine {
+                    start: [x, y],
+                    end: [x + 100, y],
+                    color,
+                });
+            }
+        }
+    }
+    (background, segments)
 }
