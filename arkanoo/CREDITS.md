@@ -484,3 +484,11 @@ boundaries allow adjacent original texels; full-frame rasterization remains open
 Four draws per item fit a cold/warm 200-item board in unchanged command, pixel-byte
 and tick budgets, with shared immutable decoded images retained by the host cache.
 Original falling motion, pickup rectangles and bonus behavior remain unchanged.
+
+Rocket projectiles now use the original orange body, red line-drawn nose,
+dark-orange fins and two flame colors. `assets/rocket.png` is generated from the
+complete unchanged rocket draw loop in the pinned rendering.rs through real SDL
+software rasterization (all source primitives are opaque). Its 10x20 pixels draw
+at 5x10 with nearest sampling and original integer-truncated coordinates. One
+shared cached image replaces the previous flat yellow rectangle without changing
+collision or flight behavior. Copyright (C) 2025 c0m4r, WTFPL version 2.

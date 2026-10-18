@@ -365,3 +365,8 @@ at revision 9d613e78c9ed5657ae7fda9206cd4a82a893b7c8, using the original SDL
 0.37.0 rectangle semantics and ordered primitive colors. Copyright (C) 2025
 c0m4r. WTFPL version 2; see assets/LICENSE-ARKANOO.txt. See CREDITS.md for
 layer grouping and measured renderer rounding differences.
+
+assets/rocket.png is generated from the unchanged rocket projectile draw loop
+in rendering.rs at revision 9d613e78c9ed5657ae7fda9206cd4a82a893b7c8 using
+real SDL line/rectangle rasterization. Copyright (C) 2025 c0m4r.
+WTFPL version 2; see assets/LICENSE-ARKANOO.txt.

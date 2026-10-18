@@ -341,7 +341,7 @@ pub fn draw(game: &Game) {
         draw_bonus_item(drop.kind, drop.x, drop.y);
     }
     for (x, y) in &game.rockets {
-        gamepkg::draw_rect(*x, *y, 5.0, 10.0, 0xffdd70ff);
+        draw_rocket(*x, *y);
     }
     draw_particles(&game.particles);
     if let Some(penguin)=&game.penguin {draw_penguin(penguin);}
@@ -395,6 +395,17 @@ pub fn draw(game: &Game) {
             0x8ba2c9ff,
         );
     }
+}
+pub fn draw_rocket(x: f32, y: f32) -> bool {
+    let original_x = (x * 2.0) as i32;
+    let original_y = ((y - 60.0) * 2.0) as i32;
+    gamepkg::draw_asset_image(
+        "rocket.png",
+        original_x as f32 * 0.5,
+        original_y as f32 * 0.5 + 60.0,
+        5.0,
+        10.0,
+    )
 }
 pub fn draw_ball(ball: &crate::physics::Ball) -> bool {
     let x = ((ball.x - 3.0) * 2.0) as i32;
