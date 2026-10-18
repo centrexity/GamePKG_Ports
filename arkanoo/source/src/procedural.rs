@@ -18,6 +18,8 @@ pub fn procedural_background(level: u32, frame: u64) -> Option<Background> {
     match procedural_theme(level) {
         7 => Some(draw_snow(level, frame)),
         9 => Some(draw_smoke(level, frame)),
+        11 => Some(draw_fire(level, frame)),
+        18 => Some(draw_deep_sea(level, frame)),
         19 => Some(draw_tornado(level, frame)),
         _ => None,
     }
@@ -99,6 +101,77 @@ fn draw_tornado(level: u32, frame: u64) -> Background {
     }
     Background {
         color: 0x1e1e1eff,
+        points: dots,
+    }
+}
+fn draw_fire(level: u32, frame: u64) -> Background {
+    let time = frame as f32;
+    let mut dots = Vec::new();
+    for i in 0..300u64 {
+        let mut rng = Rng::new(u64::from(level) * 7000 + i);
+        let x_base = rng.range_i32(0, 1280);
+        let speed = rng.float(2.0, 5.0);
+        let y_anim = (time * speed + rng.float(0.0, 1000.0)) % (720.0 / 1.5);
+        let y = 720.0 - y_anim;
+        let progress = 1.0 - y_anim / (720.0 / 1.5);
+        let color = if progress > 0.8 {
+            0xffffc8ff
+        } else if progress > 0.6 {
+            0xffc800c8
+        } else if progress > 0.3 {
+            0xff320096
+        } else {
+            0x64323264
+        };
+        let wiggle = (time * 0.1 + i as f32).sin() * 5.0;
+        let x = x_base as f32 + wiggle;
+        let size = (progress * 8.0) as u32 + 2;
+        rectangle(
+            &mut dots,
+            x as i32,
+            y as i32,
+            size as i32,
+            size as i32,
+            color,
+        );
+    }
+    Background {
+        color: 0x140500ff,
+        points: dots,
+    }
+}
+fn draw_deep_sea(level: u32, frame: u64) -> Background {
+    let time = frame as f32;
+    let mut dots = Vec::new();
+    for i in 0..5 {
+        let x = i * 200 + (time * 0.1).sin() as i32 * 50;
+        let width = 100 + (time * 0.05 + i as f32).cos() as i32 * 20;
+        for height in (0..720).step_by(20) {
+            let opacity = (50.0 * (1.0 - height as f32 / 720.0)) as u8;
+            rectangle(
+                &mut dots,
+                x,
+                height,
+                width,
+                20,
+                0x64c8ff00 | u32::from(opacity),
+            );
+        }
+    }
+    for i in 0..200u64 {
+        let mut rng = Rng::new(u64::from(level) * 13000 + i);
+        let x_base = rng.range_i32(0, 1280);
+        let y_base = rng.range_i32(0, 720);
+        let drift_x = (time * 0.02 + i as f32).sin() * 20.0;
+        let drift_y = (time * 0.03 + i as f32).cos() * 20.0;
+        dots.push(crate::physics::EffectPoint {
+            x: (x_base as f32 + drift_x) as i32,
+            y: (y_base as f32 + drift_y) as i32,
+            color: 0xc8ffc896,
+        });
+    }
+    Background {
+        color: 0x000514ff,
         points: dots,
     }
 }

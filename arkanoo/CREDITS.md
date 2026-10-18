@@ -509,7 +509,7 @@ match the pinned original campaign branches. Star x addition explicitly wraps
 like the original release build at very large frame counts. Visible background
 pixels use non-overlapping 64-pixel tiles, preserving room for brick and particle
 layers under the existing limits. Levels 1–6 image artwork, editor backgrounds
-and the seventeen remaining endless procedural themes are unfinished. Adapted from
+and the fifteen remaining endless procedural themes are unfinished. Adapted from
 c0m4r's rendering.rs, copyright 2025 c0m4r, WTFPL version 2.
 
 Endless levels selecting the original Snow, Smoke or Tornado themes now use their
@@ -523,3 +523,13 @@ themes retain 64-pixel tiles. The unchanged source/real-Rand/SDL oracle supplies
 layers differ from direct software SDL by at most four color levels in these
 cases. This does not complete whole-frame, edge, other-theme or platform parity.
 Adapted from c0m4r's rendering.rs, copyright 2025 c0m4r, WTFPL version 2.
+
+The original Fire and Deep Sea procedural backgrounds are also restored. Fire
+retains its seeded flame positions, rising phase, four gradient bands, wiggle
+and sizes. Deep Sea retains the original integer casts before scaling its light
+shaft motion/width, ordered translucent bands and seeded drifting plankton.
+Twenty-two unchanged-source/real-Rand/SDL cases cover three actual level seeds
+per theme and extreme frame phases. Tiles share the existing density-based
+64/128-pixel path; command, byte, time and memory limits are unchanged. Fifteen
+procedural themes still need restoration. Adapted from c0m4r's rendering.rs,
+copyright 2025 c0m4r, WTFPL version 2.
