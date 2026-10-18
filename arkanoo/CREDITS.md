@@ -921,3 +921,25 @@ editor and file workflows. Saved-window regressions and actual fullscreen/exit/
 reopen tests pass. Host Windows32/64 compile checks pass, not platform gameplay.
 Pending native fullscreen toggles wait for a known host state; unavailable is
 never treated as windowed. Final controller/window/browser regressions pass.
+
+
+Recipe 0.1.57 restores the original requested sound categories: Bounce for
+normal/final ice destruction, BreakingGlass for ice cracks and rockets,
+Explosion for explosive-brick blasts and Oh for a lost final ball. Removed
+non-original launch, bonus, level-complete and portal-activation requests.
+The unchanged pinned original physics fragments now record last-callback
+selection for ten cases/thirteen frames, preserving all earlier physics fields.
+Original main-loop last-callback behavior within a physics update is retained.
+Recordings, overlapping playback, complete input/update audio ordering and music
+remain unfinished; current effects are still synthesized, not original assets.
+
+Text rasterization now skips transparent RLE runs and computes row coordinates
+per run rather than per pixel. RGB initialization repeats the exact four-byte
+pattern. A maintainer old/new comparison passes 122,870 cases including clipping,
+empty slices and hidden RGB. The cannon-caption raster benchmark improved about
+22 percent locally; this is not a platform performance guarantee. Opaque particle
+contributions now use the exact simplified original blend equation. Exhaustive
+alpha/color checks preserve every tested result and original SDL image fixtures
+remain exact. All 93 logic checks and both 68-check signed suites pass at default
+parallelism and unchanged deadlines/budgets/tolerances; strict lint and formatting
+pass. This round did not repeat graphical window/platform workflows. Source only.

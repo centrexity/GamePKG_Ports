@@ -352,12 +352,14 @@ pub fn unicode_raster_slice(
 ) -> Vec<u8> {
     let actual_width = slice_width.clamp(0, 1282);
     let actual_height = label.height.clamp(0, 512);
-    let mut pixels = Vec::new();
-    pixels.resize(actual_width as usize * actual_height as usize * 4, 0u8);
-    for pixel in pixels.chunks_mut(4) {
-        pixel[0] = color[0];
-        pixel[1] = color[1];
-        pixel[2] = color[2];
+    let length = actual_width as usize * actual_height as usize * 4;
+    let mut pixels = Vec::with_capacity(length);
+    if length > 0 {
+        pixels.extend_from_slice(&[color[0], color[1], color[2], 0]);
+        while pixels.len() < length {
+            let count = pixels.len().min(length - pixels.len());
+            pixels.extend_from_within(0..count);
+        }
     }
     let data = dynamic_font_data::unicode_atlas_pixels();
     let mut x = 0i32;
@@ -370,14 +372,24 @@ pub fn unicode_raster_slice(
             let mut at = metrics[5] as usize;
             let end = at + metrics[6] as usize;
             while at < end {
-                for _ in 0..data[at] {
-                    let px = left + offset % metrics[2];
+                let run_end = offset + i32::from(data[at]);
+                // Transparent runs leave the prefilled hidden RGB unchanged.
+                if data[at + 1] == 0 {
+                    offset = run_end;
+                }
+                while offset < run_end {
+                    let column = offset % metrics[2];
                     let py = top + offset / metrics[2];
-                    if px >= 0 && px < actual_width && py >= 0 && py < actual_height {
-                        pixels[(py as usize * actual_width as usize + px as usize) * 4 + 3] |=
-                            data[at + 1];
+                    let count = (metrics[2] - column).min(run_end - offset);
+                    if py >= 0 && py < actual_height {
+                        let first = (left + column).max(0);
+                        let last = (left + column + count).min(actual_width);
+                        for px in first..last {
+                            pixels[(py as usize * actual_width as usize + px as usize) * 4 + 3] |=
+                                data[at + 1];
+                        }
                     }
-                    offset += 1;
+                    offset += count;
                 }
                 at += 2;
             }

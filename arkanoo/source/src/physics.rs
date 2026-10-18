@@ -368,9 +368,9 @@ pub fn blend_effect_pixel(pixels: &mut [u8], offset: usize, rgba: u32, opacity: 
         return;
     }
     let old_alpha = u32::from(pixels[offset + 3]);
-    // The original expression cancels exactly for a transparent destination.
-    // Avoid three integer divisions for each first contribution to a pixel.
-    if old_alpha == 0 {
+    // The original expression cancels for a transparent destination or opaque source.
+    // Avoid three divisions without changing blend order, colors or alpha.
+    if old_alpha == 0 || opacity == 255 {
         pixels[offset] = (rgba >> 24) as u8;
         pixels[offset + 1] = (rgba >> 16) as u8;
         pixels[offset + 2] = (rgba >> 8) as u8;
@@ -886,7 +886,6 @@ impl Game {
         self.mode = if self.level == 9 { 5 } else { 3 };
         self.unlocked = self.unlocked.max(self.level.saturating_add(1));
         self.dirty = true;
-        self.sound = 3;
     }
     pub fn burst(&mut self, x: f32, y: f32, color: u32) {
         let count = below(6) + 10;
@@ -971,7 +970,7 @@ impl Game {
         }
         self.blocks[index] = 0;
         self.award(10);
-        self.sound = 2;
+        self.sound = 1;
         let colors = [
             0xff0000ff, 0xffa500ff, 0xffff00ff, 0x00ff00ff, 0x0000ffff, 0x8a2be2ff,
         ];
@@ -1040,7 +1039,7 @@ impl Game {
             }
         }
         // Blast damage bypasses health/metal armor and never chains or drops bonuses.
-        self.sound = 4;
+        self.sound = if rocket { 2 } else { 4 };
     }
     pub fn collide_blocks(&mut self, ball: usize) {
         if ball >= self.balls.len() || !self.balls[ball].active() {
@@ -1090,7 +1089,6 @@ impl Game {
                 self.destroy(struck);
                 self.explode(x, y, true);
                 self.rockets.remove(i);
-                self.sound = 4;
             } else if ry < TOP {
                 self.rockets.remove(i);
             } else {
@@ -1100,7 +1098,6 @@ impl Game {
     }
     pub fn collect(&mut self, kind: u32) {
         self.award(2);
-        self.sound = 3;
         match kind {
             0 => {
                 if self.width == 70.0 {
@@ -1167,7 +1164,6 @@ impl Game {
                     ));
                 }
                 launched = true;
-                self.sound = 1;
             }
         }
         if !launched && self.ammo > 0 {
@@ -1499,7 +1495,6 @@ impl Game {
                             0x9632ffff,
                         ));
                     }
-                    self.sound = 4;
                 }
             }
             if orbiting {
@@ -1592,7 +1587,7 @@ impl Game {
             self.lost_life = true;
             self.score = self.score.saturating_sub(20);
             self.dirty = true;
-            self.sound = 4;
+            self.sound = 5;
             let heart_x = 1250.0 - self.lives as f32 * 25.0;
             self.stolen_heart = Some([heart_x, 25.0]);
             self.penguin = Some(Penguin::new(heart_x, 25.0));
