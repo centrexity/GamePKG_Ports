@@ -207,22 +207,12 @@ pub fn draw(game: &Game) {
     number(game.lives, 446.0, 23.0);
     text("AMMO", 546.0, 8.0, 1.0, 0x8ba2c9ff);
     number(game.ammo, 546.0, 23.0);
-    let colors = [
-        0xff0000ff, 0xffa500ff, 0xffff00ff, 0x00ff00ff, 0x0000ffff, 0x8a2be2ff,
-    ];
     for index in 0..200 {
         if game.blocks[index] > 0 {
             let x = game.block_x[index];
             let y = game.block_y[index];
             if game.block_type[index] == 0 {
-                gamepkg::draw_rect(
-                    x,
-                    y,
-                    BLOCK_WIDTH,
-                    BLOCK_HEIGHT,
-                    colors[game.block_color[index] as usize % 6],
-                );
-                gamepkg::draw_rect(x + 2.0, y + 2.0, 26.0, 1.0, 0xffffff65);
+                draw_normal_brick(game.block_color[index], x, y);
             } else {
                 special_brick(game, index, x, y);
             }
@@ -434,7 +424,7 @@ fn draw_editor(game: &Game) {
         let x = 20.0 + (index % 20) as f32 * 30.0;
         let y = 100.0 + (index / 20) as f32 * 10.0;
         if cell < 6 {
-            gamepkg::draw_rect(x, y, 30.0, 10.0, colors[cell as usize]);
+            draw_normal_brick(cell, x, y);
         }
         if (6..=8).contains(&cell) {
             brick_picture(
@@ -695,6 +685,30 @@ pub fn draw_paddle(game: &Game) -> bool {
             11.0,
             color,
         );
+    }
+    loaded
+}
+
+// The original caches six 60x20 textures, then copies integer rectangles.
+pub fn draw_normal_brick(color_index: u8, x: f32, y: f32) -> bool {
+    let filenames = [
+        "brick-red.png",
+        "brick-orange.png",
+        "brick-yellow.png",
+        "brick-green.png",
+        "brick-blue.png",
+        "brick-violet.png",
+    ];
+    let selected = usize::from(color_index % 6);
+    let left = (x * 2.0) as i32 as f32 * 0.5;
+    let top = 60.0 + ((y - 60.0) * 2.0) as i32 as f32 * 0.5;
+    let loaded =
+        gamepkg::draw_asset_image_linear(filenames[selected], left, top, BLOCK_WIDTH, BLOCK_HEIGHT);
+    if !loaded {
+        let colors = [
+            0xff0000ff, 0xffa500ff, 0xffff00ff, 0x00ff00ff, 0x0000ffff, 0x8a2be2ff,
+        ];
+        gamepkg::draw_rect(left, top, BLOCK_WIDTH, BLOCK_HEIGHT, colors[selected]);
     }
     loaded
 }

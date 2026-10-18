@@ -11,7 +11,7 @@ long-paddle, extra-ball, ghost-ball and rocket mechanics from entities.rs and
 game.rs. The engine integration has been rewritten for GamePKG's safe APIs.
 
 Most rendering, bitmap lettering and synthesized audio are new; original shard
-particle behavior/drawing and the metallic ball and glass paddle textures are restored as detailed below. Upstream Pixabay
+particle behavior/drawing and the metallic ball, glass paddle and normal-brick textures are restored as detailed below. Upstream Pixabay
 music/sound, fonts, logos and generated background art are not redistributed.
 The port uses a 640x480 canvas and GamePKG host randomness instead of SDL2,
 rand or filesystem access. Launch directions use rejection sampling, and bonus
@@ -371,3 +371,15 @@ The port restores the cyan core, orange end lights, collision-triggered purple
 and white discharge, aura, decay and original integer positioning. Ghost-ball
 bonuses do not recolor the paddle, matching upstream. Other art, recorded audio,
 fonts and menu/settings presentation remain unfinished.
+
+The six normal-brick textures (`assets/brick-red.png`, `brick-orange.png`,
+`brick-yellow.png`, `brick-green.png`, `brick-blue.png`, `brick-violet.png`) are
+generated from the unchanged pinned `draw_block_texture` procedure and original
+`BLOCK_COLORS`. They preserve the glass/metallic gradient, inner glow, SDL line
+clipping and beveled borders under WTFPL-2.0. GamePKG's maintainer reference
+`tests/reference/arkanoo_blocks.py` compiles that procedure and rasterizes its
+commands through real SDL; every decoded pixel is checked. Gameplay and placed
+editor bricks share the filtered textures and original integer coordinates.
+The original palette remains flat colors. Ice refraction/glints/moving shine,
+explosive glass/fire detail and graphite stripe/bevel effects remain unfinished;
+this does not establish complete brick, art or presentation parity.

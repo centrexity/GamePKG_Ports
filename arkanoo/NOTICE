@@ -350,3 +350,7 @@ Source: https://github.com/c0m4r/arkanoo/blob/9d613e78c9ed5657ae7fda9206cd4a82a8
 assets/paddle.png and assets/paddle-long.png: generated from c0m4r's
 unchanged draw_paddle_texture procedure at the pinned revision above.
 Copyright (C) 2025 c0m4r. WTFPL version 2; see assets/LICENSE-ARKANOO.txt.
+
+The six assets/brick-*.png normal-color textures are generated from c0m4r's
+unchanged draw_block_texture procedure and BLOCK_COLORS at the pinned revision.
+Copyright (C) 2025 c0m4r. WTFPL version 2; see assets/LICENSE-ARKANOO.txt.
