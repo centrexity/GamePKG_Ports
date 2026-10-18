@@ -653,3 +653,22 @@ verified. All twenty procedural themes and all three animated campaign
 backgrounds now have exact canonical logical-frame evidence. Original image and
 editor backgrounds and complete window/viewport/platform fidelity remain open.
 Copyright 2025 c0m4r, WTFPL version 2; existing notices apply.
+
+Gameplay objects now use the host clip for the projected original world
+(0,60,640,360), with status and control text outside that scope. Signed dense
+bonus scenes verify all 800 layers between clip/reset commands under unchanged
+budgets. All 80 logic checks, both rounds of 53 signed checks, native gameplay
+and editor/system dialogs, and both browser profiles pass. Whole-window scaling,
+original HUD placement and other original presentation requirements remain open.
+
+The speed_font module contains rasterized Roboto Medium glyph coverage
+from the original bundled font at size 26, captured with SDL_ttf 2.22.0.
+Copyright 2011 The Roboto Project Authors; SIL Open Font License 1.1 is retained
+in assets/LICENSE-ROBOTO.txt. The source compositor matches eighteen complete
+original speed-label rasters byte-for-byte. Gameplay now uses the original speed/position calculations through bounded
+filtered generated-image drawing. Signed pixel/geometry tests cover six speeds
+and four fractional/negative poses. All six desktop and both browser profiles compare complete 521×17-pixel strips
+against actual original-font SDL OpenGL output through four frame transitions:
+283,424 RGB pixels, differences at most one on desktop and two in browsers.
+Browser linear sprites use explicit bilinear sampling to avoid a confirmed
+Canvas2D minification difference. Other font/HUD/window presentation remains open.

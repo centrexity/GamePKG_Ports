@@ -320,6 +320,7 @@ pub fn draw(game: &Game) {
     number(game.lives, 446.0, 23.0);
     text("AMMO", 546.0, 8.0, 1.0, 0x8ba2c9ff);
     number(game.ammo, 546.0, 23.0);
+    gamepkg::draw_clip(0.0, 60.0, 640.0, 360.0);
     for index in 0..200 {
         if game.blocks[index] > 0 {
             let x = game.block_x[index];
@@ -332,12 +333,10 @@ pub fn draw(game: &Game) {
         }
     }
     draw_paddle(game);
-    if game.gravity {
-        text("GRAVITY", 266.0, 452.0, 1.0, 0xffcd60ff);
-    }
     for ball in &game.balls {
         draw_ball_effects(ball,game.frame);
         draw_ball(ball);
+        draw_ball_speed(ball);
     }
     for drop in &game.drops {
         draw_bonus_item(drop.kind, drop.x, drop.y);
@@ -351,6 +350,10 @@ pub fn draw(game: &Game) {
         draw_portal(game.frame, u64::from(game.portal_timer));
     }
     draw_hearts(game);
+    gamepkg::draw_clip_reset();
+    if game.gravity {
+        text("GRAVITY", 266.0, 452.0, 1.0, 0xffcd60ff);
+    }
 
     text(
         "ARROWS/A/D MOVE SPACE/UP FIRE ESC/DOWN PAUSE",
@@ -410,6 +413,16 @@ pub fn draw_ball(ball: &crate::physics::Ball) -> bool {
         gamepkg::draw_circle(ball.x, ball.y, 3.0, 0xffffffff);
         false
     }
+}
+pub fn draw_ball_speed(ball: &crate::physics::Ball) -> bool {
+    let vx=ball.vx*2.0;let vy=ball.vy*2.0;
+    let speed=((vx*vx+vy*vy).sqrt()*60.0) as i32;
+    let label=crate::speed_font::raster(speed as u32);
+    let width=(label.width as f32*0.6) as u32;
+    let height=(31.0f32*0.6) as u32;
+    let cx=((ball.x-3.0)*2.0) as i32+6;
+    let cy=((ball.y-63.0)*2.0) as i32+6;
+    gamepkg::draw_image_linear((cx-width as i32/2) as f32*0.5,60.0+(cy-6-height as i32-5) as f32*0.5,width as f32*0.5,height as f32*0.5,label.width,31,&label.pixels)
 }
 pub fn draw_penguin(penguin:&crate::physics::Penguin) {
     for shape in crate::physics::penguin_rects(penguin) {
