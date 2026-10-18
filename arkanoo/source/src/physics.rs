@@ -156,6 +156,7 @@ pub struct Particle {
     pub color: u32,
 }
 pub struct Game {
+    pub menu: crate::menu::Menu,
     pub fullscreen_requests: u32,
     pub quit_requested: bool,
     pub editor: crate::editor::Editor,
@@ -196,6 +197,7 @@ pub struct Game {
 impl Game {
     pub fn new() -> Self {
         let mut game = Self {
+            menu: crate::menu::Menu::new(),
             fullscreen_requests: 0,
             quit_requested: false,
             editor: crate::editor::Editor::new(),
@@ -608,10 +610,53 @@ impl Game {
             self.fullscreen_requests = self.fullscreen_requests.saturating_add(1);
             return;
         }
+        if self.mode == 0 || self.mode == 2 {
+            let action = self.menu.menu_event(kind, x, y, code);
+            if action == 1 {
+                self.menu.settings = false;
+                if self.mode == 0 {
+                    self.reset_run();
+                }
+                self.mode = 1;
+            }
+            if action == 2 {
+                self.reset_run();
+            }
+            if action == 3 {
+                self.gravity = !self.gravity;
+                self.dirty = true;
+            }
+            if action == 4 {
+                self.mode = 6;
+                self.testing = false;
+                self.editor.dragging = 0;
+            }
+            if action == 5 {
+                self.menu.settings = true;
+                self.menu.hover = 0;
+            }
+            if action == 6 {
+                self.quit_requested = true;
+                self.dirty = true;
+                return;
+            }
+            if action == 7 {
+                self.fullscreen_requests = self.fullscreen_requests.saturating_add(1);
+            }
+            if action == 8 {
+                self.menu.settings = false;
+                self.menu.hover = 0;
+            }
+            if action != 0 {
+                return;
+            }
+        }
         if self.mode == 6 {
             let action = self.editor.editor_event(kind, x, y, code);
             if action == 1 {
                 self.mode = 0;
+                self.menu.settings = false;
+                self.menu.hover = 0;
                 self.editor.dragging = 0;
             }
             if action == 2 {
@@ -627,6 +672,8 @@ impl Game {
         }
         if kind == 9 && (code & 0x7fff_ffff) == 101 && (self.mode == 0 || self.mode == 2) {
             self.mode = 6;
+            self.menu.settings = false;
+            self.menu.hover = 0;
             self.testing = false;
             self.editor.dragging = 0;
             return;
@@ -646,6 +693,8 @@ impl Game {
             }
             if key == 41 && (self.mode == 1 || self.mode == 2) {
                 self.mode = if self.mode == 1 { 2 } else { 1 };
+                self.menu.settings = false;
+                self.menu.hover = 0;
             }
             if key == 40 && (self.mode == 0 || self.mode == 3 || self.mode == 5) {
                 self.update(4);
@@ -655,12 +704,15 @@ impl Game {
             let key = code & 0x7fff_ffff;
             if key == 113 && self.mode == 1 {
                 self.blocks = [0; 200];
-            } else if key == 113 && (self.mode == 2 || self.mode == 4 || self.mode == 5) {
+            } else if key == 113
+                && (self.mode == 0 || self.mode == 2 || self.mode == 4 || self.mode == 5)
+            {
                 self.quit_requested = true;
                 self.dirty = true;
                 return;
             }
-            if key == 114 && (self.mode == 2 || self.mode == 4 || self.mode == 5) {
+            if key == 114 && (self.mode == 0 || self.mode == 2 || self.mode == 4 || self.mode == 5)
+            {
                 self.reset_run();
             }
         }
@@ -687,6 +739,8 @@ impl Game {
         }
         if input & 8 != 0 && (self.mode == 1 || self.mode == 2) {
             self.mode = if self.mode == 1 { 2 } else { 1 };
+            self.menu.settings = false;
+            self.menu.hover = 0;
             if self.mode == 2 {
                 return;
             }

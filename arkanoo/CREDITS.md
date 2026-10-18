@@ -17,8 +17,7 @@ rand or filesystem access. Launch directions use rejection sampling, and bonus
 selection uses independent probability/weight draws.
 Endless levels use the original twelve procedural patterns plus saved custom
 patterns. The editor supports painting/erasing, all nine brick choices, names,
-save/load, clear confirmation and test play through scoped host APIs. Original
-menus/music, particle/trail effects and penguin/heart-loss animation still need
+save/load, clear confirmation and test play through scoped host APIs. Remaining menu/music behavior, particle/trail effects and penguin/heart-loss animation still need
 fidelity work. Original ASCII pattern files can now be imported/exported through
 player-selected files.
 
@@ -213,3 +212,25 @@ chosen destination. A play-history write failure cannot expose a new dialog.
 Archives beyond 64 KiB reload through chunked reads, while damaged data stays
 preserved. Scoped directory browsing and multi-file resource workflows remain
 separate host requirements; this is single-file pattern selection.
+
+The main menu now exposes New Game/Resume, Restart, Gravity Mode, Level Editor,
+Settings and Quit. New Game resets the score, lives, items and active-run state while retaining saved
+patterns/preferences; Resume preserves the paused ball and board. Primary mouse
+targets use the original 1280x720 rectangles
+projected into the existing canvas; hover colors and borders follow the original
+menu. New Game starts level one, Resume keeps the paused board, and Restart
+retains the port's saved metadata/preferences and returns to its new-game menu.
+Legacy Up/W quick-start still uses the highest unlocked level. Settings currently
+provides working fullscreen/back controls; it is not the complete original page.
+The original splash/restart/editor-return flows, music/SFX settings, resolution,
+VSync/confirm/revert controls, project-homepage button, fonts and background art
+still need restoration. No inactive placeholder controls are presented as working.
+
+`tests/reference/arkanoo_menu.py` compiles the complete unchanged original menu
+module, guarded by its pinned source hash. Its 72 boundary/quantization cases
+supply `tests/fixtures/arkanoo-menu.json`; unsupported original menu features
+remain explicitly listed. Unit and actual native/core/component runtime checks
+exercise actions and pause preservation. Linux native and both browser profiles
+click Settings, fullscreen/back and New Game before their normal gameplay/editor
+and file-dialog tests. Fullscreen browser image scaling now preserves proportions
+and translates pointer coordinates through borders and aspect-ratio bars.

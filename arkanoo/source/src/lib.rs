@@ -1,6 +1,7 @@
 // Adapted from c0m4r/arkanoo; see CREDITS.md for revision and changes.
 mod editor;
 mod levels;
+mod menu;
 mod pattern_rng;
 mod physics;
 mod render;

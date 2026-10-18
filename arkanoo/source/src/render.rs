@@ -175,6 +175,10 @@ fn brick_picture(kind: u8, health: u8, max_health: u8, frame: u32, x: f32, y: f3
     gamepkg::draw_image(x, y, BLOCK_WIDTH, BLOCK_HEIGHT, 60, 20, &pixels);
 }
 pub fn draw(game: &Game) {
+    if game.mode == 0 || game.mode == 2 {
+        draw_menu(game);
+        return;
+    }
     if game.mode == 6 {
         draw_editor(game);
         return;
@@ -445,5 +449,42 @@ fn draw_editor(game: &Game) {
         if edit.patterns.is_empty() {
             text("NO SAVED PATTERNS", 180.0, 148.0, 1.0, 0xe5f3ffff);
         }
+    }
+}
+
+fn draw_menu(game: &Game) {
+    gamepkg::draw_clear(0x101b35ff);
+    let heading = if game.menu.settings { "SETTINGS" } else if game.mode == 2 { "PAUSED" } else { "ARKANOO" };
+    text(heading, 320.0 - heading.len() as f32 * 6.0, 150.0, 2.0, 0x68e5ffff);
+    let first = if game.menu.settings { 7 } else { 1 };
+    let last = if game.menu.settings { 8 } else { 6 };
+    for action in first..=last {
+        let [left, top, width, height] = crate::menu::Menu::bounds(action);
+        let label = match action {
+            1 => if game.mode == 2 { "RESUME" } else { "NEW GAME" },
+            2 => "RESTART",
+            3 => "GRAVITY MODE",
+            4 => "LEVEL EDITOR",
+            5 => "SETTINGS",
+            6 => "QUIT",
+            7 => "FULLSCREEN",
+            _ => "BACK",
+        };
+        let hovered = game.menu.hover == action;
+        gamepkg::draw_rect(left, top, width, height, if hovered { 0x646496c8 } else { 0x3c3c64b4 });
+        gamepkg::draw_rect(left, top, width, 0.5, 0xc8c8c8ff);
+        gamepkg::draw_rect(left, top + height - 0.5, width, 0.5, 0xc8c8c8ff);
+        gamepkg::draw_rect(left, top, 0.5, height, 0xc8c8c8ff);
+        gamepkg::draw_rect(left + width - 0.5, top, 0.5, height, 0xc8c8c8ff);
+        if action == 3 && game.gravity {
+            gamepkg::draw_rect(left + 2.0, top + 2.0, 2.0, height - 4.0, 0x64c864ff);
+        }
+        text(label, left + (width - label.len() as f32 * 7.5) * 0.5, top + 5.5, 1.25, 0xffffffff);
+    }
+    if game.menu.settings {
+        text("F11 ALSO TOGGLES FULLSCREEN", 242.0, 300.0, 1.0, 0x8ba2c9ff);
+    } else {
+        text("UP START / DOWN PAUSE / E EDITOR", 227.0, 355.0, 1.0, 0x8ba2c9ff);
+        text("V GRAVITY / R RESTART / Q QUIT", 233.0, 375.0, 1.0, 0x8ba2c9ff);
     }
 }
