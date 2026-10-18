@@ -381,5 +381,24 @@ clipping and beveled borders under WTFPL-2.0. GamePKG's maintainer reference
 commands through real SDL; every decoded pixel is checked. Gameplay and placed
 editor bricks share the filtered textures and original integer coordinates.
 The original palette remains flat colors. Ice refraction/glints/moving shine,
-explosive glass/fire detail and graphite stripe/bevel effects remain unfinished;
+explosive glass/fire detail and full frame compositing equivalence remain unfinished;
 this does not establish complete brick, art or presentation parity.
+
+The graphite brick now uses `metal-body.png`, `metal-stripes.png` and
+`metal-bevel.png`, generated from the unchanged original Undestroyable branch of
+`draw_block_with_gradient`. The opaque 60×20 body matches every original SDL
+pixel, including rivets and bevels. Two separate 91×21 nearest-sampled layers
+retain unclipped stripes/bevel pixels from x=-20 through x=70 and y=20, with the
+original straight alpha and order. Their transparent interiors prevent double
+drawing. These source-derived assets inherit WTFPL-2.0.
+
+`tests/reference/arkanoo_metal.py` checks both pinned source hashes and reproduces
+the layers with real SDL. Six backdrop comparisons keep opaque body pixels exact
+and explicitly record SDL software line-versus-texture-copy rounding differences
+of one or two 8-bit levels outside the body. That numerical comparison applies to
+the reference SDL renderer, not a bound on native/browser framebuffer output.
+Exact full-frame alpha/color-space equivalence remains open. No original brick
+geometry or outside coverage is deliberately omitted to hide that difference.
+The signed runtime checks exercise both cold and warm full 200-metal boards
+within the existing command, transfer and tick limits; the host asset cache
+retains multiple immutable images within its existing 1 MiB pixel budget.

@@ -354,3 +354,7 @@ Copyright (C) 2025 c0m4r. WTFPL version 2; see assets/LICENSE-ARKANOO.txt.
 The six assets/brick-*.png normal-color textures are generated from c0m4r's
 unchanged draw_block_texture procedure and BLOCK_COLORS at the pinned revision.
 Copyright (C) 2025 c0m4r. WTFPL version 2; see assets/LICENSE-ARKANOO.txt.
+
+assets/metal-body.png, metal-stripes.png and metal-bevel.png are generated from
+c0m4r's unchanged Undestroyable branch in draw_block_with_gradient at the pinned
+revision. Copyright (C) 2025 c0m4r. WTFPL version 2; see assets/LICENSE-ARKANOO.txt.

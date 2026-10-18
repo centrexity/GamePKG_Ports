@@ -136,6 +136,10 @@ fn special_brick(game: &Game, index: usize, x: f32, y: f32) {
     );
 }
 fn brick_picture(kind: u8, health: u8, max_health: u8, frame: u64, x: f32, y: f32) {
+    if kind == 3 {
+        draw_metal_brick(x, y);
+        return;
+    }
     let time = frame as f64 * 0.05;
     let rgba = if kind == 1 {
         [200, 240, 255, (180.0 + (time.sin() * 20.0)) as u8]
@@ -160,18 +164,6 @@ fn brick_picture(kind: u8, health: u8, max_health: u8, frame: u64, x: f32, y: f3
         brick_line(&mut pixels, [30, 10, 10, 18], [255, 255, 255, 220]);
         brick_line(&mut pixels, [5, 5, 0, 15], [255, 255, 255, 220]);
         brick_line(&mut pixels, [55, 12, 60, 5], [255, 255, 255, 220]);
-    }
-    if kind == 3 {
-        for row in [2usize, 15] {
-            for col in [2usize, 55] {
-                for dy in 0..3 {
-                    for dx in 0..3 {
-                        let offset = ((row + dy) * 60 + col + dx) * 4;
-                        pixels[offset..offset + 4].copy_from_slice(&[150, 150, 160, 255]);
-                    }
-                }
-            }
-        }
     }
     gamepkg::draw_image(x, y, BLOCK_WIDTH, BLOCK_HEIGHT, 60, 20, &pixels);
 }
@@ -711,4 +703,15 @@ pub fn draw_normal_brick(color_index: u8, x: f32, y: f32) -> bool {
         gamepkg::draw_rect(left, top, BLOCK_WIDTH, BLOCK_HEIGHT, colors[selected]);
     }
     loaded
+}
+
+// Nearest sampling retains the original primitive pixel grid. The outside
+// stripes and bevel stay separate so their alpha and draw order are preserved.
+pub fn draw_metal_brick(x: f32, y: f32) -> bool {
+    let left = (x * 2.0) as i32 as f32 * 0.5;
+    let top = 60.0 + ((y - 60.0) * 2.0) as i32 as f32 * 0.5;
+    let body = gamepkg::draw_asset_image("metal-body.png", left, top, 30.0, 10.0);
+    let stripes = gamepkg::draw_asset_image("metal-stripes.png", left - 10.0, top, 45.5, 10.5);
+    let bevel = gamepkg::draw_asset_image("metal-bevel.png", left - 10.0, top, 45.5, 10.5);
+    body && stripes && bevel
 }
