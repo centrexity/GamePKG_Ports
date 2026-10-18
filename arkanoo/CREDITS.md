@@ -454,3 +454,33 @@ image-byte and tick limits. Both gameplay and the editor share this path, with
 the editor retaining its own active animation clock. Original art/fonts, bonus
 and background presentation, audio/settings and full-frame/platform verification
 remain tracked independently.
+
+
+Recipe 0.1.27 restores the original glass bonus capsules, replacing the port's
+flat blocks and letter labels. Ten source-derived PNGs preserve four original
+tints, radial body transparency, top-left highlight, the interleaved double ring,
+and all shadow/symbol passes. The duplicated white passes are retained in the
+symbol result, including the long-paddle bar's combined six-pixel height. The
+four legacy guest kinds remain long paddle, extra ball, ghost ball and rocket.
+The capsule's inclusive point endpoints occupy 41×41 source pixels, while its
+original collision box remains 40×40; destination geometry is integer-truncated
+before half-scale projection.
+
+`tests/reference/arkanoo_bonus.py` compiles the unchanged pinned drawing function
+and original Bonus::rect with real SDL 0.37.0 constructors from verified archives.
+Body, highlight and symbol layers retain straight original RGBA. Repeated ring
+points are composed in a transparent OpenGL target and converted to straight RGBA
+for the shared texture. All generated assets retain copyright (C) 2025 c0m4r and
+WTFPL version 2; see assets/LICENSE-ARKANOO.txt and NOTICE. No external artwork,
+fonts, player tools, game crates or permissions are added.
+
+Six-background comparisons of the complete original and layered 41×41 capsule
+agree within one 8-bit channel level in the original default OpenGL renderer.
+Software SDL's texture-copy path differs by up to five levels, recorded separately.
+These are explicit renderer measurements, not universal framebuffer equivalence.
+Live native/browser comparisons retain original tint, transparent corners, bright
+symbols, rim and highlight, including position changes. Exact nearest-sampling
+boundaries allow adjacent original texels; full-frame rasterization remains open.
+Four draws per item fit a cold/warm 200-item board in unchanged command, pixel-byte
+and tick budgets, with shared immutable decoded images retained by the host cache.
+Original falling motion, pickup rectangles and bonus behavior remain unchanged.

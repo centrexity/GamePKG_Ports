@@ -229,6 +229,32 @@ pub fn draw_fire_brick(frame: u64, x: f32, y: f32) -> bool {
     base && blob && glass && band
 }
 
+pub fn draw_bonus_item(kind: u32, x: f32, y: f32) -> bool {
+    if kind >= 4 {
+        return false;
+    }
+    let bodies = [
+        "bonus-body-long.png",
+        "bonus-body-ball.png",
+        "bonus-body-ghost.png",
+        "bonus-body-rocket.png",
+    ];
+    let symbols = [
+        "bonus-symbol-long.png",
+        "bonus-symbol-ball.png",
+        "bonus-symbol-ghost.png",
+        "bonus-symbol-rocket.png",
+    ];
+    let x = (x * 2.0) as i32 as f32 * 0.5;
+    let y = 60.0 + ((y - 60.0) * 2.0) as i32 as f32 * 0.5;
+    // Inclusive point endpoints extend one pixel beyond the 40x40 collision box.
+    let body = gamepkg::draw_asset_image(bodies[kind as usize], x, y, 20.5, 20.5);
+    let highlight = gamepkg::draw_asset_image("bonus-highlight.png", x, y, 20.5, 20.5);
+    let outline = gamepkg::draw_asset_image("bonus-rings.png", x, y, 20.5, 20.5);
+    let symbol = gamepkg::draw_asset_image(symbols[kind as usize], x, y, 20.5, 20.5);
+    body && highlight && outline && symbol
+}
+
 fn special_brick(game: &Game, index: usize, x: f32, y: f32) {
     brick_picture(
         game.block_type[index],
@@ -312,15 +338,7 @@ pub fn draw(game: &Game) {
         draw_ball(ball);
     }
     for drop in &game.drops {
-        let colors = [0x62de9eff, 0xffcd60ff, 0xb28cffff, 0xff647fff];
-        gamepkg::draw_rect(drop.x, drop.y, 20.0, 20.0, colors[drop.kind as usize]);
-        let label = match drop.kind {
-            0 => "L",
-            1 => "B",
-            2 => "G",
-            _ => "R",
-        };
-        text(label, drop.x + 4.0, drop.y + 3.0, 2.0, 0x101828ff);
+        draw_bonus_item(drop.kind, drop.x, drop.y);
     }
     for (x, y) in &game.rockets {
         gamepkg::draw_rect(*x, *y, 5.0, 10.0, 0xffdd70ff);

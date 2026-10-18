@@ -358,3 +358,10 @@ Copyright (C) 2025 c0m4r. WTFPL version 2; see assets/LICENSE-ARKANOO.txt.
 assets/metal-body.png, metal-stripes.png and metal-bevel.png are generated from
 c0m4r's unchanged Undestroyable branch in draw_block_with_gradient at the pinned
 revision. Copyright (C) 2025 c0m4r. WTFPL version 2; see assets/LICENSE-ARKANOO.txt.
+
+assets/bonus-body-*.png, bonus-highlight.png, bonus-rings.png and
+bonus-symbol-*.png: generated from c0m4r's unchanged draw_bonus_icon procedure
+at revision 9d613e78c9ed5657ae7fda9206cd4a82a893b7c8, using the original SDL
+0.37.0 rectangle semantics and ordered primitive colors. Copyright (C) 2025
+c0m4r. WTFPL version 2; see assets/LICENSE-ARKANOO.txt. See CREDITS.md for
+layer grouping and measured renderer rounding differences.
