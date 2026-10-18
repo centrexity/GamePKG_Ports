@@ -110,8 +110,8 @@ Ten fixtures execute the unchanged original brick and rocket phases against
 actual SDL intersections. Native/Wasm tests verify ice damage and type rendering,
 world-distance boundaries/no chaining, and a complete 200-special-brick screen
 within normal time, image and drawing budgets. Later rendering changes below restore the normal/graphite textures and ice
-refraction, glints and moving shine. Explosive fire/glass and full-frame
-compositing fidelity remain separate unfinished work.
+refraction, glints and moving shine. The explosive fire/glass restoration is described below; full-frame
+compositing fidelity remains separate unfinished work.
 The pinned upstream generator deliberately disables special bricks in ordinary
 procedural campaign/endless layouts; custom patterns can contain them. The
 validated type-setting logic is now used by the editor and its test game.
@@ -380,8 +380,8 @@ clipping and beveled borders under WTFPL-2.0. GamePKG's maintainer reference
 `tests/reference/arkanoo_blocks.py` compiles that procedure and rasterizes its
 commands through real SDL; every decoded pixel is checked. Gameplay and placed
 editor bricks share the filtered textures and original integer coordinates.
-The original palette remains flat colors. Explosive glass/fire detail and
-full frame compositing equivalence remain unfinished;
+The original palette remains flat colors. Later sections cover explosive
+glass/fire layers; full frame compositing equivalence remains unfinished;
 this does not establish complete brick, art or presentation parity.
 
 The graphite brick now uses `metal-body.png`, `metal-stripes.png` and
@@ -427,3 +427,30 @@ up to three 8-bit levels of rounding difference. That reference bound does not
 establish exact native/browser framebuffer equivalence; full-frame comparison
 remains open. The source-derived rendering code retains WTFPL-2.0 attribution,
 and the scalar Rand compatibility code retains its existing MIT notice.
+
+
+Recipe 0.1.26 restores the explosive brick's complete original drawing sequence:
+the f64 magma color pulse, moving orange core, top-half glossy fill, inclusive
+edge glints, two diagonal reflections and eight-line moving clipped shine. The
+original Rust SDL 0.37.0 wrapper clamps the apparent zero-height core rectangle
+to one pixel; that moving highlight is preserved as a half-unit rectangle in
+the projected canvas. The guest still has no Cargo dependencies. The shared
+white-mask helper is unchanged in behavior for ice.
+
+`tests/reference/arkanoo_fire.py` compiles the unchanged original branch using
+real Rust SDL constructors from archives checked against the original lockfile
+checksums, then rasterizes the recorded calls through real SDL. These crates and
+Python/C tools are maintainer references, not player requirements or game crates.
+The 64 cases cover sixteen frames, four positions, f32/f64 precision boundaries,
+shine wrap and u64 maximum. Each case checks the real one-pixel core geometry,
+pulse color and every byte of both alpha masks. Removing the core changes the
+original output in all 384 backdrop comparisons. Grouped overlay rounding differs
+from the original software SDL drawing by at most three 8-bit levels; this is not
+a bound on native/browser framebuffer differences or complete frame parity.
+
+Four commands per explosive brick retain all original drawing stages while
+keeping full 200-brick and mixed ice/fire/metal boards within unchanged command,
+image-byte and tick limits. Both gameplay and the editor share this path, with
+the editor retaining its own active animation clock. Original art/fonts, bonus
+and background presentation, audio/settings and full-frame/platform verification
+remain tracked independently.

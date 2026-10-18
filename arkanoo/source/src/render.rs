@@ -99,7 +99,7 @@ fn number(mut value: u32, x: f32, y: f32) {
     );
 }
 
-fn ice_line(mask: &mut [u8], size: [i32; 2], points: [i32; 4], opacity: u8) {
+fn brick_mask_line(mask: &mut [u8], size: [i32; 2], points: [i32; 4], opacity: u8) {
     let [mut x, mut y, end_x, end_y] = points;
     let dx = (end_x - x).abs();
     let dy = -(end_y - y).abs();
@@ -127,7 +127,7 @@ fn ice_line(mask: &mut [u8], size: [i32; 2], points: [i32; 4], opacity: u8) {
         }
     }
 }
-fn ice_pixels(mask: &[u8]) -> Vec<u8> {
+fn brick_mask_pixels(mask: &[u8]) -> Vec<u8> {
     let mut pixels = Vec::new();
     for opacity in mask {
         pixels.extend_from_slice(&[255, 255, 255, *opacity]);
@@ -146,39 +146,87 @@ pub fn draw_ice_brick(health: u8, max_health: u8, frame: u64, x: f32, y: f32) ->
     // Glints extend through the original inclusive right/bottom endpoints.
     let mut overlay = Vec::new();
     overlay.resize(61 * 21, 0u8);
-    ice_line(&mut overlay, [61, 21], [0, 0, 60, 0], 150);
-    ice_line(&mut overlay, [61, 21], [0, 0, 0, 20], 150);
+    brick_mask_line(&mut overlay, [61, 21], [0, 0, 60, 0], 150);
+    brick_mask_line(&mut overlay, [61, 21], [0, 0, 0, 20], 150);
     let mut rng = crate::pattern_rng::Rng::new((bx * by) as u64);
     for _ in 0..3 {
         let x1 = rng.range_i32(5, 55);
         let y1 = rng.range_i32(5, 15);
         let x2 = rng.range_i32(5, 55);
         let y2 = rng.range_i32(5, 15);
-        ice_line(&mut overlay, [61, 21], [x1, y1, x2, y2], 80);
+        brick_mask_line(&mut overlay, [61, 21], [x1, y1, x2, y2], 80);
     }
     if health < max_health {
-        ice_line(&mut overlay, [61, 21], [30, 10, 5, 5], 220);
-        ice_line(&mut overlay, [61, 21], [30, 10, 55, 12], 220);
-        ice_line(&mut overlay, [61, 21], [30, 10, 10, 18], 220);
-        ice_line(&mut overlay, [61, 21], [5, 5, 0, 15], 220);
-        ice_line(&mut overlay, [61, 21], [55, 12, 60, 5], 220);
+        brick_mask_line(&mut overlay, [61, 21], [30, 10, 5, 5], 220);
+        brick_mask_line(&mut overlay, [61, 21], [30, 10, 55, 12], 220);
+        brick_mask_line(&mut overlay, [61, 21], [30, 10, 10, 18], 220);
+        brick_mask_line(&mut overlay, [61, 21], [5, 5, 0, 15], 220);
+        brick_mask_line(&mut overlay, [61, 21], [55, 12, 60, 5], 220);
     }
-    let pixels = ice_pixels(&overlay);
+    let pixels = brick_mask_pixels(&overlay);
     let glints = gamepkg::draw_image(x, y, 30.5, 10.5, 61, 21, &pixels);
     let mut shine = Vec::new();
     shine.resize(60 * 20, 0u8);
     let offset = (frame as f32 * 2.0) as i32 % 120 - 20;
     for i in 0..10 {
-        ice_line(
+        brick_mask_line(
             &mut shine,
             [60, 20],
             [offset + i, 20, offset + 20 + i, 0],
             150,
         );
     }
-    let pixels = ice_pixels(&shine);
+    let pixels = brick_mask_pixels(&shine);
     let band = gamepkg::draw_image(x, y, 30.0, 10.0, 60, 20, &pixels);
     base && glints && band
+}
+
+pub fn draw_fire_brick(frame: u64, x: f32, y: f32) -> bool {
+    let bx = (x * 2.0) as i32;
+    let by = ((y - 60.0) * 2.0) as i32;
+    let x = bx as f32 * 0.5;
+    let y = 60.0 + by as f32 * 0.5;
+    let time = frame as f64 * 0.05;
+    let red = 220u8.saturating_add((time.sin() * 20.0) as u8);
+    let green = 80u8.saturating_add((time.cos() * 30.0) as u8);
+    let color = (u32::from(red) << 24) | (u32::from(green) << 16) | 255;
+    let base = gamepkg::draw_rect(x, y, 30.0, 10.0, color);
+    // rust-sdl2 0.37 Rect::new clamps the original zero height to one pixel.
+    let blob_offset_y = ((time * 1.5).sin() * 5.0) as i32;
+    let blob = gamepkg::draw_rect(
+        x + 5.0,
+        y + 5.0 + blob_offset_y as f32 * 0.5,
+        20.0,
+        0.5,
+        0xff9632ff,
+    );
+    let mut overlay = Vec::new();
+    overlay.resize(61 * 21, 0u8);
+    for row in 0..10 {
+        for col in 0..60 {
+            overlay[row * 61 + col] = 40;
+        }
+    }
+    brick_mask_line(&mut overlay, [61, 21], [0, 0, 60, 0], 180);
+    brick_mask_line(&mut overlay, [61, 21], [0, 0, 0, 20], 180);
+    brick_mask_line(&mut overlay, [61, 21], [0, 20, 20, 0], 80);
+    brick_mask_line(&mut overlay, [61, 21], [5, 20, 25, 0], 80);
+    let pixels = brick_mask_pixels(&overlay);
+    let glass = gamepkg::draw_image(x, y, 30.5, 10.5, 61, 21, &pixels);
+    let mut shine = Vec::new();
+    shine.resize(60 * 20, 0u8);
+    let offset = (frame as f32 * 1.5) as i32 % 120 - 20;
+    for i in 0..8 {
+        brick_mask_line(
+            &mut shine,
+            [60, 20],
+            [offset + i, 20, offset + 20 + i, 0],
+            100,
+        );
+    }
+    let pixels = brick_mask_pixels(&shine);
+    let band = gamepkg::draw_image(x, y, 30.0, 10.0, 60, 20, &pixels);
+    base && blob && glass && band
 }
 
 fn special_brick(game: &Game, index: usize, x: f32, y: f32) {
@@ -196,21 +244,15 @@ fn brick_picture(kind: u8, health: u8, max_health: u8, frame: u64, x: f32, y: f3
         draw_ice_brick(health, max_health, frame, x, y);
         return;
     }
+    if kind == 2 {
+        draw_fire_brick(frame, x, y);
+        return;
+    }
     if kind == 3 {
         draw_metal_brick(x, y);
         return;
     }
-    let time = frame as f64 * 0.05;
-    let rgba = if kind == 2 {
-        [
-            220u8.saturating_add((time.sin() * 20.0) as u8),
-            80u8.saturating_add((time.cos() * 30.0) as u8),
-            0,
-            255,
-        ]
-    } else {
-        [30, 35, 40, 255]
-    };
+    let rgba = [30, 35, 40, 255];
     let mut pixels = Vec::new();
     pixels.resize(60 * 20 * 4, 0u8);
     for pixel in pixels.chunks_exact_mut(4) {
