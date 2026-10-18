@@ -68,9 +68,12 @@ fn draw_snow(level: u32, frame: u64) -> Background {
         points: dots,
     }
 }
-fn draw_smoke(level: u32, frame: u64) -> Background {
+pub fn smoke_rectangles(
+    level: u32,
+    frame: u64,
+) -> (u32, Vec<crate::background::BackgroundRectangle>) {
     let time = frame as f32;
-    let mut dots = Vec::new();
+    let mut rectangles = Vec::new();
     for i in 0..100u64 {
         let seed = u64::from(level) * 5000 + i;
         let mut rng = Rng::new(seed);
@@ -83,17 +86,29 @@ fn draw_smoke(level: u32, frame: u64) -> Background {
         let opacity = ((1.0 - progress) * 100.0) as u8;
         let drift = (time * 0.01 + i as f32).sin() * 30.0 * progress;
         let x = x_base as f32 + drift;
+        rectangles.push(crate::background::BackgroundRectangle {
+            position: [x as i32 - size as i32 / 2, y as i32 - size as i32 / 2],
+            size: [size, size],
+            color: 0x64646400 | u32::from(opacity),
+        });
+    }
+    (0x141414ff, rectangles)
+}
+fn draw_smoke(level: u32, frame: u64) -> Background {
+    let (color, rectangles) = smoke_rectangles(level, frame);
+    let mut dots = Vec::new();
+    for rect in rectangles {
         rectangle(
             &mut dots,
-            x as i32 - size as i32 / 2,
-            y as i32 - size as i32 / 2,
-            size as i32,
-            size as i32,
-            0x64646400 | u32::from(opacity),
+            rect.position[0],
+            rect.position[1],
+            rect.size[0] as i32,
+            rect.size[1] as i32,
+            rect.color,
         );
     }
     Background {
-        color: 0x141414ff,
+        color,
         points: dots,
     }
 }

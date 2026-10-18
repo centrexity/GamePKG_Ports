@@ -519,9 +519,8 @@ sampler is now reproduced for color draws; it consumes a different rejection
 sequence from the i32 sampler. This scalar code remains covered by the existing
 Rand MIT attribution. Dense smoke uses non-overlapping 128-pixel tiles; sparse
 themes retain 64-pixel tiles. The unchanged source/real-Rand/SDL oracle supplies
-33 cases across three levels per theme and frame extremes. Grouped transparent
-layers differ from direct software SDL by at most four color levels in these
-cases. This does not complete whole-frame, edge, other-theme or platform parity.
+33 cases across three levels per theme and frame extremes. Their earlier grouped-layer comparisons are now superseded by the exact
+canonical default-OpenGL checks below. This does not complete whole-frame, edge, other-theme or platform parity.
 Adapted from c0m4r's rendering.rs, copyright 2025 c0m4r, WTFPL version 2.
 
 The original Fire and Deep Sea procedural backgrounds are also restored. Fire
@@ -624,7 +623,20 @@ thresholds; 3,072 independent real-Rand samples verify their streams. Forty-thre
 unchanged-original/real-Rand/actual-SDL cases verify all raw commands, 349 grouped
 contribution maps and complete canonical default OpenGL frames exactly. The
 original software renderer differs by at most two RGB levels in these cases.
-All twenty procedural paths are now adapted. Earlier point-based themes retain
-their documented software-SDL grouping bounds; full canonical composition for
-those paths, scaled-window/viewport parity and other artwork remain open.
+All twenty procedural paths are now adapted. The canonical checks below also
+supersede the earlier point-background grouping bounds. Campaign 7–9 canonical
+composition, scaled-window/viewport parity and other artwork remain open.
 Copyright 2025 c0m4r, WTFPL version 2; existing Rand MIT and SDL zlib notices apply.
+
+The eight earlier point/filled-rectangle themes now use exact known-background
+composition: Star Voyage, Snow, Smoke, Tornado, Fire, Supernova, Space Wars and
+Deep Sea. Eighty-eight unchanged-original/real-Rand/actual-SDL cases verify their
+clipped ordered pixels, all 452 independently measured primitive-group maps and
+complete canonical default OpenGL frames exactly. Original software SDL differs
+by up to six RGB levels; this separate renderer difference is recorded, not a
+port tolerance. The old full point-stream hashes and RNG vectors remain checked.
+Smoke replays its 100 original rectangles directly instead of retaining a large
+expanded point list. The original 16 MiB cap and all other budgets remain.
+All twenty procedural themes now have exact canonical logical-frame evidence.
+Campaign 7–9 canonical blending and complete viewport/window/platform behavior
+remain open. Copyright 2025 c0m4r, WTFPL version 2; existing notices apply.

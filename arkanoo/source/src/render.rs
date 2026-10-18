@@ -452,9 +452,12 @@ pub fn draw_background(level: u32, frame: u64) -> bool {
             }
             return true;
         }
-        if theme == 4 || theme == 5 {
-            let (color, rectangles) = if theme == 4 { crate::procedural::matrix_rectangles(level, frame) }
-                else { crate::procedural::nebula_rectangles(level, frame) };
+        if [4,5,9].contains(&theme) {
+            let (color, rectangles) = match theme {
+                4 => crate::procedural::matrix_rectangles(level, frame),
+                5 => crate::procedural::nebula_rectangles(level, frame),
+                _ => crate::procedural::smoke_rectangles(level, frame),
+            };
             gamepkg::draw_rect(0.0, 60.0, 640.0, 360.0, color);
             if let Some(image) = crate::background::composited_rectangles(&rectangles, color) {
                 draw_effect_tiles(&image, 128);
@@ -467,7 +470,7 @@ pub fn draw_background(level: u32, frame: u64) -> bool {
     if let Some(scene) = background {
         gamepkg::draw_rect(0.0, 60.0, 640.0, 360.0, scene.color);
         let theme = if level > 9 { crate::procedural::procedural_theme(level) } else { u32::MAX };
-        let image = if [0,3,6,13,14].contains(&theme) {
+        let image = if level > 9 {
             crate::background::composited_background(&scene)
         } else { crate::physics::effect_image(&scene.points) };
         if let Some(image) = image {
