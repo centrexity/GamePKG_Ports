@@ -176,6 +176,12 @@ fn brick_picture(kind: u8, health: u8, max_health: u8, frame: u32, x: f32, y: f3
     gamepkg::draw_image(x, y, BLOCK_WIDTH, BLOCK_HEIGHT, 60, 20, &pixels);
 }
 pub fn draw(game: &Game) {
+    if game.mode == 7 {
+        gamepkg::draw_clear(0x0b1020ff);
+        text("ARKANOO", 236.0, 190.0, 4.0, 0x68e5ffff);
+        text("ENTER OR CLICK TO CONTINUE", 170.0, 290.0, 2.0, 0x8ba2c9ff);
+        return;
+    }
     if game.mode == 0 || game.mode == 2 {
         draw_menu(game);
         return;
@@ -526,7 +532,7 @@ fn draw_menu_button(game: &Game, action: u32) {
     let [left, top, width, height] = crate::menu::Menu::bounds(action);
     let label = match action {
         1 => {
-            if game.mode == 2 {
+            if game.started {
                 "RESUME"
             } else {
                 "NEW GAME"

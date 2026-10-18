@@ -151,7 +151,7 @@ core/component/native runtime tests verify bindings and repeat rejection.
 The native host now remembers normal window size, fullscreen and maximized state
 per game/creator/library. Linux window tests verify resize and combined-mode
 reopen, original normal-size restoration, game/OS close and damaged-record
-preservation. Original splash/menu transitions, resolution/VSync settings UI,
+preservation. Original splash artwork, remaining menu presentation, resolution/VSync settings UI,
 initial modifier state and full platform coverage remain unfinished. This does not claim complete
 original input/window parity. The updated source host is required.
 
@@ -220,15 +220,17 @@ preserved. Scoped directory browsing and multi-file resource workflows remain
 separate host requirements; this is single-file pattern selection.
 
 The main menu now exposes New Game/Resume, Restart, Gravity Mode, Level Editor,
-Settings and Quit. New Game resets the score, lives, items and active-run state while retaining saved
-patterns/preferences; Resume preserves the paused ball and board. Primary mouse
+Settings and Quit. New Game starts the initialized run; Resume preserves the
+paused ball and board. Restart resets score, lives, items and the active run while
+retaining saved patterns/preferences. Primary mouse
 targets use the original 1280x720 rectangles
 projected into the existing canvas; hover colors and borders follow the original
-menu. New Game starts level one, Resume keeps the paused board, and Restart
-retains the port's saved metadata/preferences and returns to its new-game menu.
+menu. A fresh launch starts level one, Resume keeps the paused board, and Restart
+retains the port's saved metadata/preferences and passes through the original
+splash/paused-menu flow described below.
 Legacy Up/W quick-start still uses the highest unlocked level. Settings now
 provides fullscreen/back and effects-volume/mute controls; it is not the complete original page.
-The original splash/restart/editor-return flows, music settings, resolution,
+Music settings, resolution,
 VSync/confirm/revert controls, project-homepage button, fonts and background art
 still need restoration. No inactive placeholder controls are presented as working.
 
@@ -258,3 +260,20 @@ preservation when saving is denied or damaged. Linux desktop and both browser
 profiles use actual drags and mute clicks; browser Restart restores the rendered
 settings as well as the stored flags. These checks do not close original recorded
 audio, music, complete menus or non-Linux gameplay requirements.
+
+Startup now uses a separate splash state for the original 270 update frames.
+Enter and left click skip it without also starting gameplay. Escape, right click,
+editor/quit shortcuts do not dismiss it; F11 remains available. The timer lives
+across run resets, as in the original main loop: an expired splash immediately
+returns to the menu after Restart, while an early skip leaves its remaining
+frames available on a later restart. The menu retains whether play has started,
+so editor return and restart preserve the appropriate New Game/Resume action.
+Returning from the editor no longer silently discards the paused run when Resume
+is clicked. GamePKG retains saved patterns and effects/gravity preferences across
+run resets; active runs still do not survive closing the application.
+
+Seventeen independent state observations compile unchanged pinned constructor,
+reset, pause and main-loop splash/skip/editor-exit fragments. Source hashes guard
+both complete upstream files. SDL window calls and entity allocation are stubbed
+only for these state tests. Original splash artwork/audio remain absent: the
+current title screen is replacement art, not visual parity.

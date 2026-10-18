@@ -156,6 +156,8 @@ pub struct Particle {
     pub color: u32,
 }
 pub struct Game {
+    pub splash_timer: u32,
+    pub started: bool,
     pub menu: crate::menu::Menu,
     pub fullscreen_requests: u32,
     pub quit_requested: bool,
@@ -197,13 +199,15 @@ pub struct Game {
 impl Game {
     pub fn new() -> Self {
         let mut game = Self {
+            splash_timer: 0,
+            started: false,
             menu: crate::menu::Menu::new(),
             fullscreen_requests: 0,
             quit_requested: false,
             editor: crate::editor::Editor::new(),
             testing: false,
             block_color: [0; 200],
-            mode: 0,
+            mode: 7,
             level: 1,
             unlocked: 1,
             score: 0,
@@ -564,6 +568,8 @@ impl Game {
         }
     }
     pub fn reset_run(&mut self) {
+        let splash_timer = self.splash_timer;
+        let started = self.started;
         let best = self.best;
         let unlocked = self.unlocked;
         let gravity = self.gravity;
@@ -572,6 +578,8 @@ impl Game {
         let fullscreen_requests = self.fullscreen_requests;
         let saved_editor = core::mem::replace(&mut self.editor, crate::editor::Editor::new());
         *self = Self::new();
+        self.splash_timer = splash_timer;
+        self.started = started;
         self.editor = saved_editor;
         self.fullscreen_requests = fullscreen_requests;
         self.best = best;
@@ -614,16 +622,22 @@ impl Game {
             self.fullscreen_requests = self.fullscreen_requests.saturating_add(1);
             return;
         }
+        if self.mode == 7 {
+            if (kind == 5 && (code & 65535) == 40) || (kind == 2 && code == 1) {
+                self.show_menu();
+            }
+            return;
+        }
         if self.mode == 0 || self.mode == 2 {
             let action = self.menu.menu_event(kind, x, y, code);
             if action == 1 {
                 self.menu.settings = false;
-                if self.mode == 0 {
-                    self.reset_run();
-                }
+                self.started = true;
+                self.dirty = true;
                 self.mode = 1;
             }
             if action == 2 {
+                self.started = true;
                 self.reset_run();
             }
             if action == 3 {
@@ -665,7 +679,7 @@ impl Game {
         if self.mode == 6 {
             let action = self.editor.editor_event(kind, x, y, code);
             if action == 1 {
-                self.mode = 0;
+                self.show_menu();
                 self.menu.settings = false;
                 self.menu.hover = 0;
                 self.editor.dragging = 0;
@@ -702,12 +716,12 @@ impl Game {
             if key == 44 && self.mode == 1 {
                 self.fire_or_launch();
             }
-            if key == 41 && (self.mode == 1 || self.mode == 2) {
+            if key == 41 && (self.mode == 0 || self.mode == 1 || self.mode == 2) {
                 self.mode = if self.mode == 1 { 2 } else { 1 };
                 self.menu.settings = false;
                 self.menu.hover = 0;
             }
-            if key == 40 && (self.mode == 0 || self.mode == 3 || self.mode == 5) {
+            if key == 40 && (self.mode == 3 || self.mode == 5) {
                 self.update(4);
             }
         }
@@ -733,6 +747,14 @@ impl Game {
             return;
         }
         self.editor.editor_tick();
+        if self.mode == 7 {
+            // The original main loop owns this timer across Game::reset calls.
+            self.splash_timer = self.splash_timer.saturating_add(1);
+            if self.splash_timer >= 270 || input & 4 != 0 {
+                self.show_menu();
+            }
+            return;
+        }
         if self.mode == 6 {
             return;
         }
@@ -742,6 +764,11 @@ impl Game {
             self.testing = false;
             self.editor.dragging = 0;
         }
+    }
+    pub fn show_menu(&mut self) {
+        self.mode = if self.started { 2 } else { 0 };
+        self.menu.settings = false;
+        self.menu.hover = 0;
     }
     pub fn update_frame(&mut self, input: u32) {
         if input & 131072 != 0 {
@@ -759,6 +786,7 @@ impl Game {
         if self.mode != 1 {
             if input & 4 != 0 {
                 if self.mode == 0 {
+                    self.started = true;
                     self.level = self.unlocked;
                     self.populate();
                     self.attach();
