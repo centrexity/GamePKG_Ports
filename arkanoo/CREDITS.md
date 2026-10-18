@@ -10,9 +10,10 @@ paddle/ball motion and spin, overlap collision response, scoring, and the
 long-paddle, extra-ball, ghost-ball and rocket mechanics from entities.rs and
 game.rs. The engine integration has been rewritten for GamePKG's safe APIs.
 
-Most rendering, bitmap lettering and synthesized audio are new; original shard
-particle behavior/drawing and the metallic ball, glass paddle and normal-brick textures are restored as detailed below. Upstream Pixabay
-music/sound, fonts, logos and generated background art are not redistributed.
+The safe host integration and synthesized audio are new. Original visual
+procedures/assets restored in the port are identified below, including brick,
+ball and paddle art, backgrounds, rasterized Roboto lettering and startup art.
+Upstream Pixabay music and recorded sound effects remain unimplemented.
 The port uses a 640x480 canvas and GamePKG host randomness instead of SDL2,
 rand or filesystem access. Launch directions use rejection sampling, and bonus
 selection uses independent probability/weight draws.
@@ -806,3 +807,22 @@ The advisory storage estimate is 48 MiB after measuring 43.0 MiB with package,
 recovery copy and native/Wasm builds; hard memory and drawing limits are unchanged.
 Final native and both browser-profile gameplay/editor and player-selected file
 import/cancel/export workflows pass. Publication is source only.
+
+Recipe 0.1.52 restores the original startup artwork and white-background fade.
+`splash-{0..5}.png` are overlapping canonical SDL captures of upstream
+`assets/antigravity.webp` at revision
+`9d613e78c9ed5657ae7fda9206cd4a82a893b7c8` (source SHA-256
+`663904220eeb0bec0cc4b729b617808f0d40fc7de2501672435dccfda84d347e`).
+This upstream development-tool acknowledgment image is preserved as game
+content under the upstream project's WTFPL terms. It describes the upstream
+game's credits. The six tiles and independent 17-frame oracle reproduce
+exactly; all 271 original alpha values are checked. Six desktop configurations
+match canonical SDL RGB frames exactly, and both browser profiles match a
+separate smaller native capture within two levels. End users need no capture,
+image-conversion or compiler tools for this artwork. Timer/skip/restart behavior
+remains verified separately. HUD/end-state artwork, recorded audio/music,
+remaining settings and arbitrary original scaling remain unfinished.
+Both 63-check signed suites and native/core/component browser gameplay/editor
+and file workflows pass. The advisory storage estimate is 56 MiB after measuring
+48.3 MiB with the package, recovery copy and native/Wasm builds. Execution and
+memory/drawing budgets remain unchanged. Publication is source only.

@@ -289,9 +289,7 @@ fn brick_picture(kind: u8, health: u8, max_health: u8, frame: u64, x: f32, y: f3
 }
 pub fn draw(game: &Game) {
     if game.mode == 7 {
-        gamepkg::draw_clear(0x0b1020ff);
-        text("ARKANOO", 236.0, 190.0, 4.0, 0x68e5ffff);
-        text("ENTER OR CLICK TO CONTINUE", 170.0, 290.0, 2.0, 0x8ba2c9ff);
+        draw_splash(game.splash_timer);
         return;
     }
     if game.mode == 0 || game.mode == 2 {
@@ -684,15 +682,29 @@ fn draw_editor(game: &Game) {
     if edit.message_time>0 {draw_dynamic_label(&edit.message,640,590,[100,255,100],true,-1);}
 }
 
+pub fn splash_alpha(timer:u32)->u8 {
+    let timer=timer.min(270);
+    if timer<60 {(timer as f32/60.0*255.0) as u8} else if timer>210 {((270-timer) as f32/60.0*255.0) as u8} else {255}
+}
+pub fn draw_splash(timer:u32)->bool {
+    gamepkg::draw_clear(0xffffffff);
+    let mut accepted=draw_world_tiles(["splash-0.png","splash-1.png","splash-2.png","splash-3.png","splash-4.png","splash-5.png"]);
+    // Opaque source artwork over white is equivalent to fading it with white.
+    if !gamepkg::draw_rect(0.0,60.0,640.0,360.0,0xffffff00|u32::from(255-splash_alpha(timer))){accepted=false;}accepted
+}
 pub fn draw_menu_background()->bool {
-    let paths=["menu-background1-0.png","menu-background1-1.png","menu-background1-2.png","menu-background1-3.png","menu-background1-4.png","menu-background1-5.png"];let mut accepted=true;
+    let mut accepted=draw_world_tiles(["menu-background1-0.png","menu-background1-1.png","menu-background1-2.png","menu-background1-3.png","menu-background1-4.png","menu-background1-5.png"]);
+    if !gamepkg::draw_rect(0.0,60.0,640.0,360.0,150){accepted=false;}accepted
+}
+fn draw_world_tiles(paths:[&str;6])->bool {
+    let mut accepted=true;
     for index in 0..6 {
         let core_x=(index%3)*510usize;let core_y=(index/3)*510usize;let core_w=(1280-core_x).min(510);let core_h=(720-core_y).min(510);let source_left=core_x.saturating_sub(1);let source_top=core_y.saturating_sub(1);let source_right=(core_x+core_w+1).min(1280);let source_bottom=(core_y+core_h+1).min(720);
         if !gamepkg::draw_clip(core_x as f32*0.5,60.0+core_y as f32*0.5,core_w as f32*0.5,core_h as f32*0.5){accepted=false;}
         if !gamepkg::draw_asset_image_linear(paths[index],source_left as f32*0.5,60.0+source_top as f32*0.5,(source_right-source_left) as f32*0.5,(source_bottom-source_top) as f32*0.5){accepted=false;}
         if !gamepkg::draw_clip_reset(){accepted=false;}
     }
-    if !gamepkg::draw_rect(0.0,60.0,640.0,360.0,150){accepted=false;}accepted
+    accepted
 }
 pub fn draw_menu(game:&Game) {
     gamepkg::draw_clear(0x101b35ff);
