@@ -505,7 +505,8 @@ Adapted from c0m4r's pinned rendering.rs, copyright 2025 c0m4r, WTFPL version 2.
 
 Campaign levels 7–9 now use the original animated starfield, pulsing circles and
 digital rain. Background point order, RGBA values, f32 timing and integer clipping
-match the pinned original campaign branches. Star x addition explicitly wraps
+match the pinned original campaign branches. Their full canonical OpenGL frames
+now also match exactly, superseding the earlier grouped-layer comparison. Star x addition explicitly wraps
 like the original release build at very large frame counts. Visible background
 pixels use non-overlapping 64-pixel tiles, preserving room for brick and particle
 layers under the existing limits. Levels 1–6 image artwork, editor backgrounds
@@ -625,7 +626,8 @@ contribution maps and complete canonical default OpenGL frames exactly. The
 original software renderer differs by at most two RGB levels in these cases.
 All twenty procedural paths are now adapted. The canonical checks below also
 supersede the earlier point-background grouping bounds. Campaign 7–9 canonical
-composition, scaled-window/viewport parity and other artwork remain open.
+composition is also restored below; scaled-window/viewport parity and other
+artwork remain open.
 Copyright 2025 c0m4r, WTFPL version 2; existing Rand MIT and SDL zlib notices apply.
 
 The eight earlier point/filled-rectangle themes now use exact known-background
@@ -638,5 +640,16 @@ port tolerance. The old full point-stream hashes and RNG vectors remain checked.
 Smoke replays its 100 original rectangles directly instead of retaining a large
 expanded point list. The original 16 MiB cap and all other budgets remain.
 All twenty procedural themes now have exact canonical logical-frame evidence.
-Campaign 7–9 canonical blending and complete viewport/window/platform behavior
-remain open. Copyright 2025 c0m4r, WTFPL version 2; existing notices apply.
+Complete viewport/window/platform behavior remains open. Copyright 2025 c0m4r, WTFPL version 2; existing notices apply.
+
+Campaign levels 7–9 now also compose their original starfield, pulsing circles
+and digital rain exactly against the original background. Twenty-one captures
+of unchanged original point/fill commands through actual SDL 2.30 verify all
+ordered pixels, 392 independent grouped contribution maps and every complete
+canonical default OpenGL framebuffer byte. Original software renderer differences
+are at most two RGB levels and remain recorded separately. Existing unclipped
+point traces/hashes, original release overflow and all frame extremes remain
+verified. All twenty procedural themes and all three animated campaign
+backgrounds now have exact canonical logical-frame evidence. Original image and
+editor backgrounds and complete window/viewport/platform fidelity remain open.
+Copyright 2025 c0m4r, WTFPL version 2; existing notices apply.
