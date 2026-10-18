@@ -567,6 +567,8 @@ impl Game {
         let best = self.best;
         let unlocked = self.unlocked;
         let gravity = self.gravity;
+        let sfx_volume = self.menu.sfx_volume;
+        let sfx_muted = self.menu.sfx_muted;
         let fullscreen_requests = self.fullscreen_requests;
         let saved_editor = core::mem::replace(&mut self.editor, crate::editor::Editor::new());
         *self = Self::new();
@@ -575,6 +577,8 @@ impl Game {
         self.best = best;
         self.unlocked = unlocked;
         self.gravity = gravity;
+        self.menu.sfx_volume = sfx_volume;
+        self.menu.sfx_muted = sfx_muted;
         self.dirty = true;
     }
     pub fn editor_test(&mut self) {
@@ -642,6 +646,13 @@ impl Game {
             }
             if action == 7 {
                 self.fullscreen_requests = self.fullscreen_requests.saturating_add(1);
+            }
+            if action == 10 {
+                self.menu.sfx_muted = !self.menu.sfx_muted;
+                self.dirty = true;
+            }
+            if action == 11 {
+                self.dirty = true;
             }
             if action == 8 {
                 self.menu.settings = false;

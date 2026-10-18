@@ -47,8 +47,8 @@ blocks move inward at 8 original pixels/frame with original integer rounding.
 After absorption, the 270-frame completion delay precedes level transition.
 New levels clear portal state. Portal animations and absorption freeze on pause.
 Native and Wasm fixtures exercise the production physics and renderer directly.
-Gravity selection uses the formerly reserved word of the existing 16-byte ARK1
-save, retaining legacy best/unlocked fields and old saves. Full run saving and
+Legacy ARK1 gravity used its reserved word; ARK3 retains that metadata through
+its packed flags and reads both older formats. Full run saving and
 the broader physics/geometry differences above remain unfinished.
 
 Ball-to-ball contacts now restore the original strict distance test, upward
@@ -168,12 +168,18 @@ Background selection currently changes replacement colors; original background
 art and fonts remain absent. Unicode names persist but the bitmap font displays
 non-ASCII characters as question marks. Native IME activation still needs work.
 
-`ARK2` saves contain high score/unlocked level/gravity and a named pattern
-collection in the existing 1 MiB creator/game-scoped blob. Legacy 16-byte `ARK1`
-metadata migrates on the next successful save. Oversized or malformed archives
-are preserved without overwriting; denied/failed saves are shown in the editor. Failed writes roll back the saved-pattern browser collection while preserving the working board.
-Names are blob identifiers, never host paths. Active runs and unsaved editor
-changes do not persist. Older port packages do not understand the new archive format.
+`ARK3` saves contain high score/unlocked level/gravity, effects volume/mute and
+named patterns in the same 1 MiB creator/game-scoped blob. The header stays 20
+bytes: little-endian flags at offset 12 use bit 0 for gravity, bits 1–8 for volume
+0–128, and bit 9 for mute. Other bits and out-of-range levels are rejected. Pattern
+encoding/capacity stays unchanged. Valid `ARK1` and `ARK2` saves load with the
+original effects default (64, unmuted), then migrate on the next successful save.
+Zero volume is distinct from a legacy default. Older recipes preserve `ARK3` as
+unrecognized data but cannot load it.
+Oversized, malformed and future data remains preserved. Denied/failed saves are
+shown in the editor and effects settings; failed editor writes roll back the saved
+pattern collection while retaining the working board. Names are identifiers,
+never host paths. Active runs and unsaved editor changes still do not persist.
 The original ASCII reader/writer is retained and compared with original files;
 external import/export now uses the signed, host-mediated file workflow described below.
 
@@ -220,17 +226,35 @@ targets use the original 1280x720 rectangles
 projected into the existing canvas; hover colors and borders follow the original
 menu. New Game starts level one, Resume keeps the paused board, and Restart
 retains the port's saved metadata/preferences and returns to its new-game menu.
-Legacy Up/W quick-start still uses the highest unlocked level. Settings currently
-provides working fullscreen/back controls; it is not the complete original page.
-The original splash/restart/editor-return flows, music/SFX settings, resolution,
+Legacy Up/W quick-start still uses the highest unlocked level. Settings now
+provides fullscreen/back and effects-volume/mute controls; it is not the complete original page.
+The original splash/restart/editor-return flows, music settings, resolution,
 VSync/confirm/revert controls, project-homepage button, fonts and background art
 still need restoration. No inactive placeholder controls are presented as working.
 
 `tests/reference/arkanoo_menu.py` compiles the complete unchanged original menu
-module, guarded by its pinned source hash. Its 72 boundary/quantization cases
+module, guarded by its pinned source hash. Its 81 button-boundary cases and 25 slider-event observations
 supply `tests/fixtures/arkanoo-menu.json`; unsupported original menu features
 remain explicitly listed. Unit and actual native/core/component runtime checks
 exercise actions and pause preservation. Linux native and both browser profiles
 click Settings, fullscreen/back and New Game before their normal gameplay/editor
 and file-dialog tests. Fullscreen browser image scaling now preserves proportions
 and translates pointer coordinates through borders and aspect-ratio bars.
+
+Effects settings retain the original 0–128 range, default 64, mute independence,
+integer drag quantization and endpoint clamping. Pointer motion starts a drag
+inside the track; release/reset cancels it. New Game/Restart retain the selected
+values. Percent fill/text follow original integer rounding. Changes adjust the
+current synthesized effects; original MP3 effects and music are still absent.
+The effects phase is now reduced before adding sample indices, removing the old
+32-bit `usize` overflow at large frame values. Actual native and wasm32 samples
+at `u32::MAX` match an independent widened reference.
+
+Unit checks cover every volume/mute encoding, legacy/full-capacity archives,
+reserved flags, invalid levels, truncation and unchanged data after decode failure.
+Actual native/core/component tests verify measured PCM at quarter/default/full
+volume, mute/zero silence and reopen, legacy defaults/migration, and warning/data
+preservation when saving is denied or damaged. Linux desktop and both browser
+profiles use actual drags and mute clicks; browser Restart restores the rendered
+settings as well as the stored flags. These checks do not close original recorded
+audio, music, complete menus or non-Linux gameplay requirements.

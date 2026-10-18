@@ -52,6 +52,8 @@ impl Pattern {
     }
 }
 pub struct Editor {
+    pub sfx_volume: u32,
+    pub sfx_muted: bool,
     pub file_requested: u32,
     pub file_handle: Option<u32>,
     pub file_operation: u32,
@@ -75,6 +77,8 @@ pub struct Editor {
 impl Editor {
     pub fn new() -> Self {
         Self {
+            sfx_volume: 64,
+            sfx_muted: false,
             file_requested: 0,
             file_handle: None,
             file_operation: 0,
@@ -415,18 +419,46 @@ impl Editor {
         }
         bytes
     }
+    pub fn save_encode_settings(
+        &self,
+        best: u32,
+        unlocked: u32,
+        gravity: bool,
+        volume: u32,
+        muted: bool,
+    ) -> Vec<u8> {
+        let mut bytes = self.save_encode(best, unlocked, gravity);
+        bytes[0..4].copy_from_slice(b"ARK3");
+        let flags = u32::from(gravity) | (volume.min(128) << 1) | (u32::from(muted) << 9);
+        bytes[12..16].copy_from_slice(&u32::to_le_bytes(flags));
+        bytes
+    }
     pub fn save_decode(&mut self, bytes: &[u8]) -> Option<[u32; 3]> {
         if bytes.len() < 16 || bytes.len() > SAVE_BYTES {
             return None;
         }
         let best = u32::from_le_bytes([bytes[4], bytes[5], bytes[6], bytes[7]]);
         let unlocked = u32::from_le_bytes([bytes[8], bytes[9], bytes[10], bytes[11]]);
-        let gravity = u32::from_le_bytes([bytes[12], bytes[13], bytes[14], bytes[15]]);
+        let flags = u32::from_le_bytes([bytes[12], bytes[13], bytes[14], bytes[15]]);
+        let mut gravity = flags;
+        let mut volume = 64;
+        let mut muted = false;
+        let settings = bytes[0..4] == *b"ARK3";
+        if settings {
+            volume = (flags >> 1) & 255;
+            if flags & !1023 != 0 || volume > 128 {
+                return None;
+            }
+            gravity = flags & 1;
+            muted = flags & 512 != 0;
+        }
         if bytes[0..4] == *b"ARK1" && bytes.len() == 16 {
             self.patterns.clear();
+            self.sfx_volume = 64;
+            self.sfx_muted = false;
             return Some([best, unlocked, gravity]);
         }
-        if bytes[0..4] != *b"ARK2" || bytes.len() < 20 || gravity > 1 {
+        if (bytes[0..4] != *b"ARK2" && !settings) || bytes.len() < 20 || gravity > 1 {
             return None;
         }
         let count = u32::from_le_bytes([bytes[16], bytes[17], bytes[18], bytes[19]]) as usize;
@@ -475,6 +507,8 @@ impl Editor {
             return None;
         }
         self.patterns = patterns;
+        self.sfx_volume = volume;
+        self.sfx_muted = muted;
         Some([best, unlocked, gravity])
     }
 }

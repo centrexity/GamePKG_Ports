@@ -1,4 +1,5 @@
 // Adapted from c0m4r/arkanoo; see CREDITS.md for revision and changes.
+mod audio;
 mod editor;
 mod levels;
 mod menu;
@@ -35,6 +36,8 @@ pub fn game_tick(input: u32, state: u64) -> u64 {
                             game.best = metadata[0];
                             game.unlocked = metadata[1].max(1);
                             game.gravity = metadata[2] == 1;
+                            game.menu.sfx_volume = game.editor.sfx_volume;
+                            game.menu.sfx_muted = game.editor.sfx_muted;
                         } else {
                             game.editor.readable = false;
                             game.editor.editor_message("SAVE DAMAGED / PRESERVED");
@@ -58,19 +61,32 @@ pub fn game_tick(input: u32, state: u64) -> u64 {
             game.update(input);
             render::draw(game);
             if game.sound > 0 {
-                render::sound(game.sound, game.frame);
+                render::sound(
+                    game.sound,
+                    game.frame,
+                    game.menu.sfx_volume,
+                    game.menu.sfx_muted,
+                );
                 game.sound = 0;
             }
             if game.dirty && game.editor.readable {
-                let bytes = game
-                    .editor
-                    .save_encode(game.best, game.unlocked, game.gravity);
+                let bytes = game.editor.save_encode_settings(
+                    game.best,
+                    game.unlocked,
+                    game.gravity,
+                    game.menu.sfx_volume,
+                    game.menu.sfx_muted,
+                );
                 if gamepkg::save_write(&bytes) {
                     game.dirty = false;
+                    game.menu.save_failed = false;
                     game.editor.editor_commit(true);
-                } else if game.editor.save_requested {
-                    game.dirty = false;
-                    game.editor.editor_commit(false);
+                } else {
+                    game.menu.save_failed = true;
+                    if game.editor.save_requested {
+                        game.dirty = false;
+                        game.editor.editor_commit(false);
+                    }
                 }
             }
             let confined = game.cursor_confined();
