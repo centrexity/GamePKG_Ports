@@ -430,7 +430,147 @@ pub fn ball_effect_points(ball: &Ball, frame: u64) -> Vec<EffectPoint> {
     }
     dots
 }
+pub struct Penguin {
+    pub x: f32,
+    pub y: f32,
+    pub target_x: f32,
+    pub target_y: f32,
+    pub state: u32,
+    pub frame_count: u32,
+}
+impl Penguin {
+    pub fn new(target_x: f32, target_y: f32) -> Self {
+        Self {
+            x: 1230.0,
+            y: 620.0,
+            target_x,
+            target_y,
+            state: 0,
+            frame_count: 0,
+        }
+    }
+    pub fn advance_penguin(&mut self) {
+        self.frame_count = self.frame_count.wrapping_add(1);
+        if self.state == 0 {
+            let dx = self.target_x - self.x;
+            let dy = self.target_y - self.y;
+            let distance = (dx * dx + dy * dy).sqrt();
+            if distance > 5.0 {
+                self.x += dx / distance * 5.5;
+                self.y += dy / distance * 5.5;
+            } else {
+                self.x = self.target_x;
+                self.y = self.target_y;
+                self.state = 1;
+                self.frame_count = 0;
+            }
+        } else if self.state == 1 {
+            if self.frame_count >= 30 {
+                self.state = 2;
+                self.frame_count = 0;
+            }
+        } else if self.state == 2 {
+            self.x += 7.0;
+            self.y += 5.0;
+            if self.x > 1380.0 || self.y > 820.0 {
+                self.state = 3;
+            }
+        }
+    }
+}
+pub struct PenguinRect {
+    pub x: i32,
+    pub y: i32,
+    pub width: u32,
+    pub height: u32,
+    pub color: u32,
+}
+pub fn penguin_shape(
+    shapes: &mut Vec<PenguinRect>,
+    x: i32,
+    y: i32,
+    width: u32,
+    height: u32,
+    color: u32,
+) {
+    shapes.push(PenguinRect {
+        x,
+        y,
+        width,
+        height,
+        color,
+    });
+}
+pub fn penguin_rects(penguin: &Penguin) -> Vec<PenguinRect> {
+    let mut shapes = Vec::new();
+    let x = penguin.x as i32;
+    let y = penguin.y as i32;
+    let flying = penguin.state == 0 || penguin.state == 2;
+    let hover = if flying {
+        (penguin.frame_count as f32 * 0.15).sin() * 3.0
+    } else {
+        0.0
+    };
+    let body_y = y + hover as i32;
+    if flying {
+        let flicker = penguin.frame_count % 4;
+        penguin_shape(&mut shapes, x + 8, body_y + 42, 4, 8 + flicker, 0xffc800ff);
+        penguin_shape(&mut shapes, x + 13, body_y + 42, 4, 8 + flicker, 0xffc800ff);
+        penguin_shape(&mut shapes, x + 9, body_y + 42, 2, 5 + flicker, 0xffff96ff);
+        penguin_shape(&mut shapes, x + 14, body_y + 42, 2, 5 + flicker, 0xffff96ff);
+    }
+    penguin_shape(&mut shapes, x, body_y + 8, 25, 30, 0x1e1e28ff);
+    penguin_shape(&mut shapes, x + 6, body_y + 12, 13, 22, 0xf0f0faff);
+    penguin_shape(&mut shapes, x + 5, body_y + 20, 5, 15, 0x646478ff);
+    penguin_shape(&mut shapes, x + 15, body_y + 20, 5, 15, 0x646478ff);
+    penguin_shape(&mut shapes, x + 3, body_y, 19, 18, 0x1e1e28ff);
+    penguin_shape(&mut shapes, x + 8, body_y + 5, 3, 3, 0xffffffff);
+    penguin_shape(&mut shapes, x + 14, body_y + 5, 3, 3, 0xffffffff);
+    penguin_shape(&mut shapes, x + 10, body_y + 10, 5, 3, 0xff8c00ff);
+    penguin_shape(&mut shapes, x + 7, body_y + 38, 5, 2, 0xff8c00ff);
+    penguin_shape(&mut shapes, x + 13, body_y + 38, 5, 2, 0xff8c00ff);
+    if penguin.state == 1 || penguin.state == 2 {
+        let hx = x + if penguin.state == 1 { 20 } else { 18 };
+        let hy = body_y + 15;
+        penguin_shape(&mut shapes, hx, hy + 2, 8, 6, 0xdc143cff);
+        penguin_shape(&mut shapes, hx + 1, hy, 3, 3, 0xdc143cff);
+        penguin_shape(&mut shapes, hx + 4, hy, 3, 3, 0xdc143cff);
+        penguin_shape(&mut shapes, hx + 2, hy + 8, 4, 2, 0xdc143cff);
+    }
+    shapes
+}
+pub fn heart_points(cx: i32, cy: i32, size: i32) -> Vec<EffectPoint> {
+    let mut dots = Vec::new();
+    let half = size / 2;
+    for dx in -half..=half {
+        for dy in -half..=0 {
+            let left = ((dx + half / 2).pow(2) + dy.pow(2)) as f32;
+            let right = ((dx - half / 2).pow(2) + dy.pow(2)) as f32;
+            let radius = (half as f32 / 1.5).powf(2.0);
+            if left <= radius || right <= radius {
+                dots.push(EffectPoint {
+                    x: cx + dx,
+                    y: cy + dy,
+                    color: 0xdc143cff,
+                });
+            }
+        }
+    }
+    for dy in 0..=size {
+        let width = size - dy;
+        for dx in -(width / 2)..=width / 2 {
+            dots.push(EffectPoint {
+                x: cx + dx,
+                y: cy + dy,
+                color: 0xdc143cff,
+            });
+        }
+    }
+    dots
+}
 pub struct Game {
+    pub penguin: Option<Penguin>,
+    pub stolen_heart: Option<[f32; 2]>,
     pub splash_timer: u32,
     pub started: bool,
     pub menu: crate::menu::Menu,
@@ -475,6 +615,8 @@ pub struct Game {
 impl Game {
     pub fn new() -> Self {
         let mut game = Self {
+            penguin: None,
+            stolen_heart: None,
             splash_timer: 0,
             started: false,
             menu: crate::menu::Menu::new(),
@@ -545,6 +687,8 @@ impl Game {
         }
     }
     pub fn attach(&mut self) {
+        self.penguin = None;
+        self.stolen_heart = None;
         self.long = 0;
         self.ghost = 0;
         self.ammo = 0;
@@ -1222,6 +1366,15 @@ impl Game {
         if self.portal {
             self.pull_blocks();
         }
+        if let Some(penguin) = self.penguin.as_mut() {
+            penguin.advance_penguin();
+            if penguin.state == 1 {
+                self.stolen_heart = None;
+            }
+            if penguin.state == 3 {
+                self.penguin = None;
+            }
+        }
         while i < self.particles.len() {
             let particle = &mut self.particles[i];
             particle.advance();
@@ -1245,6 +1398,9 @@ impl Game {
             self.score = self.score.saturating_sub(20);
             self.dirty = true;
             self.sound = 4;
+            let heart_x = 1250.0 - self.lives as f32 * 25.0;
+            self.stolen_heart = Some([heart_x, 25.0]);
+            self.penguin = Some(Penguin::new(heart_x, 25.0));
             if self.lives == 0 {
                 self.mode = 4;
             } else {

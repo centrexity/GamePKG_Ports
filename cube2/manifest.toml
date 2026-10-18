@@ -1,6 +1,6 @@
 format_version = 1
 id = "com.gamepkg.cube2"
-version = "0.1.0"
+version = "0.1.1"
 title = "Cube 2: Sauerbraten"
 description = "The original Cube 2 engine, built locally from pinned source. Choose your original Sauerbraten installation to use its maps, textures and sounds in place."
 author = "Cube 2 developers; GamePKG contributors"
@@ -26,4 +26,4 @@ recommended_storage_bytes = 33554432
 input = true
 audio = true
 save = true
-network = "multiplayer"
+network = true

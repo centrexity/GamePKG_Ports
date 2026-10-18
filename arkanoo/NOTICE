@@ -1,5 +1,11 @@
 Arkanoo GamePKG adaptation. See CREDITS.md and LICENSE for upstream attribution and changes.
 
+Original heart asset: assets/heart.png, copyright (C) 2025 c0m4r.
+Copied unmodified from c0m4r/arkanoo revision
+9d613e78c9ed5657ae7fda9206cd4a82a893b7c8 under WTFPL version 2 (LICENSE).
+Source: https://github.com/c0m4r/arkanoo/blob/9d613e78c9ed5657ae7fda9206cd4a82a893b7c8/assets/heart.png
+SHA-256: 86b8ef21b5544f39542c247518155f4a856aab70851bbd76cfb67df4bd0fbd71
+
 Thumbnail artwork: "Brick Wall" by Delapouite, via Game-icons.net.
 Source: https://game-icons.net/1x1/delapouite/brick-wall.html
 License: Creative Commons Attribution 3.0 Unported (CC BY 3.0)

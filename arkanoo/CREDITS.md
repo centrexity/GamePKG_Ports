@@ -18,8 +18,7 @@ rand or filesystem access. Launch directions use rejection sampling, and bonus
 selection uses independent probability/weight draws.
 Endless levels use the original twelve procedural patterns plus saved custom
 patterns. The editor supports painting/erasing, all nine brick choices, names,
-save/load, clear confirmation and test play through scoped host APIs. Remaining menu/music behavior, penguin/heart-loss animation still needs
-fidelity work. Original ASCII pattern files can now be imported/exported through
+save/load, clear confirmation and test play through scoped host APIs. Remaining menu/music behavior still needs fidelity work. Original ASCII pattern files can now be imported/exported through
 player-selected files.
 
 Controls: mouse or Left/Right/A/D move; Space launches attached balls or fires
@@ -97,7 +96,7 @@ the run and retains persisted best/unlocked metadata. Compiled unchanged
 original launch/update/loss/completion fragments verify these logic paths;
 native and Wasm checks also cover save compatibility, launch frame timing,
 bonus preservation, victory and progression through level 1000. Heart-loss
-animation and original menu presentation remain separate unfinished work.
+animation is restored below; original menu presentation remains unfinished.
 
 Brick logic now includes normal, two-hit ice, explosive and metal types. Metal
 resists ball hits and is ignored when deciding whether a level is clear; portals
@@ -303,8 +302,7 @@ edge coordinates and the exact ordered shard points. SDL drawing calls are
 recorded rather than replaced with a second drawing algorithm. Native and wasm32
 fixtures inspect the actual image coordinates/pixels and exercise 2,000–3,000
 shards from one full-board burst. A full-viewport stress case verifies all four
-corner shards survive tiling under the unchanged memory/image limits. Penguin/
-heart loss, original ball artwork/speed lettering and remaining music/audio are
+corner shards survive tiling under the unchanged memory/image limits. Original ball artwork/speed lettering and remaining music/audio are
 still separate open work.
 
 Ball trails now track original top-left positions before force/movement updates
@@ -334,3 +332,22 @@ and u64::MAX. Signed runtime probes verify the stored clock crosses the 32-bit
 boundary and remains paused when requested. Synthesized effect phase now also
 uses u64 modulo reduction before adding its bounded sample index; independent
 u128 vectors and actual native/wasm32 PCM verify both integer-limit boundaries.
+
+
+Penguin/heart-loss behavior now uses the unchanged original 5.5-pixel approach,
+30-frame grab and 7/5-pixel escape, with original ordered rectangle geometry,
+hover/flicker and held-heart positions. The original final-life GameOver freeze
+is retained. Independent SHA-guarded original-code fixtures cover 337 animation
+frames, sixteen static drawing poses and three fallback-heart shapes. Actual
+native/wasm32 checks compare state, RGBA rectangles and HUD texture positions.
+Pause, editor, repeated loss and reset behavior have regressions.
+
+`assets/heart.png` is copied unmodified from c0m4r/arkanoo at the pinned revision
+above, under its WTFPL version 2 license (see LICENSE):
+https://github.com/c0m4r/arkanoo/blob/9d613e78c9ed5657ae7fda9206cd4a82a893b7c8/assets/heart.png
+SHA-256: `86b8ef21b5544f39542c247518155f4a856aab70851bbd76cfb67df4bd0fbd71`.
+It uses the original linear texture filtering through GamePKG's bounded asset
+helper. This source version requires the current source-built GamePKG host;
+released 0.1.17 binaries lack that helper. No guest dependencies or additional
+file permissions are introduced. Numeric HUD text remains a replacement;
+restoring this heart asset does not establish full original HUD/art parity.

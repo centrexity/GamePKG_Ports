@@ -244,17 +244,6 @@ pub fn draw(game: &Game) {
     if game.gravity {
         text("GRAVITY", 266.0, 452.0, 1.0, 0xffcd60ff);
     }
-    if game.portal {
-        for point in 0..48 {
-            let angle = point as f32 * core::f32::consts::TAU / 48.0 + game.frame as f32 * 0.04;
-            gamepkg::draw_circle(
-                320.0 + angle.cos() * 75.0,
-                240.0 + angle.sin() * 75.0,
-                2.0,
-                0xb777ffff,
-            );
-        }
-    }
     for ball in &game.balls {
         draw_ball_effects(ball,game.frame);
         gamepkg::draw_circle(ball.x, ball.y, 3.0, 0xffffffff);
@@ -274,6 +263,20 @@ pub fn draw(game: &Game) {
         gamepkg::draw_rect(*x, *y, 5.0, 10.0, 0xffdd70ff);
     }
     draw_particles(&game.particles);
+    if let Some(penguin)=&game.penguin {draw_penguin(penguin);}
+    if game.portal {
+        for point in 0..48 {
+            let angle = point as f32 * core::f32::consts::TAU / 48.0 + game.frame as f32 * 0.04;
+            gamepkg::draw_circle(
+                320.0 + angle.cos() * 75.0,
+                240.0 + angle.sin() * 75.0,
+                2.0,
+                0xb777ffff,
+            );
+        }
+    }
+    draw_hearts(game);
+
     text(
         "ARROWS/A/D MOVE SPACE/UP FIRE ESC/DOWN PAUSE",
         42.0,
@@ -310,6 +313,27 @@ pub fn draw(game: &Game) {
             1.0,
             0x8ba2c9ff,
         );
+    }
+}
+pub fn draw_penguin(penguin:&crate::physics::Penguin) {
+    for shape in crate::physics::penguin_rects(penguin) {
+        gamepkg::draw_rect(shape.x as f32*0.5,60.0+shape.y as f32*0.5,
+            shape.width as f32*0.5,shape.height as f32*0.5,shape.color);
+    }
+}
+fn heart_sprite(x:i32,y:i32,fallback_x:i32,fallback_y:i32) {
+    if !gamepkg::draw_asset_image_linear("heart.png",x as f32*0.5,60.0+y as f32*0.5,10.0,10.0) {
+        let dots=crate::physics::heart_points(fallback_x,fallback_y,12);
+        if let Some(image)=crate::physics::effect_image(&dots) {draw_effect_layer(&image);}
+    }
+}
+pub fn draw_hearts(game:&Game) {
+    for index in 0..game.lives {
+        let x=1240-index as i32*25;
+        heart_sprite(x,15,x,20);
+    }
+    if let Some(position)=game.stolen_heart {
+        heart_sprite(position[0] as i32-10,position[1] as i32-10,position[0] as i32,position[1] as i32);
     }
 }
 pub fn draw_particles(particles: &[crate::physics::Particle]) {
