@@ -11,7 +11,7 @@ long-paddle, extra-ball, ghost-ball and rocket mechanics from entities.rs and
 game.rs. The engine integration has been rewritten for GamePKG's safe APIs.
 
 Most rendering, bitmap lettering and synthesized audio are new; original shard
-particle behavior/drawing is restored as detailed below. Upstream Pixabay
+particle behavior/drawing and the metallic ball texture are restored as detailed below. Upstream Pixabay
 music/sound, fonts, logos and generated background art are not redistributed.
 The port uses a 640x480 canvas and GamePKG host randomness instead of SDL2,
 rand or filesystem access. Launch directions use rejection sampling, and bonus
@@ -351,3 +351,12 @@ helper. This source version requires the current source-built GamePKG host;
 released 0.1.17 binaries lack that helper. No guest dependencies or additional
 file permissions are introduced. Numeric HUD text remains a replacement;
 restoring this heart asset does not establish full original HUD/art parity.
+
+The metallic ball texture is now restored from the unchanged
+`draw_shiny_ball_texture` procedure in the pinned upstream `src/rendering.rs`.
+`assets/ball.png` contains its 12×12 RGBA result, including SDL target clipping,
+and inherits the upstream WTFPL-2.0 terms in `assets/LICENSE-ARKANOO.txt`.
+The reference generator is `tests/reference/arkanoo_ball.py` in GamePKG; its
+fixture records source/fragment and decoded-pixel hashes. The port draws it with
+linear filtering at the original integer rectangle coordinates, at half world
+scale. The original speed label and remaining presentation are still unfinished.

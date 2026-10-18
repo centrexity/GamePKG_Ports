@@ -246,7 +246,7 @@ pub fn draw(game: &Game) {
     }
     for ball in &game.balls {
         draw_ball_effects(ball,game.frame);
-        gamepkg::draw_circle(ball.x, ball.y, 3.0, 0xffffffff);
+        draw_ball(ball);
     }
     for drop in &game.drops {
         let colors = [0x62de9eff, 0xffcd60ff, 0xb28cffff, 0xff647fff];
@@ -313,6 +313,16 @@ pub fn draw(game: &Game) {
             1.0,
             0x8ba2c9ff,
         );
+    }
+}
+pub fn draw_ball(ball: &crate::physics::Ball) -> bool {
+    let x = ((ball.x - 3.0) * 2.0) as i32;
+    let y = ((ball.y - 60.0 - 3.0) * 2.0) as i32;
+    if gamepkg::draw_asset_image_linear("ball.png", x as f32 * 0.5, 60.0 + y as f32 * 0.5, 6.0, 6.0) {
+        true
+    } else {
+        gamepkg::draw_circle(ball.x, ball.y, 3.0, 0xffffffff);
+        false
     }
 }
 pub fn draw_penguin(penguin:&crate::physics::Penguin) {
