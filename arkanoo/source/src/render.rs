@@ -338,6 +338,10 @@ pub fn draw(game: &Game) {
         }
     }
     draw_paddle(game);
+    draw_cannon(game);
+    if game.ammo > 0 && (game.frame / 30).is_multiple_of(2) {
+        gamepkg::draw_clip(0.0, 60.0, 640.0, 360.0);
+    }
     for ball in &game.balls {
         draw_ball_effects(ball, game.frame);
         draw_ball(ball);
@@ -375,6 +379,41 @@ fn append_u32(digits_out: &mut String, mut value: u32) {
         length -= 1;
         digits_out.push(char::from(48 + digits[length]));
     }
+}
+pub fn draw_cannon(game: &Game) -> bool {
+    if game.ammo == 0 {
+        return true;
+    }
+    let paddle_x = (game.paddle * 2.0) as i32;
+    let paddle_width = (game.width * 2.0) as i32;
+    let center = paddle_x + paddle_width / 2;
+    let top = ((PADDLE_Y - 60.0) * 2.0) as i32;
+    let barrel = gamepkg::draw_rect(
+        (center - 5) as f32 * 0.5,
+        60.0 + (top - 15) as f32 * 0.5,
+        5.0,
+        7.5,
+        0x646464ff,
+    );
+    let highlight = gamepkg::draw_rect(
+        (center - 3) as f32 * 0.5,
+        60.0 + (top - 15) as f32 * 0.5,
+        1.0,
+        7.5,
+        0x969696ff,
+    );
+    let mut caption = true;
+    if (game.frame / 30).is_multiple_of(2) {
+        caption = draw_dynamic_label(
+            "press space to launch",
+            center,
+            top - 35,
+            [255, 255, 100],
+            true,
+            -1,
+        );
+    }
+    barrel && highlight && caption
 }
 pub fn draw_hud(game: &Game) -> bool {
     let mut score = String::from("Score: ");

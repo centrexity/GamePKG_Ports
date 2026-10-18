@@ -871,3 +871,27 @@ player-selected file import/cancel/export workflows. All 924 shared clip/image/
 shader/resize samples remain exact and eight end-screen comparisons still pass.
 Strict lint and formatting pass; no runtime threshold is relaxed.
 HUD, filtered-edge, fire and bonus fixtures reproduce byte-identically.
+
+
+Recipe 0.1.55 restores the original ammo-gated cannon barrel/highlight and
+blinking `press space to launch` caption, including original integer centering,
+colors, source-world sizes, Roboto26 and even-30-frame blink intervals. It draws
+after the paddle and restores the world clip before later objects. An independent
+SHA-guarded oracle executes the unchanged original cannon branch with original
+SDL 0.37 and actual SDL_ttf at both 1280x720 and 640x360, covering 60 states.
+Dense full-renderer checks retain the complete cue and all three original heart
+textures with 200 fire bricks and 3,000 corner particles under unchanged limits.
+Actual scaled checks exposed rectangle edge differences; the host now follows
+measured SDL pixel-center coverage in both desktop and browser game drawing.
+Recorded audio/music, remaining settings, arbitrary whole-window scaling and
+untested platforms remain separate work. Publication is source only.
+
+Both 67-check signed suites pass at default parallelism and unchanged limits,
+with native and core/component browser gameplay/editor/file workflows passing.
+All six desktop configurations match original cannon frames at both sizes
+within the existing two-level tolerance; both browser profiles match original
+half-size frames within one. Four selected states plus revisit run through each
+graphical path; all 60 states have signed canonical runtime checks. All 120
+original captures and the nine solid-edge fixtures reproduce byte-identically.
+Shared clipping/blending and original HUD/menu/browser/end-state graphics
+regressions pass without changing thresholds; strict lint and formatting pass.
