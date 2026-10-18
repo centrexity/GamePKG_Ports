@@ -228,19 +228,7 @@ pub fn draw(game: &Game) {
             }
         }
     }
-    let color = if game.ghost > 0 {
-        0xb18cffff
-    } else {
-        0x63dcffff
-    };
-    gamepkg::draw_rect(game.paddle, PADDLE_Y, game.width, 11.0, color);
-    gamepkg::draw_rect(
-        game.paddle + 3.0,
-        PADDLE_Y + 1.0,
-        game.width - 6.0,
-        2.0,
-        0xffffffff,
-    );
+    draw_paddle(game);
     if game.gravity {
         text("GRAVITY", 266.0, 452.0, 1.0, 0xffcd60ff);
     }
@@ -642,4 +630,71 @@ fn draw_menu_button(game: &Game, action: u32) {
         1.25,
         0xffffffff,
     );
+}
+
+// Body pixels come from the unchanged original SDL procedure. Overlay rectangles
+// preserve the original integer geometry before mapping the world to half size.
+pub fn draw_paddle(game: &Game) -> bool {
+    let x = (game.paddle * 2.0) as i32;
+    let w = (game.width * 2.0) as i32;
+    let left = x as f32 * 0.5;
+    let path = if w > 140 {
+        "paddle-long.png"
+    } else {
+        "paddle.png"
+    };
+    let loaded = gamepkg::draw_asset_image_linear(path, left, PADDLE_Y, w as f32 * 0.5, 11.0);
+    if !loaded {
+        gamepkg::draw_rect(left, PADDLE_Y, w as f32 * 0.5, 11.0, 0x283246ff);
+    }
+    let spin = game.paddle_glow;
+    if spin > 0.1 {
+        let glow_alpha = (spin * 255.0) as u32;
+        gamepkg::draw_rect(
+            left + 6.0,
+            PADDLE_Y + 4.0,
+            (w - 24) as f32 * 0.5,
+            2.0,
+            0xc864ff00 | glow_alpha,
+        );
+        gamepkg::draw_rect(
+            left + 6.0,
+            PADDLE_Y + 4.5,
+            (w - 24) as f32 * 0.5,
+            1.0,
+            0xffffff00 | glow_alpha,
+        );
+    } else {
+        gamepkg::draw_rect(
+            left + 6.0,
+            PADDLE_Y + 4.0,
+            (w - 24) as f32 * 0.5,
+            2.0,
+            0x00c8ffc8,
+        );
+    }
+    let light = if spin > 0.1 { 0xff32ffff } else { 0xff6432c8 };
+    gamepkg::draw_rect(left + 1.0, PADDLE_Y + 2.0, 2.0, 6.0, light);
+    gamepkg::draw_rect(left + (w - 6) as f32 * 0.5, PADDLE_Y + 2.0, 2.0, 6.0, light);
+    if spin > 0.2 {
+        let color = 0xc864ff00 | (spin * 100.0) as u32;
+        // SDL draw_rect includes both outer endpoints of its integer rectangle.
+        gamepkg::draw_rect(left - 1.0, PADDLE_Y - 1.0, (w + 4) as f32 * 0.5, 0.5, color);
+        gamepkg::draw_rect(
+            left - 1.0,
+            PADDLE_Y + 10.5,
+            (w + 4) as f32 * 0.5,
+            0.5,
+            color,
+        );
+        gamepkg::draw_rect(left - 1.0, PADDLE_Y - 0.5, 0.5, 11.0, color);
+        gamepkg::draw_rect(
+            left + (w + 1) as f32 * 0.5,
+            PADDLE_Y - 0.5,
+            0.5,
+            11.0,
+            color,
+        );
+    }
+    loaded
 }

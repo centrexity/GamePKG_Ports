@@ -587,6 +587,7 @@ pub struct Game {
     pub lives: u32,
     pub paddle: f32,
     pub last_paddle: f32,
+    pub paddle_glow: f32,
     pub width: f32,
     pub long: u32,
     pub ghost: u32,
@@ -633,6 +634,7 @@ impl Game {
             lives: 3,
             paddle: 285.0,
             last_paddle: 285.0,
+            paddle_glow: 0.0,
             width: 70.0,
             long: 0,
             ghost: 0,
@@ -695,6 +697,7 @@ impl Game {
         self.width = 70.0;
         self.paddle = 285.0;
         self.last_paddle = self.paddle;
+        self.paddle_glow = 0.0;
         self.lost_life = false;
         self.balls.clear();
         self.respawn();
@@ -962,6 +965,10 @@ impl Game {
         }
         let movement = self.paddle - self.last_paddle;
         self.last_paddle = self.paddle;
+        self.paddle_glow *= 0.9;
+        if self.paddle_glow < 0.01 {
+            self.paddle_glow = 0.0;
+        }
         if self.long > 0 {
             self.long -= 1;
             if self.long == 0 {
@@ -1328,6 +1335,7 @@ impl Game {
                 let offset = (original_center - paddle_center) as f32 * 0.5;
                 ball.vx += offset * 0.1;
                 ball.spin = if movement.abs() > 1.0 {
+                    self.paddle_glow = 1.0;
                     movement * 0.3 + offset * 0.05
                 } else {
                     offset * 0.02

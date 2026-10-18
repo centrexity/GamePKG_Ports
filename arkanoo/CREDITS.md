@@ -11,7 +11,7 @@ long-paddle, extra-ball, ghost-ball and rocket mechanics from entities.rs and
 game.rs. The engine integration has been rewritten for GamePKG's safe APIs.
 
 Most rendering, bitmap lettering and synthesized audio are new; original shard
-particle behavior/drawing and the metallic ball texture are restored as detailed below. Upstream Pixabay
+particle behavior/drawing and the metallic ball and glass paddle textures are restored as detailed below. Upstream Pixabay
 music/sound, fonts, logos and generated background art are not redistributed.
 The port uses a 640x480 canvas and GamePKG host randomness instead of SDL2,
 rand or filesystem access. Launch directions use rejection sampling, and bonus
@@ -360,3 +360,14 @@ The reference generator is `tests/reference/arkanoo_ball.py` in GamePKG; its
 fixture records source/fragment and decoded-pixel hashes. The port draws it with
 linear filtering at the original integer rectangle coordinates, at half world
 scale. The original speed label and remaining presentation are still unfinished.
+
+The rounded glass/metallic normal and extended paddle textures are restored from
+unchanged `draw_paddle_texture` code in the same pinned source. `assets/paddle.png`
+(140×22) and `assets/paddle-long.png` (180×22) inherit WTFPL-2.0. The maintainer
+reference generator `tests/reference/arkanoo_paddle.py` uses real SDL software
+rasterization for clipping and alpha blending, and records the unchanged
+`draw_paddle_with_glass` overlay rectangles at normal, extended and spin states.
+The port restores the cyan core, orange end lights, collision-triggered purple
+and white discharge, aura, decay and original integer positioning. Ghost-ball
+bonuses do not recolor the paddle, matching upstream. Other art, recorded audio,
+fonts and menu/settings presentation remain unfinished.

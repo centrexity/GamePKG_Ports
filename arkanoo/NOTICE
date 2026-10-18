@@ -346,3 +346,7 @@ assets/ball.png: generated from c0m4r's draw_shiny_ball_texture in
 src/rendering.rs at revision 9d613e78c9ed5657ae7fda9206cd4a82a893b7c8.
 Copyright (C) 2025 c0m4r. WTFPL version 2; see assets/LICENSE-ARKANOO.txt.
 Source: https://github.com/c0m4r/arkanoo/blob/9d613e78c9ed5657ae7fda9206cd4a82a893b7c8/src/rendering.rs
+
+assets/paddle.png and assets/paddle-long.png: generated from c0m4r's
+unchanged draw_paddle_texture procedure at the pinned revision above.
+Copyright (C) 2025 c0m4r. WTFPL version 2; see assets/LICENSE-ARKANOO.txt.
