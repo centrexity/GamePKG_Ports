@@ -2,13 +2,16 @@
 use crate::background::rectangle;
 use crate::background::Background;
 use crate::pattern_rng::Rng;
-pub fn procedural_theme(level: u32) -> u32 {
+fn seeded_background_rng(level: u32) -> Rng {
     let level = u64::from(level);
     let seed = level
         .wrapping_mul(12345)
         .wrapping_add((level / 3).wrapping_mul(67890))
         .wrapping_add((level % 7).wrapping_mul(11111));
-    let mut rng = Rng::new(seed);
+    Rng::new(seed)
+}
+pub fn procedural_theme(level: u32) -> u32 {
+    let mut rng = seeded_background_rng(level);
     rng.range_i32(0, 20) as u32
 }
 pub fn procedural_background(level: u32, frame: u64) -> Option<Background> {
@@ -16,6 +19,7 @@ pub fn procedural_background(level: u32, frame: u64) -> Option<Background> {
         return None;
     }
     match procedural_theme(level) {
+        1 => Some(draw_star_voyage(level, frame)),
         7 => Some(draw_snow(level, frame)),
         9 => Some(draw_smoke(level, frame)),
         11 => Some(draw_fire(level, frame)),
@@ -243,6 +247,49 @@ fn draw_space_wars(level: u32, frame: u64) -> Background {
     }
     Background {
         color: 0x00000aff,
+        points: dots,
+    }
+}
+
+fn draw_star_voyage(level: u32, frame: u64) -> Background {
+    let mut rng = seeded_background_rng(level);
+    rng.range_i32(0, 20);
+    let red = rng.range_u8(0, 20);
+    let green = rng.range_u8(0, 20);
+    let blue = rng.range_u8(10, 40);
+    let color = (u32::from(red) << 24) | (u32::from(green) << 16) | (u32::from(blue) << 8) | 255;
+    let stars = rng.range(80, 200);
+    let multiplier = rng.float(0.5, 2.5);
+    let tint_red = rng.range_u8(150, 255);
+    let tint_green = rng.range_u8(150, 255);
+    let tint_blue = rng.range_u8(150, 255);
+    let tint =
+        (u32::from(tint_red) << 24) | (u32::from(tint_green) << 16) | (u32::from(tint_blue) << 8);
+    let time = frame as f32;
+    let mut dots = Vec::new();
+    for i in 0..stars {
+        let mut star_rng = Rng::new(u64::from(level) * 1000 + i);
+        let angle = star_rng.float(0.0, core::f32::consts::PI * 2.0);
+        let speed = star_rng.float(0.5, 2.0) * multiplier;
+        let start_distance = star_rng.float(0.0, 800.0);
+        let distance = (start_distance + time * speed) % 700.0;
+        let x = 640.0 + angle.cos() * distance;
+        let y = 360.0 + angle.sin() * distance;
+        let size = (distance / 200.0).max(1.0) as u32;
+        let opacity = (distance / 700.0 * 255.0) as u8;
+        if (0.0..1280.0).contains(&x) && (0.0..720.0).contains(&y) {
+            rectangle(
+                &mut dots,
+                x as i32,
+                y as i32,
+                size as i32,
+                size as i32,
+                tint | u32::from(opacity),
+            );
+        }
+    }
+    Background {
+        color,
         points: dots,
     }
 }

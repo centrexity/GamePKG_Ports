@@ -77,3 +77,108 @@ pub fn campaign(level: u32, frame: u64) -> Option<Background> {
         points: dots,
     })
 }
+// Altered Rust adaptation of SDL RenderDrawLineBresenham's default point path.
+// Copyright 1997-2023 Sam Lantinga; see assets/LICENSE-SDL.txt (zlib).
+pub fn background_line_points(
+    dots: &mut Vec<EffectPoint>,
+    start: [i32; 2],
+    end: [i32; 2],
+    size: [i32; 2],
+    color: u32,
+) {
+    let Some(clipped) = clipped_background_line(start, end, size) else {
+        return;
+    };
+    let start = [clipped[0], clipped[1]];
+    let end = [clipped[2], clipped[3]];
+    let dx = (end[0] - start[0]).abs();
+    let dy = (end[1] - start[1]).abs();
+    let sx = if start[0] > end[0] { -1 } else { 1 };
+    let sy = if start[1] > end[1] { -1 } else { 1 };
+    let mut x = start[0];
+    let mut y = start[1];
+    if dx >= dy {
+        let mut error = 2 * dy - dx;
+        for _ in 0..=dx {
+            dots.push(EffectPoint { x, y, color });
+            if error < 0 {
+                error += dy * 2;
+            } else {
+                error += (dy - dx) * 2;
+                y += sy;
+            }
+            x += sx;
+        }
+    } else {
+        let mut error = 2 * dx - dy;
+        for _ in 0..=dy {
+            dots.push(EffectPoint { x, y, color });
+            if error < 0 {
+                error += dx * 2;
+            } else {
+                error += (dx - dy) * 2;
+                x += sx;
+            }
+            y += sy;
+        }
+    }
+}
+
+fn background_clip_code(point: [i32; 2], size: [i32; 2]) -> u32 {
+    let mut code = 0;
+    if point[1] < 0 {
+        code |= 1;
+    } else if point[1] >= size[1] {
+        code |= 2;
+    }
+    if point[0] < 0 {
+        code |= 4;
+    } else if point[0] >= size[0] {
+        code |= 8;
+    }
+    code
+}
+fn clipped_background_line(
+    mut start: [i32; 2],
+    mut end: [i32; 2],
+    size: [i32; 2],
+) -> Option<[i32; 4]> {
+    if size[0] <= 0 || size[1] <= 0 {
+        return None;
+    }
+    loop {
+        let first = background_clip_code(start, size);
+        let second = background_clip_code(end, size);
+        if first | second == 0 {
+            return Some([start[0], start[1], end[0], end[1]]);
+        }
+        if first & second != 0 {
+            return None;
+        }
+        let code = if first != 0 { first } else { second };
+        let x1 = i128::from(start[0]);
+        let y1 = i128::from(start[1]);
+        let x2 = i128::from(end[0]);
+        let y2 = i128::from(end[1]);
+        let (x, y) = if code & 3 != 0 {
+            let y = if code & 1 != 0 {
+                0
+            } else {
+                i128::from(size[1] - 1)
+            };
+            (x1 + (x2 - x1) * (y - y1) / (y2 - y1), y)
+        } else {
+            let x = if code & 4 != 0 {
+                0
+            } else {
+                i128::from(size[0] - 1)
+            };
+            (x, y1 + (y2 - y1) * (x - x1) / (x2 - x1))
+        };
+        if first != 0 {
+            start = [x as i32, y as i32];
+        } else {
+            end = [x as i32, y as i32];
+        }
+    }
+}
