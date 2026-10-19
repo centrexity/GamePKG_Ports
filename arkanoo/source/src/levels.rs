@@ -74,7 +74,7 @@ impl Recipe {
             }
             10 => match row % 5 {
                 0 | 4 => col % 6 == 2 || col % 6 == 3,
-                1 | 3 => col % 6 > 0 && col % 6 < 5,
+                1 | 3 => !col.is_multiple_of(6) && col % 6 < 5,
                 _ => col % 6 != 2 && col % 6 != 3,
             },
             _ => {

@@ -678,7 +678,7 @@ pub fn night_commands(level: u32, frame: u64) -> (u32, Vec<crate::background::Ba
         values: [sat_x as i32, sat_y as i32, 3, 3],
         color: 0xc8c8ffff,
     });
-    if (time as u64 / 30) % 2 == 0 {
+    if (time as u64 / 30).is_multiple_of(2) {
         commands.push(crate::background::BackgroundCommand {
             kind: 0,
             values: [sat_x as i32 + 1, sat_y as i32 + 1, 0, 0],

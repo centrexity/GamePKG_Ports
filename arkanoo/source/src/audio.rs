@@ -23,7 +23,7 @@ impl Mixer {
         self.effect_start_shared(std::sync::Arc::new(samples), muted)
     }
     pub fn effect_start_shared(&mut self, samples: std::sync::Arc<Vec<i16>>, muted: bool) -> bool {
-        if muted || samples.is_empty() || samples.len() % 2 != 0 {
+        if muted || samples.is_empty() || !samples.len().is_multiple_of(2) {
             return false;
         }
         for channel in &mut self.channels {
@@ -102,7 +102,11 @@ pub fn recording_length(header: &[u8]) -> Option<u32> {
         return None;
     }
     let size = recording_word(header, 40);
-    if size == 0 || size > 2097152 || size % 4 != 0 || recording_word(header, 4) != size + 36 {
+    if size == 0
+        || size > 2097152
+        || !size.is_multiple_of(4)
+        || recording_word(header, 4) != size + 36
+    {
         return None;
     }
     Some(size)
@@ -126,7 +130,7 @@ fn read_recording(path: &str, budget: u32) -> Option<std::sync::Arc<Vec<i16>>> {
         {
             return None;
         }
-        for part in block[..count as usize].chunks_exact(2) {
+        for part in block[..count as usize].as_chunks::<2>().0.iter() {
             pcm.push(i16::from_le_bytes([part[0], part[1]]));
         }
         offset += count;

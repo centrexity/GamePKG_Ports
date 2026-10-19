@@ -313,10 +313,8 @@ impl Editor {
                     self.selection += 1;
                 }
             }
-            13 => {
-                if self.browser {
-                    self.editor_load();
-                }
+            13 if self.browser => {
+                self.editor_load();
             }
             _ => {}
         }

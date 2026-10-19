@@ -247,7 +247,7 @@ fn read_position(bytes: &[u8], offset: usize, best: u64) -> Option<Position> {
             occupied = true;
         }
     }
-    if !occupied || score > best || score % 4 != 0 || flags > 1 || (flags == 1 && !reached(&cells))
+    if !occupied || score > best || !score.is_multiple_of(4) || flags > 1 || (flags == 1 && !reached(&cells))
     {
         return None;
     }
