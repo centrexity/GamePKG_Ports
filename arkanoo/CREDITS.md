@@ -1076,3 +1076,15 @@ The host version stays 0.1.17; this new operation requires rebuilding the host
 from current source. Source recipes only are updated, with no new signed package
 artifacts or release. Music/resolution/VSync settings, the version label and
 remaining menu/game presentation stay unfinished.
+
+
+A source-only host-music playlist controller is prepared in source/src/music.rs.
+Its observable gain/mute/pause/play/completion/stop/retry states and random choices
+match 32 steps run against the unchanged pinned original audio.rs. It uses only
+GamePKG controls and virtual package paths; it contains no decoder, game crate,
+filesystem or network access. Bounded playlist input, staged completion handling
+and missing/invalid input cases have host tests; actual isolated native/Wasm
+source-policy builds pass. It is not yet activated by the port entry point: the
+recorded-effect migration, persisted music settings and full port playback
+qualification still need integration. No recordings or package release accompany
+this source preparation.
