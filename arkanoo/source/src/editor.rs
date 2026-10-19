@@ -55,6 +55,8 @@ pub struct Editor {
     pub frame_count: u64,
     pub sfx_volume: u32,
     pub sfx_muted: bool,
+    pub music_volume: u32,
+    pub music_muted: bool,
     pub file_requested: u32,
     pub file_handle: Option<u32>,
     pub file_operation: u32,
@@ -83,6 +85,8 @@ impl Editor {
             frame_count: 0,
             sfx_volume: 64,
             sfx_muted: false,
+            music_volume: 64,
+            music_muted: false,
             file_requested: 0,
             file_handle: None,
             file_operation: 0,
@@ -470,6 +474,24 @@ impl Editor {
         bytes[12..16].copy_from_slice(&u32::to_le_bytes(flags));
         bytes
     }
+    pub fn save_encode_audio_settings(
+        &self,
+        best: u32,
+        unlocked: u32,
+        gravity: bool,
+        volumes: [u32; 2],
+        muted: [bool; 2],
+    ) -> Vec<u8> {
+        let mut bytes = self.save_encode_settings(best, unlocked, gravity, volumes[0], muted[0]);
+        bytes[0..4].copy_from_slice(b"ARK4");
+        let flags = u32::from(gravity)
+            | (volumes[0].min(128) << 1)
+            | (u32::from(muted[0]) << 9)
+            | (volumes[1].min(128) << 10)
+            | (u32::from(muted[1]) << 18);
+        bytes[12..16].copy_from_slice(&u32::to_le_bytes(flags));
+        bytes
+    }
     pub fn save_decode(&mut self, bytes: &[u8]) -> Option<[u32; 3]> {
         if bytes.len() < 16 || bytes.len() > SAVE_BYTES {
             return None;
@@ -480,10 +502,14 @@ impl Editor {
         let mut gravity = flags;
         let mut volume = 64;
         let mut muted = false;
-        let settings = bytes[0..4] == *b"ARK3";
+        let music_settings = bytes[0..4] == *b"ARK4";
+        let settings = bytes[0..4] == *b"ARK3" || music_settings;
+        let music_volume = if music_settings { (flags >> 10) & 255 } else { 64 };
+        let music_muted = music_settings && flags & (1 << 18) != 0;
         if settings {
             volume = (flags >> 1) & 255;
-            if flags & !1023 != 0 || volume > 128 {
+            let allowed = if music_settings { 524287 } else { 1023 };
+            if flags & !allowed != 0 || volume > 128 || music_volume > 128 {
                 return None;
             }
             gravity = flags & 1;
@@ -493,6 +519,8 @@ impl Editor {
             self.patterns.clear();
             self.sfx_volume = 64;
             self.sfx_muted = false;
+            self.music_volume = 64;
+            self.music_muted = false;
             return Some([best, unlocked, gravity]);
         }
         if (bytes[0..4] != *b"ARK2" && !settings) || bytes.len() < 20 || gravity > 1 {
@@ -546,6 +574,8 @@ impl Editor {
         self.patterns = patterns;
         self.sfx_volume = volume;
         self.sfx_muted = muted;
+        self.music_volume = music_volume;
+        self.music_muted = music_muted;
         Some([best, unlocked, gravity])
     }
 }
