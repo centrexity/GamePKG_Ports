@@ -45,11 +45,11 @@ impl Music {
             }
             bytes.extend_from_slice(&block[..count as usize]);
         }
-        let Ok(text) = String::from_utf8(bytes) else {
+        let Ok(playlist_text) = String::from_utf8(bytes) else {
             return Self::new(Vec::new());
         };
         let mut songs = Vec::new();
-        for path in text.lines() {
+        for path in playlist_text.lines() {
             let mut portable =
                 path.starts_with("music/") && path.ends_with(".mp3") && path.len() <= 1024;
             for part in path.split('/') {

@@ -6,7 +6,7 @@ genres = ["Arcade", "Action"]
 engine_version = ">=0.1.17, <0.2.0"
 format_version = 1
 id = "com.gamepkg.arkanoo"
-version = "0.1.62"
+version = "0.1.63"
 entry_world = "game"
 update_url = "https://github.com/centrexity/GamePKG_Ports/releases/latest/download/arkanoo.gamepkg"
 lockfile_sha256 = "28385a27f421a8cc8b417127fdbd67aef322b4394d8d26ad6f8556da0552d843"
