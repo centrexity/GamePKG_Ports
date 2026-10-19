@@ -30,6 +30,8 @@ impl Menu {
             [270.0, 260.0, 100.0, 20.0]
         } else if action == 8 {
             [270.0, 440.0, 100.0, 20.0]
+        } else if action == 9 {
+            [585.0, 395.0, 50.0, 20.0]
         } else if action == 10 {
             [270.0, 215.0, 100.0, 20.0]
         } else {
@@ -42,6 +44,13 @@ impl Menu {
         }
         if self.settings && (270.0..370.0).contains(&x) && (215.0..235.0).contains(&y) {
             return 10;
+        }
+        if !self.settings {
+            let original_x = (x * 2.0) as i32;
+            let original_y = ((y - 60.0) * 2.0) as i32;
+            if (1170..1270).contains(&original_x) && (670..710).contains(&original_y) {
+                return 9;
+            }
         }
         let first = if self.settings { 7 } else { 1 };
         let last = if self.settings { 8 } else { 6 };

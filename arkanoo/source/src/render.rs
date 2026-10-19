@@ -1323,7 +1323,7 @@ pub fn draw_menu(game: &Game) {
             text("SAVING UNAVAILABLE", 266.0, 330.0, 1.0, 0xffdb70ff);
         }
     } else {
-        for action in 1..=6 {
+        for action in [1, 2, 3, 4, 5, 6, 9] {
             draw_menu_button(game, action);
         }
     }
@@ -1400,6 +1400,7 @@ pub fn draw_menu_button(game: &Game, action: u32) {
                 "Windowed"
             }
         }
+        9 => "Github",
         10 => {
             if game.menu.sfx_muted {
                 "SFX: OFF"

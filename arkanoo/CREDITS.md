@@ -1054,3 +1054,25 @@ gain, original silence, keyboard/controller requests and independent channel
 content. The SDL conversion metadata reproduces byte-for-byte; strict lint,
 formatting and the browser fractional-clock regression pass. No new physical
 device, native graphical-window or broader platform coverage is claimed.
+
+
+## Original project-homepage button
+
+Recipe 0.1.61 restores the original main menu's `Github` button at original
+rectangle (1170, 670, 100, 40), projected to (585, 395, 50, 20). Its original
+normal/hover rendering and complete unchanged-source hit-test results are checked
+with the other implemented controls. The original click maps to the signed
+manifest homepage via host `window_control(4, 0)`; game code supplies no URL and
+spawns no process. Fresh input permission and successful tick/persistence are
+required, and duplicate requests within one tick are rejected.
+
+Private tests click the actual production handler in native/core/component
+desktop windows with a recording browser executable, then both browser exports
+with a loopback-mapped test hostname. Browser targets have no opener, requests
+are consumed once, and unfocused/invalid/failed-tick requests do not navigate.
+Failed browser save/history storage also suppresses navigation without replay
+after recovery; a fresh click remains available.
+The host version stays 0.1.17; this new operation requires rebuilding the host
+from current source. Source recipes only are updated, with no new signed package
+artifacts or release. Music/resolution/VSync settings, the version label and
+remaining menu/game presentation stay unfinished.

@@ -737,6 +737,7 @@ pub struct Game {
     pub menu: crate::menu::Menu,
     pub fullscreen_requests: u32,
     pub quit_requested: bool,
+    pub homepage_requested: bool,
     pub editor: crate::editor::Editor,
     pub testing: bool,
     pub block_color: [u8; 200],
@@ -788,6 +789,7 @@ impl Game {
             menu: crate::menu::Menu::new(),
             fullscreen_requests: 0,
             quit_requested: false,
+            homepage_requested: false,
             editor: crate::editor::Editor::new(),
             testing: false,
             block_color: [0; 200],
@@ -1207,6 +1209,7 @@ impl Game {
         let sfx_muted = self.menu.sfx_muted;
         let fullscreen = self.menu.fullscreen;
         let fullscreen_requests = self.fullscreen_requests;
+        let homepage_requested = self.homepage_requested;
         let saved_editor = core::mem::replace(&mut self.editor, crate::editor::Editor::new());
         *self = Self::new();
         self.effects = effects;
@@ -1216,6 +1219,7 @@ impl Game {
         self.started = started;
         self.editor = saved_editor;
         self.fullscreen_requests = fullscreen_requests;
+        self.homepage_requested = homepage_requested;
         self.best = best;
         self.unlocked = unlocked;
         self.gravity = gravity;
@@ -1292,6 +1296,9 @@ impl Game {
                 self.quit_requested = true;
                 self.dirty = true;
                 return;
+            }
+            if action == 9 {
+                self.homepage_requested = true;
             }
             if action == 7 {
                 self.fullscreen_requests = self.fullscreen_requests.saturating_add(1);
