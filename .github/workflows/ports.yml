@@ -10,7 +10,7 @@ jobs:
         with:
           repository: centrexity/GamePKG
           # Companion source review introducing the 0.1.18 host interfaces.
-          ref: 1041db5da7d1018fd6aef3c0c2491bd4a82da560
+          ref: 42458e502691db382b1677a47cd2b8d599462154
           path: host
       - uses: actions/checkout@v4
         with:

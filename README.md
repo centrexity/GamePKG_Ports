@@ -39,6 +39,8 @@ Review the [published creator fingerprint](creator-identity.json) before approvi
 
 The [Takedawn recipe](takedawn) targets GamePKG 0.1.18 on Linux x86-64. It
 contains prepared Rust game functions and the pinned original native runtime.
+The current candidate recovers two previously unresolved native paths, with
+128 C/Rust behavior comparisons; 13 upstream unresolved entries remain.
 Players build with Rust/Clang; Python and C2Rust are maintainer tools. Select
 your original supported Xbox USA ISO, which is read in place, and set Memory
 ceiling to at least 4096 MiB. The first full optimized Rust build took about
