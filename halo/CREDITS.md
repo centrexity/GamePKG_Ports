@@ -1,6 +1,6 @@
 # Halo: Combat Evolved (OpenCE)
 
-This directory is a GamePKG selector. It does not contain OpenCE source, Halo maps, disc images, or extracted cache files. The thumbnail is an original geometric mark, not Halo artwork.
+This directory is a GamePKG selector. It does not contain OpenCE source, Halo maps, disc images, or extracted cache files. The thumbnail is an original geometric catalog mark by GamePKG contributors under the Zlib license. It is not Halo artwork.
 
 OpenCE (Open Community Edition) is an unofficial port of a Halo: Combat Evolved decompilation. Upstream: https://github.com/OpenCommunityEdition/OpenCE at commit `ce95f7deed5bbf726e50a9d5fe5227437194cf3b`. The decompilation is of Xbox build 2342 and starts from bnunu/halo-1, itself a fork of punpckhdq/halo. OpenCE names Jonas Volman (@bnunu) and MrBruh (@cybersecurity) as the main contributors.
 

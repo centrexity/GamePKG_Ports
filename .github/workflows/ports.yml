@@ -34,6 +34,6 @@ jobs:
       - name: Check import catalog and release metadata
         working-directory: host/ports
         run: python3 tools/check_catalog.py
-      - name: Check the unpublished OpenCE recipe
+      - name: Check the OpenCE selector
         working-directory: host/ports
         run: python3 tools/test_opence_checkout.py

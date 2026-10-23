@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import sys
 import tempfile
+import tomllib
 import unittest
 from pathlib import Path
 
@@ -19,9 +20,14 @@ class OpenCECheckoutTests(unittest.TestCase):
         self.assertNotIn("UPSTREAM.json", names)
         self.assertNotIn("README.md", names)
 
-    def test_catalog_does_not_publish_halo(self):
-        catalog = (oc.PORTS / "ports.gamepkglist").read_text()
-        self.assertNotIn("com.gamepkg.halo", catalog)
+    def test_catalog_publishes_the_selector_without_game_data(self):
+        catalog = tomllib.loads((oc.PORTS / "ports.gamepkglist").read_text())
+        halo = next(game for game in catalog["games"] if game["id"] == "com.gamepkg.halo")
+        self.assertEqual(halo["version"], "0.1.0")
+        self.assertFalse(halo["requires_rom"])
+        self.assertIn("i686", halo["description"])
+        self.assertIn("No Halo assets", halo["description"])
+        self.assertTrue(halo["download_url"].endswith("/halo.gamepkg"))
         self.assertTrue((oc.PORTS / "halo" / "manifest.toml").is_file())
         self.assertFalse((oc.PORTS / "halo" / "manifest.draft.toml").exists())
 

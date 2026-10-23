@@ -1,6 +1,6 @@
 # Halo: Combat Evolved (OpenCE)
 
-Selector for [OpenCE](https://github.com/OpenCommunityEdition/OpenCE) commit `ce95f7deed5bbf726e50a9d5fe5227437194cf3b`. It is not in the published catalog. Pack and install it from this checkout. GamePKG 0.1.17 or newer is required.
+Selector for [OpenCE](https://github.com/OpenCommunityEdition/OpenCE) commit `ce95f7deed5bbf726e50a9d5fe5227437194cf3b`. It is `com.gamepkg.halo` in `ports.gamepkglist`. The shipped target is 32-bit Linux (i686). GamePKG 0.1.17 or newer is required.
 
 No Halo maps, disc images, or cache files are in this repository. OpenCE is AGPL-3.0-or-later and is not vendored. The host clones that commit, checks the license digest, and builds one reviewed target. Play runs that program in its own window. The package only declares data layouts. Fetch, compile, image checks, the desktop sandbox, and where game data is linked are generic host code, shared with any later engine of this kind.
 
@@ -45,4 +45,4 @@ Or use Build and Play in the desktop library, then choose the folder. Set the me
 
 Bubblewrap, when installed on Linux, starts the game without a network. 32-bit ALSA (`libasound.so.2` for i386) is needed for sound on the Linux i686 build; otherwise the game starts with SDL's dummy audio driver.
 
-This is not the Cube 2 frame bridge. There is no Wasm build and no catalog download until a maintainer publishes a release. See `engines/halo/README.md` in the GamePKG host.
+This is not the Cube 2 frame bridge. There is no Wasm build. The catalog entry is `com.gamepkg.halo` in `ports.gamepkglist`. Its download URL is the `v0.1.6` release asset, which the tag workflow publishes. The package is the selector only. See `engines/halo/README.md` in the GamePKG host.

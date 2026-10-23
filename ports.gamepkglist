@@ -4,17 +4,17 @@ format_version = 1
 id = "com.gamepkg.2048"
 description = "Slide numbered tiles together to merge matching values. Plan each move, build larger tiles and keep space on the board."
 title = "2048"
-version = "0.1.4"
+version = "0.1.5"
 requires_rom = false
-download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.4/2048.gamepkg"
+download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.6/2048.gamepkg"
 
 [[games]]
 id = "com.gamepkg.arkanoo"
 description = "Break colorful brick layouts with a paddle and bouncing ball. Collect power-ups, manage extra balls and work through nine campaign layouts."
 title = "Arkanoo"
-version = "0.1.4"
+version = "0.1.63"
 requires_rom = false
-download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.4/arkanoo.gamepkg"
+download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.6/arkanoo.gamepkg"
 
 [[games]]
 id = "com.gamepkg.zelda3"
@@ -22,7 +22,7 @@ description = "Explore Hyrule in the A Link to the Past engine port using your s
 title = "Zelda3 — requires your supported USA ROM"
 version = "0.1.4"
 requires_rom = true
-download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.4/zelda3.gamepkg"
+download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.6/zelda3.gamepkg"
 
 [[games]]
 id = "com.gamepkg.doom"
@@ -30,12 +30,20 @@ description = "Play the classic first-person shooter using your own compatible D
 title = "DOOM — requires your PC IWAD"
 version = "0.1.4"
 requires_rom = true
-download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.4/doom.gamepkg"
+download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.6/doom.gamepkg"
 
 [[games]]
 id = "com.gamepkg.cube2"
 description = "Build the original Cube 2 engine locally. Requires GamePKG 0.1.15 on Linux and your original Sauerbraten installation; maps, textures and sounds are read in place and are not included."
 title = "Cube 2: Sauerbraten — requires original game data"
+version = "0.1.1"
+requires_rom = false
+download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.6/cube2.gamepkg"
+
+[[games]]
+id = "com.gamepkg.halo"
+description = "Play Halo: Combat Evolved by building the pinned OpenCE engine on your machine. The shipped target is 32-bit Linux (i686). 32-bit Windows can be cross-compiled and runs on Windows. 64-bit builds are not ready. You supply your own Xbox disc image or extracted maps folder. No Halo assets and no OpenCE source are in this package."
+title = "Halo: Combat Evolved — i686, bring your Xbox data"
 version = "0.1.0"
 requires_rom = false
-download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.5/cube2.gamepkg"
+download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.6/halo.gamepkg"

@@ -9,5 +9,8 @@ Halo: Combat Evolved maps, Xbox disc images, and Custom Edition cache files
 are not licensed for redistribution. The host refuses a checkout that contains
 them and does not pack them into this recipe.
 
-The text of this selector is Apache-2.0. See `LICENSE`. The thumbnail is an
-original geometric mark, not Halo artwork.
+The text of this selector is Apache-2.0. See `LICENSE`.
+
+Thumbnail: original geometric catalog mark by GamePKG contributors (2026),
+under the Zlib license. It is three bars on a card. It uses no Halo artwork,
+logo, or ringed-planet mark.

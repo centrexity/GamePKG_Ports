@@ -2,9 +2,10 @@ format_version = 1
 id = "com.gamepkg.halo"
 version = "0.1.0"
 title = "Halo: Combat Evolved"
-description = "Play Halo: Combat Evolved through the pinned OpenCE engine, built on your machine from source. Choose your own Xbox disc image or extracted maps folder. No Halo data is included."
+description = "Play Halo: Combat Evolved by building the pinned OpenCE engine on your machine. The shipped target is 32-bit Linux (i686). 32-bit Windows can be cross-compiled and runs on Windows. 64-bit builds are not ready. You supply your own Xbox disc image or extracted maps folder. No Halo assets and no OpenCE source are in this package."
 author = "OpenCE contributors; GamePKG contributors"
 homepage = "https://github.com/OpenCommunityEdition/OpenCE"
+update_url = "https://github.com/centrexity/GamePKG_Ports/releases/latest/download/halo.gamepkg"
 genres = ["Action", "First-person shooter"]
 engine_version = ">=0.1.17, <0.2.0"
 entry_world = "game"

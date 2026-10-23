@@ -22,7 +22,7 @@ for game in catalog['games']:
  archive=output/(name+'.gamepkg');assert not archive.exists(),'Use a fresh output folder to avoid replacing a signed release'
  run('pack',source,'-o',archive,'--key',args.key.resolve());run('verify',archive)
  with zipfile.ZipFile(archive) as z:
-  assert not any(n.lower().endswith(('.wad','.sfc','.smc','.rom','.key')) for n in z.namelist())
+  assert not any(n.lower().endswith(('.wad','.sfc','.smc','.rom','.key','.iso','.xiso','.map')) for n in z.namelist())
   signed=tomllib.loads(z.read('manifest.toml').decode());cargo=tomllib.loads(z.read('source/Cargo.toml').decode())
   assert not cargo.get('dependencies')
   if public is None:public=signed['creator_key']

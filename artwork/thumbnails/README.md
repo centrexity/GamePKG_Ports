@@ -4,6 +4,7 @@
 - DOOM: “Skull crack” by Lorc, CC BY 3.0, https://game-icons.net/1x1/lorc/skull-crack.html
 - Zelda3: “Broadsword” by Lorc, CC BY 3.0, https://game-icons.net/1x1/lorc/broadsword.html
 - Arkanoo: “Brick wall” by Delapouite, CC BY 3.0, https://game-icons.net/1x1/delapouite/brick-wall.html
+- Cube 2 and Halo: original geometric marks by GamePKG contributors, Zlib. Neither uses original game media or a commercial logo. `halo_mark.py` redraws the Halo cover.
 
 The three vector icons were recolored, resized and composed with original gradient backgrounds and lettering. These generic covers contain no original commercial game graphics. Full credits and license terms are included in each package’s NOTICE. Sources were retrieved 2026-10-16; provenance.json records their SHA-256 hashes. The editable SVG compositions are included here.
 

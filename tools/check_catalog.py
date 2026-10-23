@@ -7,7 +7,6 @@ identity=json.loads((ROOT/'creator-identity.json').read_text());public=bytes.fro
 assert len(public)==32 and hashlib.sha256(public).hexdigest()==identity['creator_fingerprint']
 halo=ROOT/'halo'
 assert (halo/'manifest.toml').is_file() and not (halo/'manifest.draft.toml').exists()
-assert 'com.gamepkg.halo' not in (ROOT/'ports.gamepkglist').read_text()
 pin=json.loads((ROOT/'tools'/'opence-pin.json').read_text())
 assert pin['vendored'] is False and pin['license']=='AGPL-3.0-or-later'
 assert pin['commit']=='ce95f7deed5bbf726e50a9d5fe5227437194cf3b' and pin['profile']=='opence-ce95f7de'
@@ -23,9 +22,13 @@ for dirpath, dirnames, filenames in os.walk(halo):
         if lowered in {'maps','custom_maps'} or lowered.endswith(('.iso','.xiso','.map','.wad','.sfc','.smc','.rom')):
             forbidden.append(name)
 assert not forbidden,forbidden
-print('OpenCE recipe is unvendored, unpublished, and contains no game data.')
+print('OpenCE recipe is unvendored and contains no game data.')
 catalog=tomllib.loads((ROOT/'ports.gamepkglist').read_text());assert catalog['format_version']==1
-assert {g['id'] for g in catalog['games']}=={'com.gamepkg.'+n for n in ['2048','arkanoo','doom','zelda3','cube2']}
+assert {g['id'] for g in catalog['games']}=={'com.gamepkg.'+n for n in ['2048','arkanoo','doom','zelda3','cube2','halo']}
+halo_entry=next(g for g in catalog['games'] if g['id']=='com.gamepkg.halo')
+assert halo_entry['version']=='0.1.0' and halo_entry['requires_rom'] is False
+assert 'i686' in halo_entry['description'] and 'No Halo assets' in halo_entry['description'] and 'no OpenCE source' in halo_entry['description']
+assert halo_entry['download_url'].endswith('/v0.1.6/halo.gamepkg')
 for game in catalog['games']:
  name=game['id'].removeprefix('com.gamepkg.');source=ROOT/name;m=tomllib.loads((source/'manifest.toml').read_text())
  assert game['version']==m['version'] and game['id']==m['id']
@@ -42,7 +45,7 @@ for game in catalog['games']:
  assert m['update_url']==f'https://github.com/centrexity/GamePKG_Ports/releases/latest/download/{name}.gamepkg'
  assert hashlib.sha256((source/'source/Cargo.lock').read_bytes()).hexdigest()==m['lockfile_sha256']
  assert not tomllib.loads((source/'source/Cargo.toml').read_text()).get('dependencies')
-print('All five catalog entries match their dependency-free recipes and release/update URLs.')
+print('All six catalog entries match their dependency-free recipes and release/update URLs.')
 
 # Artwork provenance and signed attribution travel with each thumbnail update.
 import struct
@@ -55,4 +58,4 @@ for item in provenance:
  assert hashlib.sha256(data).hexdigest()==item['thumbnail_sha256']
  notice=(ROOT/item['game']/'NOTICE').read_text()
  assert item['author'] in notice and item['license'].split('-')[0] in notice
-print('All five thumbnails have bounded PNG dimensions, matching hashes and author/license notices.')
+print('All six thumbnails have bounded PNG dimensions, matching hashes and author/license notices.')
