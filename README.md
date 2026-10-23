@@ -35,6 +35,35 @@ Review the [published creator fingerprint](creator-identity.json) before approvi
 | Arkanoo | [arkanoo](arkanoo) | GamePKG |
 | 2048 | [2048](2048) | GamePKG |
 
+## Native gameplay preview
+
+The [Takedawn recipe](takedawn) targets GamePKG 0.1.18 on Linux x86-64. It
+contains prepared Rust game functions and the pinned original native runtime.
+Players build with Rust/Clang; Python and C2Rust are maintainer tools. Select
+your original supported Xbox USA ISO, which is read in place, and set Memory
+ceiling to at least 4096 MiB. The first full optimized Rust build took about
+77 minutes on the test machine; verified compiler checkpoints retain completed
+work across later attempts.
+
+Standard native Build/Play, integrity, remembered ISO selection, original profile
+save/reload, race/Crash controls and stereo capture have private verification.
+Desktop keyboard input also drives the first World Tour race in the original
+separate Vulkan window. Full campaign, physical controllers, Windows/other
+platforms and release qualification remain open.
+
+The source catalog targets the next v0.1.6 ports release. Its new downloads are
+not yet published; the stable downloadable catalog remains the previous release
+until promotion. Maintainers can pack a local preview using a source-built
+GamePKG 0.1.18:
+
+```sh
+gamepkg pack takedawn --output takedawn.gamepkg --key /private/existing-creator.key
+```
+
+Players import that signed package and select their ISO; they never enter a
+signing key. The kit retains upstream notices and includes no ISO or extracted
+original media. The cover is an original geometric racing illustration.
+
 Use the GamePKG CLI to create a package with your creator key:
 
 ```sh

@@ -4,38 +4,46 @@ format_version = 1
 id = "com.gamepkg.2048"
 description = "Slide numbered tiles together to merge matching values. Plan each move, build larger tiles and keep space on the board."
 title = "2048"
-version = "0.1.4"
+version = "0.1.5"
 requires_rom = false
-download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.4/2048.gamepkg"
+download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.6/2048.gamepkg"
 
 [[games]]
 id = "com.gamepkg.arkanoo"
 description = "Break colorful brick layouts with a paddle and bouncing ball. Collect power-ups, manage extra balls and work through nine campaign layouts."
 title = "Arkanoo"
-version = "0.1.4"
+version = "0.1.72"
 requires_rom = false
-download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.4/arkanoo.gamepkg"
+download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.6/arkanoo.gamepkg"
 
 [[games]]
 id = "com.gamepkg.zelda3"
 description = "Explore Hyrule in the A Link to the Past engine port using your supported USA ROM. Your ROM stays on your drive; no original game data is included in this package."
 title = "Zelda3 — requires your supported USA ROM"
-version = "0.1.4"
+version = "0.1.5"
 requires_rom = true
-download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.4/zelda3.gamepkg"
+download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.6/zelda3.gamepkg"
 
 [[games]]
 id = "com.gamepkg.doom"
 description = "Play the classic first-person shooter using your own compatible DOOM or DOOM II WAD. Select your game data once and return to the same files for later sessions."
 title = "DOOM — requires your PC IWAD"
-version = "0.1.4"
+version = "0.1.5"
 requires_rom = true
-download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.4/doom.gamepkg"
+download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.6/doom.gamepkg"
 
 [[games]]
 id = "com.gamepkg.cube2"
-description = "Build the original Cube 2 engine locally. Requires GamePKG 0.1.15 on Linux and your original Sauerbraten installation; maps, textures and sounds are read in place and are not included."
+description = "Build the original Cube 2 engine locally. Requires GamePKG 0.1.18 on Linux and your original Sauerbraten installation; maps, textures and sounds are read in place and are not included."
 title = "Cube 2: Sauerbraten — requires original game data"
-version = "0.1.0"
+version = "0.1.1"
 requires_rom = false
-download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.5/cube2.gamepkg"
+download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.6/cube2.gamepkg"
+
+[[games]]
+id = "com.gamepkg.takedawn"
+description = "Build the pinned native Takedawn implementation and prepared Rust game functions locally. Requires GamePKG 0.1.18 on Linux x86-64 and your supported Xbox USA ISO, read in place."
+title = "Burnout 3: Takedown — requires your supported Xbox USA ISO"
+version = "0.1.0"
+requires_rom = true
+download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.6/takedawn.gamepkg"

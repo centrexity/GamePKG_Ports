@@ -781,6 +781,9 @@ pub struct Game {
 }
 impl Game {
     pub fn new() -> Self {
+        Self::new_audio(false)
+    }
+    pub fn new_audio(recorded_audio: bool) -> Self {
         let mut game = Self {
             penguin: None,
             stolen_heart: None,
@@ -828,9 +831,10 @@ impl Game {
             lost_life: false,
             cooldown: 0,
             sound: 0,
-            effects: crate::audio::Mixer::new(),
+            effects: crate::audio::Mixer::new_mode(recorded_audio),
             dirty: false,
         };
+        game.menu.music_available = recorded_audio;
         game.populate();
         game.attach();
         game
@@ -1191,6 +1195,13 @@ impl Game {
     }
     pub fn capture_sound(&mut self) {
         if self.sound != 0 {
+            if self.menu.music_available {
+                crate::gamepkg::effect_volume(if self.menu.sfx_muted {
+                    0
+                } else {
+                    self.menu.sfx_volume
+                });
+            }
             self.effects
                 .effect_request(self.sound, self.frame, self.menu.sfx_muted);
             self.sound = 0;
@@ -1205,9 +1216,16 @@ impl Game {
         let best = self.best;
         let unlocked = self.unlocked;
         let gravity = self.gravity;
+        let music_volume = self.menu.music_volume;
+        let music_muted = self.menu.music_muted;
+        let music_available = self.menu.music_available;
         let sfx_volume = self.menu.sfx_volume;
         let sfx_muted = self.menu.sfx_muted;
         let fullscreen = self.menu.fullscreen;
+        let window_size = self.menu.window_size;
+        let resolution_pending = self.menu.resolution_pending;
+        let resolution_ticks = self.menu.resolution_ticks;
+        let vsync = self.menu.vsync;
         let fullscreen_requests = self.fullscreen_requests;
         let homepage_requested = self.homepage_requested;
         let saved_editor = core::mem::replace(&mut self.editor, crate::editor::Editor::new());
@@ -1223,9 +1241,16 @@ impl Game {
         self.best = best;
         self.unlocked = unlocked;
         self.gravity = gravity;
+        self.menu.music_volume = music_volume;
+        self.menu.music_muted = music_muted;
+        self.menu.music_available = music_available;
         self.menu.sfx_volume = sfx_volume;
         self.menu.sfx_muted = sfx_muted;
         self.menu.fullscreen = fullscreen;
+        self.menu.window_size = window_size;
+        self.menu.resolution_pending = resolution_pending;
+        self.menu.resolution_ticks = resolution_ticks;
+        self.menu.vsync = vsync;
         self.dirty = true;
     }
     pub fn editor_test(&mut self) {
@@ -1269,6 +1294,15 @@ impl Game {
         }
         if self.mode == 0 || self.mode == 2 {
             let action = self.menu.menu_event(kind, x, y, code);
+            if action == 20 {
+                self.menu.vsync_requested = true;
+            }
+            if (13..=19).contains(&action) {
+                let selected = crate::menu::Menu::resolution(action);
+                if selected.is_none() || selected != self.menu.window_size {
+                    self.menu.resolution_request = action;
+                }
+            }
             if action == 1 {
                 self.menu.settings = false;
                 self.started = true;
@@ -1302,6 +1336,10 @@ impl Game {
             }
             if action == 7 {
                 self.fullscreen_requests = self.fullscreen_requests.saturating_add(1);
+            }
+            if action == 12 {
+                self.menu.music_muted = !self.menu.music_muted;
+                self.dirty = true;
             }
             if action == 10 {
                 self.menu.sfx_muted = !self.menu.sfx_muted;

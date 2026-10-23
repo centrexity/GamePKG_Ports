@@ -3,7 +3,7 @@ description = "Slide numbered tiles together to merge matching values. Plan each
 author = "Adrien Ball; GamePKG contributors"
 homepage = "https://github.com/adrienball/2048-rs"
 genres = ["Puzzle", "Strategy"]
-engine_version = ">=0.1.17, <0.2.0"
+engine_version = ">=0.1.18, <0.2.0"
 format_version = 1
 id = "com.gamepkg.2048"
 version = "0.1.5"

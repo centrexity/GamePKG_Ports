@@ -1,7 +1,9 @@
+mod save_io;
 mod procedural;
 mod background;
 // Adapted from c0m4r/arkanoo; see CREDITS.md for revision and changes.
 mod audio;
+mod music;
 mod editor;
 mod levels;
 mod menu;
@@ -14,54 +16,49 @@ mod dynamic_font;
 mod dynamic_font_data;
 use std::sync::Mutex;
 static GAME: Mutex<Option<physics::Game>> = Mutex::new(None);
+static MUSIC: Mutex<Option<music::Music>> = Mutex::new(None);
 
 pub fn game_tick(input: u32, state: u64) -> u64 {
     if let Ok(mut slot) = GAME.lock() {
+        let Ok(mut music_slot) = MUSIC.lock() else { return state; };
+        if let Some(manager) = music_slot.as_mut() { manager.begin_tick(); }
         if slot.is_none() || state == 0 {
-            let mut game = physics::Game::new();
+            let mut manager = music::Music::from_package();
+            let mut game = physics::Game::new_audio(manager.has_playlist());
             if let Some(size) = gamepkg::save_size() {
                 if size > 0 && size <= 1048576 {
-                    let mut bytes = Vec::new();
-                    bytes.resize(size as usize, 0);
-                    let mut offset = 0u32;
-                    let mut read_ok = true;
-                    while offset < size {
-                        let length = (size - offset).min(65536);
-                        if gamepkg::save_read(
-                            offset,
-                            &mut bytes[offset as usize..(offset + length) as usize],
-                        ) != Some(length)
-                        {
-                            read_ok = false;
-                            break;
-                        }
-                        offset += length;
-                    }
-                    if read_ok {
-                        if let Some(metadata) = game.editor.save_decode(&bytes) {
-                            game.best = metadata[0];
-                            game.unlocked = metadata[1].max(1);
-                            game.gravity = metadata[2] == 1;
-                            game.menu.sfx_volume = game.editor.sfx_volume;
+                    if let Some((loaded, metadata)) = save_io::load_saved_editor(size) {
+                        game.editor = loaded;
+                        game.best = metadata[0];
+                        game.unlocked = metadata[1].max(1);
+                        game.gravity = metadata[2] == 1;
+                        game.menu.sfx_volume = game.editor.sfx_volume;
                             game.menu.sfx_muted = game.editor.sfx_muted;
-                        } else {
-                            game.editor.readable = false;
-                            game.editor.editor_message("SAVE DAMAGED / PRESERVED");
-                        }
+                        game.menu.music_volume = game.editor.music_volume;
+                        game.menu.music_muted = game.editor.music_muted;
                     } else {
                         game.editor.readable = false;
+                        game.editor.editor_message("SAVE DAMAGED / PRESERVED");
                     }
                 } else if size > 1048576 {
                     game.editor.readable = false;
                 }
             }
+            *music_slot = if game.menu.music_available {
+                manager.begin_tick();
+                manager.start_saved(game.menu.music_volume, game.menu.music_muted);
+                Some(manager)
+            } else { None };
             *slot = Some(game);
         }
         if let Some(game) = slot.as_mut() {
+            game.menu.vsync = gamepkg::window_vsync_preference();
+            game.menu.observe_resolution(gamepkg::window_size(), gamepkg::window_fullscreen(), gamepkg::window_preview_active());
             game.frame_clock(gamepkg::frame_time_us());
             if let Some(events) = gamepkg::input_events() {
                 for event in events {
                     game.source_input(event.kind, event.x, event.y, event.code);
+                    resolution_request(game);
                     game.capture_sound();
                 }
             }
@@ -73,15 +70,26 @@ pub fn game_tick(input: u32, state: u64) -> u64 {
             if let Some(samples) = game.effects.effect_render(game.menu.sfx_volume, game.menu.sfx_muted) {
                 gamepkg::audio_submit_stereo(&samples);
             }
+            if game.menu.music_available { gamepkg::effect_volume(if game.menu.sfx_muted {0} else {game.menu.sfx_volume}); }
+            if let Some(manager) = music_slot.as_mut() {
+                if manager.get_music_volume() != game.menu.music_volume as i32 { manager.set_music_volume(game.menu.music_volume as i32); }
+                if manager.is_music_muted() != game.menu.music_muted { manager.set_music_muted(game.menu.music_muted); }
+                manager.update();
+                if game.quit_requested { manager.stop_music(); }
+            }
             if game.dirty && game.editor.readable {
-                let bytes = game.editor.save_encode_settings(
+                let saved = if game.menu.music_available || game.menu.music_volume != 64 || game.menu.music_muted {
+                    save_io::save_stream_audio_settings(&game.editor, game.best, game.unlocked, game.gravity,
+                        [game.menu.sfx_volume, game.menu.music_volume], [game.menu.sfx_muted, game.menu.music_muted])
+                } else { save_io::save_stream_settings(
+                    &game.editor,
                     game.best,
                     game.unlocked,
                     game.gravity,
                     game.menu.sfx_volume,
                     game.menu.sfx_muted,
-                );
-                if gamepkg::save_write(&bytes) {
+                ) };
+                if saved {
                     game.dirty = false;
                     game.menu.save_failed = false;
                     game.editor.editor_commit(true);
@@ -122,9 +130,32 @@ pub fn game_tick(input: u32, state: u64) -> u64 {
     state.wrapping_add(1)
 }
 
-fn pattern_filename(name: &str) -> String {
+fn resolution_request(game: &mut physics::Game) {
+    if game.menu.vsync_requested {
+        game.menu.vsync_requested = false;
+        if let Some(vsync) = game.menu.vsync {
+            let accepted = gamepkg::window_set_vsync(!vsync);
+            game.menu.vsync_failed = !accepted;
+            if accepted { game.menu.vsync = Some(!vsync); }
+        }
+    }
+    let action = game.menu.resolution_request;
+    game.menu.resolution_request = 0;
+    if action == 0 { return; }
+    let accepted = if let Some(size) = menu::Menu::resolution(action) {
+        gamepkg::window_preview_size(size[0], size[1])
+    } else if action == 18 {
+        gamepkg::window_keep_size()
+    } else if action == 19 {
+        gamepkg::window_revert_size()
+    } else { false };
+    game.menu.resolution_result(action, accepted);
+}
+
+fn pattern_filename(name: &str) -> String { pattern_filename_segments([name, ""]) }
+fn pattern_filename_segments(pieces: [&str; 2]) -> String {
     let mut filename = String::new();
-    for character in name.chars() {
+    for character in pieces[0].chars().chain(pieces[1].chars()) {
         if filename.len() + character.len_utf8() > 240 {
             break;
         }
@@ -175,12 +206,9 @@ fn pattern_files(game: &mut physics::Game) {
             let handle = if operation == 1 {
                 gamepkg::file_import(0)
             } else {
-                let pattern = editor::Pattern {
-                    name: game.editor.name.clone(),
-                    cells: game.editor.cells,
-                };
+                let pattern = editor::Pattern::pattern_from_cells(game.editor.name.clone(), game.editor.cells).unwrap();
                 let ascii = pattern.ascii_write();
-                let filename = pattern_filename(&pattern.name);
+                let filename = pattern_filename_segments(pattern.name.name_segments());
                 gamepkg::file_export(0, &filename, ascii.as_bytes())
             };
             if let Some(id) = handle {
@@ -232,7 +260,7 @@ fn pattern_files(game: &mut physics::Game) {
                                 filename
                             };
                             let pattern = editor::Pattern::ascii_read(name, content);
-                            game.editor.cells = pattern.cells;
+                            game.editor.cells = pattern.pattern_unpack();
                             game.editor.health = [1; 200];
                             game.editor.name = pattern.name;
                             game.editor.editor_message("IMPORTED / S TO SAVE");
