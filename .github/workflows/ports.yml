@@ -9,7 +9,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: centrexity/GamePKG
-          ref: v0.1.15
+          # Companion source review introducing the 0.1.18 host interfaces.
+          ref: 1041db5da7d1018fd6aef3c0c2491bd4a82da560
           path: host
       - uses: actions/checkout@v4
         with:
@@ -21,3 +22,6 @@ jobs:
       - name: Check import catalog and release metadata
         working-directory: host/ports
         run: python3 tools/check_catalog.py
+      - name: Check reviewed native profile and source-kit rejection cases
+        working-directory: host
+        run: cargo test --locked --lib takedawn
