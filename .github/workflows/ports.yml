@@ -16,6 +16,8 @@ jobs:
         with:
           path: host/ports
       - uses: dtolnay/rust-toolchain@stable
+      - name: Install original SDL reference test dependencies
+        run: sudo apt-get update && sudo apt-get install -y libsdl2-dev g++
       - name: Check port gameplay, signing, policy, and lock hashes
         working-directory: host
         run: cargo test --locked --test game_2048 --test game_arkanoo --test zelda3_policy --test doom_policy --test cube2_policy --test examples
