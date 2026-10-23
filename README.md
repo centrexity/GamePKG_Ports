@@ -35,7 +35,7 @@ Review the [published creator fingerprint](creator-identity.json) before approvi
 | Arkanoo | [arkanoo](arkanoo) | GamePKG |
 | 2048 | [2048](2048) | GamePKG |
 
-Halo: Combat Evolved via OpenCE is a Linux recipe in [halo](halo). It is not in this catalog. Pack it from a checkout; bring your own Xbox disc image or extracted `maps` folder. See [HALO.md](HALO.md).
+Halo: Combat Evolved via OpenCE is an unpublished recipe in [halo](halo). Pack it from a checkout and bring your own Xbox disc image or extracted `maps` folder. The host builds `linux-i686` by default and can cross-compile `windows-i686`; 64-bit targets are blocked upstream because the game data stores 32-bit pointers. See [HALO.md](HALO.md).
 
 Use the GamePKG CLI to create a package with your creator key:
 

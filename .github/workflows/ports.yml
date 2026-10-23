@@ -15,12 +15,13 @@ jobs:
         with:
           path: host/ports
       - uses: dtolnay/rust-toolchain@stable
-      # v0.1.15 predates the OpenCE profile. Hold that recipe so its manifest
-      # is not parsed as a Cube 2 package. Hosts that contain src/opence keep it.
-      - name: Hold OpenCE on hosts that predate the profile
+      # v0.1.15 predates reviewed external engines. Hold that recipe so its
+      # manifest is not parsed as a Cube 2 package. Hosts that declare
+      # external_engine keep it.
+      - name: Hold external-engine recipes on hosts that predate them
         working-directory: host
         run: |
-          if [ ! -f src/opence/mod.rs ]; then
+          if ! grep -q 'external_engine' src/lib.rs; then
             mv ports/halo /tmp/halo-recipe
             echo HELD_OPENCE=1 >> "$GITHUB_ENV"
           fi

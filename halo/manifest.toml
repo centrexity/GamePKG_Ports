@@ -16,6 +16,19 @@ shader_profile = "slang"
 [game_data]
 title = "Folder with your Halo maps directory or one Xbox disc image"
 
+[[game_data.layouts]]
+placement = "link"
+directories = ["maps"]
+paths = ["maps/ui.map"]
+min_bytes = 1
+max_bytes = 67108864
+
+[[game_data.layouts]]
+placement = "beside"
+extensions = ["iso", "xiso"]
+min_bytes = 1024
+max_bytes = 8589934592
+
 [limits]
 hard_memory_bytes = 3221225472
 recommended_memory_bytes = 2147483648
