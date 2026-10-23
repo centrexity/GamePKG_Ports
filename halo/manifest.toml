@@ -1,0 +1,27 @@
+format_version = 1
+id = "com.gamepkg.halo"
+version = "0.1.0"
+title = "Halo: Combat Evolved"
+description = "Play Halo: Combat Evolved through the pinned OpenCE engine, built on your machine from source. Choose your own Xbox disc image or extracted maps folder. No Halo data is included."
+author = "OpenCE contributors; GamePKG contributors"
+homepage = "https://github.com/OpenCommunityEdition/OpenCE"
+genres = ["Action", "First-person shooter"]
+engine_version = ">=0.1.17, <0.2.0"
+entry_world = "game"
+runtime_profile = "core-v1"
+builtin_engine = "opence-ce95f7de"
+lockfile_sha256 = "28385a27f421a8cc8b417127fdbd67aef322b4394d8d26ad6f8556da0552d843"
+shader_profile = "slang"
+
+[game_data]
+title = "Folder with your Halo maps directory or one Xbox disc image"
+
+[limits]
+hard_memory_bytes = 3221225472
+recommended_memory_bytes = 2147483648
+
+[permissions]
+input = true
+audio = true
+save = true
+network = false

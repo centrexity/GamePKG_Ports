@@ -15,9 +15,24 @@ jobs:
         with:
           path: host/ports
       - uses: dtolnay/rust-toolchain@stable
+      # v0.1.15 predates the OpenCE profile. Hold that recipe so its manifest
+      # is not parsed as a Cube 2 package. Hosts that contain src/opence keep it.
+      - name: Hold OpenCE on hosts that predate the profile
+        working-directory: host
+        run: |
+          if [ ! -f src/opence/mod.rs ]; then
+            mv ports/halo /tmp/halo-recipe
+            echo HELD_OPENCE=1 >> "$GITHUB_ENV"
+          fi
       - name: Check port gameplay, signing, policy, and lock hashes
         working-directory: host
         run: cargo test --locked --test game_2048 --test game_arkanoo --test zelda3_policy --test doom_policy --test cube2_policy --test examples
+      - name: Restore the OpenCE recipe
+        if: env.HELD_OPENCE == '1'
+        run: mv /tmp/halo-recipe host/ports/halo
       - name: Check import catalog and release metadata
         working-directory: host/ports
         run: python3 tools/check_catalog.py
+      - name: Check the unpublished OpenCE recipe
+        working-directory: host/ports
+        run: python3 tools/test_opence_checkout.py

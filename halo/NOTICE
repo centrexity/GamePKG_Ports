@@ -1,0 +1,13 @@
+GamePKG selector for the pinned OpenCE engine. No OpenCE source and no Halo game data are included.
+
+OpenCE itself is AGPL-3.0-or-later. `gamepkg build` clones
+https://github.com/OpenCommunityEdition/OpenCE at the commit recorded in
+`../tools/opence-pin.json`, outside this package, and checks the license digest.
+`tools/opence_checkout.py` uses that same pin.
+
+Halo: Combat Evolved maps, Xbox disc images, and Custom Edition cache files
+are not licensed for redistribution. The host refuses a checkout that contains
+them and does not pack them into this recipe.
+
+The text of this selector is Apache-2.0. See `LICENSE`. The thumbnail is an
+original geometric mark, not Halo artwork.
