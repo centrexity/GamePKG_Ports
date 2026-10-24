@@ -554,7 +554,7 @@ pub fn ball_effect_points(ball: &Ball, frame: u64) -> Vec<EffectPoint> {
             let x = cx + (dx * distance) as i32;
             let y = cy + (dy * distance) as i32;
             let pulse = if super_fireball {
-                (frame as f32 * 0.3).sin() * 0.2 + 0.8
+                crate::portable_math::sin_cos(frame as f32 * 0.3)[0] * 0.2 + 0.8
             } else {
                 1.0
             };
@@ -581,12 +581,11 @@ pub fn ball_effect_points(ball: &Ball, frame: u64) -> Vec<EffectPoint> {
             let spin = frame as f32 * 0.2;
             for index in 0..12 {
                 let angle = (index as f32 / 12.0) * core::f32::consts::PI * 2.0 + spin;
-                let cosine = (angle as f64).cos() as f32;
-                let sine = (angle as f64).sin() as f32;
+                let [sine, cosine] = crate::portable_math::sin_cos(angle);
                 let x = cx + (cosine * 18.0) as i32;
                 let y = cy + (sine * 18.0) as i32;
-                let opacity =
-                    ((frame as f32 * 0.3 + index as f32 * 0.5).sin() * 80.0 + 175.0) as u8;
+                let opacity = (crate::portable_math::sin_cos(frame as f32 * 0.3 + index as f32 * 0.5)[0]
+                    * 80.0 + 175.0) as u8;
                 effect_circle(&mut dots, x, y, 3, 0xffffc800 | u32::from(opacity));
             }
         }

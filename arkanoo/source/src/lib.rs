@@ -1,6 +1,7 @@
 mod save_io;
 mod procedural;
 mod background;
+mod portable_math;
 // Adapted from c0m4r/arkanoo; see CREDITS.md for revision and changes.
 mod audio;
 mod music;
