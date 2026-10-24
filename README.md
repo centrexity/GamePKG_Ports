@@ -35,6 +35,50 @@ Review the [published creator fingerprint](creator-identity.json) before approvi
 | Arkanoo | [arkanoo](arkanoo) | GamePKG |
 | 2048 | [2048](2048) | GamePKG |
 
+## Native gameplay preview
+
+The [Takedawn recipe](takedawn) targets GamePKG 0.1.18 on Linux x86-64 and the Windows x64 preview. It
+contains prepared Rust game functions and the pinned original native runtime.
+The current candidate recovers two previously unresolved native paths, with
+128 C/Rust behavior comparisons; 13 upstream unresolved entries remain.
+It also restores the original native SSE floating-point control setup, tested
+against hardware rounding, status and flush-to-zero behavior.
+Players build with Rust/Clang; Windows tools are prepared through Settings or
+`gamepkg setup-native-tools`. Python and C2Rust are maintainer tools. Select
+your original supported Xbox USA ISO, which is read in place, and set Memory
+ceiling to at least 4096 MiB. The first full optimized Rust build took about
+77 minutes on the test machine; verified compiler checkpoints retain completed
+work across later attempts.
+
+The v0.1.2 candidate carries the reviewed v13 source kit, with driving prompts
+that follow the original PS2 control mapping. The native Crash event visibly
+shows R2 for Crashbreaker and restores menu prompts after the event. The previous
+v0.1.1/v12 candidate remains accepted by the host. Its normal signed Linux
+install/build passes integrity, incorrect-disc rejection, remembered ISO selection
+and increasing play history. The exact built executable passes race/Crash controls,
+original profile save/reload and non-silent 45-second stereo capture. Two earlier
+audio capture deadlines were missed; real-time audio consistency remains under
+investigation and those attempts are not counted as passes.
+Desktop keyboard input also drives the first World Tour race in the original
+separate Vulkan window. Standalone native Windows tools compile all prepared
+Rust units and the original runtime without WSL or Python. The Windows app session
+passes confined restart/save/history fixtures; original-game Vulkan/controller
+access inside that container, full campaign progression and release qualification
+remain open.
+
+The source catalog targets the next v0.1.6 ports release. Its new downloads are
+not yet published; the stable downloadable catalog remains the previous release
+until promotion. Maintainers can pack a local preview using a source-built
+GamePKG 0.1.18:
+
+```sh
+gamepkg pack takedawn --output takedawn.gamepkg --key /private/existing-creator.key
+```
+
+Players import that signed package and select their ISO; they never enter a
+signing key. The kit retains upstream notices and includes no ISO or extracted
+original media. The cover is an original geometric racing illustration.
+
 Use the GamePKG CLI to create a package with your creator key:
 
 ```sh

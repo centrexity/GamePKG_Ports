@@ -58,7 +58,7 @@ pub struct Label {
     pub width: u32,
     pub pixels: Vec<u8>,
 }
-pub fn editor_raster(which: u32) -> Label {
+fn editor_data(which: u32) -> (usize, u8, &'static [u8]) {
     let (width, shade, runs) = match which {
         0 => (170, 255, editor_label_0()),
         1 => (83, 200, editor_label_1()),
@@ -80,7 +80,20 @@ pub fn editor_raster(which: u32) -> Label {
         17 => (415, 180, editor_label_17()),
         _ => (0, 0, &[] as &[u8]),
     };
-    let mut pixels = Vec::new();
+    (width, shade, runs)
+}
+pub fn editor_width(which: u32) -> usize {
+    editor_data(which).0
+}
+pub fn editor_raster(which: u32) -> Label {
+    editor_raster_region(which, 0, usize::MAX)
+}
+pub fn editor_raster_region(which: u32, left: usize, right: usize) -> Label {
+    let (full_width, shade, runs) = editor_data(which);
+    let left = left.min(full_width);
+    let right = right.min(full_width).max(left);
+    let width = right - left;
+    let mut pixels = Vec::with_capacity(width * 31 * 4);
     pixels.resize(width * 31 * 4, 0u8);
     for pixel in pixels.chunks_mut(4) {
         pixel[0] = shade;
@@ -90,7 +103,10 @@ pub fn editor_raster(which: u32) -> Label {
     let mut at = 0;
     for pair in runs.chunks(2) {
         for _ in 0..pair[0] {
-            pixels[at * 4 + 3] = pair[1];
+            let column = at % full_width;
+            if column >= left && column < right {
+                pixels[((at / full_width) * width + column - left) * 4 + 3] = pair[1];
+            }
             at += 1;
         }
     }

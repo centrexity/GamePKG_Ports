@@ -881,6 +881,11 @@ fn draw_viewport_label(
     row_height: i32,
     bottom: i32,
 ) -> bool {
+    let selector_text = crate::dynamic_font::compact_selector_runs(&[label]);
+    let label = if let Some(display_text) = selector_text.as_ref() { display_text.as_str() } else { label };
+    let label = if centered { label } else {
+        crate::dynamic_font::viewport_label_slice(label, 1280 - original_x)
+    };
     let Some(layout_data) = crate::dynamic_font::unicode_layout(label) else {
         return false;
     };
@@ -1030,8 +1035,7 @@ pub fn draw_editor_palette(selected: u8, hovered: u8) -> bool {
     accepted
 }
 pub fn draw_editor_label(which: u32, original_x: i32, original_y: i32) -> bool {
-    let lettering = crate::editor_font::editor_raster(which);
-    let full_width = lettering.width as usize;
+    let full_width = crate::editor_font::editor_width(which);
     let mut accepted = true;
     let mut column = 0;
     while column < full_width {
@@ -1039,14 +1043,7 @@ pub fn draw_editor_label(which: u32, original_x: i32, original_y: i32) -> bool {
         let source_left = column.saturating_sub(1);
         let source_right = (core_right + 1).min(full_width);
         let tile_width = source_right - source_left;
-        let mut tile_pixels = Vec::new();
-        tile_pixels.reserve(tile_width * 31 * 4);
-        for row in 0..31 {
-            tile_pixels.extend_from_slice(
-                &lettering.pixels
-                    [(row * full_width + source_left) * 4..(row * full_width + source_right) * 4],
-            );
-        }
+        let lettering = crate::editor_font::editor_raster_region(which, source_left, source_right);
         if !gamepkg::draw_clip(
             (original_x as f32 + column as f32) * 0.5,
             60.0 + original_y as f32 * 0.5,
@@ -1062,7 +1059,7 @@ pub fn draw_editor_label(which: u32, original_x: i32, original_y: i32) -> bool {
             15.5,
             tile_width as u32,
             31,
-            &tile_pixels,
+            &lettering.pixels,
         ) {
             accepted = false;
         }
@@ -1139,8 +1136,10 @@ pub fn draw_pattern_browser(edit: &crate::editor::Editor) {
             [55u8, 60, 68, 255]
         };
         gamepkg::draw_image(180.0, row_y, 280.0, 15.0, 1, 1, &row_color);
+        let name_pieces = pattern.name.name_segments();
+        let row_name = crate::dynamic_font::viewport_label_parts(&name_pieces, 910);
         draw_dynamic_label(
-            &pattern.name,
+            &row_name,
             370,
             170 + (index - first) as i32 * 35,
             [255, 255, 255],
@@ -1177,13 +1176,11 @@ fn draw_editor(game: &Game) {
     }
     draw_editor_label(0, 10, 10);
     draw_editor_label(1, 760, 25);
-    let mut pattern_label = String::from("Name: ");
-    pattern_label.push_str(&edit.name);
-    pattern_label.push_str(if edit.naming {
-        "_ (ESC to finish)"
-    } else {
-        " (N to edit)"
-    });
+    let name_pieces = edit.name.name_segments();
+    let pattern_label = crate::dynamic_font::viewport_label_parts(&[
+        "Name: ", name_pieces[0], name_pieces[1],
+        if edit.naming { "_ (ESC to finish)" } else { " (N to edit)" },
+    ], 1270);
     draw_dynamic_label(
         &pattern_label,
         10,
@@ -1317,23 +1314,64 @@ pub fn draw_menu(game: &Game) {
             draw_menu_button(game, action);
         }
         draw_sfx_slider(game.menu.sfx_volume);
+        if game.menu.music_available { draw_menu_button(game, 12); draw_volume_slider(game.menu.music_volume, 195.0); }
+        if game.menu.vsync.is_some() {
+            draw_menu_button(game, 20);
+            // Keep the original wording, clear of its overlapping resolution header.
+            draw_dynamic_label(
+                if game.menu.vsync_failed { "VSync change unavailable" } else { "(VSync change requires restart)" },
+                640, 190, if game.menu.vsync_failed { [255, 219, 112] } else { [120, 120, 120] }, true, -1,
+            );
+        }
+        if game.menu.window_size.is_some() {
+            draw_dynamic_label("Resolution:", 640, 490, [255, 255, 255], true, -1);
+            if game.menu.resolution_pending {
+                gamepkg::draw_image(220.0, 400.0, 200.0, 40.0, 1, 1, &[30, 30, 50, 220]);
+                for edge in [[220.0, 400.0, 200.0, 0.5], [220.0, 439.5, 200.0, 0.5], [220.0, 400.0, 0.5, 40.0], [419.5, 400.0, 0.5, 40.0]] {
+                    gamepkg::draw_image(edge[0], edge[1], edge[2], edge[3], 1, 1, &[100, 100, 150, 255]);
+                }
+                let mut message = String::from("Keep this resolution? (");
+                let seconds = game.menu.resolution_ticks.saturating_add(59) / 60;
+                message.push(match seconds { 0 => '0', 1 => '1', 2 => '2', 3 => '3', 4 => '4', _ => '5' });
+                message.push_str("s)");
+                draw_dynamic_label(&message, 640, 690, [255, 255, 100], true, -1);
+                draw_menu_button(game, 18);
+                draw_menu_button(game, 19);
+            } else if !game.menu.fullscreen {
+                for action in 13..=17 {
+                    draw_menu_button(game, action);
+                }
+            } else {
+                draw_dynamic_label("Exit fullscreen to change", 640, 530, [200, 200, 200], true, -1);
+            }
+            if game.menu.resolution_failed {
+                text("RESOLUTION CHANGE UNAVAILABLE", 236.0, 455.0, 1.0, 0xffdb70ff);
+            }
+        }
+        let notice_y = if game.menu.window_size.is_some() { 467.0 } else { 330.0 };
         if !game.editor.readable {
-            text("SAVE DAMAGED / PRESERVED", 251.0, 330.0, 1.0, 0xffdb70ff);
+            text("SAVE DAMAGED / PRESERVED", 251.0, notice_y, 1.0, 0xffdb70ff);
         } else if game.menu.save_failed {
-            text("SAVING UNAVAILABLE", 266.0, 330.0, 1.0, 0xffdb70ff);
+            text("SAVING UNAVAILABLE", 266.0, notice_y, 1.0, 0xffdb70ff);
         }
     } else {
         for action in [1, 2, 3, 4, 5, 6, 9] {
             draw_menu_button(game, action);
         }
+        // The original title reports the pinned game's version, not the recipe.
+        let version = "Version: 0.5.0";
+        if let Some(label) = crate::dynamic_font::unicode_layout(version) {
+            draw_dynamic_label(version, 1150 - label.width, 670, [150, 150, 150], false, 40);
+        }
     }
 }
-pub fn draw_sfx_slider(volume: u32) {
+pub fn draw_sfx_slider(volume: u32) { draw_volume_slider(volume, 240.0); }
+pub fn draw_volume_slider(volume: u32, top: f32) {
     let width = volume.min(128) * 200 / 128;
-    gamepkg::draw_image(270.0, 240.0, 100.0, 10.0, 1, 1, &[80, 80, 80, 200]);
+    gamepkg::draw_image(270.0, top, 100.0, 10.0, 1, 1, &[80, 80, 80, 200]);
     gamepkg::draw_image(
         270.0,
-        240.0,
+        top,
         width as f32 * 0.5,
         10.0,
         1,
@@ -1341,10 +1379,10 @@ pub fn draw_sfx_slider(volume: u32) {
         &[100, 200, 100, 220],
     );
     for edge in [
-        [270.0, 240.0, 100.0, 0.5],
-        [270.0, 249.5, 100.0, 0.5],
-        [270.0, 240.0, 0.5, 10.0],
-        [369.5, 240.0, 0.5, 10.0],
+        [270.0, top, 100.0, 0.5],
+        [270.0, top+9.5, 100.0, 0.5],
+        [270.0, top, 0.5, 10.0],
+        [369.5, top, 0.5, 10.0],
     ] {
         gamepkg::draw_image(
             edge[0],
@@ -1371,7 +1409,7 @@ pub fn draw_sfx_slider(volume: u32) {
         draw_dynamic_label(
             &shown,
             540 + (200 - volume_label.width) / 2,
-            360,
+            ((top-60.0)*2.0) as i32,
             [255, 255, 255],
             false,
             20,
@@ -1401,6 +1439,15 @@ pub fn draw_menu_button(game: &Game, action: u32) {
             }
         }
         9 => "Github",
+        13 => "1280x720",
+        14 => "1366x768",
+        15 => "1600x900",
+        16 => "1920x1080",
+        17 => "2560x1440",
+        18 => "Keep",
+        19 => "Revert",
+        20 => if game.menu.vsync == Some(true) { "VSync: ON" } else { "VSync: OFF" },
+        12 => if game.menu.music_muted {"Music: OFF"} else {"Music: ON"},
         10 => {
             if game.menu.sfx_muted {
                 "SFX: OFF"
@@ -1415,6 +1462,10 @@ pub fn draw_menu_button(game: &Game, action: u32) {
     } else {
         [60u8, 60, 100, 180]
     };
+    if crate::menu::Menu::resolution(action).is_some()
+        && crate::menu::Menu::resolution(action) == game.menu.window_size {
+        gamepkg::draw_image(left, top, width, height, 1, 1, &[100, 200, 100, 100]);
+    }
     gamepkg::draw_image(left, top, width, height, 1, 1, &fill);
     for edge in [
         [left, top, width, 0.5],

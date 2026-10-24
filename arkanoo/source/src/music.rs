@@ -2,6 +2,7 @@
 // 9d613e78c9ed5657ae7fda9206cd4a82a893b7c8. See CREDITS.md; no guest decoder.
 // Tracks remain virtual package assets and advance on the host output clock.
 pub struct Music {
+    playlist_present: bool,
     songs: Vec<String>,
     current: usize,
     volume: i32,
@@ -19,6 +20,7 @@ impl Music {
             crate::physics::below(songs.len() as u64) as usize
         };
         Self {
+            playlist_present: !songs.is_empty(),
             songs,
             current,
             volume: 64,
@@ -35,18 +37,22 @@ impl Music {
             let Some(count) =
                 crate::gamepkg::asset_read("audio/music-list.txt", bytes.len() as u32, &mut block)
             else {
-                return Self::new(Vec::new());
+                return if bytes.is_empty() {
+                    Self::new(Vec::new())
+                } else {
+                    Self::new(Vec::new()).packaged()
+                };
             };
             if count == 0 {
                 break;
             }
             if count > 1024 || bytes.len() + count as usize > 1048576 {
-                return Self::new(Vec::new());
+                return Self::new(Vec::new()).packaged();
             }
             bytes.extend_from_slice(&block[..count as usize]);
         }
         let Ok(playlist_text) = String::from_utf8(bytes) else {
-            return Self::new(Vec::new());
+            return Self::new(Vec::new()).packaged();
         };
         let mut songs = Vec::new();
         for path in playlist_text.lines() {
@@ -81,7 +87,22 @@ impl Music {
                 songs.push(path.to_string());
             }
         }
-        Self::new(songs)
+        Self::new(songs).packaged()
+    }
+    fn packaged(mut self) -> Self {
+        self.playlist_present = true;
+        self
+    }
+    pub fn has_playlist(&self) -> bool {
+        self.playlist_present
+    }
+    pub fn has_songs(&self) -> bool {
+        !self.songs.is_empty()
+    }
+    pub fn start_saved(&mut self, volume: u32, muted: bool) {
+        self.set_music_volume(volume.min(128) as i32);
+        self.play_music();
+        self.set_music_muted(muted);
     }
     pub fn begin_tick(&mut self) {
         self.staged_play = false;

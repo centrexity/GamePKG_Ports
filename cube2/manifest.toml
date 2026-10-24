@@ -6,7 +6,7 @@ description = "The original Cube 2 engine, built locally from pinned source. Cho
 author = "Cube 2 developers; GamePKG contributors"
 homepage = "https://sauerbraten.org/"
 genres = ["Action", "First-person shooter"]
-engine_version = ">=0.1.15, <0.2.0"
+engine_version = ">=0.1.18, <0.2.0"
 entry_world = "game"
 builtin_engine = "cube2-r6889"
 lockfile_sha256 = "28385a27f421a8cc8b417127fdbd67aef322b4394d8d26ad6f8556da0552d843"

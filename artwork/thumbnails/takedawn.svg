@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+<defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#123749"/><stop offset="1" stop-color="#10172d"/></linearGradient><linearGradient id="car" x2="0" y2="1"><stop stop-color="#ffc85c"/><stop offset="1" stop-color="#ee7144"/></linearGradient></defs>
+<rect width="512" height="512" rx="40" fill="url(#bg)"/>
+<path d="M30 350L202 140H303L482 350" fill="#203851" stroke="#497080" stroke-width="4"/>
+<path d="M253 155V180M253 206V245M253 280V340" fill="none" stroke="#a0ccd3" stroke-width="8"/>
+<path d="M78 178L168 112M337 112L435 188M47 247L130 188M382 214L465 267" stroke="#56b5c0" stroke-width="5" opacity=".65"/>
+<path d="M150 259L174 210Q180 199 193 199H318Q333 199 338 213L362 259L376 275V345H137V277Z" fill="url(#car)" stroke="#ffe8a4" stroke-width="4"/>
+<path d="M192 216H317L334 258H174Z" fill="#17354b"/>
+<path d="M144 278H191L199 296H147ZM321 278H367L364 296H313Z" fill="#fff1b9"/>
+<path d="M216 311H298M230 320H284" stroke="#73353a" stroke-width="5"/>
+<path d="M135 328V354H171V342M343 342V354H379V328" fill="#081525"/>
+<text x="256" y="420" text-anchor="middle" font-family="DejaVu Sans" font-weight="bold" font-size="42" fill="white">TAKEDAWN</text>
+<text x="256" y="455" text-anchor="middle" font-family="DejaVu Sans" font-size="19" letter-spacing="5" fill="#9edce1">NATIVE RACING</text>
+</svg>
