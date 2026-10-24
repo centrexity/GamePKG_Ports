@@ -584,8 +584,10 @@ pub fn ball_effect_points(ball: &Ball, frame: u64) -> Vec<EffectPoint> {
                 let [sine, cosine] = crate::portable_math::sin_cos(angle);
                 let x = cx + (cosine * 18.0) as i32;
                 let y = cy + (sine * 18.0) as i32;
-                let opacity = (crate::portable_math::sin_cos(frame as f32 * 0.3 + index as f32 * 0.5)[0]
-                    * 80.0 + 175.0) as u8;
+                let opacity =
+                    (crate::portable_math::sin_cos(frame as f32 * 0.3 + index as f32 * 0.5)[0]
+                        * 80.0
+                        + 175.0) as u8;
                 effect_circle(&mut dots, x, y, 3, 0xffffc800 | u32::from(opacity));
             }
         }
