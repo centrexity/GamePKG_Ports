@@ -10,7 +10,7 @@ jobs:
         with:
           repository: centrexity/GamePKG
           # Companion source review introducing the 0.1.18 host interfaces.
-          ref: a4b3c1963cdedc7e27c702a7080bd4c83e0e6986
+          ref: 8e57c03bf485646c1c0c4ff003faf0fb40195007
           path: host
       - uses: actions/checkout@v4
         with:
@@ -27,3 +27,16 @@ jobs:
       - name: Check reviewed native profile and source-kit rejection cases
         working-directory: host
         run: cargo test --locked --lib takedawn
+      - name: Verify the actual native source archive and signed package
+        working-directory: host
+        env:
+          GAMEPKG_TAKEDAWN_KIT_SHA256: ab30c4e7a4a86580a6fbefe7f79be941c713a0dd2b089d73fba6180729ab845b
+        run: |
+          set -euo pipefail
+          export GAMEPKG_TAKEDAWN_KIT="$PWD/ports/takedawn/assets/takedawn-source-kit.tar.gz"
+          cargo test --locked --lib takedawn_kit::tests::prepared_sdk_archive -- --ignored --exact
+          fixture_work=$(mktemp -d)
+          chmod 700 "$fixture_work"
+          cargo run --locked --bin gamepkg -- keygen --output "$fixture_work/creator.key"
+          cargo run --locked --bin gamepkg -- pack ports/takedawn --output "$fixture_work/takedawn.gamepkg" --key "$fixture_work/creator.key"
+          cargo run --locked --bin gamepkg -- verify "$fixture_work/takedawn.gamepkg"

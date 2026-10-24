@@ -12,7 +12,7 @@ download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0
 id = "com.gamepkg.arkanoo"
 description = "Break colorful brick layouts with a paddle and bouncing ball. Collect power-ups, manage extra balls and work through nine campaign layouts."
 title = "Arkanoo"
-version = "0.1.72"
+version = "0.1.73"
 requires_rom = false
 download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.6/arkanoo.gamepkg"
 
@@ -42,8 +42,8 @@ download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0
 
 [[games]]
 id = "com.gamepkg.takedawn"
-description = "Build the pinned native Takedawn implementation and prepared Rust game functions locally. Requires GamePKG 0.1.18 on Linux x86-64 and your supported Xbox USA ISO, read in place."
+description = "Build the pinned native Takedawn implementation and prepared Rust game functions locally. Requires GamePKG 0.1.18 on Linux x86-64 or the native Windows x64 preview, and your supported Xbox USA ISO, read in place."
 title = "Burnout 3: Takedown — requires your supported Xbox USA ISO"
-version = "0.1.0"
+version = "0.1.1"
 requires_rom = true
 download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.6/takedawn.gamepkg"
