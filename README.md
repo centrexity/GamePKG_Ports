@@ -50,7 +50,10 @@ ceiling to at least 4096 MiB. The first full optimized Rust build took about
 77 minutes on the test machine; verified compiler checkpoints retain completed
 work across later attempts.
 
-The v0.1.1 recipe carries the reviewed v12 source kit. A normal signed Linux
+The v0.1.2 candidate carries the reviewed v13 source kit, with driving prompts
+that follow the original PS2 control mapping. The native Crash event visibly
+shows R2 for Crashbreaker and restores menu prompts after the event. The previous
+v0.1.1/v12 candidate remains accepted by the host. Its normal signed Linux
 install/build passes integrity, incorrect-disc rejection, remembered ISO selection
 and increasing play history. The exact built executable passes race/Crash controls,
 original profile save/reload and non-silent 45-second stereo capture. Two earlier
