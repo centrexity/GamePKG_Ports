@@ -10,14 +10,15 @@ jobs:
         with:
           repository: centrexity/GamePKG
           # Companion source review introducing the 0.1.18 host interfaces.
-          ref: 2e9037938a42abef5cbfee7c199a7a646c8084d5
+          ref: 16a4ffad95ff4e1b960807cf340d449dc53263c0
           path: host
       - uses: actions/checkout@v4
         with:
           path: host/ports
       - uses: dtolnay/rust-toolchain@stable
       - name: Install original SDL reference test dependencies
-        run: sudo apt-get update && sudo apt-get install -y libsdl2-dev g++
+        working-directory: host
+        run: bash tools/ci_ubuntu_apt.sh update && bash tools/ci_ubuntu_apt.sh install -y libsdl2-dev g++
       - name: Check port gameplay, signing, policy, and lock hashes
         working-directory: host
         run: cargo test --locked --test game_2048 --test game_arkanoo --test zelda3_policy --test doom_policy --test cube2_policy --test examples
