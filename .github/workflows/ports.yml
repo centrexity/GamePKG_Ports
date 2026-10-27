@@ -10,7 +10,7 @@ jobs:
         with:
           repository: centrexity/GamePKG
           # Companion source review introducing the 0.1.18 host interfaces.
-          ref: 16a4ffad95ff4e1b960807cf340d449dc53263c0
+          ref: 7ed306782526f32fe0861748fd3b8e8480e03ca4
           path: host
       - uses: actions/checkout@v4
         with:
@@ -31,7 +31,7 @@ jobs:
       - name: Verify the actual native source archive and signed package
         working-directory: host
         env:
-          GAMEPKG_TAKEDAWN_KIT_SHA256: 18afa3a1f2a0e9ddad89a33c2a3e33803e0764be0035da5e2c7a2e1a5235c885
+          GAMEPKG_TAKEDAWN_KIT_SHA256: 7cfd18d26b8a6e51005f75d7cedc1c01925237574bc579df5027b0167413a986
         run: |
           set -euo pipefail
           export GAMEPKG_TAKEDAWN_KIT="$PWD/ports/takedawn/assets/takedawn-source-kit.tar.gz"

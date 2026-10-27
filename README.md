@@ -50,21 +50,21 @@ ceiling to at least 4096 MiB. The first full optimized Rust build took about
 77 minutes on the test machine; verified compiler checkpoints retain completed
 work across later attempts.
 
-The v0.1.2 candidate carries the reviewed v13 source kit, with driving prompts
-that follow the original PS2 control mapping. The native Crash event visibly
-shows R2 for Crashbreaker and restores menu prompts after the event. The previous
-v0.1.1/v12 candidate remains accepted by the host. Its normal signed Linux
-install/build passes integrity, incorrect-disc rejection, remembered ISO selection
-and increasing play history. The exact built executable passes race/Crash controls,
-original profile save/reload and non-silent 45-second stereo capture. Two earlier
-audio capture deadlines were missed; real-time audio consistency remains under
-investigation and those attempts are not counted as passes.
-Desktop keyboard input also drives the first World Tour race in the original
-separate Vulkan window. Standalone native Windows tools compile all prepared
-Rust units and the original runtime without WSL or Python. The Windows app session
-passes confined restart/save/history fixtures; original-game Vulkan/controller
-access inside that container, full campaign progression and release qualification
-remain open.
+The v0.1.3 candidate carries the reviewed v14 source kit. Native cache publication
+and interrupt masking use the original host runtime and generated Rust helpers,
+including the original following-instruction interrupt delay. Both Linux and
+standalone Windows builds retain all 24,035 exports across 487 units. Under Wine,
+the Windows build passes profile create/reload, original Race and PS2-layout Crash
+controls, keyboard menu navigation, window resizing and normal close, with actual
+Vulkan rendering and no reached unsupported paths. The Windows build also finishes
+the original three-lap race (fifth of six, 345.483 seconds) with instruction traps
+enabled and normal results flow. The Linux candidate also
+completes the original three-lap race and a 15,000-frame Time Attack session.
+These observations do not establish complete campaign coverage or physical
+Windows GPU/audio/controller access. The new host stops and reports any later
+unsupported instruction or unresolved function. Its optional frame-stall watchdog
+is separate and off by default. Full signed-package Build/repair and updated
+hardware-preview packaging remain under verification.
 
 The source catalog targets the next v0.1.6 ports release. Its new downloads are
 not yet published; the stable downloadable catalog remains the previous release
