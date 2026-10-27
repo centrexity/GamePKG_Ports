@@ -1267,6 +1267,8 @@ fn composed_missing_viewport(parts: &[&str], right: i32) -> Option<String> {
     let mut used = [false; dynamic_font_data::UNICODE_GLYPH_COUNT];
     let mut maximum_cluster = 1usize;
     let mut have_long = false;
+    let mut seen_short = [[u32::MAX; 16]; 16];
+    let mut next_short = 0usize;
     let mut budget = 0usize;
     let mut vertical = [0, dynamic_font_data::UNICODE_HEIGHT];
     let mut output = String::new();
@@ -1353,6 +1355,14 @@ fn composed_missing_viewport(parts: &[&str], right: i32) -> Option<String> {
                     cut_inside_missing = take < missing as usize && take >= 3;
                 }
             } else if pass == 0 {
+                // Repeated short clusters have the same pinned shaping proof.
+                // Keep validating their complete source, but collect each
+                // cached cluster's glyphs once instead of reshaping the name.
+                if seen_short.contains(&key) {
+                    continue;
+                }
+                seen_short[next_short] = key;
+                next_short = (next_short + 1) % seen_short.len();
                 let mut encoded = [0u8; 64];
                 let mut bytes = 0usize;
                 for cp in &key[..length] {
