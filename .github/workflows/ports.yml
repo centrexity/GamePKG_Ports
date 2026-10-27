@@ -9,8 +9,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: centrexity/GamePKG
-          # Companion source review introducing the 0.1.18 host interfaces.
-          ref: 7ed306782526f32fe0861748fd3b8e8480e03ca4
+          # Matching source review introducing the signed original-artwork profile.
+          ref: 592ce414ef071e255ba9a4ece9eeef226537fa96
           path: host
       - uses: actions/checkout@v4
         with:
