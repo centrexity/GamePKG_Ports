@@ -34,7 +34,7 @@ Review the [published creator fingerprint](creator-identity.json) before approvi
 | Zelda3 | [zelda3](zelda3) | GamePKG 0.1.6 or newer and your own Zelda: A Link to the Past (USA) ROM |
 | Arkanoo | [arkanoo](arkanoo) | GamePKG |
 | 2048 | [2048](2048) | GamePKG |
-| Halo: Combat Evolved | [halo](halo) | GamePKG 0.1.17 or newer, 32-bit Linux (i686). 32-bit Windows can be cross-compiled. You supply the Xbox disc or extracted maps. The package has no Halo assets and no OpenCE source. See [HALO.md](HALO.md). |
+| Halo: Combat Evolved | [halo](halo) | GamePKG 0.1.17 or newer. On 64-bit Linux the default is linux-x86_64. 32-bit Linux and both Windows cross builds are ready. You supply the Xbox disc or extracted maps. The package has no Halo assets and no OpenCE source. See [HALO.md](HALO.md). |
 
 Use the GamePKG CLI to create a package with your creator key:
 

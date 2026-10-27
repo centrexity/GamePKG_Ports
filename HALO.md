@@ -1,6 +1,6 @@
 # Halo: Combat Evolved (OpenCE)
 
-Selector for [OpenCE](https://github.com/OpenCommunityEdition/OpenCE) commit `ce95f7deed5bbf726e50a9d5fe5227437194cf3b`. It is `com.gamepkg.halo` in `ports.gamepkglist`. The shipped target is 32-bit Linux (i686). GamePKG 0.1.17 or newer is required.
+Selector for [OpenCE](https://github.com/OpenCommunityEdition/OpenCE) commit `ce95f7deed5bbf726e50a9d5fe5227437194cf3b`. It is `com.gamepkg.halo` in `ports.gamepkglist`. On 64-bit Linux the default target is `linux-x86_64`. `linux-i686` is still built with `--engine-target linux-i686`. GamePKG 0.1.17 or newer is required.
 
 No Halo maps, disc images, or cache files are in this repository. OpenCE is AGPL-3.0-or-later and is not vendored. The host clones that commit, checks the license digest, and builds one reviewed target. Play runs that program in its own window. The package only declares data layouts. Fetch, compile, image checks, the desktop sandbox, and where game data is linked are generic host code, shared with any later engine of this kind.
 
@@ -17,16 +17,16 @@ Those two shapes are the reviewed layouts in `manifest.toml`. Custom Edition cac
 
 | Target | Command | Status |
 | --- | --- | --- |
-| `linux-i686` | `gamepkg build com.gamepkg.halo` on 64-bit or 32-bit Linux | Builds and runs. This is the default on x86_64 Linux, because the 64-bit target is blocked upstream. |
-| `linux-x86_64` | `gamepkg build com.gamepkg.halo --engine-target linux-x86_64` | Refused before any compile. OpenCE's Linux prefix errors with `the Linux port targets 32-bit x86: game data structures assume 32-bit pointers`. |
+| `linux-i686` | `gamepkg build com.gamepkg.halo --engine-target linux-i686` | Builds and runs. On x86_64 Linux this is no longer the default. |
+| `linux-x86_64` | `gamepkg build com.gamepkg.halo` on x86_64 Linux, or `--engine-target linux-x86_64` | Builds and runs. A stand-in `ui.map` exits with `ui.map version 0`. This is the default on x86_64 Linux. |
 | `windows-i686` | `gamepkg build com.gamepkg.halo --engine-target windows-i686` | Cross-compiles to a 32-bit PE. A Linux host will not launch it. |
-| `windows-x64` | `gamepkg build com.gamepkg.halo --engine-target windows-x64` | Refused before any compile. OpenCE's Windows prefix errors with `the Windows port targets 32-bit x86: game data structures assume 32-bit pointers`. |
+| `windows-x64` | `gamepkg build com.gamepkg.halo --engine-target windows-x64` | Cross-compiles to a 64-bit PE. A stand-in `ui.map` under Wine exits with `ui.map version 0`. A Linux host will not launch the PE. |
 
 `GAMEPKG_ENGINE_SOURCE` can point at a checkout of the pinned commit. The host still checks the commit and the license digest. A Windows cross build also needs `GAMEPKG_MSVC_TOOLS` (the versioned `VC/Tools/MSVC/<version>` directory, with `include` and `lib`) and `GAMEPKG_WINDOWS_SDK` (the SDK directory whose `Include` and `Lib` each contain a versioned folder). `xwin splat --use-winsysroot-style` produces that layout. A plain `xwin splat` does not.
 
 The Linux build needs Python 3, Ninja, Clang, CMake, pkg-config, wayland-scanner, and 32-bit glibc headers (`gcc-multilib`, `libc6-dev-i386`). The first portable compile downloads a Debian 11 sysroot and SDL3. The Windows cross build needs those tools plus `llvm-rc` and `lld` (`-fuse-ld=lld`). Both ready targets pass `--portable`. The host applies an engine patch before configure so portable i686 Windows compiles with `-msse2 -maes -mpclmul`. Clang 18 does not define `__SSE2__` for `-march=x86-64` on `i686-pc-windows-msvc`. Linux i686 portable stays on `-march=x86-64`. A PE built earlier with `-march=native` still matches the image check and is not rebuilt.
 
-MinGW is not a target. `i686-w64-mingw32` and `x86_64-w64-mingw32` both hit the Windows prefix `#error`, because that header requires `_M_IX86`, which Clang defines for `i686-pc-windows-msvc` and not for MinGW. There is no 64-bit or x32 OpenCE target. The Android ILP32 guest is `arm64_32`, not 64-bit x86. Cache files and saved games embed 32-bit pointers. A patch adds `halo_addr` and an `--arch x86_64` switch. A later patch stores Xbox `long` fields as `halo_s32` so LP64 does not widen them (`long` is 8 bytes on Linux x86_64; Win64 is LLP64, so `long` is already 4 bytes). Another patch stores pointer fields in size-asserted structs as `halo_addr`. The Linux and Windows prefixes still reject a 64-bit ABI until a 64-bit binary passes the stand-in startup check. See `docs/external-engine-platform-gaps.md` in the host repository.
+MinGW is not a catalog target. The Windows builds use `i686-pc-windows-msvc` and `x86_64-pc-windows-msvc`. The Android ILP32 guest is `arm64_32`, not 64-bit x86. Cache files and saved games embed 32-bit pointers. Patches add `halo_addr`, an `--arch x86_64` switch, 32-bit Xbox `long` fields, and load-time fixups for pointer initializers. `linux-x86_64` and `windows-x64` both link and pass the stand-in startup check. See `docs/external-engine-platform-gaps.md` in the host repository.
 
 ## Play
 
