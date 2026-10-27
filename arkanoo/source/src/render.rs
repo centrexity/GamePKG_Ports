@@ -765,8 +765,7 @@ pub fn draw_background(level: u32, frame: u64) -> bool {
     }
 }
 pub fn draw_portal(frame: u64, timer: u64) {
-    let dots = crate::physics::portal_points(frame, timer);
-    if let Some(image) = crate::physics::effect_image(&dots) {
+    if let Some(image) = crate::physics::portal_image(frame, timer) {
         draw_effect_layer(&image);
     }
 }

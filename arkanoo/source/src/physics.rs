@@ -457,6 +457,101 @@ pub fn portal_points(frame: u64, timer: u64) -> Vec<EffectPoint> {
     }
     dots
 }
+// Preserve the original point compositor, but avoid materializing the filled
+// glow as tens of thousands of EffectPoints in a native worker's small heap.
+pub fn portal_image(frame: u64, timer: u64) -> Option<ParticleImage> {
+    if timer <= 150 {
+        return effect_image(&portal_points(frame, timer));
+    }
+    if timer <= 180 {
+        let progress = (timer - 151) as f32 / 30.0;
+        let radius = (50.0 + progress * 200.0) as i32;
+        let opacity = ((1.0 - progress) * 255.0) as u8;
+        return portal_glow_image(radius, opacity, 0xffc8ff00, true);
+    }
+    if timer < 270 {
+        let progress = (timer - 181) as f32 / 89.0;
+        let opacity = ((1.0 - progress) * 150.0) as u8;
+        return portal_glow_image(80, opacity, 0xc896ff00, false);
+    }
+    None
+}
+fn portal_pixel_opacity(dx: i32, dy: i32, radius: i32, opacity: u8) -> u32 {
+    let square = dx * dx + dy * dy;
+    if square > radius * radius {
+        return 0;
+    }
+    let distance = (square as f32).sqrt();
+    let edge = 1.0 - distance / radius as f32;
+    u32::from((opacity as f32 * edge) as u8)
+}
+fn portal_glow_image(radius: i32, opacity: u8, color: u32, center: bool) -> Option<ParticleImage> {
+    if opacity == 0 {
+        return None;
+    }
+    let mut left = 1280i32;
+    let mut top = 720i32;
+    let mut right = -1i32;
+    let mut bottom = -1i32;
+    // First determine exactly the visible bounds, retaining float rounding at
+    // the edge. No allocation or approximate radius threshold is needed.
+    for dy in -radius..=radius {
+        for dx in -radius..=radius {
+            let x = 640 + dx;
+            let y = 360 + dy;
+            if (0..1280).contains(&x)
+                && (0..720).contains(&y)
+                && portal_pixel_opacity(dx, dy, radius, opacity) != 0
+            {
+                left = left.min(x);
+                right = right.max(x);
+                top = top.min(y);
+                bottom = bottom.max(y);
+            }
+        }
+    }
+    if center {
+        left = left.min(610);
+        right = right.max(670);
+        top = top.min(330);
+        bottom = bottom.max(390);
+    }
+    if left > right || top > bottom {
+        return None;
+    }
+    let width = (right - left + 1) as u32;
+    let height = (bottom - top + 1) as u32;
+    let mut pixels = Vec::new();
+    pixels.resize(width as usize * height as usize * 4, 0u8);
+    for y in top..=bottom {
+        for x in left..=right {
+            let pixel_opacity = portal_pixel_opacity(x - 640, y - 360, radius, opacity);
+            let offset = ((y - top) as usize * width as usize + (x - left) as usize) * 4;
+            blend_effect_pixel(&mut pixels, offset, color, pixel_opacity);
+        }
+    }
+    if center {
+        // The original white disk is a second pass over the glow. Keep its
+        // integer coverage and the existing per-point rounding/order.
+        for dy in -30..=30 {
+            for dx in -30..=30 {
+                if dx * dx + dy * dy <= 30 * 30 {
+                    let offset = ((360 + dy - top) as usize * width as usize
+                        + (640 + dx - left) as usize)
+                        * 4;
+                    blend_effect_pixel(&mut pixels, offset, 0xffffff00, u32::from(opacity));
+                }
+            }
+        }
+    }
+    Some(ParticleImage {
+        left,
+        top,
+        width,
+        height,
+        pixels,
+    })
+}
 fn portal_glow(dots: &mut Vec<EffectPoint>, radius: i32, opacity: u8, color: u32) {
     for dy in -radius..=radius {
         for dx in -radius..=radius {

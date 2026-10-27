@@ -1307,3 +1307,19 @@ sampling at noncanonical resolutions remains a separate known difference.
 
 Source-resolution artwork candidate (0.1.75, unreleased):
 The six pinned 2816×1536 backgrounds retain every original pixel in 144 lossless RGB tiles with filtering halos. The menu reuses background1; the 34 other images, original effects, all nine music tracks, game logic and controls are unchanged. The signed large-images-v1 profile requires a 256 MiB hard/recommended game-memory limit, retains the original 3/7 MiB effect/music shares and separately bounds host artwork buffers. Previous 16 MiB/8 MiB legacy rendering is frozen as a host test fixture. This candidate addresses original-photo sampling; broader fidelity and platform qualifications remain separate.
+
+
+Portal compositor memory repair (0.1.75, unreleased):
+The filled expansion/fade stages now compose directly into their exact visible
+RGBA bounds, retaining the original blend helper and white-disk pass order.
+The original point generator remains for independent comparison. This avoids
+the large temporary point list that exhausted the native worker's six-MiB
+allowance inside the old 16/3/7 MiB signed partition. Every timer151–271 matches
+the old compositor byte for byte, and the original ordered-point/SDL fixtures
+remain unchanged. The full-media portal probe now includes maximum expansion
+and passes all 56 desktop/browser comparisons with the old shares. An additional
+generated-geometry fixture keeps that small memory regression independent of
+the source-resolution recipe's larger declared memory. No particles, effect
+stages, pixels, audio shares, deadlines or renderer tolerances are removed or
+relaxed. The maintainer artwork migration tool describes its original 0.1.74
+base; this later compositor repair is a separate canonical source change.
