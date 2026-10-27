@@ -1,5 +1,19 @@
 use crate::gamepkg;
 use crate::physics::{Game, BLOCK_HEIGHT, BLOCK_WIDTH, PADDLE_Y};
+// SDL solid primitives retain fill-rectangle pixel coverage when scaled.
+// One-texel textures have a different left-edge rule at half-pixel positions.
+fn draw_sdl_rect(x: f32, y: f32, w: f32, h: f32, rgba: &[u8; 4]) -> bool {
+    gamepkg::draw_rect(
+        x,
+        y,
+        w,
+        h,
+        (u32::from(rgba[0]) << 24)
+            | (u32::from(rgba[1]) << 16)
+            | (u32::from(rgba[2]) << 8)
+            | u32::from(rgba[3]),
+    )
+}
 fn glyph(character: u8) -> u64 {
     match character {
         65 => 18842895918,
@@ -915,10 +929,22 @@ fn draw_viewport_label(
         let tile_width = source_right - source_left;
         let pixels =
             crate::dynamic_font::unicode_raster_slice(&layout_data, color, source_left, tile_width);
+        // Let the image quad cover outer edges; clip only shared tile seams.
+        // Rounding a half-pixel outer scissor can erase a visible glyph pixel.
+        let clip_left = if column == visible_left {
+            0
+        } else {
+            left + column
+        };
+        let clip_right = if core_right == visible_right {
+            1280
+        } else {
+            left + core_right
+        };
         if !gamepkg::draw_clip(
-            (left + column) as f32 * 0.5,
+            clip_left as f32 * 0.5,
             60.0 + clip_top as f32 * 0.5,
-            (core_right - column) as f32 * 0.5,
+            (clip_right - clip_left) as f32 * 0.5,
             (clip_bottom - clip_top) as f32 * 0.5,
         ) {
             accepted = false;
@@ -946,26 +972,22 @@ pub fn draw_editor_grid() -> bool {
     let grid_pixel = [80u8, 80, 100, 255];
     let mut accepted = true;
     for row in 0..=10 {
-        if !gamepkg::draw_image(
+        if !draw_sdl_rect(
             20.0,
             100.0 + row as f32 * 10.0,
             600.5,
             0.5,
-            1,
-            1,
             &grid_pixel,
         ) {
             accepted = false;
         }
     }
     for col in 0..=20 {
-        if !gamepkg::draw_image(
+        if !draw_sdl_rect(
             20.0 + col as f32 * 30.0,
             100.0,
             0.5,
             100.5,
-            1,
-            1,
             &grid_pixel,
         ) {
             accepted = false;
@@ -997,24 +1019,20 @@ pub fn draw_editor_palette(selected: u8, hovered: u8) -> bool {
         };
         let border_pixel = [border_shade, border_shade, border_shade, 255];
         let expansion = if selected == index as u8 { 2 } else { 0 };
-        if !gamepkg::draw_image(
+        if !draw_sdl_rect(
             (px - expansion) as f32 * 0.5,
             60.0 + (20 - expansion) as f32 * 0.5,
             (40 + expansion * 2) as f32 * 0.5,
             (30 + expansion * 2) as f32 * 0.5,
-            1,
-            1,
             &border_pixel,
         ) {
             accepted = false;
         }
-        if !gamepkg::draw_image(
+        if !draw_sdl_rect(
             (px + 1) as f32 * 0.5,
             70.5,
             19.0,
             14.0,
-            1,
-            1,
             &palette_colors[index],
         ) {
             accepted = false;
@@ -1044,10 +1062,20 @@ pub fn draw_editor_label(which: u32, original_x: i32, original_y: i32) -> bool {
         let source_right = (core_right + 1).min(full_width);
         let tile_width = source_right - source_left;
         let lettering = crate::editor_font::editor_raster_region(which, source_left, source_right);
+        let clip_left = if column == 0 {
+            0.0
+        } else {
+            original_x as f32 + column as f32
+        };
+        let clip_right = if core_right == full_width {
+            1280.0
+        } else {
+            original_x as f32 + core_right as f32
+        };
         if !gamepkg::draw_clip(
-            (original_x as f32 + column as f32) * 0.5,
+            clip_left * 0.5,
             60.0 + original_y as f32 * 0.5,
-            (core_right - column) as f32 * 0.5,
+            (clip_right - clip_left) * 0.5,
             15.5,
         ) {
             accepted = false;
@@ -1083,7 +1111,13 @@ pub fn draw_editor_button(which: u32, hovered: bool) -> bool {
     };
     let border = [200u8, 200, 200, 255];
     let mut accepted = true;
-    if !gamepkg::draw_image(x, y, w, h, 1, 1, &fill) {
+    if !draw_sdl_rect(
+        x,
+        y,
+        w,
+        h,
+        &fill,
+    ) {
         accepted = false;
     }
     for edge in [
@@ -1092,7 +1126,13 @@ pub fn draw_editor_button(which: u32, hovered: bool) -> bool {
         [x, y, 0.5, h],
         [x + w - 0.5, y, 0.5, h],
     ] {
-        if !gamepkg::draw_image(edge[0], edge[1], edge[2], edge[3], 1, 1, &border) {
+        if !draw_sdl_rect(
+            edge[0],
+            edge[1],
+            edge[2],
+            edge[3],
+            &border,
+        ) {
             accepted = false;
         }
     }
@@ -1108,21 +1148,31 @@ pub fn draw_editor_button(which: u32, hovered: bool) -> bool {
     accepted
 }
 pub fn draw_pattern_browser(edit: &crate::editor::Editor) {
-    gamepkg::draw_image(0.0, 60.0, 640.0, 360.0, 1, 1, &[0, 0, 0, 200]);
-    gamepkg::draw_image(170.0, 115.0, 300.0, 250.0, 1, 1, &[40, 45, 52, 255]);
+    draw_sdl_rect(
+        0.0,
+        60.0,
+        640.0,
+        360.0,
+        &[0, 0, 0, 200],
+    );
+    draw_sdl_rect(
+        170.0,
+        115.0,
+        300.0,
+        250.0,
+        &[40, 45, 52, 255],
+    );
     for edge in [
         [170.0, 115.0, 300.0, 0.5],
         [170.0, 364.5, 300.0, 0.5],
         [170.0, 115.0, 0.5, 250.0],
         [469.5, 115.0, 0.5, 250.0],
     ] {
-        gamepkg::draw_image(
+        draw_sdl_rect(
             edge[0],
             edge[1],
             edge[2],
             edge[3],
-            1,
-            1,
             &[100, 110, 120, 255],
         );
     }
@@ -1135,7 +1185,13 @@ pub fn draw_pattern_browser(edit: &crate::editor::Editor) {
         } else {
             [55u8, 60, 68, 255]
         };
-        gamepkg::draw_image(180.0, row_y, 280.0, 15.0, 1, 1, &row_color);
+        draw_sdl_rect(
+            180.0,
+            row_y,
+            280.0,
+            15.0,
+            &row_color,
+        );
         let name_pieces = pattern.name.name_segments();
         let row_name = crate::dynamic_font::viewport_label_parts(&name_pieces, 910);
         draw_dynamic_label(
@@ -1326,9 +1382,21 @@ pub fn draw_menu(game: &Game) {
         if game.menu.window_size.is_some() {
             draw_dynamic_label("Resolution:", 640, 490, [255, 255, 255], true, -1);
             if game.menu.resolution_pending {
-                gamepkg::draw_image(220.0, 400.0, 200.0, 40.0, 1, 1, &[30, 30, 50, 220]);
+                draw_sdl_rect(
+                    220.0,
+                    400.0,
+                    200.0,
+                    40.0,
+                    &[30, 30, 50, 220],
+                );
                 for edge in [[220.0, 400.0, 200.0, 0.5], [220.0, 439.5, 200.0, 0.5], [220.0, 400.0, 0.5, 40.0], [419.5, 400.0, 0.5, 40.0]] {
-                    gamepkg::draw_image(edge[0], edge[1], edge[2], edge[3], 1, 1, &[100, 100, 150, 255]);
+                    draw_sdl_rect(
+                        edge[0],
+                        edge[1],
+                        edge[2],
+                        edge[3],
+                        &[100, 100, 150, 255],
+                    );
                 }
                 let mut message = String::from("Keep this resolution? (");
                 let seconds = game.menu.resolution_ticks.saturating_add(59) / 60;
@@ -1368,14 +1436,18 @@ pub fn draw_menu(game: &Game) {
 pub fn draw_sfx_slider(volume: u32) { draw_volume_slider(volume, 240.0); }
 pub fn draw_volume_slider(volume: u32, top: f32) {
     let width = volume.min(128) * 200 / 128;
-    gamepkg::draw_image(270.0, top, 100.0, 10.0, 1, 1, &[80, 80, 80, 200]);
-    gamepkg::draw_image(
+    draw_sdl_rect(
+        270.0,
+        top,
+        100.0,
+        10.0,
+        &[80, 80, 80, 200],
+    );
+    draw_sdl_rect(
         270.0,
         top,
         width as f32 * 0.5,
         10.0,
-        1,
-        1,
         &[100, 200, 100, 220],
     );
     for edge in [
@@ -1384,13 +1456,11 @@ pub fn draw_volume_slider(volume: u32, top: f32) {
         [270.0, top, 0.5, 10.0],
         [369.5, top, 0.5, 10.0],
     ] {
-        gamepkg::draw_image(
+        draw_sdl_rect(
             edge[0],
             edge[1],
             edge[2],
             edge[3],
-            1,
-            1,
             &[200, 200, 200, 255],
         );
     }
@@ -1464,22 +1534,32 @@ pub fn draw_menu_button(game: &Game, action: u32) {
     };
     if crate::menu::Menu::resolution(action).is_some()
         && crate::menu::Menu::resolution(action) == game.menu.window_size {
-        gamepkg::draw_image(left, top, width, height, 1, 1, &[100, 200, 100, 100]);
+        draw_sdl_rect(
+            left,
+            top,
+            width,
+            height,
+            &[100, 200, 100, 100],
+        );
     }
-    gamepkg::draw_image(left, top, width, height, 1, 1, &fill);
+    draw_sdl_rect(
+        left,
+        top,
+        width,
+        height,
+        &fill,
+    );
     for edge in [
         [left, top, width, 0.5],
         [left, top + height - 0.5, width, 0.5],
         [left, top, 0.5, height],
         [left + width - 0.5, top, 0.5, height],
     ] {
-        gamepkg::draw_image(
+        draw_sdl_rect(
             edge[0],
             edge[1],
             edge[2],
             edge[3],
-            1,
-            1,
             &[200, 200, 200, 255],
         );
     }
