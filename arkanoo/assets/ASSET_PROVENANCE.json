@@ -103,326 +103,3026 @@
       {
         "asset": "background1-0.png",
         "size": [
-          512,
-          512
+          511,
+          511
         ],
-        "rgba_sha256": "80f2de1bc37dbe81bae59614893c6ef82eab88b655f5b259e88210026a6095eb",
-        "encoded_sha256": "bc9b5041b7ad73159ce50d0e2f8597e074a428c476bee26e013dc486b0d40956"
+        "core": [
+          0,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          0,
+          0,
+          511,
+          511
+        ],
+        "rgba_sha256": "1b5d69bab19f7f8df09ebb1bb06235f48015a6b95b7700c4b9764da09f7d1e06",
+        "encoded_sha256": "48fb6b972270d5c2485a088e2147b1ba5adcbf6a8978806cd5e12de283f9ed89"
       },
       {
         "asset": "background1-1.png",
         "size": [
           512,
+          511
+        ],
+        "core": [
+          510,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          509,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "ae1780e6c84189a04fe1ba8a4953df4a2d3a61b9bcba0216a39abe469c2a1064",
+        "encoded_sha256": "52a1fc9ad9cfeebaaa1f8bc36d8508e6aba3d148aa153fb12e7860a3a1f33af7"
+      },
+      {
+        "asset": "background1-10.png",
+        "size": [
+          512,
           512
         ],
-        "rgba_sha256": "69d7b812c3e0da32a18d0c37a19a08fe8b18803c895d41da10435208511866e2",
-        "encoded_sha256": "3cab42f0fda3cd563af98cb4e92e13e7597200509adbc1b83373c4ca586d48ae"
+        "core": [
+          2040,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          2039,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "cddc09ccd7513c8c901c841e39c8626111ea0e0910bf6bfd575611b373e250e5",
+        "encoded_sha256": "7b715bb9b512344058556949854e834ada8d557934760762379ae277f0884a18"
+      },
+      {
+        "asset": "background1-11.png",
+        "size": [
+          267,
+          512
+        ],
+        "core": [
+          2550,
+          510,
+          266,
+          510
+        ],
+        "source_rectangle": [
+          2549,
+          509,
+          267,
+          512
+        ],
+        "rgba_sha256": "c91e05fb1975ff6207644837c3660be727c74ded14171f1b7a0319ecf6b10393",
+        "encoded_sha256": "e302a057879bd4d3a08393257ea3ad23b8da2e5d4035c67ac94a3a0c945668af"
+      },
+      {
+        "asset": "background1-12.png",
+        "size": [
+          511,
+          512
+        ],
+        "core": [
+          0,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          0,
+          1019,
+          511,
+          512
+        ],
+        "rgba_sha256": "b6cf33f37810c5603d8fdeb76785c07cb8753818a029fbb1dcb1970324efc320",
+        "encoded_sha256": "ec5b822a84e34f18fe6d420aa5928f655b2ac14810b26032dd030cb28b400c79"
+      },
+      {
+        "asset": "background1-13.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          510,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          509,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "f84ecf96af8d66f9ca641910de7f5b71f5b0cb3ceb102584e54a57dbf66362e7",
+        "encoded_sha256": "ebdd1ee01f7c3caca43b645a873d1e9929ca2a7c956167a91eb6b395095f62db"
+      },
+      {
+        "asset": "background1-14.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1020,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1019,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "d9599a1c1d4997baf2ee9c2cd646f16a2900e96468f760651bce4848f3e5cfff",
+        "encoded_sha256": "239adbdfc791f8750eba12716b72585a90b7b9bad8b49e1e04e569bf8ab2e7d5"
+      },
+      {
+        "asset": "background1-15.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1530,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1529,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "7b973342d2eac80dd7794e57d58134e8ee8ccea7d929c733a7e3eb0ab0abf94d",
+        "encoded_sha256": "7fc2b7b16b82e3d0e23265fc36f64c2399899d19944c8e492dbdb54009813afc"
+      },
+      {
+        "asset": "background1-16.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          2040,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          2039,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "4a267ab693c7a404dffed220351998b2d115d3a6886dc069a53b8bd1fb19d097",
+        "encoded_sha256": "7ecdef9be5ceea5be20f88189458c83cc6d81f17e0da7cb548ed61ccdb633085"
+      },
+      {
+        "asset": "background1-17.png",
+        "size": [
+          267,
+          512
+        ],
+        "core": [
+          2550,
+          1020,
+          266,
+          510
+        ],
+        "source_rectangle": [
+          2549,
+          1019,
+          267,
+          512
+        ],
+        "rgba_sha256": "8a08806ece5b8b3372158c0093448c5e4ef1111fb550364cbd1ad1b3ec581091",
+        "encoded_sha256": "842a3adf4449dff79dfcbe37a4051764ba78f7422e2358cf08a18c30dd03162b"
+      },
+      {
+        "asset": "background1-18.png",
+        "size": [
+          511,
+          7
+        ],
+        "core": [
+          0,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          0,
+          1529,
+          511,
+          7
+        ],
+        "rgba_sha256": "674cf7e9207e871b49cfbbb759e073008282fda8e0cef6983633879ca2f565bf",
+        "encoded_sha256": "c297c6a286a557f6083e30ec718fd55fa6f35399569cc2f4bf114ee8fa795f84"
+      },
+      {
+        "asset": "background1-19.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          510,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          509,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "74fa5e802b7b564be95887185be2ee42c1611a1e806071567d1b19bb6de3355d",
+        "encoded_sha256": "6bb9e0bcdb57ac0c936305ebadb727d8c8aa3f909ba63424722e8e442e585a5e"
       },
       {
         "asset": "background1-2.png",
         "size": [
-          256,
-          512
+          512,
+          511
         ],
-        "rgba_sha256": "0d57e1ca9fe2a1be26551d86ec51345f8d86fdd1753411580bf6eca62e30b78e",
-        "encoded_sha256": "7cc3c02bd1ff0cac6ee6f47be3b9b1dbda873a9b05f6881ec17c8b7ce98179dd"
+        "core": [
+          1020,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1019,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "e6346cfb18a0a3a753cbce319298e75b068694435cdbe5decdbdd02ce003003a",
+        "encoded_sha256": "7bf6e76906dcbf81fae79e34a28b64cedabe9351b37572f12187b7814017768d"
+      },
+      {
+        "asset": "background1-20.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          1020,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          1019,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "de8b80838e3d8f6c90c56d8c31fd75d072b5bed465bc4ff8edea391068084f6d",
+        "encoded_sha256": "1d53f9c9f1499f11412bd36fcb1e4d5a6b6d437d31dfae241eddc345e7040020"
+      },
+      {
+        "asset": "background1-21.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          1530,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          1529,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "4e922b598a5b6330658b3070d58f27066aeeea7e2edd740d08cd582284aa6bc3",
+        "encoded_sha256": "6df86d704e4000bb8be9d334edfce001bf23ab539c66d59269911f1b080f3171"
+      },
+      {
+        "asset": "background1-22.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          2040,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          2039,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "cf1cc68124005b38da61065ca791ebe185fd88e5ea2689d8f8a14d2d3ed5cb85",
+        "encoded_sha256": "10057e0e0c1bc3db1452c5068c6b81b96149f07946386c7a7f0a9eeb8d5d730b"
+      },
+      {
+        "asset": "background1-23.png",
+        "size": [
+          267,
+          7
+        ],
+        "core": [
+          2550,
+          1530,
+          266,
+          6
+        ],
+        "source_rectangle": [
+          2549,
+          1529,
+          267,
+          7
+        ],
+        "rgba_sha256": "6b88ca55b3477a848dd85cff4a7a7bb8ba1a751f1aeb0ab7d09fe56905d26647",
+        "encoded_sha256": "68e446049c6885154b7183e7aeb62847ab96774c73e5670bca4c150c41314909"
       },
       {
         "asset": "background1-3.png",
         "size": [
           512,
-          208
+          511
         ],
-        "rgba_sha256": "d7e99a7157f64ade3ebf1ab584996b9b4106c5bf614e067e5acc9b182f3d87aa",
-        "encoded_sha256": "489f0de3d9a8534935e638fd7f9cb210f417ad8eaba450f233f915fe733d532d"
+        "core": [
+          1530,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1529,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "d8cf1258cc729b75d5614d0aeffcd09565216fdfe682e976a9244a22795820c8",
+        "encoded_sha256": "7638d2b058d65a82ffe4ff33220b33a95e26d2a485e2a285e3aa384d6be70d42"
       },
       {
         "asset": "background1-4.png",
         "size": [
           512,
-          208
+          511
         ],
-        "rgba_sha256": "f03e469a74bcaf603d41d861eca6f44e1f03917ba638f95a4ab63b78b1156b76",
-        "encoded_sha256": "c144a8e3387c3391a969d57c4c095f328d7c57979d6e4c3fd4e5e01eaeb82b20"
+        "core": [
+          2040,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          2039,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "77abc590491561f56e09e13d98751fc3a629225005959e1978acfcb0ac5ad340",
+        "encoded_sha256": "3f0c426d95a5cf6f9d3829e341ceba5a867aa2a4a957d74c57fb729828e90590"
       },
       {
         "asset": "background1-5.png",
         "size": [
-          256,
-          208
+          267,
+          511
         ],
-        "rgba_sha256": "d25589c3bb41c83d47e486f73de0c01f5e481b8439573aebf03150e10236e554",
-        "encoded_sha256": "07d27c14c8e318adbcce8e44044fe61261e4a61abfd43005c8ce16e3c92471e7"
+        "core": [
+          2550,
+          0,
+          266,
+          510
+        ],
+        "source_rectangle": [
+          2549,
+          0,
+          267,
+          511
+        ],
+        "rgba_sha256": "0348d4dc0904ff204691620f521d4b4a274ec98746a327cdb319f263d7644cb6",
+        "encoded_sha256": "77216d4704ce32f48f5d3753570ba1048d165e87b2ced9dbddf422a983ed0e7e"
       },
       {
-        "asset": "background2-0.png",
+        "asset": "background1-6.png",
+        "size": [
+          511,
+          512
+        ],
+        "core": [
+          0,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          0,
+          509,
+          511,
+          512
+        ],
+        "rgba_sha256": "a22fc09b23ba3cb2a8b03cb9aaa2391ea434913d2a0d365c6cee4d8873736206",
+        "encoded_sha256": "5b879aeb5a03b6d59039780abb5befdf3262b1d50cca70976745a8fbb320f868"
+      },
+      {
+        "asset": "background1-7.png",
         "size": [
           512,
           512
         ],
-        "rgba_sha256": "df17164b79c19d8f171c21fc41c14ab127ed9710c5ec61fc6129770499675895",
-        "encoded_sha256": "bca6ba946430aa83b92eea9decf4011d60e686f2c13ecabbee0c05ad4206b6af"
+        "core": [
+          510,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          509,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "8345285b47b84539469ee54d25ba36ec4de7418d33e033f7074b7c464c477edb",
+        "encoded_sha256": "b88b9fec0d0d61afa153bef268564ed0eb9c8b390416f3fc30d5e76046210c68"
+      },
+      {
+        "asset": "background1-8.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1020,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1019,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "f7824727bdfa2692398a20a83ca05addf2a81d4d0a9ae0595f2964f26e391b46",
+        "encoded_sha256": "191327179c8b1c180627b52679f3b70d4f2b1454965cb3aa7e483274145073f6"
+      },
+      {
+        "asset": "background1-9.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1530,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1529,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "d28582c7a5949af9aa477072fd0d01778a08c7f6eaf55d47280567d7c18ed451",
+        "encoded_sha256": "0548801e8ae75ef0ad9dbf27cd8b287a0dca7e52edd3f920e66302d4eb789c38"
+      },
+      {
+        "asset": "background2-0.png",
+        "size": [
+          511,
+          511
+        ],
+        "core": [
+          0,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          0,
+          0,
+          511,
+          511
+        ],
+        "rgba_sha256": "b7a861743ead7a9e76e619387679467589e322ecce7f6b4a961fdbc67bb2d88f",
+        "encoded_sha256": "9c93990be847538e682c60614ed43ad62e98b896e7943cbe002793155a4b258d"
       },
       {
         "asset": "background2-1.png",
         "size": [
           512,
+          511
+        ],
+        "core": [
+          510,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          509,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "64d4fc07969054aa5a712926b3b8c6c18d462ad696dde4c7c1116516806a9e66",
+        "encoded_sha256": "295f764efa1911ffaf6def527bb04050ef75704b249b552674fd85472a87c134"
+      },
+      {
+        "asset": "background2-10.png",
+        "size": [
+          512,
           512
         ],
-        "rgba_sha256": "cd3a896e53304d4a7d78f0308c505774363a22a2c7e0b485ec8bfccfc66f8ef7",
-        "encoded_sha256": "631e7ffff4a26acd8b3e59d6c2a9e4af8d7dd8e9c15f466e2ee40972bd4eef2b"
+        "core": [
+          2040,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          2039,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "2d98bedb0f3924c7eb85af09172afbca12d8d7737c598d0629cac6e73fe09fcb",
+        "encoded_sha256": "3d0ab5ba7bd28daf323e2e6baff8b9f8e8152ae96b1b20854e25edd002ba387e"
+      },
+      {
+        "asset": "background2-11.png",
+        "size": [
+          267,
+          512
+        ],
+        "core": [
+          2550,
+          510,
+          266,
+          510
+        ],
+        "source_rectangle": [
+          2549,
+          509,
+          267,
+          512
+        ],
+        "rgba_sha256": "bbaea695f6bdcf9009c5992984d58d47f298fe38cfe37cf9adbb7de7fb6ecece",
+        "encoded_sha256": "c9c40aa6d119d9b0c3fcdee085e57f60e83c77a72721eff654b352788ce34dec"
+      },
+      {
+        "asset": "background2-12.png",
+        "size": [
+          511,
+          512
+        ],
+        "core": [
+          0,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          0,
+          1019,
+          511,
+          512
+        ],
+        "rgba_sha256": "9941ae71cdb2ade8dac649c55f6cd662f8d326d033a78e5fb9b00ae561bdad02",
+        "encoded_sha256": "b22fd582d08525aa702cd518887c765b406276d49a90ce6b32dd3784d2f057ce"
+      },
+      {
+        "asset": "background2-13.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          510,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          509,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "b1588917c0a98ca9fa2e109545efaa6af2e15ecae1415f8ee737bebd94e24b69",
+        "encoded_sha256": "e2502d6efb0f8ca857b23e3c86c4f912fcc346100cdb83a17df636142e668d22"
+      },
+      {
+        "asset": "background2-14.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1020,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1019,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "2f640b8301ed5ee92de9976a7baa1ba00b6708a50135da7e25c66a9377d43b26",
+        "encoded_sha256": "6371ee2fd5e017202519f4cb405b262acf12e869af0366cecdcde74b5ec21d28"
+      },
+      {
+        "asset": "background2-15.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1530,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1529,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "967192d7e6dba54eda1f402edbe4112ecc8c0b9db3c81796ede849484d1cd6b6",
+        "encoded_sha256": "d16f8bbbbfcea8a6c8ee4e6da47ac870f23cf6b559b8f256e3e54250408fdbfc"
+      },
+      {
+        "asset": "background2-16.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          2040,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          2039,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "e963c2adc4a42c251fbb9b26436915435680fe8d4163a1e8a754a9ed6a56e0a7",
+        "encoded_sha256": "eaa7fbaa532fc6a3c4a7f040d63a771320b23de8ed2ef6af3f47501270ee4f33"
+      },
+      {
+        "asset": "background2-17.png",
+        "size": [
+          267,
+          512
+        ],
+        "core": [
+          2550,
+          1020,
+          266,
+          510
+        ],
+        "source_rectangle": [
+          2549,
+          1019,
+          267,
+          512
+        ],
+        "rgba_sha256": "4943cc24ed2e42b2147408fca088a8f5886307e3820608f6e08393dd0aea7934",
+        "encoded_sha256": "d849b177845cde1f50d3ac44e01a90bca3840bf7d08cf3a6059a4180ea83ce46"
+      },
+      {
+        "asset": "background2-18.png",
+        "size": [
+          511,
+          7
+        ],
+        "core": [
+          0,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          0,
+          1529,
+          511,
+          7
+        ],
+        "rgba_sha256": "0e051c485c2bad8a01dc7abef6a57791993960869ca3b302c2d80628b4223477",
+        "encoded_sha256": "8dfb5f804f8caee51abf0d59509e3edbbdc7e605c16479a32f7d64118c89b2da"
+      },
+      {
+        "asset": "background2-19.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          510,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          509,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "853ebc27e6c443b0bda2f7850ff4a2a3e1c64181a756e9aa7f508bf493f65ed3",
+        "encoded_sha256": "8a3c172472ed6aaf0a7aab1301e1faa85432ef99d81c90c1c13dd7d1ce03fa55"
       },
       {
         "asset": "background2-2.png",
         "size": [
-          256,
-          512
+          512,
+          511
         ],
-        "rgba_sha256": "11edccab2ffc9da88926512d38f62cb47503d287776da7eccd1b8b058bab6ddf",
-        "encoded_sha256": "c589f4a80de3153a6070b1cacbbd0924d3f9ca73519e663143bb9d68cde20ca4"
+        "core": [
+          1020,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1019,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "cc61d80b1721f390cf1aa88a8e21143efefc40d84bc5d5940432fd4bf1be49b5",
+        "encoded_sha256": "5e07ea8ede2bfdab87efa18a0d48df80d974d3263a30debde1608a0f94c2f610"
+      },
+      {
+        "asset": "background2-20.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          1020,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          1019,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "ba650c12e160cfe33e09b38d7e937afd5aba5cc17fe9e19c0527901ebffb826c",
+        "encoded_sha256": "58b95be93d1db20200695a7c642e7141bcceac4f904938617a4b313776c92aa7"
+      },
+      {
+        "asset": "background2-21.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          1530,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          1529,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "4da45facf14aaceed80750d28fd17dbcd87610569d40d185747394509477288b",
+        "encoded_sha256": "a8d84d24bde560680457401d9802ca9fb86d10eb040cd6755f6143399db1bf68"
+      },
+      {
+        "asset": "background2-22.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          2040,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          2039,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "4b8498cda04e31e82fdb629c41ce54419125797df6de8ed86bbb10aa3488c9f1",
+        "encoded_sha256": "b7655bd00ea93e44fa95c34f71c9e81b13d874463fa7efda5a4e043775a6f200"
+      },
+      {
+        "asset": "background2-23.png",
+        "size": [
+          267,
+          7
+        ],
+        "core": [
+          2550,
+          1530,
+          266,
+          6
+        ],
+        "source_rectangle": [
+          2549,
+          1529,
+          267,
+          7
+        ],
+        "rgba_sha256": "9c83f8367b289a065c37b49ef1ca3174b13894938b4b44feeb21f3c6256963f8",
+        "encoded_sha256": "82207f8941d0b033aa269a03f84de57166640d4324e8fe11e2b99ef61819db5a"
       },
       {
         "asset": "background2-3.png",
         "size": [
           512,
-          208
+          511
         ],
-        "rgba_sha256": "91c6a24444c493c50f6193ca3e84e311c4c4a4c32c3f93316bc740b72d65fc36",
-        "encoded_sha256": "c72f1a61485f1dc053dd70e695eec668170e5434caba8aaaa73cfa20dae23a18"
+        "core": [
+          1530,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1529,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "43e1eb46f49a37dc285d50bc282d009bbde84f77ae6f56b365544433fadf67fa",
+        "encoded_sha256": "c33fde0f30464c4eab16eb084771d7fe16dfbbd7c0ae8d01b91edc5fc4b74283"
       },
       {
         "asset": "background2-4.png",
         "size": [
           512,
-          208
+          511
         ],
-        "rgba_sha256": "119dd62f4dcbc29c9367d26b5eba725c335313590168ab4b262b870f8ee455b7",
-        "encoded_sha256": "fe6a83a2be93023c088a085da6bdd20bbdf5139f2e17df1d3351279c2759aa4f"
+        "core": [
+          2040,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          2039,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "1b9b41a3ad373c133925883bb3a9c2e386397ddadb6d2b7ed0751145fb171d75",
+        "encoded_sha256": "783385524cf99d2156ceca5fd58a609032b517ab49c5f9e84b7193fe2de40560"
       },
       {
         "asset": "background2-5.png",
         "size": [
-          256,
-          208
+          267,
+          511
         ],
-        "rgba_sha256": "c0a745e542fa27c3459ae1c267bdf3087e354a9276ef28aab14082e2f144fb29",
-        "encoded_sha256": "9aa92ce63364e86793da2eafa2e97f84cc134b5243a4f4960d2c6d1ee4c26519"
+        "core": [
+          2550,
+          0,
+          266,
+          510
+        ],
+        "source_rectangle": [
+          2549,
+          0,
+          267,
+          511
+        ],
+        "rgba_sha256": "d1d1dc75290fb8def8b76a60ff4db982fbc7cb8f1d459e5324128a4b7b8375c5",
+        "encoded_sha256": "c4e96ad31ed3deff4248a8bbaa98c05da3091ec5bcb51b3e8bf6da8f8b35eda3"
       },
       {
-        "asset": "background3-0.png",
+        "asset": "background2-6.png",
+        "size": [
+          511,
+          512
+        ],
+        "core": [
+          0,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          0,
+          509,
+          511,
+          512
+        ],
+        "rgba_sha256": "4b0d7c21a7cba70bfe3eced27fa128e7bb8b04983f7a5c0b8faee1c4dbb1c925",
+        "encoded_sha256": "c8da281bad66af2a1d014c303ca593f107e8a9a2ca7d16fb07aebe7b70cc591e"
+      },
+      {
+        "asset": "background2-7.png",
         "size": [
           512,
           512
         ],
-        "rgba_sha256": "c6fb1b1502d0e835cac17b8f436b03a29fa40707aac979dc4b999a8780094770",
-        "encoded_sha256": "400ee1c988fd7b195e186ec9b5bee3d0fc56f521b3a202a3b17e2080aa2f9222"
+        "core": [
+          510,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          509,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "d78de41ffa4217fcebdc42bdfea66be6ecd800c2bdf1550796ddd63bf2b0e825",
+        "encoded_sha256": "79715f291ecd8284af6de155b023063b27264848a641ddfadd2a29f4f4df026c"
+      },
+      {
+        "asset": "background2-8.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1020,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1019,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "6f6c1dc73e50866f5fb83382cd6b0401517a306a6b094ecbeac9bd3a64f79c7a",
+        "encoded_sha256": "5c16e58b328995119936e6991f8e3993c93d9df05382894a954078c18f7aa0ea"
+      },
+      {
+        "asset": "background2-9.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1530,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1529,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "de1f232d2d44fe005e70095b0498ed4f1997a549cbfb9544f640a1db278ba0d7",
+        "encoded_sha256": "66656b1f39d5873aa25c7e71e7f2eacdbaece5e83d209988f5ae7afe44bd0fd7"
+      },
+      {
+        "asset": "background3-0.png",
+        "size": [
+          511,
+          511
+        ],
+        "core": [
+          0,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          0,
+          0,
+          511,
+          511
+        ],
+        "rgba_sha256": "b4dadab440eb9136608392b28dd63fd0c71eb61481e1925681e1fbea0a37a459",
+        "encoded_sha256": "3eefce9758f3f0f5c1eb48e1f56844fa1d861f90ab7aafdf336cca47dff9d615"
       },
       {
         "asset": "background3-1.png",
         "size": [
           512,
+          511
+        ],
+        "core": [
+          510,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          509,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "cffbd6da45103480959f477238203216488921ae79c03e851865c088e0c67304",
+        "encoded_sha256": "c51146a97227473f09494aff0e275c65b19203bb6a9bc971a19ff1b6fada6598"
+      },
+      {
+        "asset": "background3-10.png",
+        "size": [
+          512,
           512
         ],
-        "rgba_sha256": "acbd61ed00b8a3c3ba9891e887b41377bfa284a01de0a2b7d43b4c3a3bbf89dc",
-        "encoded_sha256": "7db6042744486fc5d1e2eb36e3dc553aa483231b40d731fb3c11e9478dbdc63c"
+        "core": [
+          2040,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          2039,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "17c13f8c33da8f94348b49cc40f884bf5bcad9917fb6757e809131aa0c9c86c4",
+        "encoded_sha256": "1519200a2e184e12c234cc3e558af1e58a50622303208567ac1a126d339a754e"
+      },
+      {
+        "asset": "background3-11.png",
+        "size": [
+          267,
+          512
+        ],
+        "core": [
+          2550,
+          510,
+          266,
+          510
+        ],
+        "source_rectangle": [
+          2549,
+          509,
+          267,
+          512
+        ],
+        "rgba_sha256": "d78c3055aa4166b42fa51d1a282957845bc86b09574715ea4895c883f4563dcc",
+        "encoded_sha256": "dd1ea54bc1d6d830e003f4ee0b589b7de70f41189b277e46f984c5db3c79d736"
+      },
+      {
+        "asset": "background3-12.png",
+        "size": [
+          511,
+          512
+        ],
+        "core": [
+          0,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          0,
+          1019,
+          511,
+          512
+        ],
+        "rgba_sha256": "c8131425a14dbf0042126ca0f5dc7d0b4cd6373aba97c33c8e359d61d025d529",
+        "encoded_sha256": "25d4efbb0bf0715805655d8aee2db8cd19c540bb8060c03aa4f82f3aaa670632"
+      },
+      {
+        "asset": "background3-13.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          510,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          509,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "efc0b0ada3800a7611b3fe708cec119241dcde136c9ffa0484a4e1968e36a067",
+        "encoded_sha256": "d2d97d6d5c124ef410646e2b8d75c80fc310d72d161a2805d39eb6a25c5728f2"
+      },
+      {
+        "asset": "background3-14.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1020,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1019,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "e19966286e03ba2f880d359b6b16ad9344856e6903d90a1c2c8e2299d69f54cc",
+        "encoded_sha256": "f64918cbf628a4468f502cb7a4048b023201e293da1edf232ca5f06d49577adf"
+      },
+      {
+        "asset": "background3-15.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1530,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1529,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "ea0fc7648603aca23a805d8bf1d46dfcfab7f42dc887eb8bf8718cd2d71c0018",
+        "encoded_sha256": "e617bdabdf2e03a5b9547037237ea9b3be2be4abd45b527702c51ffc1dad9690"
+      },
+      {
+        "asset": "background3-16.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          2040,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          2039,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "b127a7774a84dd5299b639885ec43555a4980bc68b87445e02998ca62443f9ce",
+        "encoded_sha256": "cbe22eb5560ff3e8eae2657ddc7393b69ab9e1c40296e434d6f30f61fb1aadbc"
+      },
+      {
+        "asset": "background3-17.png",
+        "size": [
+          267,
+          512
+        ],
+        "core": [
+          2550,
+          1020,
+          266,
+          510
+        ],
+        "source_rectangle": [
+          2549,
+          1019,
+          267,
+          512
+        ],
+        "rgba_sha256": "5da7b94d1b385af38b5155663a42b4f3cb07810c882e297c36609fabc6bd665b",
+        "encoded_sha256": "0af6462731e86b1951979f8619cbf9c5d9575c5a23f38da1a9ccf783ee316449"
+      },
+      {
+        "asset": "background3-18.png",
+        "size": [
+          511,
+          7
+        ],
+        "core": [
+          0,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          0,
+          1529,
+          511,
+          7
+        ],
+        "rgba_sha256": "7b4bdb779e2f664d600bc79de35f4853c611b93e88e6b042e27cb20474c98352",
+        "encoded_sha256": "033910d75cebf3b0f9ebf28e3ba51386172ce034d748b01a10b69ddf5c0057a0"
+      },
+      {
+        "asset": "background3-19.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          510,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          509,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "8acdcfbac25760bb439e5cf169d8cd3c6b8131810986d467dd7525cbe315f88b",
+        "encoded_sha256": "c9edb901a9671b351f2fdd111872f9bbc6bb0a24fab2d2e8565a53d164727ad8"
       },
       {
         "asset": "background3-2.png",
         "size": [
-          256,
-          512
+          512,
+          511
         ],
-        "rgba_sha256": "d0e778968a0e4c74f254d2c9b0f31dd3c110b491453c0581775ca2a5bf33dd10",
-        "encoded_sha256": "1d8fdd3143ae7256eb3fe230179a8cf2185c1edf113cf796a882b29ca6dbe779"
+        "core": [
+          1020,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1019,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "dd5e6d127ca3639c803629b4816c97e57e11bccf6fd82085ecbe2c39f6a437b6",
+        "encoded_sha256": "3751f0c98268a39e417f3c1d12342618d30229cb70cce0eae25fc5759151a559"
+      },
+      {
+        "asset": "background3-20.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          1020,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          1019,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "f94b6b18ddba7ebbda20f0c9114afe468c24a679144521ddfea954534a5a2e7d",
+        "encoded_sha256": "1747548cf11c020e807a39aba54314e56d4ba2c70008b344c6b60aa9888ac481"
+      },
+      {
+        "asset": "background3-21.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          1530,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          1529,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "d3c9d83286395302c463b534c70eb3229e6961fd1edf0f654d34c405b3f4fd65",
+        "encoded_sha256": "21147880bcb4c3cbcf70a3cecebcfcd928e487b4d4bbeb3f1518f1a9dd116fe2"
+      },
+      {
+        "asset": "background3-22.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          2040,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          2039,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "c3c7760031d1a0f0b5f7954cfb45558ae60f7a4fd391c5c50edb4ee8020ce436",
+        "encoded_sha256": "e43df97b6c77900b2581c939df1c5c549fcc3f0248fd45654a911fc9ded7baeb"
+      },
+      {
+        "asset": "background3-23.png",
+        "size": [
+          267,
+          7
+        ],
+        "core": [
+          2550,
+          1530,
+          266,
+          6
+        ],
+        "source_rectangle": [
+          2549,
+          1529,
+          267,
+          7
+        ],
+        "rgba_sha256": "b65e92f028f1df2e8953522d745e16c6b829a6aa88f6471b57608d7f2bac746d",
+        "encoded_sha256": "82911934d23fe8e7418f19ac1a4687a49e1796d97c5485cfd3a12d53f04740b5"
       },
       {
         "asset": "background3-3.png",
         "size": [
           512,
-          208
+          511
         ],
-        "rgba_sha256": "9e5c1ba0a84e7c796ab1ddf8146ac66d916020cb674c23a341084c23b4d6a305",
-        "encoded_sha256": "ff6cbbe664f6e9c504b7d5335cecc57181d1a5431b5750e7dd3449a88927920d"
+        "core": [
+          1530,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1529,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "3f1cb59c40d0b934a9fce8b8b1580af773a5a7569b1f9e9ae5af95986dfa78a7",
+        "encoded_sha256": "9990c83ff1c83fbd4004551cca1e6654d14c644eafe4ca4ffc330609e5655afb"
       },
       {
         "asset": "background3-4.png",
         "size": [
           512,
-          208
+          511
         ],
-        "rgba_sha256": "324806d67a921971a4ef2a4eb22119991c6f2019b2b1da025a9d25e7f16cafdb",
-        "encoded_sha256": "833b2dac52f36ae3197a6a842b7a28b344d29a463087b1a09aa810b0e353ac3e"
+        "core": [
+          2040,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          2039,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "dd5fd22d7a0a8762c623f9be1d084d066237f9b2cc728c9da9d766614523a0f1",
+        "encoded_sha256": "d0da0a752a9fe2c28618802ba3419f9143fe39279e5d2c9b4b611f5aaac13dba"
       },
       {
         "asset": "background3-5.png",
         "size": [
-          256,
-          208
+          267,
+          511
         ],
-        "rgba_sha256": "99706472c38f908149191fc6b83f596ead6b7f471f220808550fa9fc57cbabca",
-        "encoded_sha256": "07d2d3a012013e76e3c598191df3265461eb612e4b8fd1849c6c22af4ad64b9e"
+        "core": [
+          2550,
+          0,
+          266,
+          510
+        ],
+        "source_rectangle": [
+          2549,
+          0,
+          267,
+          511
+        ],
+        "rgba_sha256": "4ac7daa11b8e9fdcc8d953127e3e2384ed564b311a80c523e1b2efec5e4c2809",
+        "encoded_sha256": "43694b46054d2ed1d1e640ce82a05363c32412c36b2eb68aa3797aac905a7d18"
       },
       {
-        "asset": "background4-0.png",
+        "asset": "background3-6.png",
+        "size": [
+          511,
+          512
+        ],
+        "core": [
+          0,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          0,
+          509,
+          511,
+          512
+        ],
+        "rgba_sha256": "dcd78df1c76a890cab7e8cc1294048aba130412743b86afb62280f377145cb40",
+        "encoded_sha256": "70e89c98b85c649c535a03103f4fa2fb72c4a20272aa434a8eda4809eca252b9"
+      },
+      {
+        "asset": "background3-7.png",
         "size": [
           512,
           512
         ],
-        "rgba_sha256": "3be8ff18a22a3666dccf23d770deafa9a4250a21aad230371351c2157f73a5e7",
-        "encoded_sha256": "20e16fcbb52d3b1ba4d705f4ff4ecb247be50dc4738f72a56be958e5a99979b5"
+        "core": [
+          510,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          509,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "489a4e8636f9ecf5b2106a6777c656bd43d72831b4e2ebc7279912def0d8636e",
+        "encoded_sha256": "9136b72995d1c8d2a2317aeeab1d1704748b34e5833cf96a48c6d3e5a77d076c"
+      },
+      {
+        "asset": "background3-8.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1020,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1019,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "4fd79e0eef54f37af02ef6d822a8422a3c6163f14aa37bb60c493c5905a852d3",
+        "encoded_sha256": "ff250b0cb9fd14848f177f5bd2eed844c8aac8528a78406d6568c271bc1d0a9c"
+      },
+      {
+        "asset": "background3-9.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1530,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1529,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "cd715cc37ff0789381cc124523119f33a50f42015d510973713bdb8327d708bb",
+        "encoded_sha256": "8165071ec680564c145e260373e7f8813beee69149f0e0ad21c4c23b454cae2b"
+      },
+      {
+        "asset": "background4-0.png",
+        "size": [
+          511,
+          511
+        ],
+        "core": [
+          0,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          0,
+          0,
+          511,
+          511
+        ],
+        "rgba_sha256": "76ebfad1e23771aad32d55fd3661702b264c95e0dad16305223a9f3cbc2ad0d2",
+        "encoded_sha256": "18be8c2b99366faa0358d1a37e7747eb7cc8b0e8ccbc1d4e038eeaf35f19265b"
       },
       {
         "asset": "background4-1.png",
         "size": [
           512,
+          511
+        ],
+        "core": [
+          510,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          509,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "24462f9c35b42c065793ca99591b8f77449efb6565bd99fc92704c51ea2f6da0",
+        "encoded_sha256": "28d4188211909910e62c2bb009502bc8ec3e5bbd1a5dc5eb1578ed35c61f56b1"
+      },
+      {
+        "asset": "background4-10.png",
+        "size": [
+          512,
           512
         ],
-        "rgba_sha256": "055ff61bc0d81b6c879f8eb8abbc568e33bba9dedaed01ab8bc0f8f114a1441c",
-        "encoded_sha256": "1dda3755cc4bcbd1217ca779b65d00ddf063c9bf2747428ac202a6e112331abb"
+        "core": [
+          2040,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          2039,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "d6688f9d85fda6b698ed2951e8d03e43047c85c0eda1513a9f23857c4f367dd2",
+        "encoded_sha256": "d3b757b9ae6e6f9e42a2fec60fa10a5fa9ffff777681596338efe80d36d45ac7"
+      },
+      {
+        "asset": "background4-11.png",
+        "size": [
+          267,
+          512
+        ],
+        "core": [
+          2550,
+          510,
+          266,
+          510
+        ],
+        "source_rectangle": [
+          2549,
+          509,
+          267,
+          512
+        ],
+        "rgba_sha256": "f29ca7a15a135656a8248c483fb7899c3a123356ffda27328c2754d5d332194e",
+        "encoded_sha256": "d24081b406368212e39d2ea7c679d4307dc884f7da493435402bdba0e9b92230"
+      },
+      {
+        "asset": "background4-12.png",
+        "size": [
+          511,
+          512
+        ],
+        "core": [
+          0,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          0,
+          1019,
+          511,
+          512
+        ],
+        "rgba_sha256": "ef42402854e0b11577ee9a11defbb1fce4b9db09b4d622c18ca98e7b201606f3",
+        "encoded_sha256": "4bc0890ccee21546e5a7b5d45b0deba4c70ac7867b355d49c0c1cbd2965515fa"
+      },
+      {
+        "asset": "background4-13.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          510,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          509,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "8561045909c10fcd3154550791afebe90c0397860940fe55ec9b276bfbc9686a",
+        "encoded_sha256": "c9ef17d4826e3bd920129bc75a59e8d4e49b270e97bd7ef68752b44a4a66608b"
+      },
+      {
+        "asset": "background4-14.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1020,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1019,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "87ffdffdb6f2e8e19638d393f71bdc34d6647173ae2a5329267e4f6dc1537321",
+        "encoded_sha256": "d8a946f5580e71d655c05800cedcc030e129818bb90a2f529ffc57d233315bd2"
+      },
+      {
+        "asset": "background4-15.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1530,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1529,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "63b2c28b677a1924d4a7ca4a126e4c9ed4d995811298b27aae29c016b92dfdf7",
+        "encoded_sha256": "b245d45036d39d69190cf92284dc64c1b05c2d303fb2cdf0516ce67d1f4a4af3"
+      },
+      {
+        "asset": "background4-16.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          2040,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          2039,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "bc1846114003e44e00aed2edb3b105f73652ab457b8893b6dcf7328f508529d0",
+        "encoded_sha256": "f6c13356af39d02388638dbef2437db2a4c90021fb3489ac7da118b5be640274"
+      },
+      {
+        "asset": "background4-17.png",
+        "size": [
+          267,
+          512
+        ],
+        "core": [
+          2550,
+          1020,
+          266,
+          510
+        ],
+        "source_rectangle": [
+          2549,
+          1019,
+          267,
+          512
+        ],
+        "rgba_sha256": "8cb8dbd673fdcf74ee572203533ecd3b1e914153dd0de82bbc90ce36cc55646a",
+        "encoded_sha256": "823925f6e47a5eace691bad42e60e22c2231fbdc8bc5d213767ec39e31b5c1fa"
+      },
+      {
+        "asset": "background4-18.png",
+        "size": [
+          511,
+          7
+        ],
+        "core": [
+          0,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          0,
+          1529,
+          511,
+          7
+        ],
+        "rgba_sha256": "5fd9fc69223f9ed2b5d6ea2cc3823a3ab4c364c7aa018ca4d2dfd6b8e046c688",
+        "encoded_sha256": "30a799c73f69a4713e3522e9d5d8c2ce8cabfa65b21ab8168d28c2ff14bc53f0"
+      },
+      {
+        "asset": "background4-19.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          510,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          509,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "a2badae8a14a841923395a363b0465192381f3ca1ee9747e93a40e2e5ba56607",
+        "encoded_sha256": "bf6a4063db386e8981fb25fa8d5d84a79affcd3187213f5eb98805fdb9639da5"
       },
       {
         "asset": "background4-2.png",
         "size": [
-          256,
-          512
+          512,
+          511
         ],
-        "rgba_sha256": "6a6e8e312306c2e488d02bd8b903c67ddf8b921f9c7b5f4c899ecb539c745cdd",
-        "encoded_sha256": "f0446514b3adeda0a349c38e8d31ef9e82bb1930dce7f8c522c33dcee19b5c2d"
+        "core": [
+          1020,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1019,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "06a249e4595048935ce8cbde56dffdbb7f7759a97503d7021a0849d23e4d6169",
+        "encoded_sha256": "74ad729742074755dd10242cf536d0200615347ce10acf444559fc6e8b4e00cd"
+      },
+      {
+        "asset": "background4-20.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          1020,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          1019,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "9658ea61eff0a880e4af9c40e3cb1d856489cae270e05b479fbdddc97a01ba93",
+        "encoded_sha256": "0e035794f52e857c0ee76c6e79e33244b781ab544912da665b912a174d6f8e13"
+      },
+      {
+        "asset": "background4-21.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          1530,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          1529,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "e293dac1c9483a73e6482f93f99aca550cbafbd948809285c53896204f838c59",
+        "encoded_sha256": "8850c0322d73939382d4a86a834bc18edab0b82734f3a38b92721e3986a20f50"
+      },
+      {
+        "asset": "background4-22.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          2040,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          2039,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "195a92686b7e8f2bbff538f83a1fff0274a8a1d11f40ca5eeba7a1d8993ce4e0",
+        "encoded_sha256": "cde0ffa5b56fb4161460104735382b9ef2e8240c9a2e25900362dd89444731ad"
+      },
+      {
+        "asset": "background4-23.png",
+        "size": [
+          267,
+          7
+        ],
+        "core": [
+          2550,
+          1530,
+          266,
+          6
+        ],
+        "source_rectangle": [
+          2549,
+          1529,
+          267,
+          7
+        ],
+        "rgba_sha256": "dd0ddab57d0c1fafee7807092623e5d6b7a794b8d8825dab868a07f7aa171f4b",
+        "encoded_sha256": "fbc36c9bbf599fb52202f7607f8b02b057ce7304415735a1a45b9f7f1f4b90eb"
       },
       {
         "asset": "background4-3.png",
         "size": [
           512,
-          208
+          511
         ],
-        "rgba_sha256": "5d980524ef3249d323330942affe1b1ee4bd503ef32d256406211424b9182729",
-        "encoded_sha256": "d51efe2733e780ccee8789c0f00c42a2ff1c3cf7cb0d36bcfc08825c264b220e"
+        "core": [
+          1530,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1529,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "933417b7a118d895a9abeccfa2a6e206b946c81b9e663ed576b1cad93239200a",
+        "encoded_sha256": "214af6a205017c8d43cd807a7527ff2e6db404374d8b3e1b59a09d451dabb893"
       },
       {
         "asset": "background4-4.png",
         "size": [
           512,
-          208
+          511
         ],
-        "rgba_sha256": "fabce5ed1738306d64340b94a87cf2c5a1a552db2fa83c7c1b5b699e2308d07d",
-        "encoded_sha256": "a530d0c3231b311caf1370dc5ef40c4efdffaf3920d8f4093a7abc2db0445623"
+        "core": [
+          2040,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          2039,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "088e0ce305182a811778372cc7362435668583f75a3540bde0e05764955fe6a6",
+        "encoded_sha256": "2713c17a772c6e3e5de09047d483cbeea62fdbaadf0e33fd4b90ae7ece24ddc1"
       },
       {
         "asset": "background4-5.png",
         "size": [
-          256,
-          208
+          267,
+          511
         ],
-        "rgba_sha256": "9bfeca382235c34cbab972cc07e98edbef5a9a4b99b494fd638f8d1794749482",
-        "encoded_sha256": "d007d0ff0894b7f12fea28f36b94d53ea6ebcd2d7310e0dbc92fcfff34b68de4"
+        "core": [
+          2550,
+          0,
+          266,
+          510
+        ],
+        "source_rectangle": [
+          2549,
+          0,
+          267,
+          511
+        ],
+        "rgba_sha256": "0ff20d770729ec5573ab808159dea53e9d4ae73cd688fa0fd6067e909f807661",
+        "encoded_sha256": "f4c1fe4d0f70a3fa24bc087ed3a1de8ab3d1cad22b529b720d1f90cba74bc4a2"
       },
       {
-        "asset": "background5-0.png",
+        "asset": "background4-6.png",
+        "size": [
+          511,
+          512
+        ],
+        "core": [
+          0,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          0,
+          509,
+          511,
+          512
+        ],
+        "rgba_sha256": "0679d582388d5ba0d9065f823ec7f70bd07c4c7da0b5a05a8c66b2c7b8f19fd4",
+        "encoded_sha256": "d1a8704fd34505bd394237ef00b059a8db6d310e3db7ede5ab441b338925c09d"
+      },
+      {
+        "asset": "background4-7.png",
         "size": [
           512,
           512
         ],
-        "rgba_sha256": "3e9d24a033d6bb38bda0b54685646fb5b0ecb83d5f49d54d5fd380a2aeec8cf0",
-        "encoded_sha256": "d143f1c442fdf064f5e2992f69e8687f19b121d30bce6f2fdd8cd4fc70ff83ca"
+        "core": [
+          510,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          509,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "018a1719c68a9afc63db3d1a51ef5b27af05376a548baa3284fdfafe1eb16257",
+        "encoded_sha256": "ad16d4829c44114143ce7d208c464d1cb6ee018b93c2a4e07350f2693cbd68f8"
+      },
+      {
+        "asset": "background4-8.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1020,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1019,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "5db896fb078cf5766d086db35d5e43cc3f76f60a07286e25acbea7a4b8d968e9",
+        "encoded_sha256": "3478e23d69269ac55d97c7af9ac6e13cecf351a8b447b7dbfa36d62ab7ecf0da"
+      },
+      {
+        "asset": "background4-9.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1530,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1529,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "66e43b955c7bd9db21ddc10f1368595c56da8c1953ffdced66aeca12bf6fc0f0",
+        "encoded_sha256": "da96f797d8368cc3edaa965a77b73668e37c9109ec95435b6f996b0c56e33f4f"
+      },
+      {
+        "asset": "background5-0.png",
+        "size": [
+          511,
+          511
+        ],
+        "core": [
+          0,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          0,
+          0,
+          511,
+          511
+        ],
+        "rgba_sha256": "7ab104fea0ac6e258f061bffab58d4922678e9d8cf5a8792e2d9d10a6ca23fa8",
+        "encoded_sha256": "71f3ae69e4083b603f16ae45aad682b3296d8045428db58b775e16119ec4b26e"
       },
       {
         "asset": "background5-1.png",
         "size": [
           512,
+          511
+        ],
+        "core": [
+          510,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          509,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "9d6c47bc12eee70ae2c77919c1123ab63d7d747d7d5254e868320c40fb77f786",
+        "encoded_sha256": "1120fe9395565d14f85776e39e106185ee70a0679cfe5fe41e093e251977275b"
+      },
+      {
+        "asset": "background5-10.png",
+        "size": [
+          512,
           512
         ],
-        "rgba_sha256": "0a8c07121d93c66ca4198d20ce8caba34ebb669cc55828bbf2117dda5a15e2ee",
-        "encoded_sha256": "235891f9d499c2fa229837b74a8e83eb2c69e2ae13fdc51e70fee2f8d96b320d"
+        "core": [
+          2040,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          2039,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "07d3ba0ab545669b1552053bb26cb4b4d19c7e3e0247ee6eadd1bcfc57278100",
+        "encoded_sha256": "ad5b14d61755db702f6bc6462f35adb24a03bfad1054276aeff0e5e0ba6b1fc2"
+      },
+      {
+        "asset": "background5-11.png",
+        "size": [
+          267,
+          512
+        ],
+        "core": [
+          2550,
+          510,
+          266,
+          510
+        ],
+        "source_rectangle": [
+          2549,
+          509,
+          267,
+          512
+        ],
+        "rgba_sha256": "6e8fecf5eb933fd581a6b23497aa0aa0b94b8a0e0ad2e06a7d78224fd7d05bf7",
+        "encoded_sha256": "d3395654aacfb36ca517ba1f7c412f47171d8c2b721219c870e0ef7a54565dc3"
+      },
+      {
+        "asset": "background5-12.png",
+        "size": [
+          511,
+          512
+        ],
+        "core": [
+          0,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          0,
+          1019,
+          511,
+          512
+        ],
+        "rgba_sha256": "30a4ead1198c503ad94bee38444769db8cbb214b7314fd3812fd9d6b0a97eb47",
+        "encoded_sha256": "8e596cfb44f56f2046983d639c7b2b6d1503f4d64d8f43274cd84ed9fe1f2097"
+      },
+      {
+        "asset": "background5-13.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          510,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          509,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "3fb33273086420672ece86b3bc7e45f3842eddad2401ec02ff060bcd1abcf97d",
+        "encoded_sha256": "bb76a3ffa43425acb8d0a18184eb381a6d5a457dfc759116e60abe7d46a6bb97"
+      },
+      {
+        "asset": "background5-14.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1020,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1019,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "e276235e33883a49fcf2f768ab0aa488f12a8a4a84d60f99747f7d41c467114f",
+        "encoded_sha256": "07fa3ede6c5e76796ed66bbd96aaef59f851be68ae67c6c131c3a6bfebaf15fa"
+      },
+      {
+        "asset": "background5-15.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1530,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1529,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "5bd3b412141e4575e10cd17b4d2fd3decd369ac9cbf6fce8707a628e542e7c30",
+        "encoded_sha256": "b6b081970247127daf55c18d6a5f19da694557011c5a139e4bad3e6e77e352eb"
+      },
+      {
+        "asset": "background5-16.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          2040,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          2039,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "7fda1b4b4e09c1d599af952851b1c1079648242f3919284707dd99637cc84e84",
+        "encoded_sha256": "d55be3a5a0b7eba009944c0dda758d8b240c79ba45dc982775b0370b814248ea"
+      },
+      {
+        "asset": "background5-17.png",
+        "size": [
+          267,
+          512
+        ],
+        "core": [
+          2550,
+          1020,
+          266,
+          510
+        ],
+        "source_rectangle": [
+          2549,
+          1019,
+          267,
+          512
+        ],
+        "rgba_sha256": "1edd2221da5f3d4a7767e19e112293ab1c5c2aec6827f0e2779adc5909b6f5ed",
+        "encoded_sha256": "2cb28c72f9100fe44d76cce4712be2ad3fd41b1ae01df950723d2d6c4d0378b0"
+      },
+      {
+        "asset": "background5-18.png",
+        "size": [
+          511,
+          7
+        ],
+        "core": [
+          0,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          0,
+          1529,
+          511,
+          7
+        ],
+        "rgba_sha256": "bc4951664cbb62ef72286479f0412c05b88cf96f414cd6d31b0192e50495280f",
+        "encoded_sha256": "a1886e16e4aab4bbb13cde118479af6f365383e7bc7f68de1562f93e38bda084"
+      },
+      {
+        "asset": "background5-19.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          510,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          509,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "dac59d0e3b9093f8f5c73fa0d40a488ee1aa971f775b3113c35087ea260ac6f7",
+        "encoded_sha256": "e5bab904d60fdbc63010b6eb9341c7c6a0b69345c71aa84aa347a935ba5bd2f5"
       },
       {
         "asset": "background5-2.png",
         "size": [
-          256,
-          512
+          512,
+          511
         ],
-        "rgba_sha256": "fefb40af2139cead6d46340df0710804ede1de9aa229fb657697c362f93f0a06",
-        "encoded_sha256": "09b73696162781cb7397b012a85eefc37f6d803c3c31fe96e1f88f744ee780cf"
+        "core": [
+          1020,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1019,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "45d01972706f6e6acb0ccacf2d61b7042909bb271bd53a3e244b5833e94670fb",
+        "encoded_sha256": "ba78f1f5d4f3a6ad22c1b6809525b250360acd362c5ca7dc73fab2fb0ead490c"
+      },
+      {
+        "asset": "background5-20.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          1020,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          1019,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "2e2d613d82bc0e256d26d676c3228aed9bc0ae22a3ad7f8c4f2f959f951b5c98",
+        "encoded_sha256": "e223885000d8b9e6d8ed2b08c8e7446f2a8fc5d153036e7f2f7f1a256a6ff37a"
+      },
+      {
+        "asset": "background5-21.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          1530,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          1529,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "442955548fbbaed706368a2798ed308d064c54d159036144788cce15fc8cbbc3",
+        "encoded_sha256": "d01f177b2c3245a619d2c8e6ce260b7dca5fdaebdac4e2f9788fecbd7de0f110"
+      },
+      {
+        "asset": "background5-22.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          2040,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          2039,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "23aba8bce8bf62b2cc6ac6cbb399179e723d5f7295f0f48a2caa5648ad6daf39",
+        "encoded_sha256": "e03aa0a9c0b09cfb0b58fba0dd16a7fd596a183ba807daa9678fddbf09b543e3"
+      },
+      {
+        "asset": "background5-23.png",
+        "size": [
+          267,
+          7
+        ],
+        "core": [
+          2550,
+          1530,
+          266,
+          6
+        ],
+        "source_rectangle": [
+          2549,
+          1529,
+          267,
+          7
+        ],
+        "rgba_sha256": "fff8f93f5dad2517efd904672242a86833b930d3c4bedf33562238412dba855a",
+        "encoded_sha256": "5757a44c109f9907e3bd241aaa63c0b3e61314dd96f8a4be129ba1efc105ab37"
       },
       {
         "asset": "background5-3.png",
         "size": [
           512,
-          208
+          511
         ],
-        "rgba_sha256": "347b01ee6a406be2ae837b747611a44960015eb0bb680bef86a4320f67e2d03d",
-        "encoded_sha256": "c96dce17f4d97c7c5174cde5849322f32841a69d86279174ffb889fdf73c335d"
+        "core": [
+          1530,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1529,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "2825b991b33375cf25e63d23bb1e8d608b28446c699f71fe08f958600e0afc74",
+        "encoded_sha256": "efcb147e760718b3b78820e401de20634beddb3d030f1223d361f6fe52c5faec"
       },
       {
         "asset": "background5-4.png",
         "size": [
           512,
-          208
+          511
         ],
-        "rgba_sha256": "ed660aef921676cf87186e540e0d91eb4c30e4b0da6eb15f58165ef45deca180",
-        "encoded_sha256": "1ff74812716eb936fdd3a73771b44f99de6447f59067f5381e3198f57e830a54"
+        "core": [
+          2040,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          2039,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "a5db32708557ff6f5bb62a06d09b4269c6ea7ac4cec4cb2969f1c7226dc79b74",
+        "encoded_sha256": "89fec2f4817c6b882529208e85e68470d78af49745d0ceb85e0e8400ddd3c651"
       },
       {
         "asset": "background5-5.png",
         "size": [
-          256,
-          208
+          267,
+          511
         ],
-        "rgba_sha256": "f99fd568d7ba52e18b0949cdbca8bdbcb43276a988d0a6809d47fb9fca4158fe",
-        "encoded_sha256": "9e375114e0734de077aed7aac0a480deeeb58bf81b67705ce6069d774c646b19"
+        "core": [
+          2550,
+          0,
+          266,
+          510
+        ],
+        "source_rectangle": [
+          2549,
+          0,
+          267,
+          511
+        ],
+        "rgba_sha256": "b9d18aa33afe3ab7e73b61d4923bd105cbe063c67df4e2173d3bed40ca6b2411",
+        "encoded_sha256": "f0020427614fe9d73b009073242365af0c6211ce86991e5e3592d652a585b261"
       },
       {
-        "asset": "background6-0.png",
+        "asset": "background5-6.png",
+        "size": [
+          511,
+          512
+        ],
+        "core": [
+          0,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          0,
+          509,
+          511,
+          512
+        ],
+        "rgba_sha256": "8fd1d6bfeb06bdb123e120db4f266781ff4df5d9cbb8b4d0d61df9f903debc81",
+        "encoded_sha256": "da8455cc44f05dfd0614be3111e0f744efd60066daadab14782a8c079a86e29d"
+      },
+      {
+        "asset": "background5-7.png",
         "size": [
           512,
           512
         ],
-        "rgba_sha256": "18bc130e09eebdd3a10a2bc14e96180e926fda7d002b0d84b6abe832b9d8ad05",
-        "encoded_sha256": "69f49568db5d0fb4615d2031e3b1f464413ad1d3a4207096f9e3dd2bed2435af"
+        "core": [
+          510,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          509,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "00f92838dff3eaab068ae39f029cc77b9a9056d9bb84f33c72867c0d5b5da782",
+        "encoded_sha256": "ce50c0d29e31d7a9a23381d5d5f63a1c99f261ef5ed3e809c208a1c384e153db"
+      },
+      {
+        "asset": "background5-8.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1020,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1019,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "325d9f75bdc64edce04ee9abfc6a22b8df08cda23523686d66519bf34471eb80",
+        "encoded_sha256": "1901295d3d422a33c2cd62aa9fb560dda6ad9404f1792804245c8a050f165e91"
+      },
+      {
+        "asset": "background5-9.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1530,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1529,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "7843b6511626bdcc4c0488e6cf250de39125b7a7711b6e2af3af7764e85bfc65",
+        "encoded_sha256": "e3e9e12fd936fe33a451a94340f6a5b9a1ff27b08c92c08e069f85c4800fbd8b"
+      },
+      {
+        "asset": "background6-0.png",
+        "size": [
+          511,
+          511
+        ],
+        "core": [
+          0,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          0,
+          0,
+          511,
+          511
+        ],
+        "rgba_sha256": "f79cdfc4da3811f5ad5dbde7234343409eb372fda4da0ef36d8b843ffb91164d",
+        "encoded_sha256": "58777386cb6b05ab13c7939435896e70133a4895b2243d5c1fd924eb2ad962e0"
       },
       {
         "asset": "background6-1.png",
         "size": [
           512,
+          511
+        ],
+        "core": [
+          510,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          509,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "22dcb7571273b2bce73ff7852aafe229e3d5473cc1ef9d4106ebb155e0e66ae7",
+        "encoded_sha256": "3207e16aa6ba542387ce8712bbb341be742c20a919b726ce308d0d97aa486e9a"
+      },
+      {
+        "asset": "background6-10.png",
+        "size": [
+          512,
           512
         ],
-        "rgba_sha256": "7f082ba09a900b48a637ae1b84dc53e6a5d7fa283aa522b8f3f182bc1bca0e25",
-        "encoded_sha256": "d7d9c08dacfde6d2ce1c407260a4a8ea9b774273492950a882f2e9f8bac4057a"
+        "core": [
+          2040,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          2039,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "531b9e59dbccc533d6d0ac1bb8e47824daf990f8cc365e1571362f72d633e05e",
+        "encoded_sha256": "edcd34c1c121055d9be2c87c0e2035c05b872f346e0f16232a345cebf3b2b0ef"
+      },
+      {
+        "asset": "background6-11.png",
+        "size": [
+          267,
+          512
+        ],
+        "core": [
+          2550,
+          510,
+          266,
+          510
+        ],
+        "source_rectangle": [
+          2549,
+          509,
+          267,
+          512
+        ],
+        "rgba_sha256": "fbbd92ac0e2a17f5c3323449dccf5d600c03a82a753df1d4a182b7228068b562",
+        "encoded_sha256": "79a245645a5569bff39067bb79bc68fa825c55e07dd2ec477fba4b386271f8d6"
+      },
+      {
+        "asset": "background6-12.png",
+        "size": [
+          511,
+          512
+        ],
+        "core": [
+          0,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          0,
+          1019,
+          511,
+          512
+        ],
+        "rgba_sha256": "677e53671b6ade8aea6a51c1a4881847cdcfc149821a7faba3ddffb4d4a2ed3b",
+        "encoded_sha256": "d9c4497ec2243354a3cfc9a99fb832cf6cde4ac8ceb7f199fae5727e726eec43"
+      },
+      {
+        "asset": "background6-13.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          510,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          509,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "ea16930b46b8a8b3dc774497f04145c9c16e6079aaaf3bf4a20cc808334daa53",
+        "encoded_sha256": "e3b19ab73d4920003565d3087b3020ef8b1b1155b9e54cd76ec8a01de1f733a3"
+      },
+      {
+        "asset": "background6-14.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1020,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1019,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "3009cceecb37264522e546e5a0b275012f22bff43365266d2a8c1c59af3bbe63",
+        "encoded_sha256": "3b09f5609c2df21dfc5f9d841ff314186479f2c5202bcbfdd45566663ff538ed"
+      },
+      {
+        "asset": "background6-15.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1530,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1529,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "172cb70cb59b1b51cd5732b148575a0646f52365a294a927e0de2e8eb29927ce",
+        "encoded_sha256": "230ae0ecb73c066c3fb42e90a2b01c646f2dab62f0d61f2840e4a0ad8ad8e575"
+      },
+      {
+        "asset": "background6-16.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          2040,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          2039,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "4c23e29f8690dd3858c0f58c36363c70bed956ffb528de27ea60300f847a65b6",
+        "encoded_sha256": "6f59993ab12f852e88ba33cb81c5430b932f2b559efb6755a1a5022eee4930e4"
+      },
+      {
+        "asset": "background6-17.png",
+        "size": [
+          267,
+          512
+        ],
+        "core": [
+          2550,
+          1020,
+          266,
+          510
+        ],
+        "source_rectangle": [
+          2549,
+          1019,
+          267,
+          512
+        ],
+        "rgba_sha256": "d7c7d47b0610d4df702c6bdc183b4a0c9f101c4eef240d1bd877676356d6f03b",
+        "encoded_sha256": "aa1ca8feb4451144f0d43849605e50bd6243cabea213fe5ed8725621c8790bb9"
+      },
+      {
+        "asset": "background6-18.png",
+        "size": [
+          511,
+          7
+        ],
+        "core": [
+          0,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          0,
+          1529,
+          511,
+          7
+        ],
+        "rgba_sha256": "2aeda549a85fa6ccb4d490694c141c8d10019a21756ef04f7509846624bf4030",
+        "encoded_sha256": "687fa54426815cb365d44a82262fdfcf31dc393c4497b4f157cdc61eb7d7d2e7"
+      },
+      {
+        "asset": "background6-19.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          510,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          509,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "b8d2c131eb6d6b939f6e65b3049190894387d63dd5f1e357b4f3c75950946fe4",
+        "encoded_sha256": "8bde57be45fa6d8ce86c13b4b670023906a2fbc4a76c8eddb8b7905a133b6ffd"
       },
       {
         "asset": "background6-2.png",
         "size": [
-          256,
-          512
+          512,
+          511
         ],
-        "rgba_sha256": "5dc706f425380203a0afdc381e93e3b30e6777dd5b2f0f17f2603c1b853bc8de",
-        "encoded_sha256": "262122fae87935f4e47057dcb2e8bc316f8c7900e9d6c204dd7a5b8b9ab4e9e6"
+        "core": [
+          1020,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1019,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "94ce5bd9835f5649c1e367f0ffff2c9ea05672318efeb3bb40fb725bc077e677",
+        "encoded_sha256": "10a8cec69f360646c9cfd273b00d8bc8a3a7d69a705bbf1839295ae1f6ce0660"
+      },
+      {
+        "asset": "background6-20.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          1020,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          1019,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "d542d5dd92f844619dbe14ece542a8cebd30a4136fdf8f59157124b7c353b6f1",
+        "encoded_sha256": "119c052fb9c3abbecdfac8eb90ed5f047e008aa8335472e1054ec16c9d829dd2"
+      },
+      {
+        "asset": "background6-21.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          1530,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          1529,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "a4b21f212831217e66e7746468433e26a0c239b964b73a8de1b3560646b97b3f",
+        "encoded_sha256": "cd717367163ebfd4d13503a2c0430dc62f9faf25c3f9bdec3db9791acdbf0c0e"
+      },
+      {
+        "asset": "background6-22.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          2040,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          2039,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "c3f4b91c50c5aa01fd58f57606815942be1c43cb329ac7da1c90aeb31fe7fb13",
+        "encoded_sha256": "62e3e1375fa5561489480b6a8d59c170b9b30684a404e02c75a88b0f71c6ef3f"
+      },
+      {
+        "asset": "background6-23.png",
+        "size": [
+          267,
+          7
+        ],
+        "core": [
+          2550,
+          1530,
+          266,
+          6
+        ],
+        "source_rectangle": [
+          2549,
+          1529,
+          267,
+          7
+        ],
+        "rgba_sha256": "a8af728e7aa4638eabcb36bc19c4e4fe69f76176142a821369cb0e1c6cdd0258",
+        "encoded_sha256": "7e58be69565d5928cb906bb66ed7265cb1ab94f26364bc6619b6791131083956"
       },
       {
         "asset": "background6-3.png",
         "size": [
           512,
-          208
+          511
         ],
-        "rgba_sha256": "cd780141b7cc7bfc97e9559f3bbc103f1ffd356bfda8bafb411988ffcfacb625",
-        "encoded_sha256": "c6f2033ae9014674d9a939bb9d34a0d56c3b6bbb9697251c2b9b915b6604f66b"
+        "core": [
+          1530,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1529,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "96876fa99e5fa4928d1edd359cb90177af0b88bcc501403811321a92172ef447",
+        "encoded_sha256": "57f6138095a9a38b9d6bc1c0a9665f81f59f23a9912ead965c2875c502df0654"
       },
       {
         "asset": "background6-4.png",
         "size": [
           512,
-          208
+          511
         ],
-        "rgba_sha256": "505d73da57df2119bfb45f0f774659ee3a91bae450e1a861d139f079dfd535dd",
-        "encoded_sha256": "133cdf58a6badecc8c74646499c29af3bdd5f4784378d58e613cac838f18f765"
+        "core": [
+          2040,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          2039,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "1dcaf6dd66307d016fdccc0cb28405e9c8675ca1b4b0c6c664ca95e8b01c6de1",
+        "encoded_sha256": "d6e5bf8c81e297d7f1d64c1b627d6262f287fe2404a53053a014c3115ce19c7e"
       },
       {
         "asset": "background6-5.png",
         "size": [
-          256,
-          208
+          267,
+          511
         ],
-        "rgba_sha256": "74c089fcc09a103c32bc43615777ba3d2300154feadc5921f1adcee8b5c6961d",
-        "encoded_sha256": "c5224bf6138e008b31f1f573ee003f7988c397a912402e49af4956132fce660a"
+        "core": [
+          2550,
+          0,
+          266,
+          510
+        ],
+        "source_rectangle": [
+          2549,
+          0,
+          267,
+          511
+        ],
+        "rgba_sha256": "1e92e1f92c82a9a9dbdfd05e1de70c9e9413995c973bb90909a1b750608764dc",
+        "encoded_sha256": "0b461671a8b55ed74f8bbb60086242d41fcedbf7f6a6f00e54dee3f5d2bbe3ee"
+      },
+      {
+        "asset": "background6-6.png",
+        "size": [
+          511,
+          512
+        ],
+        "core": [
+          0,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          0,
+          509,
+          511,
+          512
+        ],
+        "rgba_sha256": "96275c45264cb5c290faa85d68ad1a273a666486f29b316150f8ff30d324a625",
+        "encoded_sha256": "b677208b6fb7e9dd2be420b8d0f441ab0edc3ef9aca9449aba7e31dab9a06a8f"
+      },
+      {
+        "asset": "background6-7.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          510,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          509,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "bf9a9b38dc9fd20e7bc97258e84ad40b9fd13c0c74be5d662097a4dddace3c8e",
+        "encoded_sha256": "cfc4d743c2aa5269551df2329d048c1e69eca64888357967d41d00c6ec3c46f2"
+      },
+      {
+        "asset": "background6-8.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1020,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1019,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "a9ef609e3eb8c35a6c4952b8128b3ea20b4803ab671ee67cf6e57a4f889d1261",
+        "encoded_sha256": "9346d0c256b9745914ff63ff583973ba7063e92ac359e646b82363c61f263ff8"
+      },
+      {
+        "asset": "background6-9.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1530,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1529,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "91214653991b1f2841badaeddc3fa3da12fc576289e53da82db01cacad2d056c",
+        "encoded_sha256": "cd621f3a1ea56d992a3a4f03b4ee9fa9baeda125e0d7b83b5d5ed4937b39cd97"
       },
       {
         "asset": "ball.png",
@@ -623,60 +3323,6 @@
         "encoded_sha256": "96391b1d7ca071cc67c395c481f6d36269422d840cfa11f4e838a2e3aa56085e"
       },
       {
-        "asset": "menu-background1-0.png",
-        "size": [
-          511,
-          511
-        ],
-        "rgba_sha256": "3683d5229485dbac669e2e6581a489270bba77d6cf421b1b55331f74848184fe",
-        "encoded_sha256": "532c19307c19fb44945d5114ec2d0808b091cb24e0b314746a11215d72b42c29"
-      },
-      {
-        "asset": "menu-background1-1.png",
-        "size": [
-          512,
-          511
-        ],
-        "rgba_sha256": "c836b1dbfd230bc5fab0b3cd3ffcdc26763909e61c214b6d68b56482d55cca96",
-        "encoded_sha256": "7c75d1b8e1f26aa18a0af102879d523602bc7e79b674cf31d55aa15942e40817"
-      },
-      {
-        "asset": "menu-background1-2.png",
-        "size": [
-          261,
-          511
-        ],
-        "rgba_sha256": "5eb8549543a2dfdd5e31b2aa4e1348f481949d6f546ecbec058cb3ff8073b68b",
-        "encoded_sha256": "9caf864ac2c27b1d2176a283e97cb126810cd13b5408cc1c1c06175fe645825c"
-      },
-      {
-        "asset": "menu-background1-3.png",
-        "size": [
-          511,
-          211
-        ],
-        "rgba_sha256": "eb5b63ef4fff44c04e67725e267b3324bfde51cb276bed4bf84d5a2a838fc411",
-        "encoded_sha256": "42b5e4332b67144a391fba6aaf7b6f9d6c49cfa43058d7cd7415b1ead2858bde"
-      },
-      {
-        "asset": "menu-background1-4.png",
-        "size": [
-          512,
-          211
-        ],
-        "rgba_sha256": "72a7c90872d2229046b1cbfdbcee1ca046b62395dcb2e2a200cf4ed3cbe4a96a",
-        "encoded_sha256": "371c4672535c4eedae59e2a1e210c53f1bc8004a5d420048cebbbbd99a9a0957"
-      },
-      {
-        "asset": "menu-background1-5.png",
-        "size": [
-          261,
-          211
-        ],
-        "rgba_sha256": "79c5c418009134a0f4bc31899f5c07876b0fa7b221673d6b7b26e6cf20c9640b",
-        "encoded_sha256": "8e0e6d80c6bf89c6e0703d9532c05bab29e0f40270f5830a5cda03a1cb322974"
-      },
-      {
         "asset": "metal-bevel.png",
         "size": [
           91,
@@ -783,6 +3429,3091 @@
         ],
         "rgba_sha256": "c5d8f3657e62370e72b96dfe4ca70a78c0c26688b212754ee46573e6689c364e",
         "encoded_sha256": "84ceb97247355efbd8c1d6d2f1fba97306e644991c3ea52e4bdef80954fd0393"
+      }
+    ]
+  },
+  "original_backgrounds": {
+    "method": "Lossless source-resolution RGB tiles, 510-pixel cores and one-pixel filtering halos; no resampling. Menu reuses background1.",
+    "sources": [
+      {
+        "source": "background1.png",
+        "source_sha256": "21c34d3db19f1d2f8560bada107af03762a4003dfbc2c9a3c9b80b0bc9b3f8b2",
+        "size": [
+          2816,
+          1536
+        ],
+        "rgba_sha256": "9ce3908ca652b1f5e8dad1456269a9c38249498d6bc63c438c3dae96ae8e42af"
+      },
+      {
+        "source": "background2.png",
+        "source_sha256": "f5b14219e8b265d6bb2e669b1050768cd2a57688a8691a142569e458a4ba35e9",
+        "size": [
+          2816,
+          1536
+        ],
+        "rgba_sha256": "34739205a3fd404f3373bcf057c3b81ce68d00dfdd045b2083f7fd3fe2ee6fa8"
+      },
+      {
+        "source": "background3.png",
+        "source_sha256": "5634e4eb36fc4ef61120064f003f0fe69fdaf23302e0bfaf64ad1fed84aeb56d",
+        "size": [
+          2816,
+          1536
+        ],
+        "rgba_sha256": "802609d84afa682f814c80c42d228d4c19ee9ceb0e1253110c77e48a85bfcd9a"
+      },
+      {
+        "source": "background4.png",
+        "source_sha256": "053b1263b2647d128a73d6f0236781a873790fb473af95348fbba1b1b1793eeb",
+        "size": [
+          2816,
+          1536
+        ],
+        "rgba_sha256": "ceb5f32440ff64d24530121b84cb5f3c13bfa7d28e5f3c104bc4e4c2b5aa1da3"
+      },
+      {
+        "source": "background5.png",
+        "source_sha256": "cf7808cee9e154e3ab8b064867557717806476ecbeefa2fd4c16eab0860cee68",
+        "size": [
+          2816,
+          1536
+        ],
+        "rgba_sha256": "1ef0f5d22c2471fa57ce725cb966992dda60226209dd7f167b0c5fb7f4b0a237"
+      },
+      {
+        "source": "background6.png",
+        "source_sha256": "a45a1912f5e7d3b6251a0794612a1cd6cd42507b1d38a27bddd24250daf9dcf3",
+        "size": [
+          2816,
+          1536
+        ],
+        "rgba_sha256": "0abd8a6f51d34ef1bf3cce0f4c5253490a221653072a97f27e7892dbb0202b26"
+      }
+    ],
+    "tiles": [
+      {
+        "asset": "background1-0.png",
+        "size": [
+          511,
+          511
+        ],
+        "core": [
+          0,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          0,
+          0,
+          511,
+          511
+        ],
+        "rgba_sha256": "1b5d69bab19f7f8df09ebb1bb06235f48015a6b95b7700c4b9764da09f7d1e06",
+        "encoded_sha256": "48fb6b972270d5c2485a088e2147b1ba5adcbf6a8978806cd5e12de283f9ed89"
+      },
+      {
+        "asset": "background1-1.png",
+        "size": [
+          512,
+          511
+        ],
+        "core": [
+          510,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          509,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "ae1780e6c84189a04fe1ba8a4953df4a2d3a61b9bcba0216a39abe469c2a1064",
+        "encoded_sha256": "52a1fc9ad9cfeebaaa1f8bc36d8508e6aba3d148aa153fb12e7860a3a1f33af7"
+      },
+      {
+        "asset": "background1-2.png",
+        "size": [
+          512,
+          511
+        ],
+        "core": [
+          1020,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1019,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "e6346cfb18a0a3a753cbce319298e75b068694435cdbe5decdbdd02ce003003a",
+        "encoded_sha256": "7bf6e76906dcbf81fae79e34a28b64cedabe9351b37572f12187b7814017768d"
+      },
+      {
+        "asset": "background1-3.png",
+        "size": [
+          512,
+          511
+        ],
+        "core": [
+          1530,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1529,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "d8cf1258cc729b75d5614d0aeffcd09565216fdfe682e976a9244a22795820c8",
+        "encoded_sha256": "7638d2b058d65a82ffe4ff33220b33a95e26d2a485e2a285e3aa384d6be70d42"
+      },
+      {
+        "asset": "background1-4.png",
+        "size": [
+          512,
+          511
+        ],
+        "core": [
+          2040,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          2039,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "77abc590491561f56e09e13d98751fc3a629225005959e1978acfcb0ac5ad340",
+        "encoded_sha256": "3f0c426d95a5cf6f9d3829e341ceba5a867aa2a4a957d74c57fb729828e90590"
+      },
+      {
+        "asset": "background1-5.png",
+        "size": [
+          267,
+          511
+        ],
+        "core": [
+          2550,
+          0,
+          266,
+          510
+        ],
+        "source_rectangle": [
+          2549,
+          0,
+          267,
+          511
+        ],
+        "rgba_sha256": "0348d4dc0904ff204691620f521d4b4a274ec98746a327cdb319f263d7644cb6",
+        "encoded_sha256": "77216d4704ce32f48f5d3753570ba1048d165e87b2ced9dbddf422a983ed0e7e"
+      },
+      {
+        "asset": "background1-6.png",
+        "size": [
+          511,
+          512
+        ],
+        "core": [
+          0,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          0,
+          509,
+          511,
+          512
+        ],
+        "rgba_sha256": "a22fc09b23ba3cb2a8b03cb9aaa2391ea434913d2a0d365c6cee4d8873736206",
+        "encoded_sha256": "5b879aeb5a03b6d59039780abb5befdf3262b1d50cca70976745a8fbb320f868"
+      },
+      {
+        "asset": "background1-7.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          510,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          509,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "8345285b47b84539469ee54d25ba36ec4de7418d33e033f7074b7c464c477edb",
+        "encoded_sha256": "b88b9fec0d0d61afa153bef268564ed0eb9c8b390416f3fc30d5e76046210c68"
+      },
+      {
+        "asset": "background1-8.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1020,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1019,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "f7824727bdfa2692398a20a83ca05addf2a81d4d0a9ae0595f2964f26e391b46",
+        "encoded_sha256": "191327179c8b1c180627b52679f3b70d4f2b1454965cb3aa7e483274145073f6"
+      },
+      {
+        "asset": "background1-9.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1530,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1529,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "d28582c7a5949af9aa477072fd0d01778a08c7f6eaf55d47280567d7c18ed451",
+        "encoded_sha256": "0548801e8ae75ef0ad9dbf27cd8b287a0dca7e52edd3f920e66302d4eb789c38"
+      },
+      {
+        "asset": "background1-10.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          2040,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          2039,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "cddc09ccd7513c8c901c841e39c8626111ea0e0910bf6bfd575611b373e250e5",
+        "encoded_sha256": "7b715bb9b512344058556949854e834ada8d557934760762379ae277f0884a18"
+      },
+      {
+        "asset": "background1-11.png",
+        "size": [
+          267,
+          512
+        ],
+        "core": [
+          2550,
+          510,
+          266,
+          510
+        ],
+        "source_rectangle": [
+          2549,
+          509,
+          267,
+          512
+        ],
+        "rgba_sha256": "c91e05fb1975ff6207644837c3660be727c74ded14171f1b7a0319ecf6b10393",
+        "encoded_sha256": "e302a057879bd4d3a08393257ea3ad23b8da2e5d4035c67ac94a3a0c945668af"
+      },
+      {
+        "asset": "background1-12.png",
+        "size": [
+          511,
+          512
+        ],
+        "core": [
+          0,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          0,
+          1019,
+          511,
+          512
+        ],
+        "rgba_sha256": "b6cf33f37810c5603d8fdeb76785c07cb8753818a029fbb1dcb1970324efc320",
+        "encoded_sha256": "ec5b822a84e34f18fe6d420aa5928f655b2ac14810b26032dd030cb28b400c79"
+      },
+      {
+        "asset": "background1-13.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          510,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          509,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "f84ecf96af8d66f9ca641910de7f5b71f5b0cb3ceb102584e54a57dbf66362e7",
+        "encoded_sha256": "ebdd1ee01f7c3caca43b645a873d1e9929ca2a7c956167a91eb6b395095f62db"
+      },
+      {
+        "asset": "background1-14.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1020,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1019,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "d9599a1c1d4997baf2ee9c2cd646f16a2900e96468f760651bce4848f3e5cfff",
+        "encoded_sha256": "239adbdfc791f8750eba12716b72585a90b7b9bad8b49e1e04e569bf8ab2e7d5"
+      },
+      {
+        "asset": "background1-15.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1530,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1529,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "7b973342d2eac80dd7794e57d58134e8ee8ccea7d929c733a7e3eb0ab0abf94d",
+        "encoded_sha256": "7fc2b7b16b82e3d0e23265fc36f64c2399899d19944c8e492dbdb54009813afc"
+      },
+      {
+        "asset": "background1-16.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          2040,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          2039,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "4a267ab693c7a404dffed220351998b2d115d3a6886dc069a53b8bd1fb19d097",
+        "encoded_sha256": "7ecdef9be5ceea5be20f88189458c83cc6d81f17e0da7cb548ed61ccdb633085"
+      },
+      {
+        "asset": "background1-17.png",
+        "size": [
+          267,
+          512
+        ],
+        "core": [
+          2550,
+          1020,
+          266,
+          510
+        ],
+        "source_rectangle": [
+          2549,
+          1019,
+          267,
+          512
+        ],
+        "rgba_sha256": "8a08806ece5b8b3372158c0093448c5e4ef1111fb550364cbd1ad1b3ec581091",
+        "encoded_sha256": "842a3adf4449dff79dfcbe37a4051764ba78f7422e2358cf08a18c30dd03162b"
+      },
+      {
+        "asset": "background1-18.png",
+        "size": [
+          511,
+          7
+        ],
+        "core": [
+          0,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          0,
+          1529,
+          511,
+          7
+        ],
+        "rgba_sha256": "674cf7e9207e871b49cfbbb759e073008282fda8e0cef6983633879ca2f565bf",
+        "encoded_sha256": "c297c6a286a557f6083e30ec718fd55fa6f35399569cc2f4bf114ee8fa795f84"
+      },
+      {
+        "asset": "background1-19.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          510,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          509,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "74fa5e802b7b564be95887185be2ee42c1611a1e806071567d1b19bb6de3355d",
+        "encoded_sha256": "6bb9e0bcdb57ac0c936305ebadb727d8c8aa3f909ba63424722e8e442e585a5e"
+      },
+      {
+        "asset": "background1-20.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          1020,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          1019,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "de8b80838e3d8f6c90c56d8c31fd75d072b5bed465bc4ff8edea391068084f6d",
+        "encoded_sha256": "1d53f9c9f1499f11412bd36fcb1e4d5a6b6d437d31dfae241eddc345e7040020"
+      },
+      {
+        "asset": "background1-21.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          1530,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          1529,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "4e922b598a5b6330658b3070d58f27066aeeea7e2edd740d08cd582284aa6bc3",
+        "encoded_sha256": "6df86d704e4000bb8be9d334edfce001bf23ab539c66d59269911f1b080f3171"
+      },
+      {
+        "asset": "background1-22.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          2040,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          2039,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "cf1cc68124005b38da61065ca791ebe185fd88e5ea2689d8f8a14d2d3ed5cb85",
+        "encoded_sha256": "10057e0e0c1bc3db1452c5068c6b81b96149f07946386c7a7f0a9eeb8d5d730b"
+      },
+      {
+        "asset": "background1-23.png",
+        "size": [
+          267,
+          7
+        ],
+        "core": [
+          2550,
+          1530,
+          266,
+          6
+        ],
+        "source_rectangle": [
+          2549,
+          1529,
+          267,
+          7
+        ],
+        "rgba_sha256": "6b88ca55b3477a848dd85cff4a7a7bb8ba1a751f1aeb0ab7d09fe56905d26647",
+        "encoded_sha256": "68e446049c6885154b7183e7aeb62847ab96774c73e5670bca4c150c41314909"
+      },
+      {
+        "asset": "background2-0.png",
+        "size": [
+          511,
+          511
+        ],
+        "core": [
+          0,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          0,
+          0,
+          511,
+          511
+        ],
+        "rgba_sha256": "b7a861743ead7a9e76e619387679467589e322ecce7f6b4a961fdbc67bb2d88f",
+        "encoded_sha256": "9c93990be847538e682c60614ed43ad62e98b896e7943cbe002793155a4b258d"
+      },
+      {
+        "asset": "background2-1.png",
+        "size": [
+          512,
+          511
+        ],
+        "core": [
+          510,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          509,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "64d4fc07969054aa5a712926b3b8c6c18d462ad696dde4c7c1116516806a9e66",
+        "encoded_sha256": "295f764efa1911ffaf6def527bb04050ef75704b249b552674fd85472a87c134"
+      },
+      {
+        "asset": "background2-2.png",
+        "size": [
+          512,
+          511
+        ],
+        "core": [
+          1020,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1019,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "cc61d80b1721f390cf1aa88a8e21143efefc40d84bc5d5940432fd4bf1be49b5",
+        "encoded_sha256": "5e07ea8ede2bfdab87efa18a0d48df80d974d3263a30debde1608a0f94c2f610"
+      },
+      {
+        "asset": "background2-3.png",
+        "size": [
+          512,
+          511
+        ],
+        "core": [
+          1530,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1529,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "43e1eb46f49a37dc285d50bc282d009bbde84f77ae6f56b365544433fadf67fa",
+        "encoded_sha256": "c33fde0f30464c4eab16eb084771d7fe16dfbbd7c0ae8d01b91edc5fc4b74283"
+      },
+      {
+        "asset": "background2-4.png",
+        "size": [
+          512,
+          511
+        ],
+        "core": [
+          2040,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          2039,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "1b9b41a3ad373c133925883bb3a9c2e386397ddadb6d2b7ed0751145fb171d75",
+        "encoded_sha256": "783385524cf99d2156ceca5fd58a609032b517ab49c5f9e84b7193fe2de40560"
+      },
+      {
+        "asset": "background2-5.png",
+        "size": [
+          267,
+          511
+        ],
+        "core": [
+          2550,
+          0,
+          266,
+          510
+        ],
+        "source_rectangle": [
+          2549,
+          0,
+          267,
+          511
+        ],
+        "rgba_sha256": "d1d1dc75290fb8def8b76a60ff4db982fbc7cb8f1d459e5324128a4b7b8375c5",
+        "encoded_sha256": "c4e96ad31ed3deff4248a8bbaa98c05da3091ec5bcb51b3e8bf6da8f8b35eda3"
+      },
+      {
+        "asset": "background2-6.png",
+        "size": [
+          511,
+          512
+        ],
+        "core": [
+          0,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          0,
+          509,
+          511,
+          512
+        ],
+        "rgba_sha256": "4b0d7c21a7cba70bfe3eced27fa128e7bb8b04983f7a5c0b8faee1c4dbb1c925",
+        "encoded_sha256": "c8da281bad66af2a1d014c303ca593f107e8a9a2ca7d16fb07aebe7b70cc591e"
+      },
+      {
+        "asset": "background2-7.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          510,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          509,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "d78de41ffa4217fcebdc42bdfea66be6ecd800c2bdf1550796ddd63bf2b0e825",
+        "encoded_sha256": "79715f291ecd8284af6de155b023063b27264848a641ddfadd2a29f4f4df026c"
+      },
+      {
+        "asset": "background2-8.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1020,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1019,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "6f6c1dc73e50866f5fb83382cd6b0401517a306a6b094ecbeac9bd3a64f79c7a",
+        "encoded_sha256": "5c16e58b328995119936e6991f8e3993c93d9df05382894a954078c18f7aa0ea"
+      },
+      {
+        "asset": "background2-9.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1530,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1529,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "de1f232d2d44fe005e70095b0498ed4f1997a549cbfb9544f640a1db278ba0d7",
+        "encoded_sha256": "66656b1f39d5873aa25c7e71e7f2eacdbaece5e83d209988f5ae7afe44bd0fd7"
+      },
+      {
+        "asset": "background2-10.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          2040,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          2039,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "2d98bedb0f3924c7eb85af09172afbca12d8d7737c598d0629cac6e73fe09fcb",
+        "encoded_sha256": "3d0ab5ba7bd28daf323e2e6baff8b9f8e8152ae96b1b20854e25edd002ba387e"
+      },
+      {
+        "asset": "background2-11.png",
+        "size": [
+          267,
+          512
+        ],
+        "core": [
+          2550,
+          510,
+          266,
+          510
+        ],
+        "source_rectangle": [
+          2549,
+          509,
+          267,
+          512
+        ],
+        "rgba_sha256": "bbaea695f6bdcf9009c5992984d58d47f298fe38cfe37cf9adbb7de7fb6ecece",
+        "encoded_sha256": "c9c40aa6d119d9b0c3fcdee085e57f60e83c77a72721eff654b352788ce34dec"
+      },
+      {
+        "asset": "background2-12.png",
+        "size": [
+          511,
+          512
+        ],
+        "core": [
+          0,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          0,
+          1019,
+          511,
+          512
+        ],
+        "rgba_sha256": "9941ae71cdb2ade8dac649c55f6cd662f8d326d033a78e5fb9b00ae561bdad02",
+        "encoded_sha256": "b22fd582d08525aa702cd518887c765b406276d49a90ce6b32dd3784d2f057ce"
+      },
+      {
+        "asset": "background2-13.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          510,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          509,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "b1588917c0a98ca9fa2e109545efaa6af2e15ecae1415f8ee737bebd94e24b69",
+        "encoded_sha256": "e2502d6efb0f8ca857b23e3c86c4f912fcc346100cdb83a17df636142e668d22"
+      },
+      {
+        "asset": "background2-14.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1020,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1019,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "2f640b8301ed5ee92de9976a7baa1ba00b6708a50135da7e25c66a9377d43b26",
+        "encoded_sha256": "6371ee2fd5e017202519f4cb405b262acf12e869af0366cecdcde74b5ec21d28"
+      },
+      {
+        "asset": "background2-15.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1530,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1529,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "967192d7e6dba54eda1f402edbe4112ecc8c0b9db3c81796ede849484d1cd6b6",
+        "encoded_sha256": "d16f8bbbbfcea8a6c8ee4e6da47ac870f23cf6b559b8f256e3e54250408fdbfc"
+      },
+      {
+        "asset": "background2-16.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          2040,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          2039,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "e963c2adc4a42c251fbb9b26436915435680fe8d4163a1e8a754a9ed6a56e0a7",
+        "encoded_sha256": "eaa7fbaa532fc6a3c4a7f040d63a771320b23de8ed2ef6af3f47501270ee4f33"
+      },
+      {
+        "asset": "background2-17.png",
+        "size": [
+          267,
+          512
+        ],
+        "core": [
+          2550,
+          1020,
+          266,
+          510
+        ],
+        "source_rectangle": [
+          2549,
+          1019,
+          267,
+          512
+        ],
+        "rgba_sha256": "4943cc24ed2e42b2147408fca088a8f5886307e3820608f6e08393dd0aea7934",
+        "encoded_sha256": "d849b177845cde1f50d3ac44e01a90bca3840bf7d08cf3a6059a4180ea83ce46"
+      },
+      {
+        "asset": "background2-18.png",
+        "size": [
+          511,
+          7
+        ],
+        "core": [
+          0,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          0,
+          1529,
+          511,
+          7
+        ],
+        "rgba_sha256": "0e051c485c2bad8a01dc7abef6a57791993960869ca3b302c2d80628b4223477",
+        "encoded_sha256": "8dfb5f804f8caee51abf0d59509e3edbbdc7e605c16479a32f7d64118c89b2da"
+      },
+      {
+        "asset": "background2-19.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          510,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          509,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "853ebc27e6c443b0bda2f7850ff4a2a3e1c64181a756e9aa7f508bf493f65ed3",
+        "encoded_sha256": "8a3c172472ed6aaf0a7aab1301e1faa85432ef99d81c90c1c13dd7d1ce03fa55"
+      },
+      {
+        "asset": "background2-20.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          1020,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          1019,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "ba650c12e160cfe33e09b38d7e937afd5aba5cc17fe9e19c0527901ebffb826c",
+        "encoded_sha256": "58b95be93d1db20200695a7c642e7141bcceac4f904938617a4b313776c92aa7"
+      },
+      {
+        "asset": "background2-21.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          1530,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          1529,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "4da45facf14aaceed80750d28fd17dbcd87610569d40d185747394509477288b",
+        "encoded_sha256": "a8d84d24bde560680457401d9802ca9fb86d10eb040cd6755f6143399db1bf68"
+      },
+      {
+        "asset": "background2-22.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          2040,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          2039,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "4b8498cda04e31e82fdb629c41ce54419125797df6de8ed86bbb10aa3488c9f1",
+        "encoded_sha256": "b7655bd00ea93e44fa95c34f71c9e81b13d874463fa7efda5a4e043775a6f200"
+      },
+      {
+        "asset": "background2-23.png",
+        "size": [
+          267,
+          7
+        ],
+        "core": [
+          2550,
+          1530,
+          266,
+          6
+        ],
+        "source_rectangle": [
+          2549,
+          1529,
+          267,
+          7
+        ],
+        "rgba_sha256": "9c83f8367b289a065c37b49ef1ca3174b13894938b4b44feeb21f3c6256963f8",
+        "encoded_sha256": "82207f8941d0b033aa269a03f84de57166640d4324e8fe11e2b99ef61819db5a"
+      },
+      {
+        "asset": "background3-0.png",
+        "size": [
+          511,
+          511
+        ],
+        "core": [
+          0,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          0,
+          0,
+          511,
+          511
+        ],
+        "rgba_sha256": "b4dadab440eb9136608392b28dd63fd0c71eb61481e1925681e1fbea0a37a459",
+        "encoded_sha256": "3eefce9758f3f0f5c1eb48e1f56844fa1d861f90ab7aafdf336cca47dff9d615"
+      },
+      {
+        "asset": "background3-1.png",
+        "size": [
+          512,
+          511
+        ],
+        "core": [
+          510,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          509,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "cffbd6da45103480959f477238203216488921ae79c03e851865c088e0c67304",
+        "encoded_sha256": "c51146a97227473f09494aff0e275c65b19203bb6a9bc971a19ff1b6fada6598"
+      },
+      {
+        "asset": "background3-2.png",
+        "size": [
+          512,
+          511
+        ],
+        "core": [
+          1020,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1019,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "dd5e6d127ca3639c803629b4816c97e57e11bccf6fd82085ecbe2c39f6a437b6",
+        "encoded_sha256": "3751f0c98268a39e417f3c1d12342618d30229cb70cce0eae25fc5759151a559"
+      },
+      {
+        "asset": "background3-3.png",
+        "size": [
+          512,
+          511
+        ],
+        "core": [
+          1530,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1529,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "3f1cb59c40d0b934a9fce8b8b1580af773a5a7569b1f9e9ae5af95986dfa78a7",
+        "encoded_sha256": "9990c83ff1c83fbd4004551cca1e6654d14c644eafe4ca4ffc330609e5655afb"
+      },
+      {
+        "asset": "background3-4.png",
+        "size": [
+          512,
+          511
+        ],
+        "core": [
+          2040,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          2039,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "dd5fd22d7a0a8762c623f9be1d084d066237f9b2cc728c9da9d766614523a0f1",
+        "encoded_sha256": "d0da0a752a9fe2c28618802ba3419f9143fe39279e5d2c9b4b611f5aaac13dba"
+      },
+      {
+        "asset": "background3-5.png",
+        "size": [
+          267,
+          511
+        ],
+        "core": [
+          2550,
+          0,
+          266,
+          510
+        ],
+        "source_rectangle": [
+          2549,
+          0,
+          267,
+          511
+        ],
+        "rgba_sha256": "4ac7daa11b8e9fdcc8d953127e3e2384ed564b311a80c523e1b2efec5e4c2809",
+        "encoded_sha256": "43694b46054d2ed1d1e640ce82a05363c32412c36b2eb68aa3797aac905a7d18"
+      },
+      {
+        "asset": "background3-6.png",
+        "size": [
+          511,
+          512
+        ],
+        "core": [
+          0,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          0,
+          509,
+          511,
+          512
+        ],
+        "rgba_sha256": "dcd78df1c76a890cab7e8cc1294048aba130412743b86afb62280f377145cb40",
+        "encoded_sha256": "70e89c98b85c649c535a03103f4fa2fb72c4a20272aa434a8eda4809eca252b9"
+      },
+      {
+        "asset": "background3-7.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          510,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          509,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "489a4e8636f9ecf5b2106a6777c656bd43d72831b4e2ebc7279912def0d8636e",
+        "encoded_sha256": "9136b72995d1c8d2a2317aeeab1d1704748b34e5833cf96a48c6d3e5a77d076c"
+      },
+      {
+        "asset": "background3-8.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1020,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1019,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "4fd79e0eef54f37af02ef6d822a8422a3c6163f14aa37bb60c493c5905a852d3",
+        "encoded_sha256": "ff250b0cb9fd14848f177f5bd2eed844c8aac8528a78406d6568c271bc1d0a9c"
+      },
+      {
+        "asset": "background3-9.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1530,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1529,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "cd715cc37ff0789381cc124523119f33a50f42015d510973713bdb8327d708bb",
+        "encoded_sha256": "8165071ec680564c145e260373e7f8813beee69149f0e0ad21c4c23b454cae2b"
+      },
+      {
+        "asset": "background3-10.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          2040,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          2039,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "17c13f8c33da8f94348b49cc40f884bf5bcad9917fb6757e809131aa0c9c86c4",
+        "encoded_sha256": "1519200a2e184e12c234cc3e558af1e58a50622303208567ac1a126d339a754e"
+      },
+      {
+        "asset": "background3-11.png",
+        "size": [
+          267,
+          512
+        ],
+        "core": [
+          2550,
+          510,
+          266,
+          510
+        ],
+        "source_rectangle": [
+          2549,
+          509,
+          267,
+          512
+        ],
+        "rgba_sha256": "d78c3055aa4166b42fa51d1a282957845bc86b09574715ea4895c883f4563dcc",
+        "encoded_sha256": "dd1ea54bc1d6d830e003f4ee0b589b7de70f41189b277e46f984c5db3c79d736"
+      },
+      {
+        "asset": "background3-12.png",
+        "size": [
+          511,
+          512
+        ],
+        "core": [
+          0,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          0,
+          1019,
+          511,
+          512
+        ],
+        "rgba_sha256": "c8131425a14dbf0042126ca0f5dc7d0b4cd6373aba97c33c8e359d61d025d529",
+        "encoded_sha256": "25d4efbb0bf0715805655d8aee2db8cd19c540bb8060c03aa4f82f3aaa670632"
+      },
+      {
+        "asset": "background3-13.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          510,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          509,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "efc0b0ada3800a7611b3fe708cec119241dcde136c9ffa0484a4e1968e36a067",
+        "encoded_sha256": "d2d97d6d5c124ef410646e2b8d75c80fc310d72d161a2805d39eb6a25c5728f2"
+      },
+      {
+        "asset": "background3-14.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1020,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1019,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "e19966286e03ba2f880d359b6b16ad9344856e6903d90a1c2c8e2299d69f54cc",
+        "encoded_sha256": "f64918cbf628a4468f502cb7a4048b023201e293da1edf232ca5f06d49577adf"
+      },
+      {
+        "asset": "background3-15.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1530,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1529,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "ea0fc7648603aca23a805d8bf1d46dfcfab7f42dc887eb8bf8718cd2d71c0018",
+        "encoded_sha256": "e617bdabdf2e03a5b9547037237ea9b3be2be4abd45b527702c51ffc1dad9690"
+      },
+      {
+        "asset": "background3-16.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          2040,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          2039,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "b127a7774a84dd5299b639885ec43555a4980bc68b87445e02998ca62443f9ce",
+        "encoded_sha256": "cbe22eb5560ff3e8eae2657ddc7393b69ab9e1c40296e434d6f30f61fb1aadbc"
+      },
+      {
+        "asset": "background3-17.png",
+        "size": [
+          267,
+          512
+        ],
+        "core": [
+          2550,
+          1020,
+          266,
+          510
+        ],
+        "source_rectangle": [
+          2549,
+          1019,
+          267,
+          512
+        ],
+        "rgba_sha256": "5da7b94d1b385af38b5155663a42b4f3cb07810c882e297c36609fabc6bd665b",
+        "encoded_sha256": "0af6462731e86b1951979f8619cbf9c5d9575c5a23f38da1a9ccf783ee316449"
+      },
+      {
+        "asset": "background3-18.png",
+        "size": [
+          511,
+          7
+        ],
+        "core": [
+          0,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          0,
+          1529,
+          511,
+          7
+        ],
+        "rgba_sha256": "7b4bdb779e2f664d600bc79de35f4853c611b93e88e6b042e27cb20474c98352",
+        "encoded_sha256": "033910d75cebf3b0f9ebf28e3ba51386172ce034d748b01a10b69ddf5c0057a0"
+      },
+      {
+        "asset": "background3-19.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          510,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          509,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "8acdcfbac25760bb439e5cf169d8cd3c6b8131810986d467dd7525cbe315f88b",
+        "encoded_sha256": "c9edb901a9671b351f2fdd111872f9bbc6bb0a24fab2d2e8565a53d164727ad8"
+      },
+      {
+        "asset": "background3-20.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          1020,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          1019,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "f94b6b18ddba7ebbda20f0c9114afe468c24a679144521ddfea954534a5a2e7d",
+        "encoded_sha256": "1747548cf11c020e807a39aba54314e56d4ba2c70008b344c6b60aa9888ac481"
+      },
+      {
+        "asset": "background3-21.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          1530,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          1529,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "d3c9d83286395302c463b534c70eb3229e6961fd1edf0f654d34c405b3f4fd65",
+        "encoded_sha256": "21147880bcb4c3cbcf70a3cecebcfcd928e487b4d4bbeb3f1518f1a9dd116fe2"
+      },
+      {
+        "asset": "background3-22.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          2040,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          2039,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "c3c7760031d1a0f0b5f7954cfb45558ae60f7a4fd391c5c50edb4ee8020ce436",
+        "encoded_sha256": "e43df97b6c77900b2581c939df1c5c549fcc3f0248fd45654a911fc9ded7baeb"
+      },
+      {
+        "asset": "background3-23.png",
+        "size": [
+          267,
+          7
+        ],
+        "core": [
+          2550,
+          1530,
+          266,
+          6
+        ],
+        "source_rectangle": [
+          2549,
+          1529,
+          267,
+          7
+        ],
+        "rgba_sha256": "b65e92f028f1df2e8953522d745e16c6b829a6aa88f6471b57608d7f2bac746d",
+        "encoded_sha256": "82911934d23fe8e7418f19ac1a4687a49e1796d97c5485cfd3a12d53f04740b5"
+      },
+      {
+        "asset": "background4-0.png",
+        "size": [
+          511,
+          511
+        ],
+        "core": [
+          0,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          0,
+          0,
+          511,
+          511
+        ],
+        "rgba_sha256": "76ebfad1e23771aad32d55fd3661702b264c95e0dad16305223a9f3cbc2ad0d2",
+        "encoded_sha256": "18be8c2b99366faa0358d1a37e7747eb7cc8b0e8ccbc1d4e038eeaf35f19265b"
+      },
+      {
+        "asset": "background4-1.png",
+        "size": [
+          512,
+          511
+        ],
+        "core": [
+          510,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          509,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "24462f9c35b42c065793ca99591b8f77449efb6565bd99fc92704c51ea2f6da0",
+        "encoded_sha256": "28d4188211909910e62c2bb009502bc8ec3e5bbd1a5dc5eb1578ed35c61f56b1"
+      },
+      {
+        "asset": "background4-2.png",
+        "size": [
+          512,
+          511
+        ],
+        "core": [
+          1020,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1019,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "06a249e4595048935ce8cbde56dffdbb7f7759a97503d7021a0849d23e4d6169",
+        "encoded_sha256": "74ad729742074755dd10242cf536d0200615347ce10acf444559fc6e8b4e00cd"
+      },
+      {
+        "asset": "background4-3.png",
+        "size": [
+          512,
+          511
+        ],
+        "core": [
+          1530,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1529,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "933417b7a118d895a9abeccfa2a6e206b946c81b9e663ed576b1cad93239200a",
+        "encoded_sha256": "214af6a205017c8d43cd807a7527ff2e6db404374d8b3e1b59a09d451dabb893"
+      },
+      {
+        "asset": "background4-4.png",
+        "size": [
+          512,
+          511
+        ],
+        "core": [
+          2040,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          2039,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "088e0ce305182a811778372cc7362435668583f75a3540bde0e05764955fe6a6",
+        "encoded_sha256": "2713c17a772c6e3e5de09047d483cbeea62fdbaadf0e33fd4b90ae7ece24ddc1"
+      },
+      {
+        "asset": "background4-5.png",
+        "size": [
+          267,
+          511
+        ],
+        "core": [
+          2550,
+          0,
+          266,
+          510
+        ],
+        "source_rectangle": [
+          2549,
+          0,
+          267,
+          511
+        ],
+        "rgba_sha256": "0ff20d770729ec5573ab808159dea53e9d4ae73cd688fa0fd6067e909f807661",
+        "encoded_sha256": "f4c1fe4d0f70a3fa24bc087ed3a1de8ab3d1cad22b529b720d1f90cba74bc4a2"
+      },
+      {
+        "asset": "background4-6.png",
+        "size": [
+          511,
+          512
+        ],
+        "core": [
+          0,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          0,
+          509,
+          511,
+          512
+        ],
+        "rgba_sha256": "0679d582388d5ba0d9065f823ec7f70bd07c4c7da0b5a05a8c66b2c7b8f19fd4",
+        "encoded_sha256": "d1a8704fd34505bd394237ef00b059a8db6d310e3db7ede5ab441b338925c09d"
+      },
+      {
+        "asset": "background4-7.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          510,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          509,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "018a1719c68a9afc63db3d1a51ef5b27af05376a548baa3284fdfafe1eb16257",
+        "encoded_sha256": "ad16d4829c44114143ce7d208c464d1cb6ee018b93c2a4e07350f2693cbd68f8"
+      },
+      {
+        "asset": "background4-8.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1020,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1019,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "5db896fb078cf5766d086db35d5e43cc3f76f60a07286e25acbea7a4b8d968e9",
+        "encoded_sha256": "3478e23d69269ac55d97c7af9ac6e13cecf351a8b447b7dbfa36d62ab7ecf0da"
+      },
+      {
+        "asset": "background4-9.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1530,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1529,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "66e43b955c7bd9db21ddc10f1368595c56da8c1953ffdced66aeca12bf6fc0f0",
+        "encoded_sha256": "da96f797d8368cc3edaa965a77b73668e37c9109ec95435b6f996b0c56e33f4f"
+      },
+      {
+        "asset": "background4-10.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          2040,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          2039,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "d6688f9d85fda6b698ed2951e8d03e43047c85c0eda1513a9f23857c4f367dd2",
+        "encoded_sha256": "d3b757b9ae6e6f9e42a2fec60fa10a5fa9ffff777681596338efe80d36d45ac7"
+      },
+      {
+        "asset": "background4-11.png",
+        "size": [
+          267,
+          512
+        ],
+        "core": [
+          2550,
+          510,
+          266,
+          510
+        ],
+        "source_rectangle": [
+          2549,
+          509,
+          267,
+          512
+        ],
+        "rgba_sha256": "f29ca7a15a135656a8248c483fb7899c3a123356ffda27328c2754d5d332194e",
+        "encoded_sha256": "d24081b406368212e39d2ea7c679d4307dc884f7da493435402bdba0e9b92230"
+      },
+      {
+        "asset": "background4-12.png",
+        "size": [
+          511,
+          512
+        ],
+        "core": [
+          0,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          0,
+          1019,
+          511,
+          512
+        ],
+        "rgba_sha256": "ef42402854e0b11577ee9a11defbb1fce4b9db09b4d622c18ca98e7b201606f3",
+        "encoded_sha256": "4bc0890ccee21546e5a7b5d45b0deba4c70ac7867b355d49c0c1cbd2965515fa"
+      },
+      {
+        "asset": "background4-13.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          510,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          509,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "8561045909c10fcd3154550791afebe90c0397860940fe55ec9b276bfbc9686a",
+        "encoded_sha256": "c9ef17d4826e3bd920129bc75a59e8d4e49b270e97bd7ef68752b44a4a66608b"
+      },
+      {
+        "asset": "background4-14.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1020,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1019,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "87ffdffdb6f2e8e19638d393f71bdc34d6647173ae2a5329267e4f6dc1537321",
+        "encoded_sha256": "d8a946f5580e71d655c05800cedcc030e129818bb90a2f529ffc57d233315bd2"
+      },
+      {
+        "asset": "background4-15.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1530,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1529,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "63b2c28b677a1924d4a7ca4a126e4c9ed4d995811298b27aae29c016b92dfdf7",
+        "encoded_sha256": "b245d45036d39d69190cf92284dc64c1b05c2d303fb2cdf0516ce67d1f4a4af3"
+      },
+      {
+        "asset": "background4-16.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          2040,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          2039,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "bc1846114003e44e00aed2edb3b105f73652ab457b8893b6dcf7328f508529d0",
+        "encoded_sha256": "f6c13356af39d02388638dbef2437db2a4c90021fb3489ac7da118b5be640274"
+      },
+      {
+        "asset": "background4-17.png",
+        "size": [
+          267,
+          512
+        ],
+        "core": [
+          2550,
+          1020,
+          266,
+          510
+        ],
+        "source_rectangle": [
+          2549,
+          1019,
+          267,
+          512
+        ],
+        "rgba_sha256": "8cb8dbd673fdcf74ee572203533ecd3b1e914153dd0de82bbc90ce36cc55646a",
+        "encoded_sha256": "823925f6e47a5eace691bad42e60e22c2231fbdc8bc5d213767ec39e31b5c1fa"
+      },
+      {
+        "asset": "background4-18.png",
+        "size": [
+          511,
+          7
+        ],
+        "core": [
+          0,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          0,
+          1529,
+          511,
+          7
+        ],
+        "rgba_sha256": "5fd9fc69223f9ed2b5d6ea2cc3823a3ab4c364c7aa018ca4d2dfd6b8e046c688",
+        "encoded_sha256": "30a799c73f69a4713e3522e9d5d8c2ce8cabfa65b21ab8168d28c2ff14bc53f0"
+      },
+      {
+        "asset": "background4-19.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          510,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          509,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "a2badae8a14a841923395a363b0465192381f3ca1ee9747e93a40e2e5ba56607",
+        "encoded_sha256": "bf6a4063db386e8981fb25fa8d5d84a79affcd3187213f5eb98805fdb9639da5"
+      },
+      {
+        "asset": "background4-20.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          1020,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          1019,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "9658ea61eff0a880e4af9c40e3cb1d856489cae270e05b479fbdddc97a01ba93",
+        "encoded_sha256": "0e035794f52e857c0ee76c6e79e33244b781ab544912da665b912a174d6f8e13"
+      },
+      {
+        "asset": "background4-21.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          1530,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          1529,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "e293dac1c9483a73e6482f93f99aca550cbafbd948809285c53896204f838c59",
+        "encoded_sha256": "8850c0322d73939382d4a86a834bc18edab0b82734f3a38b92721e3986a20f50"
+      },
+      {
+        "asset": "background4-22.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          2040,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          2039,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "195a92686b7e8f2bbff538f83a1fff0274a8a1d11f40ca5eeba7a1d8993ce4e0",
+        "encoded_sha256": "cde0ffa5b56fb4161460104735382b9ef2e8240c9a2e25900362dd89444731ad"
+      },
+      {
+        "asset": "background4-23.png",
+        "size": [
+          267,
+          7
+        ],
+        "core": [
+          2550,
+          1530,
+          266,
+          6
+        ],
+        "source_rectangle": [
+          2549,
+          1529,
+          267,
+          7
+        ],
+        "rgba_sha256": "dd0ddab57d0c1fafee7807092623e5d6b7a794b8d8825dab868a07f7aa171f4b",
+        "encoded_sha256": "fbc36c9bbf599fb52202f7607f8b02b057ce7304415735a1a45b9f7f1f4b90eb"
+      },
+      {
+        "asset": "background5-0.png",
+        "size": [
+          511,
+          511
+        ],
+        "core": [
+          0,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          0,
+          0,
+          511,
+          511
+        ],
+        "rgba_sha256": "7ab104fea0ac6e258f061bffab58d4922678e9d8cf5a8792e2d9d10a6ca23fa8",
+        "encoded_sha256": "71f3ae69e4083b603f16ae45aad682b3296d8045428db58b775e16119ec4b26e"
+      },
+      {
+        "asset": "background5-1.png",
+        "size": [
+          512,
+          511
+        ],
+        "core": [
+          510,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          509,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "9d6c47bc12eee70ae2c77919c1123ab63d7d747d7d5254e868320c40fb77f786",
+        "encoded_sha256": "1120fe9395565d14f85776e39e106185ee70a0679cfe5fe41e093e251977275b"
+      },
+      {
+        "asset": "background5-2.png",
+        "size": [
+          512,
+          511
+        ],
+        "core": [
+          1020,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1019,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "45d01972706f6e6acb0ccacf2d61b7042909bb271bd53a3e244b5833e94670fb",
+        "encoded_sha256": "ba78f1f5d4f3a6ad22c1b6809525b250360acd362c5ca7dc73fab2fb0ead490c"
+      },
+      {
+        "asset": "background5-3.png",
+        "size": [
+          512,
+          511
+        ],
+        "core": [
+          1530,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1529,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "2825b991b33375cf25e63d23bb1e8d608b28446c699f71fe08f958600e0afc74",
+        "encoded_sha256": "efcb147e760718b3b78820e401de20634beddb3d030f1223d361f6fe52c5faec"
+      },
+      {
+        "asset": "background5-4.png",
+        "size": [
+          512,
+          511
+        ],
+        "core": [
+          2040,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          2039,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "a5db32708557ff6f5bb62a06d09b4269c6ea7ac4cec4cb2969f1c7226dc79b74",
+        "encoded_sha256": "89fec2f4817c6b882529208e85e68470d78af49745d0ceb85e0e8400ddd3c651"
+      },
+      {
+        "asset": "background5-5.png",
+        "size": [
+          267,
+          511
+        ],
+        "core": [
+          2550,
+          0,
+          266,
+          510
+        ],
+        "source_rectangle": [
+          2549,
+          0,
+          267,
+          511
+        ],
+        "rgba_sha256": "b9d18aa33afe3ab7e73b61d4923bd105cbe063c67df4e2173d3bed40ca6b2411",
+        "encoded_sha256": "f0020427614fe9d73b009073242365af0c6211ce86991e5e3592d652a585b261"
+      },
+      {
+        "asset": "background5-6.png",
+        "size": [
+          511,
+          512
+        ],
+        "core": [
+          0,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          0,
+          509,
+          511,
+          512
+        ],
+        "rgba_sha256": "8fd1d6bfeb06bdb123e120db4f266781ff4df5d9cbb8b4d0d61df9f903debc81",
+        "encoded_sha256": "da8455cc44f05dfd0614be3111e0f744efd60066daadab14782a8c079a86e29d"
+      },
+      {
+        "asset": "background5-7.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          510,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          509,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "00f92838dff3eaab068ae39f029cc77b9a9056d9bb84f33c72867c0d5b5da782",
+        "encoded_sha256": "ce50c0d29e31d7a9a23381d5d5f63a1c99f261ef5ed3e809c208a1c384e153db"
+      },
+      {
+        "asset": "background5-8.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1020,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1019,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "325d9f75bdc64edce04ee9abfc6a22b8df08cda23523686d66519bf34471eb80",
+        "encoded_sha256": "1901295d3d422a33c2cd62aa9fb560dda6ad9404f1792804245c8a050f165e91"
+      },
+      {
+        "asset": "background5-9.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1530,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1529,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "7843b6511626bdcc4c0488e6cf250de39125b7a7711b6e2af3af7764e85bfc65",
+        "encoded_sha256": "e3e9e12fd936fe33a451a94340f6a5b9a1ff27b08c92c08e069f85c4800fbd8b"
+      },
+      {
+        "asset": "background5-10.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          2040,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          2039,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "07d3ba0ab545669b1552053bb26cb4b4d19c7e3e0247ee6eadd1bcfc57278100",
+        "encoded_sha256": "ad5b14d61755db702f6bc6462f35adb24a03bfad1054276aeff0e5e0ba6b1fc2"
+      },
+      {
+        "asset": "background5-11.png",
+        "size": [
+          267,
+          512
+        ],
+        "core": [
+          2550,
+          510,
+          266,
+          510
+        ],
+        "source_rectangle": [
+          2549,
+          509,
+          267,
+          512
+        ],
+        "rgba_sha256": "6e8fecf5eb933fd581a6b23497aa0aa0b94b8a0e0ad2e06a7d78224fd7d05bf7",
+        "encoded_sha256": "d3395654aacfb36ca517ba1f7c412f47171d8c2b721219c870e0ef7a54565dc3"
+      },
+      {
+        "asset": "background5-12.png",
+        "size": [
+          511,
+          512
+        ],
+        "core": [
+          0,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          0,
+          1019,
+          511,
+          512
+        ],
+        "rgba_sha256": "30a4ead1198c503ad94bee38444769db8cbb214b7314fd3812fd9d6b0a97eb47",
+        "encoded_sha256": "8e596cfb44f56f2046983d639c7b2b6d1503f4d64d8f43274cd84ed9fe1f2097"
+      },
+      {
+        "asset": "background5-13.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          510,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          509,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "3fb33273086420672ece86b3bc7e45f3842eddad2401ec02ff060bcd1abcf97d",
+        "encoded_sha256": "bb76a3ffa43425acb8d0a18184eb381a6d5a457dfc759116e60abe7d46a6bb97"
+      },
+      {
+        "asset": "background5-14.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1020,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1019,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "e276235e33883a49fcf2f768ab0aa488f12a8a4a84d60f99747f7d41c467114f",
+        "encoded_sha256": "07fa3ede6c5e76796ed66bbd96aaef59f851be68ae67c6c131c3a6bfebaf15fa"
+      },
+      {
+        "asset": "background5-15.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1530,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1529,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "5bd3b412141e4575e10cd17b4d2fd3decd369ac9cbf6fce8707a628e542e7c30",
+        "encoded_sha256": "b6b081970247127daf55c18d6a5f19da694557011c5a139e4bad3e6e77e352eb"
+      },
+      {
+        "asset": "background5-16.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          2040,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          2039,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "7fda1b4b4e09c1d599af952851b1c1079648242f3919284707dd99637cc84e84",
+        "encoded_sha256": "d55be3a5a0b7eba009944c0dda758d8b240c79ba45dc982775b0370b814248ea"
+      },
+      {
+        "asset": "background5-17.png",
+        "size": [
+          267,
+          512
+        ],
+        "core": [
+          2550,
+          1020,
+          266,
+          510
+        ],
+        "source_rectangle": [
+          2549,
+          1019,
+          267,
+          512
+        ],
+        "rgba_sha256": "1edd2221da5f3d4a7767e19e112293ab1c5c2aec6827f0e2779adc5909b6f5ed",
+        "encoded_sha256": "2cb28c72f9100fe44d76cce4712be2ad3fd41b1ae01df950723d2d6c4d0378b0"
+      },
+      {
+        "asset": "background5-18.png",
+        "size": [
+          511,
+          7
+        ],
+        "core": [
+          0,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          0,
+          1529,
+          511,
+          7
+        ],
+        "rgba_sha256": "bc4951664cbb62ef72286479f0412c05b88cf96f414cd6d31b0192e50495280f",
+        "encoded_sha256": "a1886e16e4aab4bbb13cde118479af6f365383e7bc7f68de1562f93e38bda084"
+      },
+      {
+        "asset": "background5-19.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          510,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          509,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "dac59d0e3b9093f8f5c73fa0d40a488ee1aa971f775b3113c35087ea260ac6f7",
+        "encoded_sha256": "e5bab904d60fdbc63010b6eb9341c7c6a0b69345c71aa84aa347a935ba5bd2f5"
+      },
+      {
+        "asset": "background5-20.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          1020,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          1019,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "2e2d613d82bc0e256d26d676c3228aed9bc0ae22a3ad7f8c4f2f959f951b5c98",
+        "encoded_sha256": "e223885000d8b9e6d8ed2b08c8e7446f2a8fc5d153036e7f2f7f1a256a6ff37a"
+      },
+      {
+        "asset": "background5-21.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          1530,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          1529,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "442955548fbbaed706368a2798ed308d064c54d159036144788cce15fc8cbbc3",
+        "encoded_sha256": "d01f177b2c3245a619d2c8e6ce260b7dca5fdaebdac4e2f9788fecbd7de0f110"
+      },
+      {
+        "asset": "background5-22.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          2040,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          2039,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "23aba8bce8bf62b2cc6ac6cbb399179e723d5f7295f0f48a2caa5648ad6daf39",
+        "encoded_sha256": "e03aa0a9c0b09cfb0b58fba0dd16a7fd596a183ba807daa9678fddbf09b543e3"
+      },
+      {
+        "asset": "background5-23.png",
+        "size": [
+          267,
+          7
+        ],
+        "core": [
+          2550,
+          1530,
+          266,
+          6
+        ],
+        "source_rectangle": [
+          2549,
+          1529,
+          267,
+          7
+        ],
+        "rgba_sha256": "fff8f93f5dad2517efd904672242a86833b930d3c4bedf33562238412dba855a",
+        "encoded_sha256": "5757a44c109f9907e3bd241aaa63c0b3e61314dd96f8a4be129ba1efc105ab37"
+      },
+      {
+        "asset": "background6-0.png",
+        "size": [
+          511,
+          511
+        ],
+        "core": [
+          0,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          0,
+          0,
+          511,
+          511
+        ],
+        "rgba_sha256": "f79cdfc4da3811f5ad5dbde7234343409eb372fda4da0ef36d8b843ffb91164d",
+        "encoded_sha256": "58777386cb6b05ab13c7939435896e70133a4895b2243d5c1fd924eb2ad962e0"
+      },
+      {
+        "asset": "background6-1.png",
+        "size": [
+          512,
+          511
+        ],
+        "core": [
+          510,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          509,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "22dcb7571273b2bce73ff7852aafe229e3d5473cc1ef9d4106ebb155e0e66ae7",
+        "encoded_sha256": "3207e16aa6ba542387ce8712bbb341be742c20a919b726ce308d0d97aa486e9a"
+      },
+      {
+        "asset": "background6-2.png",
+        "size": [
+          512,
+          511
+        ],
+        "core": [
+          1020,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1019,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "94ce5bd9835f5649c1e367f0ffff2c9ea05672318efeb3bb40fb725bc077e677",
+        "encoded_sha256": "10a8cec69f360646c9cfd273b00d8bc8a3a7d69a705bbf1839295ae1f6ce0660"
+      },
+      {
+        "asset": "background6-3.png",
+        "size": [
+          512,
+          511
+        ],
+        "core": [
+          1530,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1529,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "96876fa99e5fa4928d1edd359cb90177af0b88bcc501403811321a92172ef447",
+        "encoded_sha256": "57f6138095a9a38b9d6bc1c0a9665f81f59f23a9912ead965c2875c502df0654"
+      },
+      {
+        "asset": "background6-4.png",
+        "size": [
+          512,
+          511
+        ],
+        "core": [
+          2040,
+          0,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          2039,
+          0,
+          512,
+          511
+        ],
+        "rgba_sha256": "1dcaf6dd66307d016fdccc0cb28405e9c8675ca1b4b0c6c664ca95e8b01c6de1",
+        "encoded_sha256": "d6e5bf8c81e297d7f1d64c1b627d6262f287fe2404a53053a014c3115ce19c7e"
+      },
+      {
+        "asset": "background6-5.png",
+        "size": [
+          267,
+          511
+        ],
+        "core": [
+          2550,
+          0,
+          266,
+          510
+        ],
+        "source_rectangle": [
+          2549,
+          0,
+          267,
+          511
+        ],
+        "rgba_sha256": "1e92e1f92c82a9a9dbdfd05e1de70c9e9413995c973bb90909a1b750608764dc",
+        "encoded_sha256": "0b461671a8b55ed74f8bbb60086242d41fcedbf7f6a6f00e54dee3f5d2bbe3ee"
+      },
+      {
+        "asset": "background6-6.png",
+        "size": [
+          511,
+          512
+        ],
+        "core": [
+          0,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          0,
+          509,
+          511,
+          512
+        ],
+        "rgba_sha256": "96275c45264cb5c290faa85d68ad1a273a666486f29b316150f8ff30d324a625",
+        "encoded_sha256": "b677208b6fb7e9dd2be420b8d0f441ab0edc3ef9aca9449aba7e31dab9a06a8f"
+      },
+      {
+        "asset": "background6-7.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          510,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          509,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "bf9a9b38dc9fd20e7bc97258e84ad40b9fd13c0c74be5d662097a4dddace3c8e",
+        "encoded_sha256": "cfc4d743c2aa5269551df2329d048c1e69eca64888357967d41d00c6ec3c46f2"
+      },
+      {
+        "asset": "background6-8.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1020,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1019,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "a9ef609e3eb8c35a6c4952b8128b3ea20b4803ab671ee67cf6e57a4f889d1261",
+        "encoded_sha256": "9346d0c256b9745914ff63ff583973ba7063e92ac359e646b82363c61f263ff8"
+      },
+      {
+        "asset": "background6-9.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1530,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1529,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "91214653991b1f2841badaeddc3fa3da12fc576289e53da82db01cacad2d056c",
+        "encoded_sha256": "cd621f3a1ea56d992a3a4f03b4ee9fa9baeda125e0d7b83b5d5ed4937b39cd97"
+      },
+      {
+        "asset": "background6-10.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          2040,
+          510,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          2039,
+          509,
+          512,
+          512
+        ],
+        "rgba_sha256": "531b9e59dbccc533d6d0ac1bb8e47824daf990f8cc365e1571362f72d633e05e",
+        "encoded_sha256": "edcd34c1c121055d9be2c87c0e2035c05b872f346e0f16232a345cebf3b2b0ef"
+      },
+      {
+        "asset": "background6-11.png",
+        "size": [
+          267,
+          512
+        ],
+        "core": [
+          2550,
+          510,
+          266,
+          510
+        ],
+        "source_rectangle": [
+          2549,
+          509,
+          267,
+          512
+        ],
+        "rgba_sha256": "fbbd92ac0e2a17f5c3323449dccf5d600c03a82a753df1d4a182b7228068b562",
+        "encoded_sha256": "79a245645a5569bff39067bb79bc68fa825c55e07dd2ec477fba4b386271f8d6"
+      },
+      {
+        "asset": "background6-12.png",
+        "size": [
+          511,
+          512
+        ],
+        "core": [
+          0,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          0,
+          1019,
+          511,
+          512
+        ],
+        "rgba_sha256": "677e53671b6ade8aea6a51c1a4881847cdcfc149821a7faba3ddffb4d4a2ed3b",
+        "encoded_sha256": "d9c4497ec2243354a3cfc9a99fb832cf6cde4ac8ceb7f199fae5727e726eec43"
+      },
+      {
+        "asset": "background6-13.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          510,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          509,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "ea16930b46b8a8b3dc774497f04145c9c16e6079aaaf3bf4a20cc808334daa53",
+        "encoded_sha256": "e3b19ab73d4920003565d3087b3020ef8b1b1155b9e54cd76ec8a01de1f733a3"
+      },
+      {
+        "asset": "background6-14.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1020,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1019,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "3009cceecb37264522e546e5a0b275012f22bff43365266d2a8c1c59af3bbe63",
+        "encoded_sha256": "3b09f5609c2df21dfc5f9d841ff314186479f2c5202bcbfdd45566663ff538ed"
+      },
+      {
+        "asset": "background6-15.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          1530,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          1529,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "172cb70cb59b1b51cd5732b148575a0646f52365a294a927e0de2e8eb29927ce",
+        "encoded_sha256": "230ae0ecb73c066c3fb42e90a2b01c646f2dab62f0d61f2840e4a0ad8ad8e575"
+      },
+      {
+        "asset": "background6-16.png",
+        "size": [
+          512,
+          512
+        ],
+        "core": [
+          2040,
+          1020,
+          510,
+          510
+        ],
+        "source_rectangle": [
+          2039,
+          1019,
+          512,
+          512
+        ],
+        "rgba_sha256": "4c23e29f8690dd3858c0f58c36363c70bed956ffb528de27ea60300f847a65b6",
+        "encoded_sha256": "6f59993ab12f852e88ba33cb81c5430b932f2b559efb6755a1a5022eee4930e4"
+      },
+      {
+        "asset": "background6-17.png",
+        "size": [
+          267,
+          512
+        ],
+        "core": [
+          2550,
+          1020,
+          266,
+          510
+        ],
+        "source_rectangle": [
+          2549,
+          1019,
+          267,
+          512
+        ],
+        "rgba_sha256": "d7c7d47b0610d4df702c6bdc183b4a0c9f101c4eef240d1bd877676356d6f03b",
+        "encoded_sha256": "aa1ca8feb4451144f0d43849605e50bd6243cabea213fe5ed8725621c8790bb9"
+      },
+      {
+        "asset": "background6-18.png",
+        "size": [
+          511,
+          7
+        ],
+        "core": [
+          0,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          0,
+          1529,
+          511,
+          7
+        ],
+        "rgba_sha256": "2aeda549a85fa6ccb4d490694c141c8d10019a21756ef04f7509846624bf4030",
+        "encoded_sha256": "687fa54426815cb365d44a82262fdfcf31dc393c4497b4f157cdc61eb7d7d2e7"
+      },
+      {
+        "asset": "background6-19.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          510,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          509,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "b8d2c131eb6d6b939f6e65b3049190894387d63dd5f1e357b4f3c75950946fe4",
+        "encoded_sha256": "8bde57be45fa6d8ce86c13b4b670023906a2fbc4a76c8eddb8b7905a133b6ffd"
+      },
+      {
+        "asset": "background6-20.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          1020,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          1019,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "d542d5dd92f844619dbe14ece542a8cebd30a4136fdf8f59157124b7c353b6f1",
+        "encoded_sha256": "119c052fb9c3abbecdfac8eb90ed5f047e008aa8335472e1054ec16c9d829dd2"
+      },
+      {
+        "asset": "background6-21.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          1530,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          1529,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "a4b21f212831217e66e7746468433e26a0c239b964b73a8de1b3560646b97b3f",
+        "encoded_sha256": "cd717367163ebfd4d13503a2c0430dc62f9faf25c3f9bdec3db9791acdbf0c0e"
+      },
+      {
+        "asset": "background6-22.png",
+        "size": [
+          512,
+          7
+        ],
+        "core": [
+          2040,
+          1530,
+          510,
+          6
+        ],
+        "source_rectangle": [
+          2039,
+          1529,
+          512,
+          7
+        ],
+        "rgba_sha256": "c3f4b91c50c5aa01fd58f57606815942be1c43cb329ac7da1c90aeb31fe7fb13",
+        "encoded_sha256": "62e3e1375fa5561489480b6a8d59c170b9b30684a404e02c75a88b0f71c6ef3f"
+      },
+      {
+        "asset": "background6-23.png",
+        "size": [
+          267,
+          7
+        ],
+        "core": [
+          2550,
+          1530,
+          266,
+          6
+        ],
+        "source_rectangle": [
+          2549,
+          1529,
+          267,
+          7
+        ],
+        "rgba_sha256": "a8af728e7aa4638eabcb36bc19c4e4fe69f76176142a821369cb0e1c6cdd0258",
+        "encoded_sha256": "7e58be69565d5928cb906bb66ed7265cb1ab94f26364bc6619b6791131083956"
       }
     ]
   }

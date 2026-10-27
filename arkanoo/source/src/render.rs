@@ -690,77 +690,21 @@ pub fn draw_particles(particles: &[crate::physics::Particle]) {
 }
 pub fn draw_image_background(level: u32, darkness: u8) -> bool {
     let paths = match level {
-        1 => [
-            "background1-0.png",
-            "background1-1.png",
-            "background1-2.png",
-            "background1-3.png",
-            "background1-4.png",
-            "background1-5.png",
-        ],
-        2 => [
-            "background2-0.png",
-            "background2-1.png",
-            "background2-2.png",
-            "background2-3.png",
-            "background2-4.png",
-            "background2-5.png",
-        ],
-        3 => [
-            "background3-0.png",
-            "background3-1.png",
-            "background3-2.png",
-            "background3-3.png",
-            "background3-4.png",
-            "background3-5.png",
-        ],
-        4 => [
-            "background4-0.png",
-            "background4-1.png",
-            "background4-2.png",
-            "background4-3.png",
-            "background4-4.png",
-            "background4-5.png",
-        ],
-        5 => [
-            "background5-0.png",
-            "background5-1.png",
-            "background5-2.png",
-            "background5-3.png",
-            "background5-4.png",
-            "background5-5.png",
-        ],
-        6 => [
-            "background6-0.png",
-            "background6-1.png",
-            "background6-2.png",
-            "background6-3.png",
-            "background6-4.png",
-            "background6-5.png",
-        ],
+        1 => ["background1-0.png", "background1-1.png", "background1-2.png", "background1-3.png", "background1-4.png", "background1-5.png", "background1-6.png", "background1-7.png", "background1-8.png", "background1-9.png", "background1-10.png", "background1-11.png", "background1-12.png", "background1-13.png", "background1-14.png", "background1-15.png", "background1-16.png", "background1-17.png", "background1-18.png", "background1-19.png", "background1-20.png", "background1-21.png", "background1-22.png", "background1-23.png"],
+        2 => ["background2-0.png", "background2-1.png", "background2-2.png", "background2-3.png", "background2-4.png", "background2-5.png", "background2-6.png", "background2-7.png", "background2-8.png", "background2-9.png", "background2-10.png", "background2-11.png", "background2-12.png", "background2-13.png", "background2-14.png", "background2-15.png", "background2-16.png", "background2-17.png", "background2-18.png", "background2-19.png", "background2-20.png", "background2-21.png", "background2-22.png", "background2-23.png"],
+        3 => ["background3-0.png", "background3-1.png", "background3-2.png", "background3-3.png", "background3-4.png", "background3-5.png", "background3-6.png", "background3-7.png", "background3-8.png", "background3-9.png", "background3-10.png", "background3-11.png", "background3-12.png", "background3-13.png", "background3-14.png", "background3-15.png", "background3-16.png", "background3-17.png", "background3-18.png", "background3-19.png", "background3-20.png", "background3-21.png", "background3-22.png", "background3-23.png"],
+        4 => ["background4-0.png", "background4-1.png", "background4-2.png", "background4-3.png", "background4-4.png", "background4-5.png", "background4-6.png", "background4-7.png", "background4-8.png", "background4-9.png", "background4-10.png", "background4-11.png", "background4-12.png", "background4-13.png", "background4-14.png", "background4-15.png", "background4-16.png", "background4-17.png", "background4-18.png", "background4-19.png", "background4-20.png", "background4-21.png", "background4-22.png", "background4-23.png"],
+        5 => ["background5-0.png", "background5-1.png", "background5-2.png", "background5-3.png", "background5-4.png", "background5-5.png", "background5-6.png", "background5-7.png", "background5-8.png", "background5-9.png", "background5-10.png", "background5-11.png", "background5-12.png", "background5-13.png", "background5-14.png", "background5-15.png", "background5-16.png", "background5-17.png", "background5-18.png", "background5-19.png", "background5-20.png", "background5-21.png", "background5-22.png", "background5-23.png"],
+        6 => ["background6-0.png", "background6-1.png", "background6-2.png", "background6-3.png", "background6-4.png", "background6-5.png", "background6-6.png", "background6-7.png", "background6-8.png", "background6-9.png", "background6-10.png", "background6-11.png", "background6-12.png", "background6-13.png", "background6-14.png", "background6-15.png", "background6-16.png", "background6-17.png", "background6-18.png", "background6-19.png", "background6-20.png", "background6-21.png", "background6-22.png", "background6-23.png"],
         _ => return false,
     };
-    let mut accepted = true;
-    for index in 0..6 {
-        let col = index % 3;
-        let row = index / 3;
-        let width = if col == 2 { 128.0 } else { 256.0 };
-        let height = if row == 1 { 104.0 } else { 256.0 };
-        if !gamepkg::draw_asset_image(
-            paths[index],
-            col as f32 * 256.0,
-            60.0 + row as f32 * 256.0,
-            width,
-            height,
-        ) {
-            accepted = false;
-        }
-    }
+    let mut accepted = draw_original_tiles(paths);
     if darkness > 0 && !gamepkg::draw_rect(0.0, 60.0, 640.0, 360.0, u32::from(darkness)) {
         accepted = false;
     }
     accepted
 }
+
 pub fn draw_background(level: u32, frame: u64) -> bool {
     if level >= 1 && level <= 6 {
         return draw_image_background(level, 191);
@@ -1300,16 +1244,30 @@ pub fn draw_splash(timer: u32) -> bool {
     accepted
 }
 pub fn draw_menu_background() -> bool {
-    let mut accepted = draw_world_tiles([
-        "menu-background1-0.png",
-        "menu-background1-1.png",
-        "menu-background1-2.png",
-        "menu-background1-3.png",
-        "menu-background1-4.png",
-        "menu-background1-5.png",
-    ]);
-    if !gamepkg::draw_rect(0.0, 60.0, 640.0, 360.0, 150) {
-        accepted = false;
+    draw_image_background(1, 150)
+}
+fn draw_original_tiles(paths: [&str; 24]) -> bool {
+    let mut accepted = true;
+    let scale_x = 640.0 / 2816.0;
+    let scale_y = 360.0 / 1536.0;
+    for index in 0..24 {
+        let core_x = (index % 6) * 510usize;
+        let core_y = (index / 6) * 510usize;
+        let core_w = (2816 - core_x).min(510);
+        let core_h = (1536 - core_y).min(510);
+        let left = core_x.saturating_sub(1);
+        let top = core_y.saturating_sub(1);
+        let right = (core_x + core_w + 1).min(2816);
+        let bottom = (core_y + core_h + 1).min(1536);
+        let x = core_x as f32 * scale_x;
+        let y = 60.0 + core_y as f32 * scale_y;
+        let x1 = ((core_x + core_w) as f32 * scale_x).min(640.0);
+        let y1 = 60.0 + (core_y + core_h) as f32 * scale_y;
+        if !gamepkg::draw_clip(x, y, x1-x, y1-y) { accepted = false; }
+        if !gamepkg::draw_asset_image_linear(paths[index], left as f32 * scale_x,
+            60.0 + top as f32 * scale_y, (right-left) as f32 * scale_x,
+            (bottom-top) as f32 * scale_y) { accepted = false; }
+        if !gamepkg::draw_clip_reset() { accepted = false; }
     }
     accepted
 }

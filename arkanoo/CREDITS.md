@@ -13,7 +13,7 @@ game.rs. The engine integration has been rewritten for GamePKG's safe APIs.
 The safe host integration and bounded PCM mixer are new. Original visual
 procedures/assets restored in the port are identified below, including brick,
 ball and paddle art, backgrounds, rasterized Roboto lettering and startup art.
-The canonical 0.1.74 recipe enables all five original-rate sound effects and all nine original music tracks, with the original music controls and saved audio preferences. The host handles decoding and playback through bundled Rust companions. assets/ASSET_PROVENANCE.json records the exact upstream file hashes, conversion reference and all 76 losslessly optimized image hashes. Individual artist/item credits for bounce, glass and launch were not supplied by upstream. Recorded audio uses the separate Pixabay Content License; see assets/LICENSE-PIXABAY-AUDIO.txt.
+The canonical 0.1.75 candidate recipe enables all five original-rate sound effects and all nine original music tracks, with the original music controls and saved audio preferences. The host handles decoding and playback through bundled Rust companions. assets/ASSET_PROVENANCE.json records the exact upstream file hashes, conversion reference and all 178 lossless image hashes. Individual artist/item credits for bounce, glass and launch were not supplied by upstream. Recorded audio uses the separate Pixabay Content License; see assets/LICENSE-PIXABAY-AUDIO.txt.
 The port uses a 640x480 canvas and GamePKG host randomness instead of SDL2,
 rand or filesystem access. Launch directions use rejection sampling, and bonus
 selection uses independent probability/weight draws.
@@ -1303,3 +1303,7 @@ in the host repository; those test recordings are not duplicated in this game
 package. Players need no Python, SDL conversion tools or external audio decoder.
 This audio delivery does not establish complete game fidelity: original-photo
 sampling at noncanonical resolutions remains a separate known difference.
+
+
+Source-resolution artwork candidate (0.1.75, unreleased):
+The six pinned 2816×1536 backgrounds retain every original pixel in 144 lossless RGB tiles with filtering halos. The menu reuses background1; the 34 other images, original effects, all nine music tracks, game logic and controls are unchanged. The signed large-images-v1 profile requires a 256 MiB hard/recommended game-memory limit, retains the original 3/7 MiB effect/music shares and separately bounds host artwork buffers. Previous 16 MiB/8 MiB legacy rendering is frozen as a host test fixture. This candidate addresses original-photo sampling; broader fidelity and platform qualifications remain separate.

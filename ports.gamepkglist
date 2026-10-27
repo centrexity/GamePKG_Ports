@@ -12,7 +12,7 @@ download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0
 id = "com.gamepkg.arkanoo"
 description = "Break colorful brick layouts with a paddle and bouncing ball. Collect power-ups, manage extra balls and work through nine campaign layouts."
 title = "Arkanoo"
-version = "0.1.74"
+version = "0.1.75"
 requires_rom = false
 download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.6/arkanoo.gamepkg"
 
