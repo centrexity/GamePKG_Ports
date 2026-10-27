@@ -9,8 +9,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: centrexity/GamePKG
-          # Matching source review introducing the signed original-artwork profile.
-          ref: 592ce414ef071e255ba9a4ece9eeef226537fa96
+          # Matching host includes signed artwork resources and portal pixel regressions.
+          ref: fff59bd191d5f2719b958bb0fb239045c45387fa
           path: host
       - uses: actions/checkout@v4
         with:
