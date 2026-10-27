@@ -22,11 +22,18 @@ License: https://pixabay.com/service/terms/#license
 Summary: https://pixabay.com/service/license-summary/
 
 The prepared WAV files preserve the original game's SDL-decoded stereo content,
-converted from the original 44,100 Hz mixer format to the host's 48,000 Hz PCM
-format. No trimming, normalization or looping was applied. They accompany the
+at the original 44,100 Hz mixer rate. The bundled host converter supplies
+the output device format. No trimming, normalization or looping was applied. They accompany the
 game adaptation and are not offered as a standalone sound library.
 
 The original source files, their hashes, creators and conversion reference are
 listed in the repository's recorded-effects fixture and CREDITS.md. Players
-need no conversion tool or MP3 decoder. Original music is not included or
-covered by this notice.
+need no conversion tool or external MP3 decoder.
+
+The nine music/*.mp3 tracks listed in audio/music-list.txt are included unchanged
+from the same pinned upstream revision. Upstream credits their music to Pixabay;
+individual artist names and item URLs were not supplied. Exact filenames and
+upstream hashes are recorded in the signed assets/ASSET_PROVENANCE.json.
+These recordings accompany the game adaptation under the same Pixabay Content
+License; they are not relicensed under the code license or offered as a
+standalone music library.

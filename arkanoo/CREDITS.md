@@ -13,7 +13,7 @@ game.rs. The engine integration has been rewritten for GamePKG's safe APIs.
 The safe host integration and bounded PCM mixer are new. Original visual
 procedures/assets restored in the port are identified below, including brick,
 ball and paddle art, backgrounds, rasterized Roboto lettering and startup art.
-All five original recorded sound effects are restored with the provenance below. The canonical source also contains the original music controller, music settings and shared host effect playback. Complete recorded-audio assembly remains private while asset delivery is unfinished; the default package retains its effect-only profile. Individual artist/item credits for bounce, glass and launch were not supplied by upstream.
+The canonical 0.1.74 recipe enables all five original-rate sound effects and all nine original music tracks, with the original music controls and saved audio preferences. The host handles decoding and playback through bundled Rust companions. assets/ASSET_PROVENANCE.json records the exact upstream file hashes, conversion reference and all 76 losslessly optimized image hashes. Individual artist/item credits for bounce, glass and launch were not supplied by upstream. Recorded audio uses the separate Pixabay Content License; see assets/LICENSE-PIXABAY-AUDIO.txt.
 The port uses a 640x480 canvas and GamePKG host randomness instead of SDL2,
 rand or filesystem access. Launch directions use rejection sampling, and bonus
 selection uses independent probability/weight draws.
@@ -1286,3 +1286,20 @@ render cancellation and simultaneous loss of both WebGL contexts. Exact whole
 frame hashes, advancing music, complete audio-budget release and bounded healthy
 context counts pass. This is host behavior; original port source/assets remain
 unchanged. Broader native/device/browser graphics-reset qualification remains open.
+
+
+Canonical recorded-audio delivery (recipe 0.1.74, unreleased):
+All nine pinned original MP3 music tracks are retained byte for byte; five
+effects retain the original SDL-decoded 44,100 Hz stereo samples. No trimming,
+normalization or replacement recordings. The signed effect/music shares are
+3/7 MiB inside the unchanged 16 MiB hard memory limit. The remaining 6 MiB
+belongs to the game. PNG encoding is losslessly optimized so the complete
+recorded package fits the existing browser export cap without omitting images
+or tracks. Earlier private-candidate notes above describe the migration history;
+this recipe now selects recorded playback by default.
+
+Legacy 48 kHz effect-only packages remain covered by separately frozen fixtures
+in the host repository; those test recordings are not duplicated in this game
+package. Players need no Python, SDL conversion tools or external audio decoder.
+This audio delivery does not establish complete game fidelity: original-photo
+sampling at noncanonical resolutions remains a separate known difference.
