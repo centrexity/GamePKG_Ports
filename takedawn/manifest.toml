@@ -1,6 +1,6 @@
 format_version = 1
 id = "com.gamepkg.takedawn"
-version = "0.1.3"
+version = "0.1.4"
 title = "Burnout 3: Takedown"
 description = "The pinned Takedawn native implementation with prepared Rust game functions. Build locally and choose your original supported Xbox USA ISO. Original media is read in place."
 author = "Takedawn and GamePKG contributors"

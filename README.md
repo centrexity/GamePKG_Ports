@@ -50,7 +50,17 @@ ceiling to at least 4096 MiB. The first full optimized Rust build took about
 77 minutes on the test machine; verified compiler checkpoints retain completed
 work across later attempts.
 
-The v0.1.3 candidate carries the reviewed v14 source kit. Native cache publication
+The 0.1.4 candidate carries the v15 source kit. Its new controller policy follows
+the original player assignments and separate driving/result states. The complete
+staged input source passes 213 cases under address, undefined-behavior and leak
+sanitizers at 32 and 64 bits, preserving all 15 glyph families. Actual native
+reference runs verify both PS2 accelerators, held-button pause protection and
+Resume with player one pausing in Xbox/Nintendo layouts; a separate Xbox-layout
+check passes player two pausing. All prepared Rust
+sources and 24,035 exports remain unchanged from v14. The normal unseeded signed
+v15 build and platform qualification are still in progress.
+
+The verified v14 baseline includes the following scoped checks. Native cache publication
 and interrupt masking use the original host runtime and generated Rust helpers,
 including the original following-instruction interrupt delay. Both Linux and
 standalone Windows builds retain all 24,035 exports across 487 units. Under Wine,
@@ -63,8 +73,10 @@ completes the original three-lap race and a 15,000-frame Time Attack session.
 These observations do not establish complete campaign coverage or physical
 Windows GPU/audio/controller access. The new host stops and reports any later
 unsupported instruction or unresolved function. Its optional frame-stall watchdog
-is separate and off by default. Full signed-package Build/repair and updated
-hardware-preview packaging remain under verification.
+is separate and off by default. The v14 signed-package Windows Build/repair gate and its immutable hardware
+preview are verified separately; they do not qualify the new v15 input policy.
+Full v15 signed delivery, mixed split-screen prompt presentation, natural
+multiplayer completion and physical controller/platform checks remain open.
 
 The source catalog targets the next v0.1.6 ports release. Its new downloads are
 not yet published; the stable downloadable catalog remains the previous release

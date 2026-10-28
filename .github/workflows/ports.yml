@@ -9,8 +9,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: centrexity/GamePKG
-          # Matching host includes signed artwork resources and portal pixel regressions.
-          ref: fff59bd191d5f2719b958bb0fb239045c45387fa
+          # Matching host admits v15 and includes the complete artwork/reference gates.
+          ref: 3135adfa25a02298e50e12da08f5d008fe19bef5
           path: host
       - uses: actions/checkout@v4
         with:
@@ -31,7 +31,7 @@ jobs:
       - name: Verify the actual native source archive and signed package
         working-directory: host
         env:
-          GAMEPKG_TAKEDAWN_KIT_SHA256: 7cfd18d26b8a6e51005f75d7cedc1c01925237574bc579df5027b0167413a986
+          GAMEPKG_TAKEDAWN_KIT_SHA256: 7f56741fa8f0a56d3e718af1f772bae9200514b6293c2d218e56cde700123c8b
         run: |
           set -euo pipefail
           export GAMEPKG_TAKEDAWN_KIT="$PWD/ports/takedawn/assets/takedawn-source-kit.tar.gz"
