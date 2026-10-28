@@ -136,7 +136,7 @@ pub fn draw_ice_brick(health: u8, max_health: u8, frame: u64, x: f32, y: f32) ->
     let by = ((y - 60.0) * 2.0) as i32;
     let x = bx as f32 * 0.5;
     let y = 60.0 + by as f32 * 0.5;
-    let pulse = (frame as f32 * 0.05).sin() * 20.0;
+    let pulse = crate::portable_math::sin(frame as f32 * 0.05) * 20.0;
     let opacity = (180.0 + pulse) as u8;
     let base = gamepkg::draw_rect(x, y, 30.0, 10.0, 0xc8f0ff00 | u32::from(opacity));
     // Glints extend through the original inclusive right/bottom endpoints.

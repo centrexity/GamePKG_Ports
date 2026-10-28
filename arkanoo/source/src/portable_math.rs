@@ -102,3 +102,11 @@ pub fn sin_cos(value: f32) -> [f32; 2] {
     }
     [s as f32, c as f32]
 }
+
+// Scalar callers use the same fixed reduction as paired effects.
+pub fn sin(value: f32) -> f32 {
+    sin_cos(value)[0]
+}
+pub fn cos(value: f32) -> f32 {
+    sin_cos(value)[1]
+}

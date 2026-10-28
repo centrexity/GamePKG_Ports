@@ -634,7 +634,10 @@ fn unicode_viewport_limit(parts: &[&str], right: i32, total: usize) -> usize {
         return total;
     };
     let mut recent = [[u32::MAX; 3]; 16];
-    let mut compositions = [[u32::MAX; 3]; 16];
+    let mut compositions = [[u32::MAX; 4]; 16];
+    // Repeated identifiers reuse exact scalar properties. Cache collisions only
+    // replace an entry; every hit checks the complete scalar before reuse.
+    let mut properties = [[u32::MAX; 4]; 16];
     let mut selectors = [[u32::MAX; 2]; 16];
     let mut variation_tail = false;
     let mut used_glyphs = [false; dynamic_font_data::UNICODE_GLYPH_COUNT];
@@ -646,7 +649,17 @@ fn unicode_viewport_limit(parts: &[&str], right: i32, total: usize) -> usize {
     for part in parts {
         for character in part.chars() {
             let cp = character as u32;
-            if unicode_mark_char(cp) {
+            let property_bucket = ((cp ^ (cp >> 4)) % 16) as usize;
+            if properties[property_bucket][0] != cp {
+                properties[property_bucket] = [
+                    cp,
+                    u32::from(unicode_mark_char(cp)),
+                    unicode_class(cp),
+                    u32::from(unicode_invisible(cp)),
+                ];
+            }
+            let descriptor = properties[property_bucket];
+            if descriptor[1] != 0 {
                 if unicode_variation(cp) {
                     if current_scalar == u32::MAX {
                         return total;
@@ -666,13 +679,13 @@ fn unicode_viewport_limit(parts: &[&str], right: i32, total: usize) -> usize {
                     cluster_length += 1;
                     continue;
                 }
-                let mark_class = unicode_class(cp);
+                let mark_class = descriptor[2];
                 if current_scalar == u32::MAX
                     || variation_tail
                     || mark_class == 0
                     || mark_class < previous_mark_class
                     || unicode_variation(cp)
-                    || unicode_invisible(cp)
+                    || descriptor[3] != 0
                 {
                     return total;
                 }
@@ -682,14 +695,14 @@ fn unicode_viewport_limit(parts: &[&str], right: i32, total: usize) -> usize {
                         compositions[bucket][2]
                     } else {
                         let found = viewport_composition(current_scalar, cp);
-                        compositions[bucket] = [current_scalar, cp, found];
+                        compositions[bucket] = [current_scalar, cp, found, unicode_nominal(found)];
                         found
                     };
                 if combined == u32::MAX {
                     return total;
                 }
                 current_scalar = combined;
-                current_glyph = unicode_nominal(combined);
+                current_glyph = compositions[bucket][3];
                 previous_mark_class = mark_class;
                 cluster_length += 1;
                 continue;
@@ -715,8 +728,8 @@ fn unicode_viewport_limit(parts: &[&str], right: i32, total: usize) -> usize {
                 let found = if lower < scalars.len() && scalars[lower][0] == cp {
                     scalars[lower]
                 } else if cp == 0
-                    || unicode_class(cp) != 0
-                    || unicode_invisible(cp)
+                    || descriptor[2] != 0
+                    || descriptor[3] != 0
                     || unicode_variation(cp)
                 {
                     [cp, u32::MAX, u32::MAX]

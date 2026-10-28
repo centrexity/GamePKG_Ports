@@ -24,7 +24,8 @@ pub fn campaign(level: u32, frame: u64) -> Option<Background> {
             for i in 0i32..100 {
                 let x = (i * 137).wrapping_add((time * 0.5 * i as f32 * 0.01) as i32) % 1280;
                 let y = (i * 241) % 720;
-                let brightness = ((time * 0.05 + i as f32 * 0.5).sin() * 127.0 + 128.0) as u8;
+                let brightness =
+                    (crate::portable_math::sin(time * 0.05 + i as f32 * 0.5) * 127.0 + 128.0) as u8;
                 let size = 1 + i % 3;
                 let color = (u32::from(brightness) << 24)
                     | (u32::from(brightness) << 16)
@@ -36,7 +37,7 @@ pub fn campaign(level: u32, frame: u64) -> Option<Background> {
         }
         8 => {
             for ring in 1..=6 {
-                let pulse = (time * 0.05 + ring as f32 * 0.5).sin();
+                let pulse = crate::portable_math::sin(time * 0.05 + ring as f32 * 0.5);
                 let radius = (ring as f32 * 80.0 + pulse * 20.0) as i32;
                 let opacity = ((pulse + 1.0) * 60.0) as u8;
                 let color = 0x64329600 | u32::from(opacity);

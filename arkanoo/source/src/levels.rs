@@ -47,7 +47,7 @@ impl Recipe {
         let seed = u64::from(level) * 1000 + row as u64 * 100 + col as u64 + u64::from(attempt);
         match self.kind {
             0 => Rng::new(seed).unit() < self.value,
-            1 => (col as f32 * 0.5 + row as f32 * 0.3).sin() > self.value,
+            1 => crate::portable_math::sin(col as f32 * 0.5 + row as f32 * 0.3) > self.value,
             2 => ((row as u64 + col as u64) / self.rule).is_multiple_of(2),
             3 => {
                 let dx = col as f32 - 10.0;
@@ -79,8 +79,8 @@ impl Recipe {
             },
             _ => {
                 let phase = row as f32 * 0.5;
-                let first = phase.sin() * 5.0 + 10.0;
-                let second = (phase + core::f32::consts::PI).sin() * 5.0 + 10.0;
+                let first = crate::portable_math::sin(phase) * 5.0 + 10.0;
+                let second = crate::portable_math::sin(phase + core::f32::consts::PI) * 5.0 + 10.0;
                 (col as f32 - first).abs() < 2.5 || (col as f32 - second).abs() < 2.5
             }
         }
@@ -120,7 +120,7 @@ pub fn campaign(level: u32, row: usize, col: usize) -> bool {
         7 => {
             let dx = col as f32 - 10.0;
             let dy = row as f32 - 5.0;
-            (dy.atan2(dx) * 2.0 + (dx * dx + dy * dy).sqrt() * 0.5).sin() > 0.0
+            crate::portable_math::sin(dy.atan2(dx) * 2.0 + (dx * dx + dy * dy).sqrt() * 0.5) > 0.0
         }
         8 => {
             let dx = col as f32 - 10.0;
