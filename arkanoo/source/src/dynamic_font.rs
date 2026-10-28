@@ -318,6 +318,10 @@ fn unicode_advance(points: &[u32], index: usize) -> i32 {
 }
 pub struct DynamicLabel {
     points: Vec<u32>,
+    // Exact pen and ink bounds for each group of 64 shaped glyphs. Raster
+    // tiles can skip offscreen groups without assuming positive advances or
+    // truncating a centered name or its combining marks.
+    raster_groups: Vec<[i32; 3]>,
     pub width: i32,
     pub height: i32,
     origin_x: i32,
@@ -325,15 +329,24 @@ pub struct DynamicLabel {
 }
 pub fn unicode_layout(content: &str) -> Option<DynamicLabel> {
     let points = unicode_shape(content)?;
+    let mut raster_groups = Vec::with_capacity(points.len().div_ceil(64));
     let mut x = 0i32;
     let mut min_x = 0;
     let mut max_x = 0;
     let mut min_y = 0;
     let mut max_y = dynamic_font_data::UNICODE_HEIGHT;
     for index in 0..points.len() {
+        if index % 64 == 0 {
+            raster_groups.push([x, i32::MAX, i32::MIN]);
+        }
         let metrics = unicode_metrics(points[index]);
         let left = x.div_euclid(64) + metrics[0];
         let top = dynamic_font_data::UNICODE_ASCENT - metrics[1];
+        if metrics[2] > 0 && metrics[3] > 0 {
+            let group = &mut raster_groups[index / 64];
+            group[1] = group[1].min(left);
+            group[2] = group[2].max(left + metrics[2]);
+        }
         min_x = min_x.min(left);
         max_x = max_x.max(left + metrics[2]);
         min_y = min_y.min(top);
@@ -343,6 +356,7 @@ pub fn unicode_layout(content: &str) -> Option<DynamicLabel> {
     max_x = max_x.max(x.div_euclid(64));
     Some(DynamicLabel {
         points,
+        raster_groups,
         width: max_x - min_x,
         height: max_y - min_y,
         origin_x: min_x,
@@ -367,39 +381,48 @@ pub fn unicode_raster_slice(
         }
     }
     let data = dynamic_font_data::unicode_atlas_pixels();
-    let mut x = 0i32;
-    for index in 0..label.points.len() {
-        let metrics = unicode_metrics(label.points[index]);
-        let left = x.div_euclid(64) + metrics[0] - label.origin_x - slice_left;
-        let top = dynamic_font_data::UNICODE_ASCENT - metrics[1] - label.origin_y;
-        if left < actual_width && left + metrics[2] > 0 && metrics[2] > 0 {
-            let mut offset = 0;
-            let mut at = metrics[5] as usize;
-            let end = at + metrics[6] as usize;
-            while at < end {
-                let run_end = offset + i32::from(data[at]);
-                // Transparent runs leave the prefilled hidden RGB unchanged.
-                if data[at + 1] == 0 {
-                    offset = run_end;
-                }
-                while offset < run_end {
-                    let column = offset % metrics[2];
-                    let py = top + offset / metrics[2];
-                    let count = (metrics[2] - column).min(run_end - offset);
-                    if py >= 0 && py < actual_height {
-                        let first = (left + column).max(0);
-                        let last = (left + column + count).min(actual_width);
-                        for px in first..last {
-                            pixels[(py as usize * actual_width as usize + px as usize) * 4 + 3] |=
-                                data[at + 1];
-                        }
-                    }
-                    offset += count;
-                }
-                at += 2;
-            }
+    for (group_index, group) in label.raster_groups.iter().enumerate() {
+        if group[1] >= group[2]
+            || i64::from(group[1]) - i64::from(label.origin_x) - i64::from(slice_left)
+                >= i64::from(actual_width)
+            || i64::from(group[2]) - i64::from(label.origin_x) - i64::from(slice_left) <= 0
+        {
+            continue;
         }
-        x += unicode_advance(&label.points, index);
+        let mut x = group[0];
+        for index in group_index * 64..((group_index + 1) * 64).min(label.points.len()) {
+            let metrics = unicode_metrics(label.points[index]);
+            let left = x.div_euclid(64) + metrics[0] - label.origin_x - slice_left;
+            let top = dynamic_font_data::UNICODE_ASCENT - metrics[1] - label.origin_y;
+            if left < actual_width && left + metrics[2] > 0 && metrics[2] > 0 {
+                let mut offset = 0;
+                let mut at = metrics[5] as usize;
+                let end = at + metrics[6] as usize;
+                while at < end {
+                    let run_end = offset + i32::from(data[at]);
+                    // Transparent runs leave the prefilled hidden RGB unchanged.
+                    if data[at + 1] == 0 {
+                        offset = run_end;
+                    }
+                    while offset < run_end {
+                        let column = offset % metrics[2];
+                        let py = top + offset / metrics[2];
+                        let count = (metrics[2] - column).min(run_end - offset);
+                        if py >= 0 && py < actual_height {
+                            let first = (left + column).max(0);
+                            let last = (left + column + count).min(actual_width);
+                            for px in first..last {
+                                pixels[(py as usize * actual_width as usize + px as usize) * 4
+                                    + 3] |= data[at + 1];
+                            }
+                        }
+                        offset += count;
+                    }
+                    at += 2;
+                }
+            }
+            x += unicode_advance(&label.points, index);
+        }
     }
     pixels
 }
