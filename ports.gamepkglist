@@ -44,6 +44,6 @@ download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0
 id = "com.gamepkg.takedawn"
 description = "Build the pinned native Takedawn implementation and prepared Rust game functions locally. Requires GamePKG 0.1.18 on Linux x86-64 or the native Windows x64 preview, and your supported Xbox USA ISO, read in place."
 title = "Burnout 3: Takedown — requires your supported Xbox USA ISO"
-version = "0.1.4"
+version = "0.1.5"
 requires_rom = true
 download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.6/takedawn.gamepkg"

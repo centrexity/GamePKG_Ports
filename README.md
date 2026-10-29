@@ -40,7 +40,8 @@ Review the [published creator fingerprint](creator-identity.json) before approvi
 The [Takedawn recipe](takedawn) targets GamePKG 0.1.18 on Linux x86-64 and the Windows x64 preview. It
 contains prepared Rust game functions and the pinned original native runtime.
 The current candidate recovers two previously unresolved native paths, with
-128 C/Rust behavior comparisons; 13 upstream unresolved entries remain.
+128 C/Rust behavior comparisons; 13 upstream unresolved labels remain under
+audit and are not all proven to be valid function entries.
 It also restores the original native SSE floating-point control setup, tested
 against hardware rounding, status and flush-to-zero behavior.
 Players build with Rust/Clang; Windows tools are prepared through Settings or
@@ -50,15 +51,25 @@ ceiling to at least 4096 MiB. The first full optimized Rust build took about
 77 minutes on the test machine; verified compiler checkpoints retain completed
 work across later attempts.
 
-The 0.1.4 candidate carries the v15 source kit. Its new controller policy follows
-the original player assignments and separate driving/result states. The complete
-staged input source passes 213 cases under address, undefined-behavior and leak
-sanitizers at 32 and 64 bits, preserving all 15 glyph families. Actual native
-reference runs verify both PS2 accelerators, held-button pause protection and
-Resume with player one pausing in Xbox/Nintendo layouts; a separate Xbox-layout
-check passes player two pausing. All prepared Rust
-sources and 24,035 exports remain unchanged from v14. The normal unseeded signed
-v15 build and platform qualification are still in progress.
+The 0.1.5 candidate carries the v16 source kit. It retains the v15 policy for
+original player/controller assignments and adds the shared-results replay guard:
+a replay behind the results menu must not turn confirmation into acceleration.
+The complete staged input source passes 261 cases with address, undefined-behavior
+and leak checks on both 32-bit and 64-bit Linux, preserving all 15 glyph families.
+
+A normal signed Linux v16 Build and integrity check pass while preserving all
+487 verified cached Rust object hashes/timestamps and all 24,035 native exports.
+Only the host C input policy differs from v15; prepared Rust sources and ABI
+support are byte-identical. Actual native Team Crush reaches separate player
+scores and a combined result, preserves the normal button prompts, accepts A
+while the background replay's cars are active, and reports successful autosave.
+Virtual pads stand in for physical controllers, and test audio uses dummy output.
+
+The v15 baseline already passes unseeded signed Linux/Windows Build and repair,
+Linux Race/Crash and split-screen control checks, and a natural player-one
+three-lap finish. A natural player-two race finish, complete mixed prompts and
+campaigns, and v16 Windows gameplay remain unqualified. No preview archive or
+previously published package is replaced by this candidate.
 
 The verified v14 baseline includes the following scoped checks. Native cache publication
 and interrupt masking use the original host runtime and generated Rust helpers,
@@ -74,9 +85,8 @@ These observations do not establish complete campaign coverage or physical
 Windows GPU/audio/controller access. The new host stops and reports any later
 unsupported instruction or unresolved function. Its optional frame-stall watchdog
 is separate and off by default. The v14 signed-package Windows Build/repair gate and its immutable hardware
-preview are verified separately; they do not qualify the new v15 input policy.
-Full v15 signed delivery, mixed split-screen prompt presentation, natural
-multiplayer completion and physical controller/platform checks remain open.
+preview are verified separately. Complete native multiplayer events/campaigns,
+physical controller/platform checks and current Windows gameplay remain open.
 
 The source catalog targets the next v0.1.6 ports release. Its new downloads are
 not yet published; the stable downloadable catalog remains the previous release

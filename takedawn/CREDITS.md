@@ -11,3 +11,8 @@ runtime. The package has no external Rust game dependencies.
 The thumbnail is an original geometric racing illustration by GamePKG
 contributors, under Apache-2.0. Its editable SVG is kept with the port artwork.
 It contains no original game artwork or logo.
+
+The 0.1.5 candidate uses GamePKG's reviewed v16 source kit. Its shared-results
+input guard keeps menu buttons and prompts correct while the original game
+replays the crash behind its results. Prepared Rust game functions are unchanged.
+This is a host input adaptation; it replaces no original game function or media.
