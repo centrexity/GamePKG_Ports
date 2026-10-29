@@ -230,8 +230,8 @@ impl Particle {
         let mut shard_points = Vec::new();
         let half = self.size / 2;
         let angle = self.rotation.to_radians();
-        let cosine = angle.cos();
-        let sine = angle.sin();
+        let cosine = crate::portable_math::cos(angle);
+        let sine = crate::portable_math::sin(angle);
         for dx in -half..=half {
             for dy in -half..=half {
                 if dx.abs() + dy.abs() <= half {
@@ -457,6 +457,101 @@ pub fn portal_points(frame: u64, timer: u64) -> Vec<EffectPoint> {
     }
     dots
 }
+// Preserve the original point compositor, but avoid materializing the filled
+// glow as tens of thousands of EffectPoints in a native worker's small heap.
+pub fn portal_image(frame: u64, timer: u64) -> Option<ParticleImage> {
+    if timer <= 150 {
+        return effect_image(&portal_points(frame, timer));
+    }
+    if timer <= 180 {
+        let progress = (timer - 151) as f32 / 30.0;
+        let radius = (50.0 + progress * 200.0) as i32;
+        let opacity = ((1.0 - progress) * 255.0) as u8;
+        return portal_glow_image(radius, opacity, 0xffc8ff00, true);
+    }
+    if timer < 270 {
+        let progress = (timer - 181) as f32 / 89.0;
+        let opacity = ((1.0 - progress) * 150.0) as u8;
+        return portal_glow_image(80, opacity, 0xc896ff00, false);
+    }
+    None
+}
+fn portal_pixel_opacity(dx: i32, dy: i32, radius: i32, opacity: u8) -> u32 {
+    let square = dx * dx + dy * dy;
+    if square > radius * radius {
+        return 0;
+    }
+    let distance = (square as f32).sqrt();
+    let edge = 1.0 - distance / radius as f32;
+    u32::from((opacity as f32 * edge) as u8)
+}
+fn portal_glow_image(radius: i32, opacity: u8, color: u32, center: bool) -> Option<ParticleImage> {
+    if opacity == 0 {
+        return None;
+    }
+    let mut left = 1280i32;
+    let mut top = 720i32;
+    let mut right = -1i32;
+    let mut bottom = -1i32;
+    // First determine exactly the visible bounds, retaining float rounding at
+    // the edge. No allocation or approximate radius threshold is needed.
+    for dy in -radius..=radius {
+        for dx in -radius..=radius {
+            let x = 640 + dx;
+            let y = 360 + dy;
+            if (0..1280).contains(&x)
+                && (0..720).contains(&y)
+                && portal_pixel_opacity(dx, dy, radius, opacity) != 0
+            {
+                left = left.min(x);
+                right = right.max(x);
+                top = top.min(y);
+                bottom = bottom.max(y);
+            }
+        }
+    }
+    if center {
+        left = left.min(610);
+        right = right.max(670);
+        top = top.min(330);
+        bottom = bottom.max(390);
+    }
+    if left > right || top > bottom {
+        return None;
+    }
+    let width = (right - left + 1) as u32;
+    let height = (bottom - top + 1) as u32;
+    let mut pixels = Vec::new();
+    pixels.resize(width as usize * height as usize * 4, 0u8);
+    for y in top..=bottom {
+        for x in left..=right {
+            let pixel_opacity = portal_pixel_opacity(x - 640, y - 360, radius, opacity);
+            let offset = ((y - top) as usize * width as usize + (x - left) as usize) * 4;
+            blend_effect_pixel(&mut pixels, offset, color, pixel_opacity);
+        }
+    }
+    if center {
+        // The original white disk is a second pass over the glow. Keep its
+        // integer coverage and the existing per-point rounding/order.
+        for dy in -30..=30 {
+            for dx in -30..=30 {
+                if dx * dx + dy * dy <= 30 * 30 {
+                    let offset = ((360 + dy - top) as usize * width as usize
+                        + (640 + dx - left) as usize)
+                        * 4;
+                    blend_effect_pixel(&mut pixels, offset, 0xffffff00, u32::from(opacity));
+                }
+            }
+        }
+    }
+    Some(ParticleImage {
+        left,
+        top,
+        width,
+        height,
+        pixels,
+    })
+}
 fn portal_glow(dots: &mut Vec<EffectPoint>, radius: i32, opacity: u8, color: u32) {
     for dy in -radius..=radius {
         for dx in -radius..=radius {
@@ -492,7 +587,8 @@ fn portal_rings(dots: &mut Vec<EffectPoint>, frame: u64, timer: u64) {
             continue;
         }
         let rotation = frame as f32 * if closing { 0.15 } else { 0.1 } + i as f32 * 0.3;
-        let base_alpha = ((frame as f32 * 0.05 + i as f32 * 0.5).sin() * 100.0 + 155.0) as u8;
+        let base_alpha =
+            (crate::portable_math::sin(frame as f32 * 0.05 + i as f32 * 0.5) * 100.0 + 155.0) as u8;
         let point_opacity = if closing {
             (base_alpha as f32 * (1.0 - progress * 0.3)) as u8
         } else {
@@ -513,8 +609,8 @@ fn portal_rings(dots: &mut Vec<EffectPoint>, frame: u64, timer: u64) {
             (u32::from(red) << 24) | (50 << 16) | (u32::from(blue) << 8) | u32::from(point_opacity);
         for j in 0..32 {
             let angle = (j as f32 / 32.0) * core::f32::consts::PI * 2.0 + rotation;
-            let x = 640 + (angle.cos() * radius as f32) as i32;
-            let y = 360 + (angle.sin() * radius as f32) as i32;
+            let x = 640 + (crate::portable_math::cos(angle) * radius as f32) as i32;
+            let y = 360 + (crate::portable_math::sin(angle) * radius as f32) as i32;
             effect_circle(dots, x, y, 4, color);
         }
     }
@@ -554,7 +650,7 @@ pub fn ball_effect_points(ball: &Ball, frame: u64) -> Vec<EffectPoint> {
             let x = cx + (dx * distance) as i32;
             let y = cy + (dy * distance) as i32;
             let pulse = if super_fireball {
-                (frame as f32 * 0.3).sin() * 0.2 + 0.8
+                crate::portable_math::sin_cos(frame as f32 * 0.3)[0] * 0.2 + 0.8
             } else {
                 1.0
             };
@@ -581,10 +677,13 @@ pub fn ball_effect_points(ball: &Ball, frame: u64) -> Vec<EffectPoint> {
             let spin = frame as f32 * 0.2;
             for index in 0..12 {
                 let angle = (index as f32 / 12.0) * core::f32::consts::PI * 2.0 + spin;
-                let x = cx + (angle.cos() * 18.0) as i32;
-                let y = cy + (angle.sin() * 18.0) as i32;
+                let [sine, cosine] = crate::portable_math::sin_cos(angle);
+                let x = cx + (cosine * 18.0) as i32;
+                let y = cy + (sine * 18.0) as i32;
                 let opacity =
-                    ((frame as f32 * 0.3 + index as f32 * 0.5).sin() * 80.0 + 175.0) as u8;
+                    (crate::portable_math::sin_cos(frame as f32 * 0.3 + index as f32 * 0.5)[0]
+                        * 80.0
+                        + 175.0) as u8;
                 effect_circle(&mut dots, x, y, 3, 0xffffc800 | u32::from(opacity));
             }
         }
@@ -668,7 +767,7 @@ pub fn penguin_rects(penguin: &Penguin) -> Vec<PenguinRect> {
     let y = penguin.y as i32;
     let flying = penguin.state == 0 || penguin.state == 2;
     let hover = if flying {
-        (penguin.frame_count as f32 * 0.15).sin() * 3.0
+        crate::portable_math::sin(penguin.frame_count as f32 * 0.15) * 3.0
     } else {
         0.0
     };
@@ -781,6 +880,9 @@ pub struct Game {
 }
 impl Game {
     pub fn new() -> Self {
+        Self::new_audio(false)
+    }
+    pub fn new_audio(recorded_audio: bool) -> Self {
         let mut game = Self {
             penguin: None,
             stolen_heart: None,
@@ -828,9 +930,10 @@ impl Game {
             lost_life: false,
             cooldown: 0,
             sound: 0,
-            effects: crate::audio::Mixer::new(),
+            effects: crate::audio::Mixer::new_mode(recorded_audio),
             dirty: false,
         };
+        game.menu.music_available = recorded_audio;
         game.populate();
         game.attach();
         game
@@ -900,8 +1003,8 @@ impl Game {
             self.particles.push(Particle::new(
                 x,
                 y,
-                angle.cos() * speed,
-                angle.sin() * speed - 1.0,
+                crate::portable_math::cos(angle) * speed,
+                crate::portable_math::sin(angle) * speed - 1.0,
                 color,
             ));
         }
@@ -937,8 +1040,8 @@ impl Game {
                 self.particles.push(Particle::new(
                     x,
                     y,
-                    angle.cos() * 3.0,
-                    angle.sin() * 3.0,
+                    crate::portable_math::cos(angle) * 3.0,
+                    crate::portable_math::sin(angle) * 3.0,
                     0xc8ffffff,
                 ));
             }
@@ -1162,8 +1265,8 @@ impl Game {
                     self.particles.push(Particle::new(
                         ball.x,
                         ball.y,
-                        angle.cos() * speed,
-                        angle.sin() * speed,
+                        crate::portable_math::cos(angle) * speed,
+                        crate::portable_math::sin(angle) * speed,
                         0xffc832ff,
                     ));
                 }
@@ -1191,6 +1294,13 @@ impl Game {
     }
     pub fn capture_sound(&mut self) {
         if self.sound != 0 {
+            if self.menu.music_available {
+                crate::gamepkg::effect_volume(if self.menu.sfx_muted {
+                    0
+                } else {
+                    self.menu.sfx_volume
+                });
+            }
             self.effects
                 .effect_request(self.sound, self.frame, self.menu.sfx_muted);
             self.sound = 0;
@@ -1205,9 +1315,16 @@ impl Game {
         let best = self.best;
         let unlocked = self.unlocked;
         let gravity = self.gravity;
+        let music_volume = self.menu.music_volume;
+        let music_muted = self.menu.music_muted;
+        let music_available = self.menu.music_available;
         let sfx_volume = self.menu.sfx_volume;
         let sfx_muted = self.menu.sfx_muted;
         let fullscreen = self.menu.fullscreen;
+        let window_size = self.menu.window_size;
+        let resolution_pending = self.menu.resolution_pending;
+        let resolution_ticks = self.menu.resolution_ticks;
+        let vsync = self.menu.vsync;
         let fullscreen_requests = self.fullscreen_requests;
         let homepage_requested = self.homepage_requested;
         let saved_editor = core::mem::replace(&mut self.editor, crate::editor::Editor::new());
@@ -1223,9 +1340,16 @@ impl Game {
         self.best = best;
         self.unlocked = unlocked;
         self.gravity = gravity;
+        self.menu.music_volume = music_volume;
+        self.menu.music_muted = music_muted;
+        self.menu.music_available = music_available;
         self.menu.sfx_volume = sfx_volume;
         self.menu.sfx_muted = sfx_muted;
         self.menu.fullscreen = fullscreen;
+        self.menu.window_size = window_size;
+        self.menu.resolution_pending = resolution_pending;
+        self.menu.resolution_ticks = resolution_ticks;
+        self.menu.vsync = vsync;
         self.dirty = true;
     }
     pub fn editor_test(&mut self) {
@@ -1269,6 +1393,15 @@ impl Game {
         }
         if self.mode == 0 || self.mode == 2 {
             let action = self.menu.menu_event(kind, x, y, code);
+            if action == 20 {
+                self.menu.vsync_requested = true;
+            }
+            if (13..=19).contains(&action) {
+                let selected = crate::menu::Menu::resolution(action);
+                if selected.is_none() || selected != self.menu.window_size {
+                    self.menu.resolution_request = action;
+                }
+            }
             if action == 1 {
                 self.menu.settings = false;
                 self.started = true;
@@ -1302,6 +1435,10 @@ impl Game {
             }
             if action == 7 {
                 self.fullscreen_requests = self.fullscreen_requests.saturating_add(1);
+            }
+            if action == 12 {
+                self.menu.music_muted = !self.menu.music_muted;
+                self.dirty = true;
             }
             if action == 10 {
                 self.menu.sfx_muted = !self.menu.sfx_muted;
@@ -1492,8 +1629,8 @@ impl Game {
                             self.particles.push(Particle::new(
                                 ball.x - dx * 5.0,
                                 ball.y - dy * 5.0,
-                                angle.cos() * drift,
-                                angle.sin() * drift,
+                                crate::portable_math::cos(angle) * drift,
+                                crate::portable_math::sin(angle) * drift,
                                 color,
                             ));
                         }
@@ -1509,8 +1646,8 @@ impl Game {
                         self.particles.push(Particle::new(
                             320.0,
                             240.0,
-                            angle.cos() * speed,
-                            angle.sin() * speed,
+                            crate::portable_math::cos(angle) * speed,
+                            crate::portable_math::sin(angle) * speed,
                             0x9632ffff,
                         ));
                     }
@@ -1518,8 +1655,8 @@ impl Game {
             }
             if orbiting {
                 let angle = self.frame as f32 * 0.1 + i as f32 * (core::f32::consts::TAU / 3.0);
-                self.balls[i].x = 320.0 + angle.cos() * 75.0;
-                self.balls[i].y = 240.0 + angle.sin() * 75.0;
+                self.balls[i].x = 320.0 + crate::portable_math::cos(angle) * 75.0;
+                self.balls[i].y = 240.0 + crate::portable_math::sin(angle) * 75.0;
             }
         }
         self.collide_balls();
@@ -1648,8 +1785,8 @@ impl Game {
                     self.particles.push(Particle::new(
                         320.0,
                         240.0,
-                        angle.cos() * speed,
-                        angle.sin() * speed,
+                        crate::portable_math::cos(angle) * speed,
+                        crate::portable_math::sin(angle) * speed,
                         0x9632ffff,
                     ));
                 }
@@ -1666,7 +1803,7 @@ impl Game {
 
 pub fn speed_record_color(frame: u64, record: u64) -> [u8; 3] {
     if frame.saturating_sub(record) < 120 {
-        let pulse = (frame as f32 * 0.15).sin() * 0.3 + 0.7;
+        let pulse = crate::portable_math::sin(frame as f32 * 0.15) * 0.3 + 0.7;
         [
             (255.0 * pulse) as u8,
             (255.0 * pulse) as u8,
@@ -1677,6 +1814,6 @@ pub fn speed_record_color(frame: u64, record: u64) -> [u8; 3] {
     }
 }
 pub fn gravity_color(frame: u64) -> [u8; 3] {
-    let pulse = (frame as f32 * 0.1).sin() * 0.3 + 0.7;
+    let pulse = crate::portable_math::sin(frame as f32 * 0.1) * 0.3 + 0.7;
     [(255.0 * pulse) as u8, (100.0 * pulse) as u8, 0]
 }

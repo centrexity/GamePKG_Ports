@@ -5,6 +5,7 @@ pub struct Voice {
     offset: usize,
 }
 pub struct Mixer {
+    hosted: bool,
     channels: [Option<Voice>; 4],
     recordings: [Option<std::sync::Arc<Vec<i16>>>; 5],
     recording_attempted: [bool; 5],
@@ -12,7 +13,11 @@ pub struct Mixer {
 }
 impl Mixer {
     pub fn new() -> Self {
+        Self::new_mode(false)
+    }
+    pub fn new_mode(hosted: bool) -> Self {
         Self {
+            hosted,
             channels: [None, None, None, None],
             recordings: [None, None, None, None, None],
             recording_attempted: [false; 5],
@@ -35,6 +40,9 @@ impl Mixer {
         false
     }
     pub fn effect_render(&mut self, volume: u32, muted: bool) -> Option<[i16; 1600]> {
+        if self.hosted {
+            return None;
+        }
         let gain = if muted { 0 } else { volume.min(128) } as i32;
         let mut output = [0i16; 1600];
         let mut voice_present = false;
@@ -62,6 +70,16 @@ impl Mixer {
         // Each clip starts at its first sample, independent of the game frame.
         if muted || !(1..=5).contains(&kind) {
             return false;
+        }
+        if self.hosted {
+            let path = match kind {
+                1 => "audio/bounce.wav",
+                2 => "audio/glass.wav",
+                3 => "audio/launch.wav",
+                4 => "audio/explosion.wav",
+                _ => "audio/life-loss.wav",
+            };
+            return crate::gamepkg::effect_play(path);
         }
         let at = (kind - 1) as usize;
         if !self.recording_attempted[at] {

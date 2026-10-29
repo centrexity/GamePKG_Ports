@@ -13,7 +13,7 @@ game.rs. The engine integration has been rewritten for GamePKG's safe APIs.
 The safe host integration and bounded PCM mixer are new. Original visual
 procedures/assets restored in the port are identified below, including brick,
 ball and paddle art, backgrounds, rasterized Roboto lettering and startup art.
-All five original recorded sound effects are restored with the provenance below. Original music remains unfinished. Individual artist/item credits for bounce, glass and launch were not supplied by upstream.
+The canonical 0.1.75 candidate recipe enables all five original-rate sound effects and all nine original music tracks, with the original music controls and saved audio preferences. The host handles decoding and playback through bundled Rust companions. assets/ASSET_PROVENANCE.json records the exact upstream file hashes, conversion reference and all 178 lossless image hashes. Individual artist/item credits for bounce, glass and launch were not supplied by upstream. Recorded audio uses the separate Pixabay Content License; see assets/LICENSE-PIXABAY-AUDIO.txt.
 The port uses a 640x480 canvas and GamePKG host randomness instead of SDL2,
 rand or filesystem access. Launch directions use rejection sampling, and bonus
 selection uses independent probability/weight draws.
@@ -1088,3 +1088,238 @@ source-policy builds pass. It is not yet activated by the port entry point: the
 recorded-effect migration, persisted music settings and full port playback
 qualification still need integration. No recordings or package release accompany
 this source preparation.
+
+Recipe 0.1.65 restores the original desktop resolution choices (1280x720,
+1366x768, 1600x900, 1920x1080 and 2560x1440), their original hit rectangles,
+selection highlight and Keep/Revert confirmation. Original Roboto labels and
+the original 300-frame countdown are retained; the trusted host performs the
+actual resize, confirmation, rollback and timeout. Committed host observations
+reconcile the menu each tick, including failed requests and automatic expiry.
+Actual client dimensions select the highlight; arbitrary sizes do not pretend
+to be a preset. The menu blocks its other buttons during confirmation, as in
+the original. Size selection is available only in desktop windowed mode; the
+menu explains returning from fullscreen. Browser/headless hosts hide these
+desktop controls. Original source is unchanged. VSync, canonical music delivery,
+remaining presentation and the wider parity ledger remain open.
+
+The already-selected resolution is a no-op, as in the original main loop, and
+restarting a run preserves an active preview/countdown. Verification includes
+225 unchanged-original menu boundary cases, 62 independent complete SDL menu
+frames, 117 unit tests and 71 signed runtime regressions in each of native and
+Wasm. Real Linux native/core/component windows pass original mouse selection,
+Keep, Revert, confirmed-size reopen, expiry and reuse after expiry. The final
+full host suite passes 664 tests with zero failures (151 gated tests ignored);
+strict release lint and formatting pass. The private recorded-music preparation
+still builds both targets, without publishing any recordings. The main-menu
+Version: 0.5.0 caption was restored in recipe 0.1.64.
+
+Recipe 0.1.66 restores the original VSync setting. Its original button rectangle,
+Roboto caption, hover and ON/OFF preference are retained; the change applies
+after restarting the game, as in the original main loop. The original restart
+notice is placed at original y=190 to avoid its overlap with the resolution
+header. No game source receives a graphics context or settings-file path. The
+host owns the per-game/creator/library preference, defaults older records to ON,
+requires signed input plus a fresh action to change it, and rolls back a failed
+tick. Browser/headless hosts hide this desktop control. At launch the separate
+game window selects OpenGL swap interval 1/0 or Vulkan strict FIFO/automatic
+non-VSync; a library window keeps its independent default.
+
+Independent source-guarded SDL/TTF references now cover 68 complete menu frames
+and 243 original button boundary cases. All 71 signed runtime regressions pass
+in both native and Wasm; real Linux X11 native/core/component windows pass
+ON/OFF/ON across restart on both graphics backends. A private forwarding observer
+records actual swap-interval calls and successful Vulkan swapchain creation;
+it never substitutes a success or changes an API argument. These calls establish
+the requested backend configuration; drivers and compositors control physical
+presentation. The final host suite passes 669 tests, zero failures (151 gated
+tests ignored), with strict lint and formatting clean. Existing resolution and
+window-state GUI checks still pass. The private full recorded-music preparation
+also builds both targets. Canonical music delivery, additional platform/GPU
+qualification and the wider parity scope remain open; no recordings are published.
+
+Recipe 0.1.67 extends the font-derived viewport path to long mixed-class runs
+whose unconsumed marks all draw the original missing glyph. It preserves the
+complete saved UTF-8 and original canonical ordering/composition. Each new class
+must leave the base unchanged; subsequent equal-class marks retain the original
+composition blocking. Thus A/cedilla/ogonek remains supported, while a late
+composing cedilla on S retains full shaping. No name, media, scene or budget is
+truncated or enlarged.
+
+Four reordered/blocked contexts and 5,940 ordered representative class pairs
+match the eager shaper and exact visible rasters. A complete one-MiB name using
+alternating cedilla/U+0315 passes private native/core/component edit/save/restart
+with all original recordings retained, and both actual browser profiles preserve
+the exact name and maximum collection through persistent reload. Seventeen font
+regressions also pass as a real 32-bit process. The standard suite passes 671
+tests with zero failures, and all 71 canonical native and 71 Wasm runtime checks
+still pass. This clears a specific recorded-audio migration blocker; general
+giant-cluster shaping, canonical music activation and wider parity remain open.
+
+Recipe 0.1.68 adds bounded display normalization for long missing-mark runs
+whose late mark composes with an ASCII starter, such as S becoming Ş after a
+late cedilla. Class counts and three leading candidates retain the original
+canonical ordering and composition blocking. The complete pinned font graph
+has at most two supported composition transitions; tests check that bound and
+the absence of cycles. Original saved text is untouched. Only display text may
+use the final composed scalar and a shaper-verified representative of glyph zero.
+Actual glyph bounds, lookahead and complete vertical extents are checked before
+using a shortened display; unproven cases keep full shaping. Single-piece pattern
+rows now use this preparation too, alongside segmented names and editor headers.
+
+All 262 eligible ASCII missing-mark composition cases match the eager shaper and
+exact visible rasters. An exact one-MiB late-composition archive edits, saves and
+reloads in private native/core/component and actual Chromium core/component full
+ports with all original media retained. The prior mixed-class maximum archive
+still passes. No limits or source-policy exceptions change. All 124 port unit
+tests, 21 real 32-bit font regressions, 675 standard host tests and both 71-case
+canonical native/Wasm runtime suites pass, with strict lint and formatting clean.
+Canonical music activation, other giant shaping/extents cases and wider parity
+remain open; no recordings are published.
+
+## One source for effect-only and complete recorded-audio packages
+
+Recipe 0.1.70 removes the compile-time audio-profile switch. The canonical entry
+point reads the package playlist once; a nonempty validated playlist selects
+shared host effects and music, while a missing playlist or one with no accepted songs retains the existing
+effect-only path. Playlist parsing and host permissions remain
+bounded. Complete recorded-audio assembly copies verified assets and declares
+its existing memory shares without modifying any game source file.
+
+The recorded profile preserves its effect routing through run restart, including
+host refusal without guest PCM fallback. Saved music mute/volume and ARK4
+preferences remain intact. All 128 logic tests and five controller tests pass;
+both complete 72-test effect-only native/Wasm suites pass. The same unmodified
+source also passes full private native/core/component music, effect and maximum
+Unicode-name editing/save/restart checks, plus actual Chromium core/component
+playback and persistent reload. Six dense scenes with 200 blocks, 3000 particles
+and a full 1 MiB/5041-pattern archive match every reference drawing command and
+image byte in all desktop and browser profiles under unchanged resource limits.
+The browser retains all 76 lossless images, five effects and nine music tracks.
+
+This supersedes the earlier source-preparation and activation notes. Complete
+asset delivery remains unfinished; the default asset set remains effect-only.
+Broader text-shaping, campaign, device and platform qualification remains open.
+
+## Playlist failure preserves original recorded effects
+
+Recipe 0.1.71 distinguishes a missing playlist from a packaged playlist with no
+usable tracks. Empty, invalid UTF-8, invalid-path and interrupted playlists never
+start partial music, but a playlist observed in the package retains the recorded
+effects path. This corrects 0.1.70's selection by accepted-song count: its empty
+playlist selected the legacy 48 kHz reader for the new 44.1 kHz recordings and
+silenced effects. Missing playlists retain the existing effect-only behavior.
+
+A new signed regression reproduces that silence in the prior source on native,
+core and component runtimes. All three malformed/empty playlist cases now retain
+audible original effects on initial load and fresh relaunch, with stopped music
+and no guest PCM fallback. Actual Chromium core/component checks also retain
+host effects through restart and release the complete memory budget at Stop.
+CI runs every case on desktop and browser. Six controller tests and all 128
+logic tests pass, including interrupted-read handling. Normal full-media
+native/core/component and both browser profiles still pass playback, saved
+settings and maximum-name/collection editing and persistent reload. Both 72-test
+effect-only native/Wasm suites and all dense-scene/full-save comparisons pass.
+No recordings, limits, test concurrency or saved name capacity are reduced.
+Default complete asset delivery and broader campaign/platform parity remain open.
+
+## Legacy save validation
+
+Recipe 0.1.72 validates the gravity word before the ARK1 decoder's early return.
+Only 0 and 1 are valid, matching every archive writer and the later formats.
+Previously ARK1 accepted other values and cleared current patterns/preferences;
+subsequent settings changes could migrate the corrupt record instead of
+preserving it. A red regression reproduces acceptance of flag 2 before the fix.
+Borrowed and owned decoding now reject 286 invalid flag cases without replacing
+existing pattern bytes or audio settings. Valid ARK1/ARK2 migration remains intact.
+
+All 129 logic and six music-controller tests pass. Three unchanged archive test
+bodies also pass as an actual ELF32 program, including full-size archives. Both
+72-test native/Wasm suites verify six damaged ARK1–ARK4 records remain unchanged
+while displaying the existing warning. The full private recorded-audio package
+preserves those records and retains audible music/mute/resume in native, core
+and component runtimes. Actual Chromium core/component tests write the damaged
+bytes into IndexedDB and verify them after Stop, with visible warnings and
+functional music controls. Full-size name/collection persistence also passes.
+CI includes the browser database matrix and ELF32 checks.
+
+A longer repeated browser run did expose an intermittent music Failed state
+during mute after several fresh sessions. A subsequent diagnostic run passes,
+but that does not establish a fix. Test-only bounded decoder request/error/timing
+traces are retained; the decoder cause remains open, alongside complete asset
+delivery and wider campaign/platform parity. No execution/memory limits or
+playback assertions were relaxed.
+
+## Browser music handoff and frame scheduling
+
+Current host exports fix two browser playback problems found during repeated
+full original-media sessions. Audio transport now preserves generation-owned
+read credit across a late begin and safely re-sends the same request if it was
+ignored before decoder attachment. Duplicate requests never decode twice;
+changed/stale credit still fails validation. Deterministic real MessageChannel
+and production AudioWorklet tests cover both orderings, paused/playing state,
+complete source frames and budget release.
+
+The renderer also prepares offscreen frames cooperatively so long drawing tasks
+do not starve main-thread decoder replies. Draw order, pixels, complete scenes
+and persistence gates remain unchanged; cancelled/replaced frames are serialized
+on the same bounded surface. Actual synchronous/cooperative browser output matches
+the pinned renderer byte for byte. Both complete browser profiles pass three full
+six-record restart/mute/save matrices with no recorded Failed snapshot, retaining
+all original images, effects, music and maximum name/collection saves. Dense scene
+and generic player lifetime/persistence regressions also pass under the existing
+execution and memory limits. These are host changes; recipe source and assets
+remain unchanged. Broader delivery and platform verification remain open.
+
+## Host browser graphics recovery
+
+Current host exports recover lost filtered-image and shader contexts on fresh
+Play without reloading the page. The host waits for cancelled offscreen drawing
+and old audio shutdown before replacing lost caches, reconstructs shader IDs
+cleanly, and releases partial shader/context initialization on failure. Healthy
+contexts remain reusable. Lost graphics cannot publish a partial prepared frame.
+
+The signed core/component recovery fixture passes 18 real Chromium cases with
+synthetic music, distinct clipped shader programs, a sampled texture and filtered
+pixels. It checks
+initial setup failures, unavailable/failed compilation during retry, suspended
+render cancellation and simultaneous loss of both WebGL contexts. Exact whole
+frame hashes, advancing music, complete audio-budget release and bounded healthy
+context counts pass. This is host behavior; original port source/assets remain
+unchanged. Broader native/device/browser graphics-reset qualification remains open.
+
+
+Canonical recorded-audio delivery (recipe 0.1.74, unreleased):
+All nine pinned original MP3 music tracks are retained byte for byte; five
+effects retain the original SDL-decoded 44,100 Hz stereo samples. No trimming,
+normalization or replacement recordings. The signed effect/music shares are
+3/7 MiB inside the unchanged 16 MiB hard memory limit. The remaining 6 MiB
+belongs to the game. PNG encoding is losslessly optimized so the complete
+recorded package fits the existing browser export cap without omitting images
+or tracks. Earlier private-candidate notes above describe the migration history;
+this recipe now selects recorded playback by default.
+
+Legacy 48 kHz effect-only packages remain covered by separately frozen fixtures
+in the host repository; those test recordings are not duplicated in this game
+package. Players need no Python, SDL conversion tools or external audio decoder.
+This audio delivery does not establish complete game fidelity: original-photo
+sampling at noncanonical resolutions remains a separate known difference.
+
+
+Source-resolution artwork candidate (0.1.75, unreleased):
+The six pinned 2816×1536 backgrounds retain every original pixel in 144 lossless RGB tiles with filtering halos. The menu reuses background1; the 34 other images, original effects, all nine music tracks, game logic and controls are unchanged. The signed large-images-v1 profile requires a 256 MiB hard/recommended game-memory limit, retains the original 3/7 MiB effect/music shares and separately bounds host artwork buffers. Previous 16 MiB/8 MiB legacy rendering is frozen as a host test fixture. This candidate addresses original-photo sampling; broader fidelity and platform qualifications remain separate.
+
+
+Portal compositor memory repair (0.1.75, unreleased):
+The filled expansion/fade stages now compose directly into their exact visible
+RGBA bounds, retaining the original blend helper and white-disk pass order.
+The original point generator remains for independent comparison. This avoids
+the large temporary point list that exhausted the native worker's six-MiB
+allowance inside the old 16/3/7 MiB signed partition. Every timer151–271 matches
+the old compositor byte for byte, and the original ordered-point/SDL fixtures
+remain unchanged. The full-media portal probe now includes maximum expansion
+and passes all 56 desktop/browser comparisons with the old shares. An additional
+generated-geometry fixture keeps that small memory regression independent of
+the source-resolution recipe's larger declared memory. No particles, effect
+stages, pixels, audio shares, deadlines or renderer tolerances are removed or
+relaxed. The maintainer artwork migration tool describes its original 0.1.74
+base; this later compositor repair is a separate canonical source change.
