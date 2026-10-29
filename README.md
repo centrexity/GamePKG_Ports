@@ -67,9 +67,15 @@ Virtual pads stand in for physical controllers, and test audio uses dummy output
 
 The v15 baseline already passes unseeded signed Linux/Windows Build and repair,
 Linux Race/Crash and split-screen control checks, and a natural player-one
-three-lap finish. A natural player-two race finish, complete mixed prompts and
-campaigns, and v16 Windows gameplay remain unqualified. No preview archive or
-previously published package is replaced by this candidate.
+three-lap finish. The current v16 Windows runtime rebuild and original Team
+Crush results/Continue also pass under Wine with the verified unchanged prepared
+Rust archive. Fresh original Linux and Windows-under-Wine processes display their
+separately earned Trailer Trash records ($26,737 and $6,736), preserving all
+saved profile bytes. These checks do not qualify the current signed Windows app
+Build/Play path or physical Windows graphics/audio/controllers. A natural
+player-two Race finish/Continue, complete mixed prompts and campaigns remain
+open. No preview archive or previously published package is replaced by this
+candidate.
 
 The verified v14 baseline includes the following scoped checks. Native cache publication
 and interrupt masking use the original host runtime and generated Rust helpers,
