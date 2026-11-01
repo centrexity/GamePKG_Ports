@@ -13,7 +13,7 @@ game.rs. The engine integration has been rewritten for GamePKG's safe APIs.
 The safe host integration and bounded PCM mixer are new. Original visual
 procedures/assets restored in the port are identified below, including brick,
 ball and paddle art, backgrounds, rasterized Roboto lettering and startup art.
-The canonical 0.1.75 candidate recipe enables all five original-rate sound effects and all nine original music tracks, with the original music controls and saved audio preferences. The host handles decoding and playback through bundled Rust companions. assets/ASSET_PROVENANCE.json records the exact upstream file hashes, conversion reference and all 178 lossless image hashes. Individual artist/item credits for bounce, glass and launch were not supplied by upstream. Recorded audio uses the separate Pixabay Content License; see assets/LICENSE-PIXABAY-AUDIO.txt.
+The canonical 0.1.76 candidate recipe enables all five original-rate sound effects and all nine original music tracks, with the original music controls and saved audio preferences. The host handles decoding and playback through bundled Rust companions. assets/ASSET_PROVENANCE.json records the exact upstream file hashes, conversion reference and all 178 lossless image hashes. Individual artist/item credits for bounce, glass and launch were not supplied by upstream. Recorded audio uses the separate Pixabay Content License; see assets/LICENSE-PIXABAY-AUDIO.txt.
 The port uses a 640x480 canvas and GamePKG host randomness instead of SDL2,
 rand or filesystem access. Launch directions use rejection sampling, and bonus
 selection uses independent probability/weight draws.
@@ -1323,3 +1323,11 @@ the source-resolution recipe's larger declared memory. No particles, effect
 stages, pixels, audio shares, deadlines or renderer tolerances are removed or
 relaxed. The maintainer artwork migration tool describes its original 0.1.74
 base; this later compositor repair is a separate canonical source change.
+
+
+The 0.1.76 font follow-up reuses the existing acceptance bit and canonical class
+for exact cached starter/mark pairs. It avoids looking up the starter glyph
+again on every repeated combining mark. Cache misses still perform the complete
+pinned-font validation; canonical ordering, composition proofs, rejection paths,
+visible pixels and stored UTF-8 names are unchanged. No source name limit, game
+memory share, drawing charge or execution deadline is relaxed.

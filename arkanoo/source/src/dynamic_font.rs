@@ -1227,14 +1227,20 @@ impl MissingCompositionRun {
     }
     fn add(&mut self, base: u32, cp: u32, cache: &mut [[u32; 3]; 16]) -> bool {
         let bucket = (base.wrapping_add(cp) % 16) as usize;
-        let class = if cache[bucket][0] == base && cache[bucket][1] == cp {
+        let known = cache[bucket][0] == base && cache[bucket][1] == cp;
+        let class = if known {
             (cache[bucket][2] >> 8) as usize
         } else {
             unicode_class(cp) as usize
         };
-        if class >= self.counts.len()
-            || !viewport_missing_mark(base, cp, &[unicode_nominal(base)], false, cache)
-        {
+        if class >= self.counts.len() {
+            return false;
+        }
+        if known {
+            if cache[bucket][2] & 1 == 0 {
+                return false;
+            }
+        } else if !viewport_missing_mark(base, cp, &[unicode_nominal(base)], false, cache) {
             return false;
         }
         if self.counts[class] < 3 {
