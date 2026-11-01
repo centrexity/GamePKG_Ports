@@ -1088,3 +1088,5 @@ source-policy builds pass. It is not yet activated by the port entry point: the
 recorded-effect migration, persisted music settings and full port playback
 qualification still need integration. No recordings or package release accompany
 this source preparation.
+
+The stable source backports GamePKG’s fixed full-range binary32 trigonometry from the native preview. Effect geometry uses the same reduction and rounding on supported targets, while original captured point and framebuffer references remain unchanged.
