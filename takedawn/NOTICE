@@ -1,0 +1,13 @@
+GamePKG integration and thumbnail artwork
+Copyright GamePKG contributors. Licensed under Apache-2.0.
+
+Thumbnail artwork: original geometric racing illustration by GamePKG contributors.
+It contains no original game artwork or logo.
+Source: https://github.com/centrexity/GamePKG
+
+The reviewed source kit preserves the Takedawn, Xboxrecomp, C2Rust and vendored
+host dependency notices. Their respective licenses remain applicable. See the
+notices within assets/takedawn-source-kit.tar.gz and CREDITS.md.
+
+Original game media is not included. The user supplies a supported Xbox USA ISO,
+which the native runtime reads in place without extracting the original media.

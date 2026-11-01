@@ -51,7 +51,7 @@ fn draw_snow(level: u32, frame: u64) -> Background {
         let speed = rng.float(1.0, 3.0);
         let size = rng.range_i32(1, 3);
         let y = (time * speed + rng.float(0.0, 1000.0)) % 730.0;
-        let drift = (time * 0.02 + i as f32).sin() * 20.0;
+        let drift = crate::portable_math::sin(time * 0.02 + i as f32) * 20.0;
         let x = (x_base as f32 + drift) as i32;
         let opacity = rng.range_u8(100, 255);
         rectangle(
@@ -84,7 +84,7 @@ pub fn smoke_rectangles(
         let progress = 1.0 - y / 720.0;
         let size = (20.0 + progress * 60.0) as u32;
         let opacity = ((1.0 - progress) * 100.0) as u8;
-        let drift = (time * 0.01 + i as f32).sin() * 30.0 * progress;
+        let drift = crate::portable_math::sin(time * 0.01 + i as f32) * 30.0 * progress;
         let x = x_base as f32 + drift;
         rectangles.push(crate::background::BackgroundRectangle {
             position: [x as i32 - size as i32 / 2, y as i32 - size as i32 / 2],
@@ -124,7 +124,7 @@ fn draw_tornado(level: u32, frame: u64) -> Background {
         let angle_speed = 0.1 + (1.0 - height_pct) * 0.2;
         let angle = time * angle_speed + rng.float(0.0, core::f32::consts::PI * 2.0);
         let radius = rng.float(width * 0.8, width);
-        let x = 640.0 + angle.cos() * radius;
+        let x = 640.0 + crate::portable_math::cos(angle) * radius;
         let gray = rng.range_u8(100, 200);
         let color =
             (u32::from(gray) << 24) | (u32::from(gray) << 16) | (u32::from(gray) << 8) | 150;
@@ -155,7 +155,7 @@ fn draw_fire(level: u32, frame: u64) -> Background {
         } else {
             0x64323264
         };
-        let wiggle = (time * 0.1 + i as f32).sin() * 5.0;
+        let wiggle = crate::portable_math::sin(time * 0.1 + i as f32) * 5.0;
         let x = x_base as f32 + wiggle;
         let size = (progress * 8.0) as u32 + 2;
         rectangle(
@@ -178,8 +178,8 @@ fn draw_deep_sea(level: u32, frame: u64) -> Background {
     // Reserve once so growing the list cannot retain old and new buffers.
     let mut dots = Vec::with_capacity(5 * 120 * 720 + 200);
     for i in 0..5 {
-        let x = i * 200 + (time * 0.1).sin() as i32 * 50;
-        let width = 100 + (time * 0.05 + i as f32).cos() as i32 * 20;
+        let x = i * 200 + crate::portable_math::sin(time * 0.1) as i32 * 50;
+        let width = 100 + crate::portable_math::cos(time * 0.05 + i as f32) as i32 * 20;
         for height in (0..720).step_by(20) {
             let opacity = (50.0 * (1.0 - height as f32 / 720.0)) as u8;
             rectangle(
@@ -196,8 +196,8 @@ fn draw_deep_sea(level: u32, frame: u64) -> Background {
         let mut rng = Rng::new(u64::from(level) * 13000 + i);
         let x_base = rng.range_i32(0, 1280);
         let y_base = rng.range_i32(0, 720);
-        let drift_x = (time * 0.02 + i as f32).sin() * 20.0;
-        let drift_y = (time * 0.03 + i as f32).cos() * 20.0;
+        let drift_x = crate::portable_math::sin(time * 0.02 + i as f32) * 20.0;
+        let drift_y = crate::portable_math::cos(time * 0.03 + i as f32) * 20.0;
         dots.push(crate::physics::EffectPoint {
             x: (x_base as f32 + drift_x) as i32,
             y: (y_base as f32 + drift_y) as i32,
@@ -212,7 +212,7 @@ fn draw_deep_sea(level: u32, frame: u64) -> Background {
 fn draw_supernova(level: u32, frame: u64) -> Background {
     let time = frame as f32;
     let mut dots = Vec::new();
-    let pulse = (time * 0.1).sin() * 20.0 + 50.0;
+    let pulse = crate::portable_math::sin(time * 0.1) * 20.0 + 50.0;
     rectangle(
         &mut dots,
         640 - pulse as i32 / 2,
@@ -226,8 +226,8 @@ fn draw_supernova(level: u32, frame: u64) -> Background {
         let opacity = (255.0 * (1.0 - wave_dist / 600.0)) as u8;
         for p in 0..32 {
             let angle = (p as f32 / 32.0) * core::f32::consts::PI * 2.0;
-            let x = 640.0 + angle.cos() * wave_dist;
-            let y = 360.0 + angle.sin() * wave_dist;
+            let x = 640.0 + crate::portable_math::cos(angle) * wave_dist;
+            let y = 360.0 + crate::portable_math::sin(angle) * wave_dist;
             dots.push(crate::physics::EffectPoint {
                 x: x as i32,
                 y: y as i32,
@@ -240,8 +240,8 @@ fn draw_supernova(level: u32, frame: u64) -> Background {
         let angle = rng.float(0.0, core::f32::consts::PI * 2.0);
         let speed = rng.float(1.0, 5.0);
         let distance = (time * speed + rng.float(0.0, 1000.0)) % 800.0;
-        let x = 640.0 + angle.cos() * distance;
-        let y = 360.0 + angle.sin() * distance;
+        let x = 640.0 + crate::portable_math::cos(angle) * distance;
+        let y = 360.0 + crate::portable_math::sin(angle) * distance;
         let red = rng.range_u8(100, 255);
         let green = rng.range_u8(50, 150);
         let blue = rng.range_u8(50, 100);
@@ -301,8 +301,8 @@ fn draw_star_voyage(level: u32, frame: u64) -> Background {
         let speed = star_rng.float(0.5, 2.0) * multiplier;
         let start_distance = star_rng.float(0.0, 800.0);
         let distance = (start_distance + time * speed) % 700.0;
-        let x = 640.0 + angle.cos() * distance;
-        let y = 360.0 + angle.sin() * distance;
+        let x = 640.0 + crate::portable_math::cos(angle) * distance;
+        let y = 360.0 + crate::portable_math::sin(angle) * distance;
         let size = (distance / 200.0).max(1.0) as u32;
         let opacity = (distance / 700.0 * 255.0) as u8;
         if (0.0..1280.0).contains(&x) && (0.0..720.0).contains(&y) {
@@ -335,8 +335,8 @@ pub fn kaleidoscope_segments(frame: u64) -> Vec<crate::background::BackgroundLin
             (u32::from(red) << 24) | (u32::from(green) << 16) | (u32::from(blue) << 8) | 100;
         for i in 0..12 {
             let angle = (i as f32 / 12.0) * core::f32::consts::PI * 2.0 + rotation;
-            let x = 640.0 + angle.cos() * radius;
-            let y = 360.0 + angle.sin() * radius;
+            let x = 640.0 + crate::portable_math::cos(angle) * radius;
+            let y = 360.0 + crate::portable_math::sin(angle) * radius;
             let size = (20 + layer * 5) as f32;
             let vertices = [
                 [x as i32, (y - size) as i32],
@@ -401,14 +401,14 @@ pub fn warp_segments(level: u32, frame: u64) -> Vec<crate::background::Backgroun
         let speed = rng.float(2.0, 10.0);
         let base = (time * speed + rng.float(0.0, 1000.0)) % 1000.0;
         let distance = base.powf(1.5) * 0.05;
-        let x = 640.0 + angle.cos() * distance;
-        let y = 360.0 + angle.sin() * distance;
+        let x = 640.0 + crate::portable_math::cos(angle) * distance;
+        let y = 360.0 + crate::portable_math::sin(angle) * distance;
         if (0.0..1280.0).contains(&x) && (0.0..720.0).contains(&y) {
             let opacity = (distance / 2.0).min(255.0) as u8;
             let color = if speed > 8.0 { 0xc8c8ff00 } else { 0xffc8c800 } | u32::from(opacity);
             let tail = speed * 2.0;
-            let tail_x = x - angle.cos() * tail;
-            let tail_y = y - angle.sin() * tail;
+            let tail_x = x - crate::portable_math::cos(angle) * tail;
+            let tail_y = y - crate::portable_math::sin(angle) * tail;
             segments.push(crate::background::BackgroundLine {
                 start: [x as i32, y as i32],
                 end: [tail_x as i32, tail_y as i32],
@@ -499,7 +499,8 @@ pub fn aurora_segments(level: u32, frame: u64) -> (u32, Vec<crate::background::B
         if vertical {
             for x in (0..1280).step_by(5) {
                 let base = 360.0 + offset - (waves as f32 * 20.0);
-                let wave = (x as f32 * 0.01 + frame as f32 * speed).sin() * amplitude;
+                let wave =
+                    crate::portable_math::sin(x as f32 * 0.01 + frame as f32 * speed) * amplitude;
                 let y = (base + wave) as i32;
                 segments.push(crate::background::BackgroundLine {
                     start: [x, y],
@@ -510,7 +511,8 @@ pub fn aurora_segments(level: u32, frame: u64) -> (u32, Vec<crate::background::B
         } else {
             for y in (0..720).step_by(5) {
                 let base = 640.0 + offset - (waves as f32 * 20.0);
-                let wave = (y as f32 * 0.01 + frame as f32 * speed).sin() * amplitude;
+                let wave =
+                    crate::portable_math::sin(y as f32 * 0.01 + frame as f32 * speed) * amplitude;
                 let x = (base + wave) as i32;
                 segments.push(crate::background::BackgroundLine {
                     start: [x, y],
@@ -579,8 +581,8 @@ pub fn nebula_rectangles(
         let red = cloud_rng.range_u8(50, 150);
         let green = cloud_rng.range_u8(0, 100);
         let blue = cloud_rng.range_u8(100, 200);
-        let x_drift = ((time * 0.05 + i as f32).sin() * 50.0) as i32;
-        let y_drift = ((time * 0.03 + i as f32 * 0.5).cos() * 30.0) as i32;
+        let x_drift = (crate::portable_math::sin(time * 0.05 + i as f32) * 50.0) as i32;
+        let y_drift = (crate::portable_math::cos(time * 0.03 + i as f32 * 0.5) * 30.0) as i32;
         let x = x_base + x_drift;
         let y = y_base + y_drift;
         let tint = (u32::from(red) << 24) | (u32::from(green) << 16) | (u32::from(blue) << 8) | 10;
@@ -618,8 +620,10 @@ pub fn hex_commands(level: u32, frame: u64) -> (u32, Vec<crate::background::Back
             let offset = if row % 2 == 0 { 0 } else { side / 2 };
             let x = (column * side) as i32 + offset as i32;
             let y = (row * side) as i32;
-            let pulse =
-                ((frame as f32 * speed + column as f32 * 0.2 + row as f32 * 0.2).sin() + 1.0) / 2.0;
+            let pulse = (crate::portable_math::sin(
+                frame as f32 * speed + column as f32 * 0.2 + row as f32 * 0.2,
+            ) + 1.0)
+                / 2.0;
             let opacity = (10.0 + pulse * 40.0) as u8;
             commands.push(crate::background::BackgroundCommand {
                 kind: 2,
@@ -639,7 +643,7 @@ pub fn bubble_commands(level: u32, frame: u64) -> (u32, Vec<crate::background::B
         let size = rng.range_i32(2, 10);
         let phase = (frame as f32 * speed + rng.float(0.0, 1000.0)) % 770.0;
         let y = 720.0 - phase;
-        let sway = (frame as f32 * 0.02 + i as f32).sin() * 10.0;
+        let sway = crate::portable_math::sin(frame as f32 * 0.02 + i as f32) * 10.0;
         let x = x_base as f32 + sway;
         commands.push(crate::background::BackgroundCommand {
             kind: 2,
@@ -664,7 +668,7 @@ pub fn night_commands(level: u32, frame: u64) -> (u32, Vec<crate::background::Ba
         let y = rng.range_i32(0, 720);
         let side = if rng.ten_percent() { 2 } else { 1 };
         let speed = rng.float(0.05, 0.2);
-        let opacity = ((time * speed + i as f32).sin() * 100.0 + 155.0) as u8;
+        let opacity = (crate::portable_math::sin(time * speed + i as f32) * 100.0 + 155.0) as u8;
         commands.push(crate::background::BackgroundCommand {
             kind: 3,
             values: [x, y, side, side],
@@ -672,7 +676,7 @@ pub fn night_commands(level: u32, frame: u64) -> (u32, Vec<crate::background::Ba
         });
     }
     let sat_x = (time * 0.5) % 1330.0 - 20.0;
-    let sat_y = 100.0 + (time * 0.01).sin() * 20.0;
+    let sat_y = 100.0 + crate::portable_math::sin(time * 0.01) * 20.0;
     commands.push(crate::background::BackgroundCommand {
         kind: 3,
         values: [sat_x as i32, sat_y as i32, 3, 3],
@@ -710,7 +714,8 @@ pub fn circuit_commands(
         for column in 0..13u32 {
             let x = (column * 100) as i32;
             let y = (row * 100) as i32;
-            let opacity = ((time * 0.05 + (column + row) as f32).sin() * 100.0 + 100.0) as u8;
+            let opacity = (crate::portable_math::sin(time * 0.05 + (column + row) as f32) * 100.0
+                + 100.0) as u8;
             commands.push(crate::background::BackgroundCommand {
                 kind: 3,
                 values: [x - 2, y - 2, 5, 5],

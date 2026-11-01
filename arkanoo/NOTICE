@@ -378,6 +378,6 @@ RenderDrawLinesWithRectsF and SDL_IntersectRectAndLine. Copyright (C) 1997-2023 
 This is Rust source adaptation, not an SDL library dependency.
 
 
-Recorded sound effects retain the upstream-credited Pixabay Content License,
+Recorded sound effects and music retain the upstream-credited Pixabay Content License,
 separately from the code license. Credits, source links and adaptation details:
 assets/LICENSE-PIXABAY-AUDIO.txt and CREDITS.md.

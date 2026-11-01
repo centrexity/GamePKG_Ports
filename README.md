@@ -35,6 +35,78 @@ Review the [published creator fingerprint](creator-identity.json) before approvi
 | Arkanoo | [arkanoo](arkanoo) | GamePKG |
 | 2048 | [2048](2048) | GamePKG |
 
+## Native gameplay preview
+
+The [Takedawn recipe](takedawn) targets GamePKG 0.1.18 on Linux x86-64 and the Windows x64 preview. It
+contains prepared Rust game functions and the pinned original native runtime.
+The current candidate recovers two previously unresolved native paths, with
+128 C/Rust behavior comparisons; 13 upstream unresolved labels remain under
+audit and are not all proven to be valid function entries.
+It also restores the original native SSE floating-point control setup, tested
+against hardware rounding, status and flush-to-zero behavior.
+Players build with Rust/Clang; Windows tools are prepared through Settings or
+`gamepkg setup-native-tools`. Python and C2Rust are maintainer tools. Select
+your original supported Xbox USA ISO, which is read in place, and set Memory
+ceiling to at least 4096 MiB. The first full optimized Rust build took about
+77 minutes on the test machine; verified compiler checkpoints retain completed
+work across later attempts.
+
+The 0.1.5 candidate carries the v16 source kit. It retains the v15 policy for
+original player/controller assignments and adds the shared-results replay guard:
+a replay behind the results menu must not turn confirmation into acceleration.
+The complete staged input source passes 261 cases with address, undefined-behavior
+and leak checks on both 32-bit and 64-bit Linux, preserving all 15 glyph families.
+
+A normal signed Linux v16 Build and integrity check pass while preserving all
+487 verified cached Rust object hashes/timestamps and all 24,035 native exports.
+Only the host C input policy differs from v15; prepared Rust sources and ABI
+support are byte-identical. Actual native Team Crush reaches separate player
+scores and a combined result, preserves the normal button prompts, accepts A
+while the background replay's cars are active, and reports successful autosave.
+Virtual pads stand in for physical controllers, and test audio uses dummy output.
+
+The v15 baseline already passes unseeded signed Linux/Windows Build and repair,
+Linux Race/Crash and split-screen control checks, and a natural player-one
+three-lap finish. The current v16 Windows runtime rebuild and original Team
+Crush results/Continue also pass under Wine with the verified unchanged prepared
+Rust archive. Fresh original Linux and Windows-under-Wine processes display their
+separately earned Trailer Trash records ($26,737 and $6,736), preserving all
+saved profile bytes. These checks do not qualify the current signed Windows app
+Build/Play path or physical Windows graphics/audio/controllers. A natural
+player-two Race finish/Continue, complete mixed prompts and campaigns remain
+open. No preview archive or previously published package is replaced by this
+candidate.
+
+The verified v14 baseline includes the following scoped checks. Native cache publication
+and interrupt masking use the original host runtime and generated Rust helpers,
+including the original following-instruction interrupt delay. Both Linux and
+standalone Windows builds retain all 24,035 exports across 487 units. Under Wine,
+the Windows build passes profile create/reload, original Race and PS2-layout Crash
+controls, keyboard menu navigation, window resizing and normal close, with actual
+Vulkan rendering and no reached unsupported paths. The Windows build also finishes
+the original three-lap race (fifth of six, 345.483 seconds) with instruction traps
+enabled and normal results flow. The Linux candidate also
+completes the original three-lap race and a 15,000-frame Time Attack session.
+These observations do not establish complete campaign coverage or physical
+Windows GPU/audio/controller access. The new host stops and reports any later
+unsupported instruction or unresolved function. Its optional frame-stall watchdog
+is separate and off by default. The v14 signed-package Windows Build/repair gate and its immutable hardware
+preview are verified separately. Complete native multiplayer events/campaigns,
+physical controller/platform checks and current Windows gameplay remain open.
+
+The source catalog targets the next v0.1.6 ports release. Its new downloads are
+not yet published; the stable downloadable catalog remains the previous release
+until promotion. Maintainers can pack a local preview using a source-built
+GamePKG 0.1.18:
+
+```sh
+gamepkg pack takedawn --output takedawn.gamepkg --key /private/existing-creator.key
+```
+
+Players import that signed package and select their ISO; they never enter a
+signing key. The kit retains upstream notices and includes no ISO or extracted
+original media. The cover is an original geometric racing illustration.
+
 Use the GamePKG CLI to create a package with your creator key:
 
 ```sh
