@@ -230,8 +230,8 @@ impl Particle {
         let mut shard_points = Vec::new();
         let half = self.size / 2;
         let angle = self.rotation.to_radians();
-        let cosine = angle.cos();
-        let sine = angle.sin();
+        let cosine = crate::portable_math::cos(angle);
+        let sine = crate::portable_math::sin(angle);
         for dx in -half..=half {
             for dy in -half..=half {
                 if dx.abs() + dy.abs() <= half {
@@ -492,7 +492,8 @@ fn portal_rings(dots: &mut Vec<EffectPoint>, frame: u64, timer: u64) {
             continue;
         }
         let rotation = frame as f32 * if closing { 0.15 } else { 0.1 } + i as f32 * 0.3;
-        let base_alpha = ((frame as f32 * 0.05 + i as f32 * 0.5).sin() * 100.0 + 155.0) as u8;
+        let base_alpha =
+            (crate::portable_math::sin(frame as f32 * 0.05 + i as f32 * 0.5) * 100.0 + 155.0) as u8;
         let point_opacity = if closing {
             (base_alpha as f32 * (1.0 - progress * 0.3)) as u8
         } else {
@@ -513,8 +514,8 @@ fn portal_rings(dots: &mut Vec<EffectPoint>, frame: u64, timer: u64) {
             (u32::from(red) << 24) | (50 << 16) | (u32::from(blue) << 8) | u32::from(point_opacity);
         for j in 0..32 {
             let angle = (j as f32 / 32.0) * core::f32::consts::PI * 2.0 + rotation;
-            let x = 640 + (angle.cos() * radius as f32) as i32;
-            let y = 360 + (angle.sin() * radius as f32) as i32;
+            let x = 640 + (crate::portable_math::cos(angle) * radius as f32) as i32;
+            let y = 360 + (crate::portable_math::sin(angle) * radius as f32) as i32;
             effect_circle(dots, x, y, 4, color);
         }
     }
@@ -554,7 +555,7 @@ pub fn ball_effect_points(ball: &Ball, frame: u64) -> Vec<EffectPoint> {
             let x = cx + (dx * distance) as i32;
             let y = cy + (dy * distance) as i32;
             let pulse = if super_fireball {
-                (frame as f32 * 0.3).sin() * 0.2 + 0.8
+                crate::portable_math::sin(frame as f32 * 0.3) * 0.2 + 0.8
             } else {
                 1.0
             };
@@ -581,10 +582,11 @@ pub fn ball_effect_points(ball: &Ball, frame: u64) -> Vec<EffectPoint> {
             let spin = frame as f32 * 0.2;
             for index in 0..12 {
                 let angle = (index as f32 / 12.0) * core::f32::consts::PI * 2.0 + spin;
-                let x = cx + (angle.cos() * 18.0) as i32;
-                let y = cy + (angle.sin() * 18.0) as i32;
-                let opacity =
-                    ((frame as f32 * 0.3 + index as f32 * 0.5).sin() * 80.0 + 175.0) as u8;
+                let x = cx + (crate::portable_math::cos(angle) * 18.0) as i32;
+                let y = cy + (crate::portable_math::sin(angle) * 18.0) as i32;
+                let opacity = (crate::portable_math::sin(frame as f32 * 0.3 + index as f32 * 0.5)
+                    * 80.0
+                    + 175.0) as u8;
                 effect_circle(&mut dots, x, y, 3, 0xffffc800 | u32::from(opacity));
             }
         }
@@ -668,7 +670,7 @@ pub fn penguin_rects(penguin: &Penguin) -> Vec<PenguinRect> {
     let y = penguin.y as i32;
     let flying = penguin.state == 0 || penguin.state == 2;
     let hover = if flying {
-        (penguin.frame_count as f32 * 0.15).sin() * 3.0
+        crate::portable_math::sin(penguin.frame_count as f32 * 0.15) * 3.0
     } else {
         0.0
     };
@@ -900,8 +902,8 @@ impl Game {
             self.particles.push(Particle::new(
                 x,
                 y,
-                angle.cos() * speed,
-                angle.sin() * speed - 1.0,
+                crate::portable_math::cos(angle) * speed,
+                crate::portable_math::sin(angle) * speed - 1.0,
                 color,
             ));
         }
@@ -937,8 +939,8 @@ impl Game {
                 self.particles.push(Particle::new(
                     x,
                     y,
-                    angle.cos() * 3.0,
-                    angle.sin() * 3.0,
+                    crate::portable_math::cos(angle) * 3.0,
+                    crate::portable_math::sin(angle) * 3.0,
                     0xc8ffffff,
                 ));
             }
@@ -1162,8 +1164,8 @@ impl Game {
                     self.particles.push(Particle::new(
                         ball.x,
                         ball.y,
-                        angle.cos() * speed,
-                        angle.sin() * speed,
+                        crate::portable_math::cos(angle) * speed,
+                        crate::portable_math::sin(angle) * speed,
                         0xffc832ff,
                     ));
                 }
@@ -1492,8 +1494,8 @@ impl Game {
                             self.particles.push(Particle::new(
                                 ball.x - dx * 5.0,
                                 ball.y - dy * 5.0,
-                                angle.cos() * drift,
-                                angle.sin() * drift,
+                                crate::portable_math::cos(angle) * drift,
+                                crate::portable_math::sin(angle) * drift,
                                 color,
                             ));
                         }
@@ -1509,8 +1511,8 @@ impl Game {
                         self.particles.push(Particle::new(
                             320.0,
                             240.0,
-                            angle.cos() * speed,
-                            angle.sin() * speed,
+                            crate::portable_math::cos(angle) * speed,
+                            crate::portable_math::sin(angle) * speed,
                             0x9632ffff,
                         ));
                     }
@@ -1518,8 +1520,8 @@ impl Game {
             }
             if orbiting {
                 let angle = self.frame as f32 * 0.1 + i as f32 * (core::f32::consts::TAU / 3.0);
-                self.balls[i].x = 320.0 + angle.cos() * 75.0;
-                self.balls[i].y = 240.0 + angle.sin() * 75.0;
+                self.balls[i].x = 320.0 + crate::portable_math::cos(angle) * 75.0;
+                self.balls[i].y = 240.0 + crate::portable_math::sin(angle) * 75.0;
             }
         }
         self.collide_balls();
@@ -1648,8 +1650,8 @@ impl Game {
                     self.particles.push(Particle::new(
                         320.0,
                         240.0,
-                        angle.cos() * speed,
-                        angle.sin() * speed,
+                        crate::portable_math::cos(angle) * speed,
+                        crate::portable_math::sin(angle) * speed,
                         0x9632ffff,
                     ));
                 }
@@ -1666,7 +1668,7 @@ impl Game {
 
 pub fn speed_record_color(frame: u64, record: u64) -> [u8; 3] {
     if frame.saturating_sub(record) < 120 {
-        let pulse = (frame as f32 * 0.15).sin() * 0.3 + 0.7;
+        let pulse = crate::portable_math::sin(frame as f32 * 0.15) * 0.3 + 0.7;
         [
             (255.0 * pulse) as u8,
             (255.0 * pulse) as u8,
@@ -1677,6 +1679,6 @@ pub fn speed_record_color(frame: u64, record: u64) -> [u8; 3] {
     }
 }
 pub fn gravity_color(frame: u64) -> [u8; 3] {
-    let pulse = (frame as f32 * 0.1).sin() * 0.3 + 0.7;
+    let pulse = crate::portable_math::sin(frame as f32 * 0.1) * 0.3 + 0.7;
     [(255.0 * pulse) as u8, (100.0 * pulse) as u8, 0]
 }
