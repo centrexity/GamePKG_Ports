@@ -290,25 +290,46 @@ fn unicode_metrics(glyph_id: u32) -> [i32; 7] {
         unicode_word(data, at + 16) as i32,
     ]
 }
-fn unicode_advance(points: &[u32], index: usize) -> i32 {
+fn unicode_cached_mark(glyph_id: u32, cache: &mut [[u32; 5]; 16]) -> bool {
+    let bucket = (glyph_id & 15) as usize;
+    if cache[bucket][3] == glyph_id {
+        return cache[bucket][4] != 0;
+    }
+    let value = unicode_is_mark(glyph_id);
+    cache[bucket][3] = glyph_id;
+    cache[bucket][4] = u32::from(value);
+    value
+}
+fn unicode_advance(points: &[u32], index: usize, cache: &mut [[u32; 5]; 16]) -> i32 {
     let glyph_id = points[index];
-    let mut glyph_advance = unicode_metrics(glyph_id)[4];
-    if !unicode_is_mark(glyph_id) && !unicode_zero_glyph(glyph_id) {
+    let mut next_glyph = u32::MAX;
+    if !unicode_cached_mark(glyph_id, cache) && !unicode_zero_glyph(glyph_id) {
         let mut next = index + 1;
         while next < points.len()
-            && (unicode_is_mark(points[next])
+            && (unicode_cached_mark(points[next], cache)
                 || unicode_zero_glyph(points[next]) && points[next] & 0x20000000 == 0)
         {
             next += 1;
         }
         if next < points.len() {
-            let data = dynamic_font_data::unicode_kern();
-            let at = unicode_pair(data, glyph_id, points[next]);
-            if at < data.len() {
-                glyph_advance += unicode_word(data, at + 8) as i32;
-            }
+            next_glyph = points[next];
         }
     }
+    let bucket = ((glyph_id.wrapping_mul(17) ^ next_glyph) & 15) as usize;
+    if cache[bucket][0] == glyph_id && cache[bucket][1] == next_glyph {
+        return cache[bucket][2] as i32;
+    }
+    let mut glyph_advance = unicode_metrics(glyph_id)[4];
+    if next_glyph != u32::MAX {
+        let data = dynamic_font_data::unicode_kern();
+        let at = unicode_pair(data, glyph_id, next_glyph);
+        if at < data.len() {
+            glyph_advance += unicode_word(data, at + 8) as i32;
+        }
+    }
+    cache[bucket][0] = glyph_id;
+    cache[bucket][1] = next_glyph;
+    cache[bucket][2] = glyph_advance as u32;
     glyph_advance
 }
 pub struct DynamicLabel {
@@ -325,6 +346,7 @@ pub fn unicode_layout(content: &str) -> Option<DynamicLabel> {
     let mut max_x = 0;
     let mut min_y = 0;
     let mut max_y = dynamic_font_data::UNICODE_HEIGHT;
+    let mut advance_cache = [[u32::MAX; 5]; 16];
     for index in 0..points.len() {
         let metrics = unicode_metrics(points[index]);
         let left = x.div_euclid(64) + metrics[0];
@@ -333,7 +355,7 @@ pub fn unicode_layout(content: &str) -> Option<DynamicLabel> {
         max_x = max_x.max(left + metrics[2]);
         min_y = min_y.min(top);
         max_y = max_y.max(top + metrics[3]);
-        x += unicode_advance(&points, index);
+        x += unicode_advance(&points, index, &mut advance_cache);
     }
     max_x = max_x.max(x.div_euclid(64));
     Some(DynamicLabel {
@@ -363,6 +385,7 @@ pub fn unicode_raster_slice(
     }
     let data = dynamic_font_data::unicode_atlas_pixels();
     let mut x = 0i32;
+    let mut advance_cache = [[u32::MAX; 5]; 16];
     for index in 0..label.points.len() {
         let metrics = unicode_metrics(label.points[index]);
         let left = x.div_euclid(64) + metrics[0] - label.origin_x - slice_left;
@@ -394,7 +417,7 @@ pub fn unicode_raster_slice(
                 at += 2;
             }
         }
-        x += unicode_advance(&label.points, index);
+        x += unicode_advance(&label.points, index, &mut advance_cache);
     }
     pixels
 }
