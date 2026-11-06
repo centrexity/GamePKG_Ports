@@ -34,6 +34,7 @@ Review the [published creator fingerprint](creator-identity.json) before approvi
 | Zelda3 | [zelda3](zelda3) | GamePKG 0.1.6 or newer and your own Zelda: A Link to the Past (USA) ROM |
 | Arkanoo | [arkanoo](arkanoo) | GamePKG |
 | 2048 | [2048](2048) | GamePKG |
+| Halo: Combat Evolved | [halo](halo) | GamePKG 0.1.17 or newer. On 64-bit Linux the default is linux-x86_64. 32-bit Linux and both Windows cross builds are ready. You supply the Xbox disc or extracted maps. The package has no Halo assets and no OpenCE source. See [HALO.md](HALO.md). |
 
 Use the GamePKG CLI to create a package with your creator key:
 
@@ -66,6 +67,8 @@ python3 tools/package_ports.py --cli /path/to/gamepkg --key /private/release.key
 ```
 
 This is a maintainer tool; players need no Python. It checks catalog/package metadata, creator identity, signatures, dependency-free source and excluded file types, then writes the signed packages listed in the catalog, the catalog, the public identity and checksums. Upload only the explicit `release_assets` it reports, never the verification folder or private key. Verify builds/playback locally, publish the tagged release, then test repository-URL import and each downloaded signature in a fresh library. Never replace assets in an already published release; create a higher version for changes.
+
+Pushing a `vX.Y.Z` tag runs `.github/workflows/release.yml`. That job builds the GamePKG `main` pack CLI, signs every catalog package with the `GAMEPKG_PORTS_RELEASE_KEY` secret, and uploads the assets. The secret must be the existing creator seed whose public key is in `creator-identity.json`. GamePKG `main` must already contain the external-engine catalog before the Halo package can be signed. The catalog download URLs for this source tree point at `v0.1.6`. Releases `v0.1.4` and `v0.1.5` stay as they were published.
 
 ## Thumbnail artwork
 

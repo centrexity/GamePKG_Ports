@@ -2,6 +2,7 @@
 from pathlib import Path
 import hashlib, json, shutil, subprocess, xml.etree.ElementTree as ET
 ROOT=Path(__file__).resolve().parents[1];ART=ROOT/'artwork/thumbnails';SOURCES=ART/'sources'
+previous=json.loads((ART/'provenance.json').read_text()) if (ART/'provenance.json').is_file() else []
 items=[('doom','skull-crack','Lorc','https://game-icons.net/1x1/lorc/skull-crack.html','#411a2c','#a52d42','#ffd6a2','DOOM','CLASSIC SHOOTER'),('zelda3','broadsword','Lorc','https://game-icons.net/1x1/lorc/broadsword.html','#092b33','#197368','#ffe09a','ZELDA3','ADVENTURE'),('arkanoo','brick-wall','Delapouite','https://game-icons.net/1x1/delapouite/brick-wall.html','#172653','#6151ad','#9beaf1','ARKANOO','BRICK BREAKER')]
 records=[]
 for name,icon,author,url,bg,bright,ink,title,genre in items:
@@ -17,5 +18,12 @@ for name,icon,author,url,bg,bright,ink,title,genre in items:
 shutil.copyfile(SOURCES/'2048.png',ROOT/'2048/thumbnail.png')
 p=ROOT/'2048/NOTICE';base=p.read_text().split('\nThumbnail artwork:')[0];p.write_text(base.rstrip()+'\n\nThumbnail artwork: original 2048 apple-touch-icon.png by Gabriele Cirulli.\nSource: https://github.com/gabrielecirulli/2048/blob/'+(SOURCES/'2048-upstream-commit.txt').read_text().strip()+'/meta/apple-touch-icon.png\nLicense: MIT. Copied unchanged.\n\n'+(SOURCES/'2048-LICENSE.txt').read_text())
 records.append(dict(game='2048',source='https://github.com/gabrielecirulli/2048',author='Gabriele Cirulli',license='MIT',source_revision=(SOURCES/'2048-upstream-commit.txt').read_text().strip(),thumbnail_sha256=hashlib.sha256((ROOT/'2048/thumbnail.png').read_bytes()).hexdigest()))
+generated={item['game'] for item in records}
+for item in previous:
+    if item['game'] in generated:
+        continue
+    data=(ROOT/item['game']/'thumbnail.png').read_bytes()
+    assert hashlib.sha256(data).hexdigest()==item['thumbnail_sha256'], item['game']
+    records.append(item)
 (ART/'provenance.json').write_text(json.dumps(records,indent=2)+'\n')
 print('Rendered three attributed CC BY 3.0 covers and copied the original MIT 2048 icon.')

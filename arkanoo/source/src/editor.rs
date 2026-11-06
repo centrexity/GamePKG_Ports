@@ -504,7 +504,11 @@ impl Editor {
         let mut muted = false;
         let music_settings = bytes[0..4] == *b"ARK4";
         let settings = bytes[0..4] == *b"ARK3" || music_settings;
-        let music_volume = if music_settings { (flags >> 10) & 255 } else { 64 };
+        let music_volume = if music_settings {
+            (flags >> 10) & 255
+        } else {
+            64
+        };
         let music_muted = music_settings && flags & (1 << 18) != 0;
         if settings {
             volume = (flags >> 1) & 255;

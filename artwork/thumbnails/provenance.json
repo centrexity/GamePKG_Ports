@@ -37,5 +37,12 @@
     "author": "GamePKG contributors",
     "license": "Zlib",
     "thumbnail_sha256": "c3cc93e915eff928b2cc39ee465ff5a441490b08ba40d400317046360af4f628"
+  },
+  {
+    "game": "halo",
+    "source": "Original geometric catalog mark, GamePKG contributors (2026). Three bars on a card. No Halo artwork, logo, or ringed-planet mark.",
+    "author": "GamePKG contributors",
+    "license": "Zlib",
+    "thumbnail_sha256": "89fa2cb3cd2adb453cf37698b48abfb7cba998878e3b6b46ef7d52f10b9e5bb4"
   }
 ]
