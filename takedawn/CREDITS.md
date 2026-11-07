@@ -12,7 +12,7 @@ The thumbnail is an original geometric racing illustration by GamePKG
 contributors, under Apache-2.0. Its editable SVG is kept with the port artwork.
 It contains no original game artwork or logo.
 
-The 0.1.6 candidate uses GamePKG's reviewed v17 source kit. Its shared-results
+The 0.1.7 candidate uses GamePKG's reviewed v18 source kit. Its shared-results
 input guard keeps menu buttons and prompts correct while the original game
 replays the crash behind its results. Prepared Rust game functions are unchanged.
 This is a host input adaptation; it replaces no original game function or media.
@@ -20,3 +20,7 @@ This is a host input adaptation; it replaces no original game function or media.
 The kernel thread adapter resolves game thread objects to owned host thread
 handles before querying or setting priorities. It retains the original game
 functions, native graphics path, AppContainer isolation and memory limits.
+
+The GPU diagnostic report ranks a snapshot rather than sorting the indexed
+counter table. This preserves constant-time method lookup and correct counts
+across reports; it changes no drawing or game function.

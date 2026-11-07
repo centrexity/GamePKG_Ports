@@ -1,12 +1,12 @@
 format_version = 1
 id = "com.gamepkg.takedawn"
-version = "0.1.6"
+version = "0.1.7"
 title = "Burnout 3: Takedown"
 description = "The pinned Takedawn native implementation with prepared Rust game functions. Build locally and choose your original supported Xbox USA ISO. Original media is read in place."
 author = "Takedawn and GamePKG contributors"
 homepage = "https://github.com/xenophobentx/takedawn"
 genres = ["Racing", "Action"]
-engine_version = ">=0.1.19, <0.2.0"
+engine_version = ">=0.1.20, <0.2.0"
 entry_world = "game"
 builtin_engine = "takedawn-5a00fc10-rust-v1"
 lockfile_sha256 = "28385a27f421a8cc8b417127fdbd67aef322b4394d8d26ad6f8556da0552d843"
