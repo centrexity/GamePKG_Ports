@@ -26,3 +26,5 @@ counter table. This preserves constant-time method lookup and correct counts
 across reports; it changes no drawing or game function.
 
 Kenney Input Prompts 1.5A — Kenney (https://kenney.nl/assets/input-prompts), CC0-1.0. Selected original vectors, their license and provenance hashes are included in the reviewed source kit under host/engines/takedawn/media-bridge/input-prompts. The host composites and renders them in advance for crisp 1×/2×/3×/4× prompts; players need no SVG renderer or Python. PlayStation/DualSense retain the existing Takedawn-owned glyph art because this Kenney download does not include PlayStation artwork.
+
+Original Xbox button prompts are supplied by the player’s selected ISO, read in place and upscaled locally. Their pixels and enlarged caches are not included in this recipe. Xbox originals are the default; the Kenney artwork is retained for alternate controller/keyboard layouts.

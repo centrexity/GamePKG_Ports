@@ -9,8 +9,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: centrexity/GamePKG
-          # Pin the host that admits the native-argument/Kenney/3x source recipe.
-          ref: da99dac2ba998b5edb2d5f4e424f256d21527e88
+          # Pin the host that admits the original-Xbox/local-upscaling source recipe.
+          ref: 20c8386391f3d5e7d8a0634e95e9920fa9593b34
           path: host
       - uses: actions/checkout@v4
         with:
@@ -31,7 +31,7 @@ jobs:
       - name: Verify the actual native source archive and signed package
         working-directory: host
         env:
-          GAMEPKG_TAKEDAWN_KIT_SHA256: 3157cadcbc5b7c397238821035d1b172cd4edebbcb4ce2bf2f6bca9b038e4516
+          GAMEPKG_TAKEDAWN_KIT_SHA256: 400f7cf7986b4f59658f4d8f78f54dc9065385a0a532c7d1e286ce7a624b0a12
         run: |
           set -euo pipefail
           export GAMEPKG_TAKEDAWN_KIT="$PWD/ports/takedawn/assets/takedawn-source-kit.tar.gz"
