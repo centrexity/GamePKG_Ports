@@ -1,12 +1,12 @@
 format_version = 1
 id = "com.gamepkg.takedawn"
-version = "0.1.7"
+version = "0.1.12"
 title = "Burnout 3: Takedown (XBOX version)"
 description = "The pinned Takedawn native implementation with prepared Rust game functions. Build locally and choose your original supported Xbox USA ISO. Original media is read in place."
 author = "Takedawn and GamePKG contributors"
 homepage = "https://github.com/xenophobentx/takedawn"
 genres = ["Racing", "Action"]
-engine_version = ">=0.1.20, <0.2.0"
+engine_version = ">=0.1.24, <0.2.0"
 entry_world = "game"
 builtin_engine = "takedawn-5a00fc10-rust-v1"
 lockfile_sha256 = "28385a27f421a8cc8b417127fdbd67aef322b4394d8d26ad6f8556da0552d843"
@@ -17,6 +17,16 @@ update_url = "https://github.com/centrexity/GamePKG_Ports/releases/latest/downlo
 [[roms]]
 id = "xbox-usa-iso"
 title = "Original Burnout 3: Takedown Xbox USA ISO"
+
+[launch_options]
+window_mode = "windowed"
+aspect_ratio = "16:9"
+render_scale = 2
+antialiasing = "smaa"
+texture_lod = "auto"
+sharpening_percent = 10
+widescreen_hud = true
+menu_hud_scale = 2
 
 [limits]
 hard_memory_bytes = 4294967296
