@@ -9,8 +9,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: centrexity/GamePKG
-          # Pin the host that admits the launch-options/fullscreen source recipe.
-          ref: ec6f9d5c02551a9e40bb3812de14924e5c4555c4
+          # Pin the host that admits the native-argument/Kenney/3x source recipe.
+          ref: da99dac2ba998b5edb2d5f4e424f256d21527e88
           path: host
       - uses: actions/checkout@v4
         with:
@@ -31,7 +31,7 @@ jobs:
       - name: Verify the actual native source archive and signed package
         working-directory: host
         env:
-          GAMEPKG_TAKEDAWN_KIT_SHA256: db2a7ddada4d04a7691501480a5a15f2c71be43fc31921f033f8ca292eb0913f
+          GAMEPKG_TAKEDAWN_KIT_SHA256: 3157cadcbc5b7c397238821035d1b172cd4edebbcb4ce2bf2f6bca9b038e4516
         run: |
           set -euo pipefail
           export GAMEPKG_TAKEDAWN_KIT="$PWD/ports/takedawn/assets/takedawn-source-kit.tar.gz"
@@ -50,3 +50,5 @@ jobs:
           fixture_kit=$(mktemp -d)
           tar -xzf ports/takedawn/assets/takedawn-source-kit.tar.gz -C "$fixture_kit"
           python3 tools/check_takedawn_presentation_defaults.py --toolkit "$fixture_kit/toolkit" --cc cc --sanitize
+          python3 tools/check_takedawn_ui_scaling.py --toolkit "$fixture_kit/toolkit" --cc cc
+          python3 tools/check_takedawn_input_glyphs.py --cc cc
