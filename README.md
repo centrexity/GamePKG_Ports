@@ -37,9 +37,9 @@ Review the [published creator fingerprint](creator-identity.json) before approvi
 
 ## Native gameplay preview
 
-The [Takedawn recipe](takedawn) version 0.1.15 targets GamePKG 0.1.24 on Linux x86-64 and Windows x64. It contains 24,003 prepared Rust game functions and the pinned original native runtime, with 24,035 retained exports. Linux uses a native ELF executable and Vulkan; Wine and Proton are not player dependencies. Windows uses native standalone tools without WSL. Python and C2Rust remain maintainer tools.
+The [Takedawn recipe](takedawn) version 0.1.16 targets GamePKG 0.1.24 on Linux x86-64 and Windows x64. It contains 24,003 prepared Rust game functions and the pinned original native runtime, with 24,035 retained exports. Linux uses a native ELF executable and Vulkan; Wine and Proton are not player dependencies. Windows uses native standalone tools without WSL. Python and C2Rust remain maintainer tools.
 
-The signed manifest declares launch defaults: windowed, 16:9, 2× internal resolution, SMAA antialiasing, automatic texture LOD, 10% sharpening, widescreen HUD correction and 2× menu/HUD upscaling. GamePKG's game page saves player overrides or restores package defaults without rebuilding. The updated game runtime adds Alt+Enter, including keypad Enter, to toggle borderless fullscreen without activating game menus. Older game builds need an updated package and rebuild for the shortcut.
+The signed manifest declares launch defaults: windowed, 16:9, 2× internal resolution, SMAA antialiasing, automatic texture LOD, 10% sharpening, widescreen HUD correction and 2× menu/HUD upscaling. GamePKG's game page saves player overrides or restores package defaults without rebuilding. The updated game runtime adds Alt+Enter, including keypad Enter, to toggle borderless fullscreen without activating game menus. The shortcut also works when the in-game overlay is disabled, and failed window changes leave the saved setting unchanged. Older game builds need an updated package and rebuild for the shortcut.
 
 Select your original supported Xbox USA ISO, read in place, and set the memory ceiling to at least 4096 MiB. Verified compiler checkpoints retain completed work across builds. The original game Rust and media code are unchanged by the graphics/defaults/shortcut update; high native optimizations remain enabled.
 
