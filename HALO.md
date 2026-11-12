@@ -21,7 +21,7 @@ gamepkg run com.gamepkg.halo --game-data /path/to/your/disc.xiso.iso
 
 Subsequent launches can use the remembered selection. Build and Play are also available on the desktop game page. Normal launches require a working game window; graphics initialization failures report an error instead of silently running without a picture.
 
-Linux needs Clang, LLVM tools, Ninja, CMake, pkg-config and xz, plus the host's 32-bit graphics/audio drivers. GamePKG's Rust preparation driver downloads and verifies the compiler sysroot and SDL sources, reconstructs reviewed generated resources, and builds the engine without running Python. Python is only a maintainer generation/test tool. Wayland also needs the 32-bit EGL loader; X11 uses the corresponding GLX drivers. Missing 32-bit ALSA is reported and falls back to silent audio.
+Linux needs Clang, LLVM tools, Ninja, CMake, pkg-config, xz and wayland-scanner, plus the host's 32-bit graphics/audio drivers. GamePKG's Rust preparation driver downloads and verifies the compiler sysroot and SDL sources, reconstructs reviewed generated resources, and builds the engine without running Python. Python is only a maintainer generation/test tool. Wayland also needs the 32-bit EGL loader; X11 uses the corresponding GLX drivers. Missing 32-bit ALSA is reported and falls back to silent audio.
 
 `GAMEPKG_ENGINE_SOURCE` can select an existing checkout of the pinned source. Commit and license checks still apply. Unchanged builds reuse their outputs; compiler, CPU, preparation or reviewed-patch changes invalidate the relevant cache.
 
