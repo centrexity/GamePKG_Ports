@@ -45,7 +45,7 @@ for game in catalog['games']:
  assert m['update_url']==f'https://github.com/centrexity/GamePKG_Ports/releases/latest/download/{name}.gamepkg'
  assert hashlib.sha256((source/'source/Cargo.lock').read_bytes()).hexdigest()==m['lockfile_sha256']
  assert not tomllib.loads((source/'source/Cargo.toml').read_text()).get('dependencies')
-print('All six catalog entries match their dependency-free recipes and release/update URLs.')
+print(f"All {len(catalog['games'])} catalog entries match their dependency-free recipes and release/update URLs.")
 
 # Artwork provenance and signed attribution travel with each thumbnail update.
 import struct
@@ -58,4 +58,4 @@ for item in provenance:
  assert hashlib.sha256(data).hexdigest()==item['thumbnail_sha256']
  notice=(ROOT/item['game']/'NOTICE').read_text()
  assert item['author'] in notice and item['license'].split('-')[0] in notice
-print('All six thumbnails have bounded PNG dimensions, matching hashes and author/license notices.')
+print(f'All {len(provenance)} thumbnails have bounded PNG dimensions, matching hashes and author/license notices.')

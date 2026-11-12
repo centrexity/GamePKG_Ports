@@ -9,8 +9,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: centrexity/GamePKG
-          # Pin the host that admits this exact source recipe and fullscreen fix.
-          ref: 05b1703bca3e8ef885cc808941c50aadd2dd20e2
+          # Pin the integrated host that validates both reviewed native engines.
+          ref: 86bef264f58a97dc78517a96b7a69748c89b5d7e
           path: host
       - uses: actions/checkout@v4
         with:
@@ -19,22 +19,9 @@ jobs:
       - name: Install original SDL reference test dependencies
         working-directory: host
         run: bash tools/ci_ubuntu_apt.sh update && bash tools/ci_ubuntu_apt.sh install -y libsdl2-dev g++
-      # v0.1.15 predates reviewed external engines. Hold that recipe so its
-      # manifest is not parsed as a Cube 2 package. Hosts that declare
-      # external_engine keep it.
-      - name: Hold external-engine recipes on hosts that predate them
-        working-directory: host
-        run: |
-          if ! grep -q 'external_engine' src/lib.rs; then
-            mv ports/halo /tmp/halo-recipe
-            echo HELD_OPENCE=1 >> "$GITHUB_ENV"
-          fi
       - name: Check port gameplay, signing, policy, and lock hashes
         working-directory: host
         run: cargo test --locked --test game_2048 --test game_arkanoo --test zelda3_policy --test doom_policy --test cube2_policy --test examples
-      - name: Restore the OpenCE recipe
-        if: env.HELD_OPENCE == '1'
-        run: mv /tmp/halo-recipe host/ports/halo
       - name: Check import catalog and release metadata
         working-directory: host/ports
         run: python3 tools/check_catalog.py
