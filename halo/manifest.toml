@@ -2,7 +2,7 @@ format_version = 1
 id = "com.gamepkg.halo"
 version = "0.1.0"
 title = "Halo: Combat Evolved"
-description = "Play Halo: Combat Evolved by building the pinned OpenCE engine on your machine. On 64-bit Linux the default build is linux-x86_64. 32-bit Linux and both Windows cross builds are also ready. You supply your own Xbox disc image or extracted maps folder. No Halo assets and no OpenCE source are in this package."
+description = "Build the pinned native OpenCE source port and play using your own Xbox disc image, read in place without extracting maps. Linux uses the tested native i686 build, including on a 64-bit host. Existing maps folders also work. This package contains no Halo assets or OpenCE source."
 author = "OpenCE contributors; GamePKG contributors"
 homepage = "https://github.com/OpenCommunityEdition/OpenCE"
 update_url = "https://github.com/centrexity/GamePKG_Ports/releases/latest/download/halo.gamepkg"
@@ -15,7 +15,7 @@ lockfile_sha256 = "28385a27f421a8cc8b417127fdbd67aef322b4394d8d26ad6f8556da0552d
 shader_profile = "slang"
 
 [game_data]
-title = "Folder with your Halo maps directory or one Xbox disc image"
+title = "Your Xbox disc image or existing Halo maps folder"
 
 [[game_data.layouts]]
 placement = "link"
@@ -31,11 +31,11 @@ min_bytes = 1024
 max_bytes = 8589934592
 
 [limits]
-hard_memory_bytes = 3221225472
-recommended_memory_bytes = 2147483648
+hard_memory_bytes = 4294967296
+recommended_memory_bytes = 3221225472
 
 [permissions]
 input = true
 audio = true
 save = true
-network = false
+network = true

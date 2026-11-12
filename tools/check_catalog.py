@@ -12,7 +12,11 @@ assert pin['vendored'] is False and pin['license']=='AGPL-3.0-or-later'
 assert pin['commit']=='ce95f7deed5bbf726e50a9d5fe5227437194cf3b' and pin['profile']=='opence-ce95f7de'
 manifest=(halo/'manifest.toml').read_text()
 assert 'builtin_engine = "opence-ce95f7de"' in manifest and 'id = "com.gamepkg.halo"' in manifest
-assert pin['commit'][:8] in manifest and 'network = false' in manifest
+assert pin['commit'][:8] in manifest
+halo_manifest=tomllib.loads(manifest)
+assert halo_manifest['permissions']['network'] is True
+assert halo_manifest['limits']['recommended_memory_bytes']==3*1024**3
+assert halo_manifest['limits']['hard_memory_bytes']==4*1024**3
 import os
 forbidden=[]
 for dirpath, dirnames, filenames in os.walk(halo):
