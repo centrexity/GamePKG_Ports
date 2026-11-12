@@ -1,5 +1,19 @@
 use crate::gamepkg;
 use crate::physics::{Game, BLOCK_HEIGHT, BLOCK_WIDTH, PADDLE_Y};
+// SDL solid primitives retain fill-rectangle pixel coverage when scaled.
+// One-texel textures have a different left-edge rule at half-pixel positions.
+fn draw_sdl_rect(x: f32, y: f32, w: f32, h: f32, rgba: &[u8; 4]) -> bool {
+    gamepkg::draw_rect(
+        x,
+        y,
+        w,
+        h,
+        (u32::from(rgba[0]) << 24)
+            | (u32::from(rgba[1]) << 16)
+            | (u32::from(rgba[2]) << 8)
+            | u32::from(rgba[3]),
+    )
+}
 fn glyph(character: u8) -> u64 {
     match character {
         65 => 18842895918,
@@ -122,7 +136,7 @@ pub fn draw_ice_brick(health: u8, max_health: u8, frame: u64, x: f32, y: f32) ->
     let by = ((y - 60.0) * 2.0) as i32;
     let x = bx as f32 * 0.5;
     let y = 60.0 + by as f32 * 0.5;
-    let pulse = (frame as f32 * 0.05).sin() * 20.0;
+    let pulse = crate::portable_math::sin(frame as f32 * 0.05) * 20.0;
     let opacity = (180.0 + pulse) as u8;
     let base = gamepkg::draw_rect(x, y, 30.0, 10.0, 0xc8f0ff00 | u32::from(opacity));
     // Glints extend through the original inclusive right/bottom endpoints.
@@ -676,77 +690,21 @@ pub fn draw_particles(particles: &[crate::physics::Particle]) {
 }
 pub fn draw_image_background(level: u32, darkness: u8) -> bool {
     let paths = match level {
-        1 => [
-            "background1-0.png",
-            "background1-1.png",
-            "background1-2.png",
-            "background1-3.png",
-            "background1-4.png",
-            "background1-5.png",
-        ],
-        2 => [
-            "background2-0.png",
-            "background2-1.png",
-            "background2-2.png",
-            "background2-3.png",
-            "background2-4.png",
-            "background2-5.png",
-        ],
-        3 => [
-            "background3-0.png",
-            "background3-1.png",
-            "background3-2.png",
-            "background3-3.png",
-            "background3-4.png",
-            "background3-5.png",
-        ],
-        4 => [
-            "background4-0.png",
-            "background4-1.png",
-            "background4-2.png",
-            "background4-3.png",
-            "background4-4.png",
-            "background4-5.png",
-        ],
-        5 => [
-            "background5-0.png",
-            "background5-1.png",
-            "background5-2.png",
-            "background5-3.png",
-            "background5-4.png",
-            "background5-5.png",
-        ],
-        6 => [
-            "background6-0.png",
-            "background6-1.png",
-            "background6-2.png",
-            "background6-3.png",
-            "background6-4.png",
-            "background6-5.png",
-        ],
+        1 => ["background1-0.png", "background1-1.png", "background1-2.png", "background1-3.png", "background1-4.png", "background1-5.png", "background1-6.png", "background1-7.png", "background1-8.png", "background1-9.png", "background1-10.png", "background1-11.png", "background1-12.png", "background1-13.png", "background1-14.png", "background1-15.png", "background1-16.png", "background1-17.png", "background1-18.png", "background1-19.png", "background1-20.png", "background1-21.png", "background1-22.png", "background1-23.png"],
+        2 => ["background2-0.png", "background2-1.png", "background2-2.png", "background2-3.png", "background2-4.png", "background2-5.png", "background2-6.png", "background2-7.png", "background2-8.png", "background2-9.png", "background2-10.png", "background2-11.png", "background2-12.png", "background2-13.png", "background2-14.png", "background2-15.png", "background2-16.png", "background2-17.png", "background2-18.png", "background2-19.png", "background2-20.png", "background2-21.png", "background2-22.png", "background2-23.png"],
+        3 => ["background3-0.png", "background3-1.png", "background3-2.png", "background3-3.png", "background3-4.png", "background3-5.png", "background3-6.png", "background3-7.png", "background3-8.png", "background3-9.png", "background3-10.png", "background3-11.png", "background3-12.png", "background3-13.png", "background3-14.png", "background3-15.png", "background3-16.png", "background3-17.png", "background3-18.png", "background3-19.png", "background3-20.png", "background3-21.png", "background3-22.png", "background3-23.png"],
+        4 => ["background4-0.png", "background4-1.png", "background4-2.png", "background4-3.png", "background4-4.png", "background4-5.png", "background4-6.png", "background4-7.png", "background4-8.png", "background4-9.png", "background4-10.png", "background4-11.png", "background4-12.png", "background4-13.png", "background4-14.png", "background4-15.png", "background4-16.png", "background4-17.png", "background4-18.png", "background4-19.png", "background4-20.png", "background4-21.png", "background4-22.png", "background4-23.png"],
+        5 => ["background5-0.png", "background5-1.png", "background5-2.png", "background5-3.png", "background5-4.png", "background5-5.png", "background5-6.png", "background5-7.png", "background5-8.png", "background5-9.png", "background5-10.png", "background5-11.png", "background5-12.png", "background5-13.png", "background5-14.png", "background5-15.png", "background5-16.png", "background5-17.png", "background5-18.png", "background5-19.png", "background5-20.png", "background5-21.png", "background5-22.png", "background5-23.png"],
+        6 => ["background6-0.png", "background6-1.png", "background6-2.png", "background6-3.png", "background6-4.png", "background6-5.png", "background6-6.png", "background6-7.png", "background6-8.png", "background6-9.png", "background6-10.png", "background6-11.png", "background6-12.png", "background6-13.png", "background6-14.png", "background6-15.png", "background6-16.png", "background6-17.png", "background6-18.png", "background6-19.png", "background6-20.png", "background6-21.png", "background6-22.png", "background6-23.png"],
         _ => return false,
     };
-    let mut accepted = true;
-    for index in 0..6 {
-        let col = index % 3;
-        let row = index / 3;
-        let width = if col == 2 { 128.0 } else { 256.0 };
-        let height = if row == 1 { 104.0 } else { 256.0 };
-        if !gamepkg::draw_asset_image(
-            paths[index],
-            col as f32 * 256.0,
-            60.0 + row as f32 * 256.0,
-            width,
-            height,
-        ) {
-            accepted = false;
-        }
-    }
+    let mut accepted = draw_original_tiles(paths);
     if darkness > 0 && !gamepkg::draw_rect(0.0, 60.0, 640.0, 360.0, u32::from(darkness)) {
         accepted = false;
     }
     accepted
 }
+
 pub fn draw_background(level: u32, frame: u64) -> bool {
     if level >= 1 && level <= 6 {
         return draw_image_background(level, 191);
@@ -807,8 +765,7 @@ pub fn draw_background(level: u32, frame: u64) -> bool {
     }
 }
 pub fn draw_portal(frame: u64, timer: u64) {
-    let dots = crate::physics::portal_points(frame, timer);
-    if let Some(image) = crate::physics::effect_image(&dots) {
+    if let Some(image) = crate::physics::portal_image(frame, timer) {
         draw_effect_layer(&image);
     }
 }
@@ -881,6 +838,11 @@ fn draw_viewport_label(
     row_height: i32,
     bottom: i32,
 ) -> bool {
+    let selector_text = crate::dynamic_font::compact_selector_runs(&[label]);
+    let label = if let Some(display_text) = selector_text.as_ref() { display_text.as_str() } else { label };
+    let label = if centered { label } else {
+        crate::dynamic_font::viewport_label_slice(label, 1280 - original_x)
+    };
     let Some(layout_data) = crate::dynamic_font::unicode_layout(label) else {
         return false;
     };
@@ -910,10 +872,22 @@ fn draw_viewport_label(
         let tile_width = source_right - source_left;
         let pixels =
             crate::dynamic_font::unicode_raster_slice(&layout_data, color, source_left, tile_width);
+        // Let the image quad cover outer edges; clip only shared tile seams.
+        // Rounding a half-pixel outer scissor can erase a visible glyph pixel.
+        let clip_left = if column == visible_left {
+            0
+        } else {
+            left + column
+        };
+        let clip_right = if core_right == visible_right {
+            1280
+        } else {
+            left + core_right
+        };
         if !gamepkg::draw_clip(
-            (left + column) as f32 * 0.5,
+            clip_left as f32 * 0.5,
             60.0 + clip_top as f32 * 0.5,
-            (core_right - column) as f32 * 0.5,
+            (clip_right - clip_left) as f32 * 0.5,
             (clip_bottom - clip_top) as f32 * 0.5,
         ) {
             accepted = false;
@@ -941,26 +915,22 @@ pub fn draw_editor_grid() -> bool {
     let grid_pixel = [80u8, 80, 100, 255];
     let mut accepted = true;
     for row in 0..=10 {
-        if !gamepkg::draw_image(
+        if !draw_sdl_rect(
             20.0,
             100.0 + row as f32 * 10.0,
             600.5,
             0.5,
-            1,
-            1,
             &grid_pixel,
         ) {
             accepted = false;
         }
     }
     for col in 0..=20 {
-        if !gamepkg::draw_image(
+        if !draw_sdl_rect(
             20.0 + col as f32 * 30.0,
             100.0,
             0.5,
             100.5,
-            1,
-            1,
             &grid_pixel,
         ) {
             accepted = false;
@@ -992,24 +962,20 @@ pub fn draw_editor_palette(selected: u8, hovered: u8) -> bool {
         };
         let border_pixel = [border_shade, border_shade, border_shade, 255];
         let expansion = if selected == index as u8 { 2 } else { 0 };
-        if !gamepkg::draw_image(
+        if !draw_sdl_rect(
             (px - expansion) as f32 * 0.5,
             60.0 + (20 - expansion) as f32 * 0.5,
             (40 + expansion * 2) as f32 * 0.5,
             (30 + expansion * 2) as f32 * 0.5,
-            1,
-            1,
             &border_pixel,
         ) {
             accepted = false;
         }
-        if !gamepkg::draw_image(
+        if !draw_sdl_rect(
             (px + 1) as f32 * 0.5,
             70.5,
             19.0,
             14.0,
-            1,
-            1,
             &palette_colors[index],
         ) {
             accepted = false;
@@ -1030,8 +996,7 @@ pub fn draw_editor_palette(selected: u8, hovered: u8) -> bool {
     accepted
 }
 pub fn draw_editor_label(which: u32, original_x: i32, original_y: i32) -> bool {
-    let lettering = crate::editor_font::editor_raster(which);
-    let full_width = lettering.width as usize;
+    let full_width = crate::editor_font::editor_width(which);
     let mut accepted = true;
     let mut column = 0;
     while column < full_width {
@@ -1039,18 +1004,21 @@ pub fn draw_editor_label(which: u32, original_x: i32, original_y: i32) -> bool {
         let source_left = column.saturating_sub(1);
         let source_right = (core_right + 1).min(full_width);
         let tile_width = source_right - source_left;
-        let mut tile_pixels = Vec::new();
-        tile_pixels.reserve(tile_width * 31 * 4);
-        for row in 0..31 {
-            tile_pixels.extend_from_slice(
-                &lettering.pixels
-                    [(row * full_width + source_left) * 4..(row * full_width + source_right) * 4],
-            );
-        }
+        let lettering = crate::editor_font::editor_raster_region(which, source_left, source_right);
+        let clip_left = if column == 0 {
+            0.0
+        } else {
+            original_x as f32 + column as f32
+        };
+        let clip_right = if core_right == full_width {
+            1280.0
+        } else {
+            original_x as f32 + core_right as f32
+        };
         if !gamepkg::draw_clip(
-            (original_x as f32 + column as f32) * 0.5,
+            clip_left * 0.5,
             60.0 + original_y as f32 * 0.5,
-            (core_right - column) as f32 * 0.5,
+            (clip_right - clip_left) * 0.5,
             15.5,
         ) {
             accepted = false;
@@ -1062,7 +1030,7 @@ pub fn draw_editor_label(which: u32, original_x: i32, original_y: i32) -> bool {
             15.5,
             tile_width as u32,
             31,
-            &tile_pixels,
+            &lettering.pixels,
         ) {
             accepted = false;
         }
@@ -1086,7 +1054,13 @@ pub fn draw_editor_button(which: u32, hovered: bool) -> bool {
     };
     let border = [200u8, 200, 200, 255];
     let mut accepted = true;
-    if !gamepkg::draw_image(x, y, w, h, 1, 1, &fill) {
+    if !draw_sdl_rect(
+        x,
+        y,
+        w,
+        h,
+        &fill,
+    ) {
         accepted = false;
     }
     for edge in [
@@ -1095,7 +1069,13 @@ pub fn draw_editor_button(which: u32, hovered: bool) -> bool {
         [x, y, 0.5, h],
         [x + w - 0.5, y, 0.5, h],
     ] {
-        if !gamepkg::draw_image(edge[0], edge[1], edge[2], edge[3], 1, 1, &border) {
+        if !draw_sdl_rect(
+            edge[0],
+            edge[1],
+            edge[2],
+            edge[3],
+            &border,
+        ) {
             accepted = false;
         }
     }
@@ -1111,21 +1091,31 @@ pub fn draw_editor_button(which: u32, hovered: bool) -> bool {
     accepted
 }
 pub fn draw_pattern_browser(edit: &crate::editor::Editor) {
-    gamepkg::draw_image(0.0, 60.0, 640.0, 360.0, 1, 1, &[0, 0, 0, 200]);
-    gamepkg::draw_image(170.0, 115.0, 300.0, 250.0, 1, 1, &[40, 45, 52, 255]);
+    draw_sdl_rect(
+        0.0,
+        60.0,
+        640.0,
+        360.0,
+        &[0, 0, 0, 200],
+    );
+    draw_sdl_rect(
+        170.0,
+        115.0,
+        300.0,
+        250.0,
+        &[40, 45, 52, 255],
+    );
     for edge in [
         [170.0, 115.0, 300.0, 0.5],
         [170.0, 364.5, 300.0, 0.5],
         [170.0, 115.0, 0.5, 250.0],
         [469.5, 115.0, 0.5, 250.0],
     ] {
-        gamepkg::draw_image(
+        draw_sdl_rect(
             edge[0],
             edge[1],
             edge[2],
             edge[3],
-            1,
-            1,
             &[100, 110, 120, 255],
         );
     }
@@ -1138,9 +1128,17 @@ pub fn draw_pattern_browser(edit: &crate::editor::Editor) {
         } else {
             [55u8, 60, 68, 255]
         };
-        gamepkg::draw_image(180.0, row_y, 280.0, 15.0, 1, 1, &row_color);
+        draw_sdl_rect(
+            180.0,
+            row_y,
+            280.0,
+            15.0,
+            &row_color,
+        );
+        let name_pieces = pattern.name.name_segments();
+        let row_name = crate::dynamic_font::viewport_label_parts(&name_pieces, 910);
         draw_dynamic_label(
-            &pattern.name,
+            &row_name,
             370,
             170 + (index - first) as i32 * 35,
             [255, 255, 255],
@@ -1177,13 +1175,11 @@ fn draw_editor(game: &Game) {
     }
     draw_editor_label(0, 10, 10);
     draw_editor_label(1, 760, 25);
-    let mut pattern_label = String::from("Name: ");
-    pattern_label.push_str(&edit.name);
-    pattern_label.push_str(if edit.naming {
-        "_ (ESC to finish)"
-    } else {
-        " (N to edit)"
-    });
+    let name_pieces = edit.name.name_segments();
+    let pattern_label = crate::dynamic_font::viewport_label_parts(&[
+        "Name: ", name_pieces[0], name_pieces[1],
+        if edit.naming { "_ (ESC to finish)" } else { " (N to edit)" },
+    ], 1270);
     draw_dynamic_label(
         &pattern_label,
         10,
@@ -1247,16 +1243,30 @@ pub fn draw_splash(timer: u32) -> bool {
     accepted
 }
 pub fn draw_menu_background() -> bool {
-    let mut accepted = draw_world_tiles([
-        "menu-background1-0.png",
-        "menu-background1-1.png",
-        "menu-background1-2.png",
-        "menu-background1-3.png",
-        "menu-background1-4.png",
-        "menu-background1-5.png",
-    ]);
-    if !gamepkg::draw_rect(0.0, 60.0, 640.0, 360.0, 150) {
-        accepted = false;
+    draw_image_background(1, 150)
+}
+fn draw_original_tiles(paths: [&str; 24]) -> bool {
+    let mut accepted = true;
+    let scale_x = 640.0 / 2816.0;
+    let scale_y = 360.0 / 1536.0;
+    for index in 0..24 {
+        let core_x = (index % 6) * 510usize;
+        let core_y = (index / 6) * 510usize;
+        let core_w = (2816 - core_x).min(510);
+        let core_h = (1536 - core_y).min(510);
+        let left = core_x.saturating_sub(1);
+        let top = core_y.saturating_sub(1);
+        let right = (core_x + core_w + 1).min(2816);
+        let bottom = (core_y + core_h + 1).min(1536);
+        let x = core_x as f32 * scale_x;
+        let y = 60.0 + core_y as f32 * scale_y;
+        let x1 = ((core_x + core_w) as f32 * scale_x).min(640.0);
+        let y1 = 60.0 + (core_y + core_h) as f32 * scale_y;
+        if !gamepkg::draw_clip(x, y, x1-x, y1-y) { accepted = false; }
+        if !gamepkg::draw_asset_image_linear(paths[index], left as f32 * scale_x,
+            60.0 + top as f32 * scale_y, (right-left) as f32 * scale_x,
+            (bottom-top) as f32 * scale_y) { accepted = false; }
+        if !gamepkg::draw_clip_reset() { accepted = false; }
     }
     accepted
 }
@@ -1317,42 +1327,97 @@ pub fn draw_menu(game: &Game) {
             draw_menu_button(game, action);
         }
         draw_sfx_slider(game.menu.sfx_volume);
+        if game.menu.music_available { draw_menu_button(game, 12); draw_volume_slider(game.menu.music_volume, 195.0); }
+        if game.menu.vsync.is_some() {
+            draw_menu_button(game, 20);
+            // Keep the original wording, clear of its overlapping resolution header.
+            draw_dynamic_label(
+                if game.menu.vsync_failed { "VSync change unavailable" } else { "(VSync change requires restart)" },
+                640, 190, if game.menu.vsync_failed { [255, 219, 112] } else { [120, 120, 120] }, true, -1,
+            );
+        }
+        if game.menu.window_size.is_some() {
+            draw_dynamic_label("Resolution:", 640, 490, [255, 255, 255], true, -1);
+            if game.menu.resolution_pending {
+                draw_sdl_rect(
+                    220.0,
+                    400.0,
+                    200.0,
+                    40.0,
+                    &[30, 30, 50, 220],
+                );
+                for edge in [[220.0, 400.0, 200.0, 0.5], [220.0, 439.5, 200.0, 0.5], [220.0, 400.0, 0.5, 40.0], [419.5, 400.0, 0.5, 40.0]] {
+                    draw_sdl_rect(
+                        edge[0],
+                        edge[1],
+                        edge[2],
+                        edge[3],
+                        &[100, 100, 150, 255],
+                    );
+                }
+                let mut message = String::from("Keep this resolution? (");
+                let seconds = game.menu.resolution_ticks.saturating_add(59) / 60;
+                message.push(match seconds { 0 => '0', 1 => '1', 2 => '2', 3 => '3', 4 => '4', _ => '5' });
+                message.push_str("s)");
+                draw_dynamic_label(&message, 640, 690, [255, 255, 100], true, -1);
+                draw_menu_button(game, 18);
+                draw_menu_button(game, 19);
+            } else if !game.menu.fullscreen {
+                for action in 13..=17 {
+                    draw_menu_button(game, action);
+                }
+            } else {
+                draw_dynamic_label("Exit fullscreen to change", 640, 530, [200, 200, 200], true, -1);
+            }
+            if game.menu.resolution_failed {
+                text("RESOLUTION CHANGE UNAVAILABLE", 236.0, 455.0, 1.0, 0xffdb70ff);
+            }
+        }
+        let notice_y = if game.menu.window_size.is_some() { 467.0 } else { 330.0 };
         if !game.editor.readable {
-            text("SAVE DAMAGED / PRESERVED", 251.0, 330.0, 1.0, 0xffdb70ff);
+            text("SAVE DAMAGED / PRESERVED", 251.0, notice_y, 1.0, 0xffdb70ff);
         } else if game.menu.save_failed {
-            text("SAVING UNAVAILABLE", 266.0, 330.0, 1.0, 0xffdb70ff);
+            text("SAVING UNAVAILABLE", 266.0, notice_y, 1.0, 0xffdb70ff);
         }
     } else {
         for action in [1, 2, 3, 4, 5, 6, 9] {
             draw_menu_button(game, action);
         }
+        // The original title reports the pinned game's version, not the recipe.
+        let version = "Version: 0.5.0";
+        if let Some(label) = crate::dynamic_font::unicode_layout(version) {
+            draw_dynamic_label(version, 1150 - label.width, 670, [150, 150, 150], false, 40);
+        }
     }
 }
-pub fn draw_sfx_slider(volume: u32) {
+pub fn draw_sfx_slider(volume: u32) { draw_volume_slider(volume, 240.0); }
+pub fn draw_volume_slider(volume: u32, top: f32) {
     let width = volume.min(128) * 200 / 128;
-    gamepkg::draw_image(270.0, 240.0, 100.0, 10.0, 1, 1, &[80, 80, 80, 200]);
-    gamepkg::draw_image(
+    draw_sdl_rect(
         270.0,
-        240.0,
+        top,
+        100.0,
+        10.0,
+        &[80, 80, 80, 200],
+    );
+    draw_sdl_rect(
+        270.0,
+        top,
         width as f32 * 0.5,
         10.0,
-        1,
-        1,
         &[100, 200, 100, 220],
     );
     for edge in [
-        [270.0, 240.0, 100.0, 0.5],
-        [270.0, 249.5, 100.0, 0.5],
-        [270.0, 240.0, 0.5, 10.0],
-        [369.5, 240.0, 0.5, 10.0],
+        [270.0, top, 100.0, 0.5],
+        [270.0, top+9.5, 100.0, 0.5],
+        [270.0, top, 0.5, 10.0],
+        [369.5, top, 0.5, 10.0],
     ] {
-        gamepkg::draw_image(
+        draw_sdl_rect(
             edge[0],
             edge[1],
             edge[2],
             edge[3],
-            1,
-            1,
             &[200, 200, 200, 255],
         );
     }
@@ -1371,7 +1436,7 @@ pub fn draw_sfx_slider(volume: u32) {
         draw_dynamic_label(
             &shown,
             540 + (200 - volume_label.width) / 2,
-            360,
+            ((top-60.0)*2.0) as i32,
             [255, 255, 255],
             false,
             20,
@@ -1401,6 +1466,15 @@ pub fn draw_menu_button(game: &Game, action: u32) {
             }
         }
         9 => "Github",
+        13 => "1280x720",
+        14 => "1366x768",
+        15 => "1600x900",
+        16 => "1920x1080",
+        17 => "2560x1440",
+        18 => "Keep",
+        19 => "Revert",
+        20 => if game.menu.vsync == Some(true) { "VSync: ON" } else { "VSync: OFF" },
+        12 => if game.menu.music_muted {"Music: OFF"} else {"Music: ON"},
         10 => {
             if game.menu.sfx_muted {
                 "SFX: OFF"
@@ -1415,20 +1489,34 @@ pub fn draw_menu_button(game: &Game, action: u32) {
     } else {
         [60u8, 60, 100, 180]
     };
-    gamepkg::draw_image(left, top, width, height, 1, 1, &fill);
+    if crate::menu::Menu::resolution(action).is_some()
+        && crate::menu::Menu::resolution(action) == game.menu.window_size {
+        draw_sdl_rect(
+            left,
+            top,
+            width,
+            height,
+            &[100, 200, 100, 100],
+        );
+    }
+    draw_sdl_rect(
+        left,
+        top,
+        width,
+        height,
+        &fill,
+    );
     for edge in [
         [left, top, width, 0.5],
         [left, top + height - 0.5, width, 0.5],
         [left, top, 0.5, height],
         [left + width - 0.5, top, 0.5, height],
     ] {
-        gamepkg::draw_image(
+        draw_sdl_rect(
             edge[0],
             edge[1],
             edge[2],
             edge[3],
-            1,
-            1,
             &[200, 200, 200, 255],
         );
     }

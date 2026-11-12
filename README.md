@@ -35,6 +35,26 @@ Review the [published creator fingerprint](creator-identity.json) before approvi
 | Arkanoo | [arkanoo](arkanoo) | GamePKG |
 | 2048 | [2048](2048) | GamePKG |
 
+## Native gameplay preview
+
+The [Takedawn recipe](takedawn) version 0.1.16 targets GamePKG 0.1.24 on Linux x86-64 and Windows x64. It contains 24,003 prepared Rust game functions and the pinned original native runtime, with 24,035 retained exports. Linux uses a native ELF executable and Vulkan; Wine and Proton are not player dependencies. Windows uses native standalone tools without WSL. Python and C2Rust remain maintainer tools.
+
+The signed manifest declares launch defaults: windowed, 16:9, 2× internal resolution, SMAA antialiasing, automatic texture LOD, 10% sharpening, widescreen HUD correction and 2× menu/HUD upscaling. GamePKG's game page saves player overrides or restores package defaults without rebuilding. The updated game runtime adds Alt+Enter, including keypad Enter, to toggle borderless fullscreen without activating game menus. The shortcut also works when the in-game overlay is disabled, and failed window changes leave the saved setting unchanged. Older game builds need an updated package and rebuild for the shortcut.
+
+Select your original supported Xbox USA ISO, read in place, and set the memory ceiling to at least 4096 MiB. Verified compiler checkpoints retain completed work across builds. The original game Rust and media code are unchanged by the graphics/defaults/shortcut update; high native optimizations remain enabled.
+
+Local native game builds pass on Linux and physical Windows. The shared shortcut policy passes 983,047 checks on each of Linux64, Linux32 and physical Windows64; the settings reader passes 271 original checks and three launch-override configurations on Linux64 and Linux32. These component checks do not establish physical-keyboard/window-transition or complete gameplay qualification. Steady 60 FPS throughout all events, under-10-ms frame work, and complete multiplayer/campaign coverage remain open. The near-view-plane perspective correction eliminates the reproduced road-lettering disappearance in bounded Linux and actual Windows countdown captures; original native Crash controls and menu return still pass. See the host's [native validation record](https://github.com/centrexity/GamePKG/blob/native-takedawn-rust-preview/docs/native-windows-gameplay-validation.md).
+
+The source catalog targets the next v0.1.7 ports release. Its new downloads are not yet published; importing the stable catalog does not install this source preview. Maintainers can pack a local preview using a source-built GamePKG 0.1.24:
+
+```sh
+gamepkg pack takedawn --output takedawn.gamepkg --key /private/existing-creator.key
+```
+
+Players import that signed package and select their ISO; they never enter a
+signing key. The kit retains upstream notices and includes no ISO or extracted
+original media. The cover is an original geometric racing illustration.
+
 Use the GamePKG CLI to create a package with your creator key:
 
 ```sh

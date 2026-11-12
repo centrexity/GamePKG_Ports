@@ -37,5 +37,12 @@
     "author": "GamePKG contributors",
     "license": "Zlib",
     "thumbnail_sha256": "c3cc93e915eff928b2cc39ee465ff5a441490b08ba40d400317046360af4f628"
+  },
+  {
+    "game": "takedawn",
+    "source": "Original geometric racing illustration, GamePKG contributors (2026); no original game media or logo.",
+    "author": "GamePKG contributors",
+    "license": "Apache-2.0",
+    "thumbnail_sha256": "7be283bfdb74f44529ebb6d38cb5a48a40efab266adc8f5739cbd76780f01f06"
   }
 ]
