@@ -9,8 +9,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: centrexity/GamePKG
-          # Pin the host that admits this exact source recipe and fullscreen fix.
-          ref: 05b1703bca3e8ef885cc808941c50aadd2dd20e2
+          # Pin the integrated host that validates both reviewed native engines.
+          ref: 86bef264f58a97dc78517a96b7a69748c89b5d7e
           path: host
       - uses: actions/checkout@v4
         with:
@@ -52,3 +52,6 @@ jobs:
           python3 tools/check_takedawn_presentation_defaults.py --toolkit "$fixture_kit/toolkit" --cc cc --sanitize
           python3 tools/check_takedawn_ui_scaling.py --toolkit "$fixture_kit/toolkit" --cc cc
           python3 tools/check_takedawn_input_glyphs.py --cc cc
+      - name: Check the OpenCE selector
+        working-directory: host/ports
+        run: python3 tools/test_opence_checkout.py

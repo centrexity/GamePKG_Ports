@@ -1,0 +1,11 @@
+{
+  "name": "OpenCE",
+  "clone_url": "https://github.com/OpenCommunityEdition/OpenCE.git",
+  "homepage": "https://github.com/OpenCommunityEdition/OpenCE",
+  "commit": "ce95f7deed5bbf726e50a9d5fe5227437194cf3b",
+  "license": "AGPL-3.0-or-later",
+  "license_sha256": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0",
+  "profile": "opence-ce95f7de",
+  "vendored": false,
+  "game_data": "A Halo: Combat Evolved Xbox disc image (.iso or .xiso) that the player already owns, or a maps folder extracted from that image with ui.map. Custom Edition shared caches stay with the player. None of these files are in this repository."
+}
