@@ -1266,7 +1266,10 @@ impl MissingCompositionRun {
         let mut previous_class = 0usize;
         let mut consumed = 0u32;
         for class in 1..self.counts.len() {
-            for &cp in self.first[class].iter().take(self.counts[class].min(3) as usize) {
+            for &cp in self.first[class]
+                .iter()
+                .take(self.counts[class].min(3) as usize)
+            {
                 let combined = if previous_class < class || previous_class == 0 {
                     unicode_composition(starter, cp)
                 } else {
