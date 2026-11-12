@@ -47,3 +47,11 @@ title = "Burnout 3: Takedown (XBOX version) — requires your supported Xbox USA
 version = "0.1.16"
 requires_rom = true
 download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.7/takedawn.gamepkg"
+
+[[games]]
+id = "com.gamepkg.halo"
+description = "Play Halo: Combat Evolved by building the pinned OpenCE engine on your machine. On 64-bit Linux the default is linux-x86_64. linux-i686 and both Windows cross builds are ready. You supply your own Xbox disc image or extracted maps folder. No Halo assets and no OpenCE source are in this package."
+title = "Halo: Combat Evolved — bring your Xbox data"
+version = "0.1.0"
+requires_rom = false
+download_url = "https://github.com/centrexity/GamePKG_Ports/releases/download/v0.1.6/halo.gamepkg"
