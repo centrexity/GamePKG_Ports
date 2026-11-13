@@ -1331,3 +1331,7 @@ again on every repeated combining mark. Cache misses still perform the complete
 pinned-font validation; canonical ordering, composition proofs, rejection paths,
 visible pixels and stored UTF-8 names are unchanged. No source name limit, game
 memory share, drawing charge or execution deadline is relaxed.
+
+The stable maintenance integration adds bounded, call-local caches for immutable
+Unicode mark and advance lookups. The current grouped raster clipping, font
+validation and portable binary32 math remain in use.
