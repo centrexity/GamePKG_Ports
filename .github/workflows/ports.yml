@@ -9,15 +9,49 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: centrexity/GamePKG
-          ref: v0.1.15
+          # Pin the integrated host that validates both reviewed native engines.
+          ref: 86bef264f58a97dc78517a96b7a69748c89b5d7e
           path: host
       - uses: actions/checkout@v4
         with:
           path: host/ports
       - uses: dtolnay/rust-toolchain@stable
+      - name: Install original SDL reference test dependencies
+        working-directory: host
+        run: bash tools/ci_ubuntu_apt.sh update && bash tools/ci_ubuntu_apt.sh install -y libsdl2-dev g++
       - name: Check port gameplay, signing, policy, and lock hashes
         working-directory: host
         run: cargo test --locked --test game_2048 --test game_arkanoo --test zelda3_policy --test doom_policy --test cube2_policy --test examples
       - name: Check import catalog and release metadata
         working-directory: host/ports
         run: python3 tools/check_catalog.py
+      - name: Check reviewed native profile and source-kit rejection cases
+        working-directory: host
+        run: cargo test --locked --lib takedawn
+      - name: Verify the actual native source archive and signed package
+        working-directory: host
+        env:
+          GAMEPKG_TAKEDAWN_KIT_SHA256: 6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4
+        run: |
+          set -euo pipefail
+          export GAMEPKG_TAKEDAWN_KIT="$PWD/ports/takedawn/assets/takedawn-source-kit.tar.gz"
+          cargo test --locked --lib takedawn_kit::tests::prepared_sdk_archive -- --ignored --exact
+          fixture_work=$(mktemp -d)
+          chmod 700 "$fixture_work"
+          cargo run --locked --bin gamepkg -- keygen --output "$fixture_work/creator.key"
+          cargo run --locked --bin gamepkg -- pack ports/takedawn --output "$fixture_work/takedawn.gamepkg" --key "$fixture_work/creator.key"
+          cargo run --locked --bin gamepkg -- verify "$fixture_work/takedawn.gamepkg"
+      - name: Check fullscreen shortcuts and real renderer settings
+        working-directory: host
+        run: |
+          set -euo pipefail
+          cc -std=c11 -O2 -Wall -Wextra -Werror -fsanitize=address,undefined $(pkg-config --cflags sdl2) -Iengines/takedawn/media-bridge engines/takedawn/media-bridge/tests/fullscreen_hotkey.c -o "$RUNNER_TEMP/fullscreen-shortcut-test" $(pkg-config --libs sdl2)
+          SDL_VIDEODRIVER=dummy ASAN_OPTIONS=detect_leaks=0 "$RUNNER_TEMP/fullscreen-shortcut-test"
+          fixture_kit=$(mktemp -d)
+          tar -xzf ports/takedawn/assets/takedawn-source-kit.tar.gz -C "$fixture_kit"
+          python3 tools/check_takedawn_presentation_defaults.py --toolkit "$fixture_kit/toolkit" --cc cc --sanitize
+          python3 tools/check_takedawn_ui_scaling.py --toolkit "$fixture_kit/toolkit" --cc cc
+          python3 tools/check_takedawn_input_glyphs.py --cc cc
+      - name: Check the OpenCE selector
+        working-directory: host/ports
+        run: python3 tools/test_opence_checkout.py

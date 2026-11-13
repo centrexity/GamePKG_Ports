@@ -43,8 +43,9 @@ pub fn campaign(level: u32, frame: u64) -> Option<Background> {
                 let color = 0x64329600 | u32::from(opacity);
                 for angle in 0..360 {
                     let radians = (angle as f32).to_radians();
-                    let x = 640 + (radius as f32 * crate::portable_math::cos(radians)) as i32;
-                    let y = 360 + (radius as f32 * crate::portable_math::sin(radians)) as i32;
+                    let [sine, cosine] = crate::portable_math::sin_cos(radians);
+                    let x = 640 + (radius as f32 * cosine) as i32;
+                    let y = 360 + (radius as f32 * sine) as i32;
                     dots.push(EffectPoint { x, y, color });
                 }
             }

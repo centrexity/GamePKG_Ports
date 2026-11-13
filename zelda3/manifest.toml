@@ -3,10 +3,10 @@ description = "Explore Hyrule in the A Link to the Past engine port using your s
 author = "snesrev and contributors; GamePKG contributors"
 homepage = "https://github.com/snesrev/zelda3"
 genres = ["Adventure", "Action"]
-engine_version = ">=0.1.13, <0.2.0"
+engine_version = ">=0.1.18, <0.2.0"
 format_version = 1
 id = "com.gamepkg.zelda3"
-version = "0.1.4"
+version = "0.1.5"
 entry_world = "game"
 update_url = "https://github.com/centrexity/GamePKG_Ports/releases/latest/download/zelda3.gamepkg"
 builtin_engine = "zelda3-45a149d8"

@@ -142,7 +142,7 @@ pub fn generate_cells(level: u32, patterns: &[crate::editor::Pattern]) -> [u8; 2
     loop {
         let recipe = Recipe::with_patterns(level, attempt, patterns.len());
         if level > 9 && recipe.kind >= 12 {
-            return patterns[(recipe.kind - 12) as usize].cells;
+            return patterns[(recipe.kind - 12) as usize].pattern_unpack();
         }
         let mut cells = [255; 200];
         let mut count = 0;

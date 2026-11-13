@@ -1,0 +1,61 @@
+name: Publish port release
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout this ports tag
+        uses: actions/checkout@v4
+      - name: Checkout GamePKG main for the pack CLI
+        uses: actions/checkout@v4
+        with:
+          repository: centrexity/GamePKG
+          ref: main
+          path: host
+      - name: Install pack CLI libraries
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libudev-dev
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Require the established release key
+        env:
+          GAMEPKG_PORTS_RELEASE_KEY: ${{ secrets.GAMEPKG_PORTS_RELEASE_KEY }}
+        run: |
+          if [ -z "$GAMEPKG_PORTS_RELEASE_KEY" ]; then
+            echo "Set GAMEPKG_PORTS_RELEASE_KEY to the existing creator seed."
+            echo "Its public key must match creator-identity.json. Do not generate a new key."
+            exit 1
+          fi
+          umask 077
+          printf '%s\n' "$GAMEPKG_PORTS_RELEASE_KEY" > "$RUNNER_TEMP/release.key"
+      - name: Build the pack CLI
+        working-directory: host
+        run: cargo build --locked --release --bin gamepkg
+      - name: Pack the catalog
+        run: |
+          python3 tools/package_ports.py \
+            --cli host/target/release/gamepkg \
+            --key "$RUNNER_TEMP/release.key" \
+            --output "$RUNNER_TEMP/ports-release"
+          rm -f "$RUNNER_TEMP/release.key"
+      - name: Publish the tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          gh release create "$tag" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Ports $tag" \
+            --notes "Signed port packages for $tag. Import ports.gamepkglist. Packages contain no ROMs, WADs, Halo maps, disc images, or OpenCE source." \
+            "$RUNNER_TEMP/ports-release/2048.gamepkg" \
+            "$RUNNER_TEMP/ports-release/arkanoo.gamepkg" \
+            "$RUNNER_TEMP/ports-release/zelda3.gamepkg" \
+            "$RUNNER_TEMP/ports-release/doom.gamepkg" \
+            "$RUNNER_TEMP/ports-release/cube2.gamepkg" \
+            "$RUNNER_TEMP/ports-release/halo.gamepkg" \
+            "$RUNNER_TEMP/ports-release/ports.gamepkglist" \
+            "$RUNNER_TEMP/ports-release/creator-identity.json" \
+            "$RUNNER_TEMP/ports-release/ports.sha256"
