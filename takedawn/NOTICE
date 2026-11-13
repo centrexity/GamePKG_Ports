@@ -1,0 +1,17 @@
+GamePKG integration and thumbnail artwork
+Copyright GamePKG contributors. Licensed under Apache-2.0.
+
+Thumbnail artwork: original geometric racing illustration by GamePKG contributors.
+It contains no original game artwork or logo.
+Source: https://github.com/centrexity/GamePKG
+
+The reviewed source kit preserves the Takedawn, Xboxrecomp, C2Rust and vendored
+host dependency notices. Their respective licenses remain applicable. See the
+notices within assets/takedawn-source-kit.tar.gz and CREDITS.md.
+
+Original game media is not included. The user supplies a supported Xbox USA ISO,
+which the native runtime reads in place without extracting the original media.
+
+Kenney Input Prompts 1.5A — Kenney (https://kenney.nl/assets/input-prompts), CC0-1.0. Selected original vectors, their license and provenance hashes are included in the reviewed source kit under host/engines/takedawn/media-bridge/input-prompts. The host composites and renders them in advance for crisp 1×/2×/3×/4× prompts; players need no SVG renderer or Python. PlayStation/DualSense retain the existing Takedawn-owned glyph art because this Kenney download does not include PlayStation artwork.
+
+The default Xbox prompt artwork is read from the player’s ISO. No original or locally enlarged Xbox prompt artwork is included in this package.

@@ -3,10 +3,10 @@ description = "Play the classic first-person shooter using your own compatible D
 author = "id Software; doomgeneric and GamePKG contributors"
 homepage = "https://github.com/ozkl/doomgeneric"
 genres = ["Action", "First-person shooter"]
-engine_version = ">=0.1.13, <0.2.0"
+engine_version = ">=0.1.18, <0.2.0"
 format_version = 1
 id = "com.gamepkg.doom"
-version = "0.1.4"
+version = "0.1.5"
 entry_world = "game"
 update_url = "https://github.com/centrexity/GamePKG_Ports/releases/latest/download/doom.gamepkg"
 builtin_engine = "doom-e257a095"

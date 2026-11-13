@@ -34,6 +34,27 @@ Review the [published creator fingerprint](creator-identity.json) before approvi
 | Zelda3 | [zelda3](zelda3) | GamePKG 0.1.6 or newer and your own Zelda: A Link to the Past (USA) ROM |
 | Arkanoo | [arkanoo](arkanoo) | GamePKG |
 | 2048 | [2048](2048) | GamePKG |
+| Halo: Combat Evolved | [halo](halo) | GamePKG 0.1.17 or newer. On 64-bit Linux the default is linux-x86_64. 32-bit Linux and both Windows cross builds are ready. You supply the Xbox disc or extracted maps. The package has no Halo assets and no OpenCE source. See [HALO.md](HALO.md). |
+
+## Native gameplay preview
+
+The [Takedawn recipe](takedawn) version 0.1.16 targets GamePKG 0.1.24 on Linux x86-64 and Windows x64. It contains 24,003 prepared Rust game functions and the pinned original native runtime, with 24,035 retained exports. Linux uses a native ELF executable and Vulkan; Wine and Proton are not player dependencies. Windows uses native standalone tools without WSL. Python and C2Rust remain maintainer tools.
+
+The signed manifest declares launch defaults: windowed, 16:9, 2× internal resolution, SMAA antialiasing, automatic texture LOD, 10% sharpening, widescreen HUD correction and 2× menu/HUD upscaling. GamePKG's game page saves player overrides or restores package defaults without rebuilding. The updated game runtime adds Alt+Enter, including keypad Enter, to toggle borderless fullscreen without activating game menus. The shortcut also works when the in-game overlay is disabled, and failed window changes leave the saved setting unchanged. Older game builds need an updated package and rebuild for the shortcut.
+
+Select your original supported Xbox USA ISO, read in place, and set the memory ceiling to at least 4096 MiB. Verified compiler checkpoints retain completed work across builds. The original game Rust and media code are unchanged by the graphics/defaults/shortcut update; high native optimizations remain enabled.
+
+Local native game builds pass on Linux and physical Windows. The shared shortcut policy passes 983,047 checks on each of Linux64, Linux32 and physical Windows64; the settings reader passes 271 original checks and three launch-override configurations on Linux64 and Linux32. These component checks do not establish physical-keyboard/window-transition or complete gameplay qualification. Steady 60 FPS throughout all events, under-10-ms frame work, and complete multiplayer/campaign coverage remain open. The near-view-plane perspective correction eliminates the reproduced road-lettering disappearance in bounded Linux and actual Windows countdown captures; original native Crash controls and menu return still pass. See the host's [native validation record](https://github.com/centrexity/GamePKG/blob/native-takedawn-rust-preview/docs/native-windows-gameplay-validation.md).
+
+The source catalog targets the next v0.1.7 ports release. Its new downloads are not yet published; importing the stable catalog does not install this source preview. Maintainers can pack a local preview using a source-built GamePKG 0.1.24:
+
+```sh
+gamepkg pack takedawn --output takedawn.gamepkg --key /private/existing-creator.key
+```
+
+Players import that signed package and select their ISO; they never enter a
+signing key. The kit retains upstream notices and includes no ISO or extracted
+original media. The cover is an original geometric racing illustration.
 
 Use the GamePKG CLI to create a package with your creator key:
 
@@ -66,6 +87,8 @@ python3 tools/package_ports.py --cli /path/to/gamepkg --key /private/release.key
 ```
 
 This is a maintainer tool; players need no Python. It checks catalog/package metadata, creator identity, signatures, dependency-free source and excluded file types, then writes the signed packages listed in the catalog, the catalog, the public identity and checksums. Upload only the explicit `release_assets` it reports, never the verification folder or private key. Verify builds/playback locally, publish the tagged release, then test repository-URL import and each downloaded signature in a fresh library. Never replace assets in an already published release; create a higher version for changes.
+
+Pushing a `vX.Y.Z` tag runs `.github/workflows/release.yml`. That job builds the GamePKG `main` pack CLI, signs every catalog package with the `GAMEPKG_PORTS_RELEASE_KEY` secret, and uploads the assets. The secret must be the existing creator seed whose public key is in `creator-identity.json`. GamePKG `main` must already contain the external-engine catalog before the Halo package can be signed. The catalog download URLs for this source tree point at `v0.1.6`. Releases `v0.1.4` and `v0.1.5` stay as they were published.
 
 ## Thumbnail artwork
 
