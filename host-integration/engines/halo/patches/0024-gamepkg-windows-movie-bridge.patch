@@ -1,0 +1,48 @@
+--- a/port/linux/src/gamepkg_bink_ffmpeg.inc
++++ b/port/linux/src/gamepkg_bink_ffmpeg.inc
+@@ -17,7 +17,12 @@
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
++#if defined(_WIN32)
++#include <float.h>
++#define strncasecmp _strnicmp
++#else
+ #include <strings.h>
++#endif
+ #ifdef __SSE__
+ #include <xmmintrin.h>
+ #endif
+@@ -60,6 +65,9 @@
+ }
+ struct movie_fp {
+     fenv_t environment;
++#if defined(_WIN32) && defined(_M_IX86)
++    unsigned x87_control;
++#endif
+ #ifdef __SSE__
+     unsigned mxcsr;
+ #endif
+@@ -68,10 +76,22 @@
+ #ifdef __SSE__
+     state->mxcsr = _mm_getcsr();
+ #endif
++#if defined(_WIN32) && defined(_M_IX86)
++    state->x87_control = _control87(0, 0);
++#endif
+     fegetenv(&state->environment); fesetenv(FE_DFL_ENV);
++#if defined(_WIN32) && defined(_M_IX86)
++    /* The Windows CRT default fenv does not reset MXCSR to IEEE defaults.
++     * Its saved fenv also omits x87 precision, which the game sets to 24 bit. */
++    _control87(_CW_DEFAULT, _MCW_EM | _MCW_RC | _MCW_PC | _MCW_IC);
++    _mm_setcsr(0x1f80);
++#endif
+ }
+ static void movie_leave(const struct movie_fp *state) {
+     fesetenv(&state->environment);
++#if defined(_WIN32) && defined(_M_IX86)
++    _control87(state->x87_control, _MCW_EM | _MCW_RC | _MCW_PC | _MCW_IC);
++#endif
+ #ifdef __SSE__
+     _mm_setcsr(state->mxcsr);
+ #endif

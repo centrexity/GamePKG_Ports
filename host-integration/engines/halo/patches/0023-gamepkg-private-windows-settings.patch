@@ -1,0 +1,26 @@
+--- a/port/linux/src/port_config.c
++++ b/port/linux/src/port_config.c
+@@ -830,6 +830,23 @@
+ 
+ static void config_path(char *path, size_t size)
+ {
++#if defined(_WIN32)
++	/* A confined host keeps settings in its private writable profile, separate
++	 * from the read-only executable. Invalid explicit roots must not fall back. */
++	const char *private_root = getenv("GAMEPKG_CONFIG_ROOT");
++	if (private_root)
++	{
++		int absolute = ((private_root[0] >= 'A' && private_root[0] <= 'Z') ||
++			(private_root[0] >= 'a' && private_root[0] <= 'z')) &&
++			private_root[1] == ':' && (private_root[2] == '/' || private_root[2] == '\\');
++		int unc = private_root[0] == '\\' && private_root[1] == '\\' && private_root[2];
++		int length;
++		if (!absolute && !unc) { if (size) path[0] = 0; return; }
++		length = snprintf(path, size, "%s/config.toml", private_root);
++		if (length < 0 || (size_t)length >= size) { if (size) path[0] = 0; }
++		return;
++	}
++#endif
+ #if defined(HALO_ANDROID) || defined(HALO_WEB)
+ 	/* the data folder, which the app names (port/android/host/host_main.c;
+ 	on the web, port/web/src/web_main.c) */

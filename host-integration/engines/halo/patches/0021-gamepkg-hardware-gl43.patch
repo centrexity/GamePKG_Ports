@@ -1,0 +1,340 @@
+--- a/port/linux/src/gl_functions.c
++++ b/port/linux/src/gl_functions.c
+@@ -9,6 +9,7 @@
+ #include "gl.h"
+ 
+ #include <SDL3/SDL.h>
++#include <string.h>
+ 
+ #define GL_DEFINE_FUNCTION(name) __typeof__(&name) halo_##name;
+ GL_FUNCTIONS(GL_DEFINE_FUNCTION)
+@@ -16,10 +17,126 @@
+ GL_OPTIONAL_FUNCTIONS(GL_DEFINE_FUNCTION)
+ #endif
+ 
++#ifndef HALO_GLES
++/* port: keep the same hardware renderer on GL 4.3 with its required
++extensions. Query results stay in GPU buffers until the existing fence passes. */
++static int gamepkg_gl43_mode;
++
++const char *gamepkg_gl_shader_version(void)
++{
++	return gamepkg_gl43_mode ? "430 core" : "450 core";
++}
++
++/* This renderer owns the context and all query-buffer binds go through
++its GL table. Track this binding rather than querying the driver before
++presentation, which would make a threaded driver catch up with the CPU. */
++static GLuint gamepkg_query_binding;
++static __typeof__(&glBindBuffer) gamepkg_driver_bind_buffer;
++
++static void GLAPIENTRY gamepkg_bind_buffer(GLenum target, GLuint buffer)
++{
++	gamepkg_driver_bind_buffer(target, buffer);
++	if (target == GL_QUERY_BUFFER)
++		gamepkg_query_binding = buffer;
++}
++
++static void GLAPIENTRY gamepkg_create_queries(GLenum target, GLsizei count, GLuint *queries)
++{
++	GLsizei i;
++
++	/* The only caller creates visibility pools before any query is active.
++	GenQueries reserves names; Begin/End also instantiates their target/state,
++	so the existing uniqueness/IsQuery checks remain meaningful. */
++	halo_glGenQueries(count, queries);
++	for (i = 0; i < count; i++)
++	{
++		halo_glBeginQuery(target, queries[i]);
++		halo_glEndQuery(target);
++	}
++}
++
++static void GLAPIENTRY gamepkg_query_buffer(GLuint query, GLuint buffer, GLenum pname, GLintptr offset)
++{
++	GLint previous;
++
++	previous = (GLint)gamepkg_query_binding;
++	halo_glBindBuffer(GL_QUERY_BUFFER, buffer);
++	halo_glGetQueryObjectuiv(query, pname, (GLuint *)offset);
++	halo_glBindBuffer(GL_QUERY_BUFFER, (GLuint)previous);
++}
++
++/* port: bind once per visibility batch on hardware without DSA; never
++ask for the current buffer once per individual query in the frame loop. */
++void gamepkg_gl_query_results(const GLuint *queries, GLuint buffer, GLenum pname,
++	GLintptr offset, GLsizei count)
++{
++	GLsizei i;
++	GLint previous;
++
++	if (gamepkg_gl43_mode)
++	{
++		previous = (GLint)gamepkg_query_binding;
++		halo_glBindBuffer(GL_QUERY_BUFFER, buffer);
++		for (i = 0; i < count; i++)
++			halo_glGetQueryObjectuiv(queries[i], pname, (GLuint *)(offset + i * sizeof(GLuint)));
++		halo_glBindBuffer(GL_QUERY_BUFFER, (GLuint)previous);
++	}
++	else
++	{
++		for (i = 0; i < count; i++)
++			halo_glGetQueryBufferObjectuiv(queries[i], buffer, pname, offset + i * sizeof(GLuint));
++	}
++}
++
++static SDL_FunctionPointer gamepkg_gl_proc(const char *name)
++{
++	if (gamepkg_gl43_mode)
++	{
++		/* The explicit test override also exercises these adapters on newer
++		hardware. Required capabilities are checked before the table is loaded. */
++		if (!strcmp(name, "glBindBuffer"))
++		{
++			gamepkg_driver_bind_buffer = (__typeof__(gamepkg_driver_bind_buffer))SDL_GL_GetProcAddress(name);
++			gamepkg_query_binding = 0;
++			return gamepkg_driver_bind_buffer ? (SDL_FunctionPointer)gamepkg_bind_buffer : NULL;
++		}
++		if (!strcmp(name, "glCreateQueries"))
++			return (SDL_FunctionPointer)gamepkg_create_queries;
++		if (!strcmp(name, "glGetQueryBufferObjectuiv"))
++			return SDL_GL_ExtensionSupported("GL_ARB_query_buffer_object") ?
++				(SDL_FunctionPointer)gamepkg_query_buffer : NULL;
++	}
++	return SDL_GL_GetProcAddress(name);
++}
++#else
++#define gamepkg_gl_proc SDL_GL_GetProcAddress
++#endif
++
+ int gl_functions_load(void)
+ {
+ 	int success = TRUE;
+ 
++#ifndef HALO_GLES
++	int major = 0, minor = 0;
++	const char *force = getenv("GAMEPKG_GL43");
++
++	/* SDL reads the actual current context, before its table is loaded. */
++	if (!SDL_GL_GetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, &major) ||
++		!SDL_GL_GetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, &minor))
++		return FALSE;
++	gamepkg_gl43_mode = (major == 4 && minor < 5) || (force && !strcmp(force, "1"));
++	/* port: this profile retains clip convention, coherent GPU visibility
++	readback and multi-bind. Refuse it rather than silently drop a feature. */
++	if (gamepkg_gl43_mode &&
++		(!SDL_GL_ExtensionSupported("GL_ARB_clip_control") ||
++		 !SDL_GL_ExtensionSupported("GL_ARB_buffer_storage") ||
++		 !SDL_GL_ExtensionSupported("GL_ARB_query_buffer_object") ||
++		 !SDL_GL_ExtensionSupported("GL_ARB_multi_bind")))
++	{
++		platform_log("OpenGL 4.3 profile requires clip_control, buffer_storage, query_buffer_object and multi_bind");
++		return FALSE;
++	}
++#endif
+ #ifdef HALO_WEB
+ /* WebGL 2 is OpenGL ES 3.0: the 3.1 and 3.2 functions it lacks
+ (glCopyImageSubData, glDrawElementsBaseVertex, glMemoryBarrier) stay NULL,
+@@ -30,7 +147,7 @@
+ #define GL_MISSING_FAILS 1
+ #endif
+ #define GL_LOAD_FUNCTION(name) \
+-	halo_##name = (__typeof__(halo_##name))SDL_GL_GetProcAddress(#name); \
++	halo_##name = (__typeof__(halo_##name))gamepkg_gl_proc(#name); \
+ 	if (!halo_##name) \
+ 	{ \
+ 		if (GL_MISSING_FAILS) \
+@@ -44,7 +161,7 @@
+ 	context lists its extension (gl_initialize, d3d8_gl.c). WebGL has none of
+ 	these, and its table is not asked */
+ #define GL_LOAD_OPTIONAL_FUNCTION(name) \
+-	halo_##name = (__typeof__(halo_##name))SDL_GL_GetProcAddress(#name);
++	halo_##name = (__typeof__(halo_##name))gamepkg_gl_proc(#name);
+ 	GL_OPTIONAL_FUNCTIONS(GL_LOAD_OPTIONAL_FUNCTION)
+ #undef GL_LOAD_OPTIONAL_FUNCTION
+ #endif
+--- a/port/linux/src/gl.h
++++ b/port/linux/src/gl.h
+@@ -515,5 +515,11 @@
+ 
+ /* returns FALSE (and logs) if a required function is missing */
+ int gl_functions_load(void);
+-
+-#endif
++#ifndef HALO_GLES
++/* port: desktop shader profile and equivalent GPU visibility batches. */
++const char *gamepkg_gl_shader_version(void);
++void gamepkg_gl_query_results(const GLuint *queries, GLuint buffer, GLenum pname,
++	GLintptr offset, GLsizei count);
++#endif
++
++#endif
+--- a/port/linux/src/sdl_platform.c
++++ b/port/linux/src/sdl_platform.c
+@@ -1151,7 +1151,9 @@
+ #else
+ 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+ 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 5);
++	/* port: explicit compatibility override for driver comparisons. */
++	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION,
++		getenv("GAMEPKG_GL43") && !strcmp(getenv("GAMEPKG_GL43"), "1") ? 3 : 5);
+ #endif
+ 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+ 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 0);
+@@ -1234,6 +1236,18 @@
+ 	win32_window_borderless_apply(platform_window);
+ #endif
+ 	platform_gl_context = SDL_GL_CreateContext(platform_window);
++#ifndef HALO_GLES
++	/* port: use the same hardware renderer on GL 4.3 drivers when their
++	4.5 context is unavailable. The loader requires equivalent extensions;
++	no rendering feature, precision or visibility test is disabled. */
++	if (!platform_gl_context &&
++		!(getenv("GAMEPKG_GL43") && !strcmp(getenv("GAMEPKG_GL43"), "1")))
++	{
++		platform_log("OpenGL 4.5 context unavailable; checking hardware 4.3 with required extensions");
++		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
++		platform_gl_context = SDL_GL_CreateContext(platform_window);
++	}
++#endif
+ #ifdef HALO_GLES
+ 	/* ES 3.2 where the driver has it, otherwise the renderer makes do with
+ 	3.0 plus extensions */
+--- a/port/linux/src/nv2a_vsh.c
++++ b/port/linux/src/nv2a_vsh.c
+@@ -132,7 +132,7 @@
+ 		if (index == 12)
+ 			xgpu_text_append(text, "oPos");
+ 		else
+-			xgpu_text_append(text, "r%lu", index);
++			xgpu_text_append(text, "nv2a_r%lu", index);
+ 		break;
+ 	case _mux_input:
+ 		xgpu_text_append(text, "v%lu", field(instruction, 1, 9, 4));
+@@ -328,13 +328,13 @@
+ 
+ /* ---------- translation */
+ 
++/* port: older Intel GLSL drivers parse r8 as an image-format token.
++Use an explicit register prefix; only generated local names change. */
+ static const char shader_prologue[] =
+ #ifdef HALO_GLES
+ 	/* the #version line comes first, from the context's capabilities */
+ 	"precision highp float;\n"
+ 	"precision highp int;\n"
+-#else
+-	"#version 450 core\n"
+ #endif
+ 	"uniform vec4 c[192];\n"
+ 	"uniform vec4 viewport_scale;\n"
+@@ -394,6 +394,8 @@
+ 
+ #ifdef HALO_GLES
+ 	xgpu_text_append(&text, "#version %s\n", xgpu_capabilities.shading_language);
++#else
++	xgpu_text_append(&text, "#version %s\n", gamepkg_gl_shader_version());
+ #endif
+ 	xgpu_text_append(&text, "%s", shader_prologue);
+ 	/* (the pixel shader's model_lighting; the normal's length in w) */
+@@ -418,9 +420,9 @@
+ 			xgpu_text_append(&text, "\tvec4 v%lu = v%lu_in;\n", index, index);
+ 	}
+ 	xgpu_text_append(&text,
+-		"\tvec4 r0 = vec4(0.0), r1 = vec4(0.0), r2 = vec4(0.0), r3 = vec4(0.0);\n"
+-		"\tvec4 r4 = vec4(0.0), r5 = vec4(0.0), r6 = vec4(0.0), r7 = vec4(0.0);\n"
+-		"\tvec4 r8 = vec4(0.0), r9 = vec4(0.0), r10 = vec4(0.0), r11 = vec4(0.0);\n"
++		"\tvec4 nv2a_r0 = vec4(0.0), nv2a_r1 = vec4(0.0), nv2a_r2 = vec4(0.0), nv2a_r3 = vec4(0.0);\n"
++		"\tvec4 nv2a_r4 = vec4(0.0), nv2a_r5 = vec4(0.0), nv2a_r6 = vec4(0.0), nv2a_r7 = vec4(0.0);\n"
++		"\tvec4 nv2a_r8 = vec4(0.0), nv2a_r9 = vec4(0.0), nv2a_r10 = vec4(0.0), nv2a_r11 = vec4(0.0);\n"
+ 		"\tvec4 oPos = vec4(0.0, 0.0, 0.0, 1.0);\n"
+ 		"\tvec4 oD0 = vec4(0.0, 0.0, 0.0, 1.0), oD1 = vec4(0.0, 0.0, 0.0, 1.0);\n"
+ 		"\tvec4 oB0 = vec4(0.0, 0.0, 0.0, 1.0), oB1 = vec4(0.0, 0.0, 0.0, 1.0);\n"
+@@ -450,11 +452,11 @@
+ 		/* the lighting's normal and position, before the program reuses them */
+ 		if (lighting && index == lighting->normal_instruction)
+ 		{
+-			xgpu_text_append(&text, "\txWorldNormal = vec4(r%lu.xyz, length(r%lu.xyz));\n",
++			xgpu_text_append(&text, "\txWorldNormal = vec4(nv2a_r%lu.xyz, length(nv2a_r%lu.xyz));\n",
+ 				lighting->normal_register, lighting->normal_register);
+ 		}
+ 		if (lighting && lighting->lights == 2 && index == lighting->position_instruction)
+-			xgpu_text_append(&text, "\txWorldPosition = r%lu.xyz;\n", lighting->position_register);
++			xgpu_text_append(&text, "\txWorldPosition = nv2a_r%lu.xyz;\n", lighting->position_register);
+ 		xgpu_text_append(&text, "\tA = "); operand(&text, instruction, 'A', relative); xgpu_text_append(&text, ";\n");
+ 		xgpu_text_append(&text, "\tB = "); operand(&text, instruction, 'B', relative); xgpu_text_append(&text, ";\n");
+ 		xgpu_text_append(&text, "\tC = "); operand(&text, instruction, 'C', relative); xgpu_text_append(&text, ";\n");
+@@ -508,7 +510,7 @@
+ 			if (temporary == 12)
+ 				xgpu_text_append(&text, "\toPos.%s = mac.%s;\n", mask, mask);
+ 			else
+-				xgpu_text_append(&text, "\tr%lu.%s = mac.%s;\n", temporary, mask, mask);
++				xgpu_text_append(&text, "\tnv2a_r%lu.%s = mac.%s;\n", temporary, mask, mask);
+ 		}
+ 		if (ilu != _ilu_nop && ilu_mask)
+ 		{
+@@ -518,7 +520,7 @@
+ 			if (ilu_temporary == 12)
+ 				xgpu_text_append(&text, "\toPos.%s = ilu.%s;\n", mask, mask);
+ 			else
+-				xgpu_text_append(&text, "\tr%lu.%s = ilu.%s;\n", ilu_temporary, mask, mask);
++				xgpu_text_append(&text, "\tnv2a_r%lu.%s = ilu.%s;\n", ilu_temporary, mask, mask);
+ 		}
+ 		if (output_mask && (output_from_ilu ? ilu : mac) != 0)
+ 		{
+@@ -610,6 +612,8 @@
+ 
+ #ifdef HALO_GLES
+ 	xgpu_text_append(&text, "#version %s\n", xgpu_capabilities.shading_language);
++#else
++	xgpu_text_append(&text, "#version %s\n", gamepkg_gl_shader_version());
+ #endif
+ 	xgpu_text_append(&text, "%s", shader_prologue);
+ 	for (index = 0; index < XGPU_VERTEX_ATTRIBUTE_COUNT; index++)
+--- a/port/linux/src/nv2a_psh.c
++++ b/port/linux/src/nv2a_psh.c
+@@ -338,7 +338,7 @@
+ 	"precision highp samplerCube;\n"
+ #else
+ #define SAMPLE_BIAS ""
+-#define SHADER_VERSION "#version 450 core\n"
++#define SHADER_VERSION ""
+ #endif
+ 
+ static void sample(struct xgpu_text *text, const struct nv2a_pixel_shader_key *key, int stage, const char *coordinates)
+@@ -631,6 +631,9 @@
+ 			"layout(early_fragment_tests) in;\n"
+ 			"layout(binding = 0, offset = 0) uniform atomic_uint visible_samples;\n");
+ 	}
++#endif
++#ifndef HALO_GLES
++	xgpu_text_append(&text, "#version %s\n", gamepkg_gl_shader_version());
+ #endif
+ 	xgpu_text_append(&text,
+ 		SHADER_VERSION
+--- a/port/linux/src/xgpu_post.c
++++ b/port/linux/src/xgpu_post.c
+@@ -105,7 +105,7 @@
+ 		"precision highp sampler2D;\n",
+ 		xgpu_capabilities.shading_language);
+ #else
+-	xgpu_text_append(text, "#version 450 core\n");
++	xgpu_text_append(text, "#version %s\n", gamepkg_gl_shader_version());
+ #endif
+ }
+ 
+--- a/port/linux/src/d3d8_gl.c
++++ b/port/linux/src/d3d8_gl.c
+@@ -6471,9 +6471,9 @@
+ 		once the fence has passed is a copy that failed) */
+ 		for (i = 0; i < batch->count; i++)
+ 			counts[i] = VISIBILITY_UNCOPIED;
+-		for (i = 0; i < batch->count; i++)
+-			glGetQueryBufferObjectuiv(batch->queries[i], device.visibility_buffer, GL_QUERY_RESULT,
+-				(GLintptr)((device.visibility_batch * VISIBILITY_TEST_SLOTS + i) * sizeof(GLuint)));
++		gamepkg_gl_query_results(batch->queries, device.visibility_buffer, GL_QUERY_RESULT,
++			(GLintptr)(device.visibility_batch * VISIBILITY_TEST_SLOTS * sizeof(GLuint)),
++			(GLsizei)batch->count);
+ 		batch->fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+ 		if (!batch->fence || (device.visibility_logging && !visibility_readback_gl_ok("query copies")))
+ 		{

@@ -1,0 +1,141 @@
+# Reviewed external-engine record. The host loads every engines/*/engine.toml
+# the same way. Nothing in this file is interpreted as a host special case.
+
+id = "opence-ce95f7de"
+clone_url = "https://github.com/OpenCommunityEdition/OpenCE.git"
+commit = "ce95f7deed5bbf726e50a9d5fe5227437194cf3b"
+license_sha256 = "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0"
+license_marker = "GNU AFFERO GENERAL PUBLIC LICENSE"
+memory = 3221225472
+hard_memory = 4294967296
+network_allowed = true
+launcher = "pub fn game_tick(input: u32, state: u64) -> u64 { gamepkg::external_tick(input, state) }\n"
+required_paths = ["configure.py", "source", "port/linux", "port/linux/src/gamepkg_hud_upscale.inc", "port/linux/src/gamepkg_video_failure.inc"]
+forbidden_directories = ["maps", "custom_maps"]
+forbidden_suffixes = [".iso", ".xiso", ".map", ".wad", ".sfc", ".smc", ".rom", ".bik"]
+cleanup = ["maps", "custom_maps", "content"]
+patches = [
+    "0001-pointer-independent-refs.patch",
+    "0002-gamepkg-host-log.patch",
+    "0003-x86-arch-and-portable-march.patch",
+    "0004-lp64-long-width.patch",
+    "0005-halo-addr-pointer-fields.patch",
+    "0006-lp64-layout-and-load-time-fixups.patch",
+    "0007-gamepkg-clock.patch",
+    "0008-map-validate-layout.patch",
+    "0009-gamepkg-threads.patch",
+    "0010-gamepkg-directory.patch",
+    "0011-gamepkg-read-only-disc-view.patch",
+    "0012-gamepkg-hud-upscale-simd.patch",
+    "0013-gamepkg-require-game-window.patch",
+    "0014-gamepkg-native-original-movies.patch",
+    "0015-gamepkg-coop-scripted-suspension.patch",
+    "0016-gamepkg-network-coop-detection.patch",
+    "0017-gamepkg-scripted-view-and-clock.patch",
+    "0018-gamepkg-remote-view-owner.patch",
+    "0019-gamepkg-separate-map-cache.patch",
+    "0020-gamepkg-windows-ram-cache.patch",
+    "0021-gamepkg-hardware-gl43.patch",
+    "0022-gamepkg-windows-disc-handle.patch",
+    "0023-gamepkg-private-windows-settings.patch",
+    "0024-gamepkg-windows-movie-bridge.patch",
+]
+
+[[layouts]]
+placement = "link"
+directories = ["maps"]
+paths = ["maps/ui.map"]
+min_bytes = 1
+max_bytes = 67108864
+
+[[layouts]]
+placement = "beside"
+extensions = ["iso", "xiso"]
+min_bytes = 1024
+max_bytes = 8589934592
+
+[[targets]]
+id = "linux-x86_64"
+blocker = "Native 64-bit gameplay uncovered XDK pointer and graphics layout mismatches. Use linux-i686 for the tested native Linux path."
+os = "linux"
+arch = "x86_64"
+tools = ["python3", "ninja", "clang", "cmake", "pkg-config"]
+configure = ["python3", "configure.py", "--release", "--portable", "--pgo=off", "--lto=off", "--arch", "x86_64"]
+build_program = "ninja"
+build_args = ["linux"]
+binary = "build/linux/halo"
+image = { kind = "elf", class = 2, machine = 62 }
+note = "The executable links, but real ISO gameplay exposed remaining LP64 host ABI problems. Compile success does not qualify this target for play."
+
+[[targets.companions]]
+relative = "build/linux/libSDL3.so.0"
+limit = 33554432
+
+[targets.audio]
+libraries = ["/usr/lib/x86_64-linux-gnu/libasound.so.2", "/lib/x86_64-linux-gnu/libasound.so.2"]
+variable = "SDL_AUDIODRIVER"
+value = "dummy"
+warning = "ALSA was not found. The engine will start without sound."
+
+[[targets]]
+id = "linux-i686"
+os = "linux"
+arch = "i686"
+tools = ["ninja", "clang", "cmake", "pkg-config", "xz", "llvm-nm", "llvm-ar", "wayland-scanner", "rustc"]
+prepare = "linux-i686/plan.json"
+configure = []
+build_program = "ninja"
+build_args = ["-d", "keeprsp", "-f", "build/gamepkg-linux.ninja", "linux"]
+binary = "build/linux/halo"
+image = { kind = "elf", class = 1, machine = 3 }
+
+[[targets.companions]]
+relative = "build/linux/libSDL3.so.0"
+limit = 33554432
+
+[targets.audio]
+libraries = ["/usr/lib/i386-linux-gnu/libasound.so.2", "/lib/i386-linux-gnu/libasound.so.2", "/usr/lib32/libasound.so.2"]
+variable = "SDL_AUDIODRIVER"
+value = "dummy"
+warning = "32-bit ALSA was not found. The engine will start without sound."
+
+[[targets]]
+id = "windows-x64"
+os = "windows"
+arch = "x86_64"
+tools = ["python3", "ninja", "clang", "cmake", "pkg-config"]
+configure = ["python3", "configure.py", "--release", "--portable", "--pgo=off", "--lto=off", "--windows-cross", "--arch", "x86_64", "--windows-vctools-dir", "{vctools}", "--windows-sdk-dir", "{winsdk}"]
+build_program = "ninja"
+build_args = ["windows"]
+binary = "build/windows/halo.exe"
+image = { kind = "pe", machine = 34404, magic = 523 }
+note = "Legacy cross-build record; 64-bit gameplay is unqualified. Current native Windows integration uses the original i686 ABI. Python-free player preparation and normal Windows launch remain unfinished."
+
+[[targets.companions]]
+relative = "build/windows/SDL3.dll"
+limit = 33554432
+
+[[targets]]
+id = "windows-i686"
+os = "windows"
+arch = "i686"
+tools = ["python3", "ninja", "clang", "cmake", "pkg-config"]
+configure = ["python3", "configure.py", "--release", "--portable", "--pgo=off", "--lto=off", "--windows-cross", "--windows-vctools-dir", "{vctools}", "--windows-sdk-dir", "{winsdk}"]
+build_program = "ninja"
+build_args = ["windows"]
+binary = "build/windows/halo.exe"
+image = { kind = "pe", machine = 332, magic = 267 }
+note = "Portable i686 Windows uses -msse2. Clang's i686-pc-windows-msvc target ignores -march=x86-64, which left SSE2 off and failed the vendored AES-NI sources. The engine patch makes march_flag pass -msse2 for that triple. x86_64 portable builds keep -march=x86-64."
+
+[[targets.companions]]
+relative = "build/windows/SDL3.dll"
+limit = 33554432
+
+[launch]
+data_root = "HALO_DATA_ROOT"
+data_file = "GAMEPKG_DISC_IMAGE"
+scratch = [{ path = "saves/q", bytes = 1073741824, windows_in_process = "GAMEPKG_RAM_CACHE_BYTES" }]
+save_root = "HALO_SAVE_ROOT"
+config_root = "GAMEPKG_CONFIG_ROOT"
+fixed = [["HALO_UPDATE_AUTO", "false"], ["GAMEPKG_REQUIRE_WINDOW", "1"]]
+passthrough = ["SDL_VIDEODRIVER", "DISPLAY", "WAYLAND_DISPLAY", "XAUTHORITY", "XDG_RUNTIME_DIR", "LANG", "LC_ALL", "HALO_HIDDEN_WINDOW", "HALO_NULL_RENDERER", "HALO_EXIT_AFTER"]

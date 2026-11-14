@@ -1,0 +1,30 @@
+--- a/source/cache/cache_files_windows.c
++++ b/source/cache/cache_files_windows.c
+@@ -988,7 +988,7 @@
+ 	long language = XGetLanguage();
+ 	long last_language = NONE;
+ 
+-	if (file_reference_create_from_path(&reference, "z:\\last_language.dat", FALSE))
++	if (file_reference_create_from_path(&reference, "q:\\last_language.dat", FALSE))
+ 	{
+ 		if (file_open(&reference, FLAG(_permission_read_bit)))
+ 		{
+@@ -1012,7 +1012,7 @@
+ 		}
+ 	}
+ 
+-	if (file_reference_create_from_path(&reference, "z:\\last_language.dat", FALSE))
++	if (file_reference_create_from_path(&reference, "q:\\last_language.dat", FALSE))
+ 	{
+ 		if (file_create(&reference))
+ 		{
+@@ -1566,7 +1566,8 @@
+ 	short map_file_index,
+ 	char *path)
+ {
+-	sprintf(path, "z:\\cache%03d.map", map_file_index);
++	/* port: Q is disposable map storage; Z also contains persistent saves. */
++	sprintf(path, "q:\\cache%03d.map", map_file_index);
+ 
+ 	return;
+ }

@@ -1,0 +1,64 @@
+--- a/port/linux/src/gamepkg_xiso_view.inc
++++ b/port/linux/src/gamepkg_xiso_view.inc
+@@ -236,7 +236,13 @@
+ 	if (!image_path || !xiso_view_normalize(root, normalized, sizeof(normalized)) ||
+ 		strlen(normalized) < 2 || (normalized[0] != '/' && !(normalized[1] == ':')))
+ 	{ xiso_error(error, error_size, "The disc view needs an absolute private data root."); return 0; }
++	#if defined(_WIN32)
++	/* Keep Windows SDK types out of the original XDK translation unit. */
++	extern int gamepkg_disc_image_open(const char *path);
++	image.descriptor = gamepkg_disc_image_open(image_path);
++#else
+ 	image.descriptor = open(image_path, O_RDONLY | O_LARGEFILE | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK);
++#endif
+ 	if (image.descriptor < 0 || posix_seek(image.descriptor, 0, 0, SEEK_END, &low, &high) != 0 ||
+ 		posix_fstat(image.descriptor, &information) != 0)
+ 		goto damaged;
+--- a/port/windows/src/win32_files.c
++++ b/port/windows/src/win32_files.c
+@@ -12,6 +12,7 @@
+ #include <stdint.h>
+ #include <errno.h>
+ #include <io.h>
++#include <fcntl.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+@@ -25,6 +26,37 @@
+ #else
+ #define GAMEPKG_WEAK
+ #endif
++
++/* Selected images arrive as inherited read-only handles. Invalid handles
++ * must never fall back to host path access. The CRT owns only our duplicate. */
++int gamepkg_disc_image_open(const char *path)
++{
++    const char *text = getenv("GAMEPKG_DISC_HANDLE");
++    if (text) {
++        uintptr_t value = 0;
++        size_t count = 0;
++        HANDLE copy = NULL;
++        BY_HANDLE_FILE_INFORMATION information;
++        int descriptor;
++        if (!*text) return -1;
++        for (; text[count]; ++count) {
++            unsigned digit = (unsigned char)text[count] - (unsigned)'0';
++            if (count >= 20 || digit > 9 || value > (UINTPTR_MAX - digit) / 10)
++                return -1;
++            value = value * 10 + digit;
++        }
++        if (!value || value == UINTPTR_MAX ||
++            GetFileType((HANDLE)value) != FILE_TYPE_DISK ||
++            !GetFileInformationByHandle((HANDLE)value, &information) ||
++            (information.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) return -1;
++        if (!DuplicateHandle(GetCurrentProcess(), (HANDLE)value,
++                GetCurrentProcess(), &copy, FILE_GENERIC_READ, FALSE, 0)) return -1;
++        descriptor = _open_osfhandle((intptr_t)copy, _O_RDONLY | _O_BINARY);
++        if (descriptor < 0) CloseHandle(copy);
++        return descriptor;
++    }
++    return _open(path, _O_RDONLY | _O_BINARY | _O_NOINHERIT);
++}
+ 
+ static void split_time(const FILETIME *time, posix_ulong *seconds, posix_ulong *nanoseconds);
+ 
