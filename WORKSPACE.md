@@ -29,3 +29,9 @@ The original verification evidence remains under `/media/user/660p1/c-site1/Game
 The old flattened ports folder is preserved in ignored `.local/legacy-workspace-ports`. Old checkout paths are compatibility links. Do not publish private evidence, credentials, keys, ROMs, extracted assets, saves or local tool bundles. User ROMs and remote test installations were not moved or modified.
 
 Local catalog validation: `python3 tools/check_catalog.py`. Python is maintainer tooling here; it must not become an end-user requirement. Use the app's checks when changing host interfaces. Build and test locally; publish only when requested.
+
+## Shared SDK for port migrations
+
+Use `/media/user/660p1/c-site1/GamePKG/app/docs/PORT_SERVICES.md` as the current contract. Implementation: `app/src/port_host`; audited generated client: `app/engines/native-services/client.rs`; C interface: `app/include/gamepkg_port.h`. These remain owned by GamePKG. The SDK covers controller, keyboard, mouse and touch input; window/fullscreen/cursor controls; Vulkan textures, indexed geometry, depth/MSAA and cubemap mips; output audio; capability files and ROM reads in place; HTTPS/TCP/UDP multiplayer; private-pipe calls and object-import checks.
+
+For each port: replace its direct calls, stage host-generated bindings after source checks, audit game objects before linking the trusted host runtime, wire the private service connection into its launcher, and retain OS confinement. Keep generated native Rust and validate graphics/input/audio against the existing port. Record SDK and shader hashes in native cache receipts. Shared APIs do not make the current legacy integrations compliant until that port task completes these steps.
