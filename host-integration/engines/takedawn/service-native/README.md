@@ -840,3 +840,10 @@ Linux32/64 reads match all 716 files of the supplied image after independent
 pinned manifest authentication, and grant revocation denies subsequent reads.
 This supplies the reader for future XBE loading; it does not yet load the
 original sections, initialize the kernel or execute the startup entrypoint.
+
+The [checked XBE image loader](../service-image/README.md) now supplies the
+next data step using the same shared SDK. Actual Linux32/64 confined loads
+match the original section loop across all 64 MiB by SHA-256, including the
+supported private image's 17 sections. It remains separate from stack/FS/TLS,
+heap/kernel initialization, import bridging and native entrypoint execution;
+no title admission or gameplay claim follows from it.

@@ -1,0 +1,36 @@
+/* Maintainer oracle only. The exact pinned original section loop is inserted.
+ * All inputs are validated by the test host before this inert RAM-only call. */
+#include <stdint.h>
+#include <stddef.h>
+#include <string.h>
+#include <stdarg.h>
+typedef uint32_t DWORD;
+#define XBOX_BASE_ADDRESS 0x10000u
+#define XBOX_TOTAL_RAM 0x4000000u
+#define SECTHDR_SIZE 56u
+#define SECTHDR_FLAGS 0u
+#define SECTHDR_VA 4u
+#define SECTHDR_VSIZE 8u
+#define SECTHDR_RAW_OFFSET 12u
+#define SECTHDR_RAW_SIZE 16u
+#define SECTHDR_NAME_ADDR 20u
+static int silent_fprintf(void *stream,const char *format,...) {(void)stream;(void)format;return 0;}
+#define fprintf silent_fprintf
+#define stderr ((void *)0)
+void gamepkg_xbe_reference(const uint8_t *xbe,size_t xbe_size,uint8_t *ram,uint32_t *bounds) {
+    uint32_t g_xbox_image_lo=0,g_xbox_image_hi=0,g_xbox_code_lo=0,g_xbox_code_hi=0;
+    uint32_t base_addr;memcpy(&base_addr,xbe+0x104,4);
+    uint32_t num_sections;memcpy(&num_sections,xbe+0x11c,4);
+    uint32_t sect_headers_va;memcpy(&sect_headers_va,xbe+0x120,4);
+    uint32_t sect_headers_off=sect_headers_va-base_addr;
+    int sections_loaded=0,sections_short=0;size_t total_bytes=0;
+    uint32_t header_size;memcpy(&header_size,xbe+0x108,4);
+    if(header_size==0||header_size>0x10000)header_size=0x1000;
+    if(header_size>xbe_size)header_size=(uint32_t)xbe_size;
+    memcpy(ram+0x10000,xbe,header_size);
+#define XBOX_VA(va) ((void *)(ram+(uint32_t)(va)))
+/* GAMEPKG_PINNED_SECTION_LOOP */
+#undef XBOX_VA
+    bounds[0]=g_xbox_image_lo;bounds[1]=g_xbox_image_hi;bounds[2]=g_xbox_code_lo;bounds[3]=g_xbox_code_hi;
+    (void)sections_loaded;(void)sections_short;(void)total_bytes;
+}

@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "production_ready": false,
+  "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+  "member": "toolkit/src/kernel/xbox_memory_layout.c",
+  "source_sha256": "c83cb0a4586ef3298911f4639e79ec1f904b4133b8469676ff0fa461b63f82f4",
+  "section_loop_start": 140843,
+  "section_loop_end": 144748,
+  "section_loop_sha256": "5d0a84a16deb2a242a41ef24a59542f87678a49fbb22f24aa6622d5d6f00a05a",
+  "contract": "Exact original section loop in maintainer-only inert C oracle; byte copies/BSS/order/bounds bookkeeping; never linked to admitted game/runtime objects",
+  "minimum_app_commit": "7f6b19cdbf38b594a244326951abd309da595471",
+  "native_sdk": "f9b87d0fde634662",
+  "reused_sources": {
+    "../service-disc/disc.rs": "ec4218694786afff82b5e22ebc9c8dad4b1e2a05a6f9c29f62eb4782b30eb21e",
+    "../service-native/memory.rs": "90fe8f2dfa8f0268c0e8827d663d22615cd160cb251af3e9633b22b78220839e",
+    "../service-native/call_state.rs": "4f6f93a05261c307a0358680adc214e8447784defb24f2ddcfca9ca11d0df890"
+  }
+}

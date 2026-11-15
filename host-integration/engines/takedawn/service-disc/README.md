@@ -96,3 +96,10 @@ this interface into GamePKG-owned non-executable RAM, preserve original section
 ordering/overlap and bootstrap semantics, then migrate the actual kernel,
 manual/media and graphics paths. Do not replace those with no-ops, accept game
 crates or expose direct SDL/OS calls to make a title appear enabled.
+
+The [checked XBE image loader](../service-image/README.md) now supplies the
+next data step using the same shared SDK. Actual Linux32/64 confined loads
+match the original section loop across all 64 MiB by SHA-256, including the
+supported private image's 17 sections. It remains separate from stack/FS/TLS,
+heap/kernel initialization, import bridging and native entrypoint execution;
+no title admission or gameplay claim follows from it.
