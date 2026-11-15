@@ -4,8 +4,9 @@ This dependency-free port component initializes the original toolkit region,
 stack, main-thread TIB/FS and TLS data through GamePKG-owned non-executable RAM.
 It follows the authenticated [XBE image loader](../service-image/README.md).
 It does not execute the entrypoint, allocate a host thread, resolve kernel
-imports, initialize devices or enable the Burnout profile. The shared SDK stays
-`f9b87d0fde634662`; no new permission, host API or import exemption is needed.
+imports, initialize devices or enable the Burnout profile. The current reused
+memory adapter requires app `c775eca`; see the cross-span contract below. CPU
+initialization itself adds no permission, host API or import exemption.
 
 ## API contract
 
@@ -123,3 +124,7 @@ audio/input and launch lifecycle without direct SDL/OS calls. Only then qualify
 native entry, saves, physical controls/rumble, audible audio and frame pacing.
 The legacy profile gate remains enforced. These CPU-data tests establish none
 of those gameplay claims.
+
+The reused memory adapter now also requires app commit `c775eca` for its
+explicit cross-span fallback (shared service identity `86521a787ece4bd0`).
+The CPU startup APIs and original reference semantics above are unchanged.

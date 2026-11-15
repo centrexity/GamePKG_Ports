@@ -48,10 +48,13 @@ private keys are included. Reference data is synthetic and generated locally.
 
 ## Contracts
 
-Requires app commit `7f6b19cdbf38b594a244326951abd309da595471` with
-`local_memory_fill` / local op 8 and `diagnostic_bytes` / service op 64
-(`native_sdk=f9b87d0fde634662`) or a compatible later implementation. Older SDKs
-without these operations are insufficient; stale executable receipts must be rebuilt.
+Requires app commit `c775eca` or a compatible later implementation, including
+`local_memory_fill` (local op 8), `diagnostic_bytes` (service op 64), and the
+local gather/scatter operations 9/15 described below. The shared-service digest
+is `86521a787ece4bd01a1164790b21294e3f1b696641412fc97cceb186d30aeca4`.
+The app's composite native recipe identity is `5c7fc32a2c8b443f`; these are
+different identities. Older SDKs without these operations are insufficient;
+stale executable receipts must be rebuilt.
 
 The admission fixture requests `Plan::with_codegen_units(4)` and requires two
 to four retained, independently optimized game objects on each target. Every
@@ -854,3 +857,48 @@ SDK. Confined Linux32/64 checks compare all RAM, layout and initial registers
 with the pinned original on synthetic cases and the authenticated private ISO.
 Heap allocation, kernel exports, memory/device models and native entry remain
 unqualified; the component does not enable the legacy profile.
+
+## Explicit cross-span scalar/data transfers
+
+The memory adapter now uses GamePKG's reviewed gather/scatter services when a
+single read/write crosses adjacent explicit guest spans. Single-span accesses
+retain their original path. The host service implementation is app commit
+`c775eca`; shared port-service identity is
+`86521a787ece4bd01a1164790b21294e3f1b696641412fc97cceb186d30aeca4`.
+Older SDKs may return Unsupported and must not fall back to direct memory access.
+
+The adapter resolves the complete guest range before calling the host. It
+rejects 32-bit overflow, holes and port-level read-only spans before any access;
+it never masks arbitrary addresses into RAM. Only explicitly attached spans
+are traversed, irrespective of attachment order. The existing 32-span maximum
+is retained. The host independently checks every opaque window, backing range
+and committed page permission under one mapping/protection lock. A late denial
+cannot leave half a scalar write or a partially filled read result. Segments
+name backing offsets, never host addresses. The actual full-title mirror,
+contiguous memory and device models remain separate required integration work.
+
+Reads remain bounded to 1 MiB. Writes retain the single-span 1,048,560-byte cap;
+a cross-span write must also fit its descriptor header plus payload inside the
+same 1 MiB local-request limit (`4 + 24 * segment_count` header bytes). No
+threshold, memory permission, import audit or game-profile gate is relaxed.
+Fill and nonoverlapping bulk-copy still require one explicit containing span;
+they are not silently split with different overlap or partial-failure behavior.
+
+The admitted copy checks now exercise an unaligned little-endian scalar across
+a reversed-order alias pair, backing-byte agreement, a late guest hole, a late
+read-only span, top-of-address-space overflow, 32 adjacent one-byte mappings and
+the unchanged 33rd-span rejection. Test scratch bytes are restored afterward.
+These checks run through the same source/admission/object pipeline as the other
+native component vectors. They do not execute a game entrypoint or qualify
+hardware controls, audio, rendering or frame pacing.
+
+The cross-span checkpoint passed the full generated candidate's complete-source
+scan and separately optimized game-object audits/trusted linking on all four
+native targets, with the same 12 GiB compiler-only plan and four codegen units.
+No runtime memory ceiling or source/object policy was increased. Actual confined
+Linux32/64 children replay all 4,864 native vectors, the explicit mapping checks,
+malformed-vector rejections and original-target lookups. Native references also
+pass Linux32/64 and Windows32/64 under Wine. Windows confined service execution
+and actual gameplay remain unqualified. The checked XBE loader and CPU startup
+matrices were rerun successfully against this adapter, including the private
+ISO in place and every RAM hash; their image/startup behavior is unchanged.

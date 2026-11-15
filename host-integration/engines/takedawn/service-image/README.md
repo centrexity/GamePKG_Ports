@@ -4,7 +4,8 @@ This is ordinary dependency-free game Rust over the checked ISO reader and
 GamePKG-owned RAM. It is an image-data loader, not a runnable bootstrap or an
 enabled Burnout profile. It never executes original machine bytes, opens a host
 path/device, maps executable memory or links the original C into game/runtime
-objects. The shared SDK remains `f9b87d0fde634662` (app implementation `7f6b19c`).
+objects. The current reused memory adapter requires app implementation
+`c775eca`; see the cross-span contract below.
 
 ## API and ownership
 
@@ -114,3 +115,8 @@ using shared services; preserve original behavior rather than substituting
 success stubs. Only then connect and qualify the native entrypoint, saves,
 physical controls/rumble, audible audio and frame pacing. This component opens
 no game window/audio device and establishes none of those gameplay claims.
+
+Cross-span memory adaptation requires app commit `c775eca` (shared service
+identity `86521a787ece4bd0`); see the native component README for the exact
+contract and distinction from full guest/device mapping. Image load semantics
+and the original reference remain unchanged.

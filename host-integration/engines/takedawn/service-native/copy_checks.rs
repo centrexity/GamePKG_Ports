@@ -54,5 +54,75 @@ pub fn verify(ram: &mut memory::Memory, window: u64) -> Result<(), i32> {
         return Err(-3);
     }
     ram.write_u32(0, original)?;
+    verify_segments(ram, window)?;
+    Ok(())
+}
+
+fn verify_segments(ram: &mut memory::Memory, window: u64) -> Result<(), i32> {
+    let saved_low = ram.read_u32(0)?;
+    let saved_high = ram.read_u32(4094)?;
+    let mut view = ram.call_view();
+    view.attach(0x80000002, 2, window, 0, true)?;
+    view.attach(0x80000000, 2, window, 4094, true)?;
+    view.write_u32(0x80000000, 0x12345678)?;
+    if ram.read_u16(4094)? != 0x5678
+        || ram.read_u16(0)? != 0x1234
+        || view.read_u32(0x80000000)? != 0x12345678
+    {
+        return Err(-3);
+    }
+    let mut result = [0x5au8; 5];
+    if view.read_bytes(0x80000000, &mut result) != Err(-4)
+        || result != [0x5a; 5]
+        || view.write_bytes(0x80000000, &[9; 5]) != Err(-4)
+        || view.read_u32(0x80000000)? != 0x12345678
+    {
+        return Err(-3);
+    }
+    let mut readonly = ram.call_view();
+    readonly.attach(0x80000000, 2, window, 4094, true)?;
+    readonly.attach(0x80000002, 2, window, 0, false)?;
+    if readonly.write_u32(0x80000000, 0xffffffff) != Err(-4)
+        || readonly.read_u32(0x80000000)? != 0x12345678
+    {
+        return Err(-3);
+    }
+    let mut upper = ram.call_view();
+    upper.attach(0xfffffffe, 2, window, 0, true)?;
+    if upper.read_u32(0xfffffffe) != Err(-1)
+        || upper.write_u32(0xfffffffe, 0xffffffff) != Err(-1)
+        || view.read_u32(0x80000000)? != 0x12345678
+    {
+        return Err(-3);
+    }
+    let mut saved = [0u8; 32];
+    ram.read_bytes(0x3000, &mut saved)?;
+    let mut fragmented = ram.call_view();
+    for number in 0..32u32 {
+        fragmented.attach(
+            0x90000000 + number,
+            1,
+            window,
+            u64::from(0x3000 + number),
+            true,
+        )?;
+    }
+    let mut payload = [0u8; 32];
+    for number in 0..32usize {
+        payload[number] = number as u8;
+    }
+    fragmented.write_bytes(0x90000000, &payload)?;
+    let mut observed = [0u8; 32];
+    fragmented.read_bytes(0x90000000, &mut observed)?;
+    if observed != payload || fragmented.attach(0x90000020, 1, window, 0, true) != Err(-1) {
+        return Err(-3);
+    }
+    ram.read_bytes(0x3000, &mut observed)?;
+    if observed != payload {
+        return Err(-3);
+    }
+    ram.write_bytes(0x3000, &saved)?;
+    ram.write_u32(0, saved_low)?;
+    ram.write_u32(4094, saved_high)?;
     Ok(())
 }

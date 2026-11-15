@@ -163,6 +163,42 @@ impl Memory {
         }
         Err(-4)
     }
+    // Resolve only explicit adjacent guest spans, without masking unknown
+    // addresses. Collect every range before asking the host to touch any byte.
+    fn resolve_segments(
+        &self,
+        address: u32,
+        length: u64,
+        write: bool,
+    ) -> Result<std::vec::Vec<[u64; 3]>, i32> {
+        let end = u64::from(address).checked_add(length).ok_or(-1)?;
+        if length == 0 || length > 1048576 || end > 4294967296 {
+            return Err(-1);
+        }
+        let mut cursor = u64::from(address);
+        let mut segments = std::vec::Vec::new();
+        while cursor < end {
+            let mut found = false;
+            for span in &self.spans {
+                let low = u64::from(span.guest);
+                let high = low + span.bytes;
+                if cursor >= low && cursor < high {
+                    if write && !span.writable {
+                        return Err(-4);
+                    }
+                    let bytes = (end - cursor).min(high - cursor);
+                    segments.push([span.window, span.offset + cursor - low, bytes]);
+                    cursor += bytes;
+                    found = true;
+                    break;
+                }
+            }
+            if !found {
+                return Err(-4);
+            }
+        }
+        Ok(segments)
+    }
     // Copy only disjoint backing ranges. The original caller retains its
     // explicit forward/backward overlap loop; this is its memcpy fast path.
     pub fn copy_nonoverlapping(
@@ -202,7 +238,14 @@ impl Memory {
         if output.is_empty() {
             return Ok(());
         }
-        let (window, offset) = self.resolve(address, output.len() as u64, false)?;
+        let (window, offset) = match self.resolve(address, output.len() as u64, false) {
+            Ok(range) => range,
+            Err(-4) => {
+                let segments = self.resolve_segments(address, output.len() as u64, false)?;
+                return gamepkg::local_memory_read_segments(&segments, output);
+            }
+            Err(error) => return Err(error),
+        };
         let mut request = std::vec::Vec::new();
         request.extend(u64::to_le_bytes(window));
         request.extend(u64::to_le_bytes(offset));
@@ -220,7 +263,14 @@ impl Memory {
         if input.is_empty() {
             return Ok(());
         }
-        let (window, offset) = self.resolve(address, input.len() as u64, true)?;
+        let (window, offset) = match self.resolve(address, input.len() as u64, true) {
+            Ok(range) => range,
+            Err(-4) => {
+                let segments = self.resolve_segments(address, input.len() as u64, true)?;
+                return gamepkg::local_memory_write_segments(&segments, input);
+            }
+            Err(error) => return Err(error),
+        };
         let mut request = std::vec::Vec::new();
         request.extend(u64::to_le_bytes(window));
         request.extend(u64::to_le_bytes(offset));
