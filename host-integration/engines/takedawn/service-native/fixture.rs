@@ -233,7 +233,22 @@ fn fixture_execute() -> Result<(), i32> {
             }
             dispatch::invoke(&mut context, &mut ram, address)?;
             fixture_read(handle, &mut offset, &mut state_bytes)?;
-            if context.encode() != state_bytes {
+            let actual_cpu = context.encode();
+            if actual_cpu != state_bytes {
+                let mut at = 0usize;
+                while at < 244 && actual_cpu[at] == state_bytes[at] {
+                    at += 1;
+                }
+                gamepkg::diagnostic(
+                    3,
+                    0x544b0601,
+                    &[
+                        u64::from(address),
+                        at as u64,
+                        u64::from(state_bytes[at]),
+                        u64::from(actual_cpu[at]),
+                    ],
+                )?;
                 return Err(-3);
             }
             for (guest, count) in [
@@ -253,6 +268,21 @@ fn fixture_execute() -> Result<(), i32> {
                 actual.resize(count, 0u8);
                 ram.read_bytes(guest, &mut actual)?;
                 if actual != expected {
+                    let mut at = 0usize;
+                    while at < count && actual[at] == expected[at] {
+                        at += 1;
+                    }
+                    gamepkg::diagnostic(
+                        3,
+                        0x544b0602,
+                        &[
+                            u64::from(address),
+                            u64::from(guest),
+                            at as u64,
+                            u64::from(expected[at]),
+                            u64::from(actual[at]),
+                        ],
+                    )?;
                     return Err(-3);
                 }
             }

@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "production_ready": false,
+  "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+  "member": "toolkit/src/kernel/kernel_bridge.c",
+  "source_sha256": "bf62f8787a2e78a0abdb28e10ad8f79c5267dc655491353af231067747ce446e",
+  "functions": {
+    "bridge_ExAllocatePool": {
+      "start": 76636,
+      "end": 76957,
+      "sha256": "de9b54a0bba214b9bdf3e540a0967dbbe4bdacc155e1f57ff4e3350befe63fa2"
+    },
+    "bridge_ExAllocatePoolWithTag": {
+      "start": 76959,
+      "end": 77493,
+      "sha256": "b5db44f05ce7f37275e4817cb41993a560a74c5ad3e1388c602824217b7cfb5e"
+    },
+    "bridge_ExFreePool": {
+      "start": 224125,
+      "end": 224212,
+      "sha256": "e2d4368323f75829abce958391243e196982527ad573aec9694cac744b4b897a"
+    },
+    "bridge_ExQueryPoolBlockSize": {
+      "start": 158358,
+      "end": 158736,
+      "sha256": "f3f51c5c29e8b4ed1fb191a3a7b8dbd364b9ce1da1c1835f864305a180b06670"
+    },
+    "stdcall_args_for_ordinal": {
+      "start": 370039,
+      "end": 392581,
+      "sha256": "9296186dab3e4cf69665559022afb261930e0efa09eea4b88f72ea723da76542"
+    }
+  },
+  "lookup": {
+    "start": 392583,
+    "end": 417340,
+    "sha256": "105df98d229ad685ab70118227e48691621ea24d97bd3f9ccdae179ad4a3c85b"
+  },
+  "init_loop": {
+    "start": 435509,
+    "end": 437619,
+    "sha256": "3aafcdd6171a0d72bc97eaf676243695619d483464fe2f24ad5fae8e9106ea94"
+  },
+  "ordinals": {
+    "14": "bridge_ExAllocatePool",
+    "15": "bridge_ExAllocatePoolWithTag",
+    "17": "bridge_ExFreePool",
+    "23": "bridge_ExQueryPoolBlockSize"
+  }
+}

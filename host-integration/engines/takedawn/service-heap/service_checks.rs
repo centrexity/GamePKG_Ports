@@ -1,7 +1,7 @@
 // Ordinary game Rust used in both confined and direct-runtime qualification.
 use crate::gamepkg;
+use crate::heap_service;
 use crate::memory;
-use crate::service;
 fn check_word(bytes: &[u8], at: usize) -> Result<u32, i32> {
     let b = bytes.get(at..at + 4).ok_or(-1)?;
     Ok(u32::from_le_bytes([b[0], b[1], b[2], b[3]]))
@@ -122,15 +122,15 @@ fn check_raw(inbox: u64) -> Result<(), i32> {
     Ok(())
 }
 fn check_members(inbox: u64, job: u64) -> Result<(), i32> {
-    let mut clients: [Option<service::HeapClient>; 11] = [
+    let mut clients: [Option<heap_service::HeapClient>; 11] = [
         None, None, None, None, None, None, None, None, None, None, None,
     ];
     for number in 0..11usize {
-        let mut client = service::HeapClient::heap_client(inbox, job)?;
+        let mut client = heap_service::HeapClient::heap_client(inbox, job)?;
         client.heap_register()?;
         clients[number] = Some(client);
     }
-    let mut excess = service::HeapClient::heap_client(inbox, job)?;
+    let mut excess = heap_service::HeapClient::heap_client(inbox, job)?;
     if excess.heap_register() != Err(-2) {
         return Err(-3);
     }
@@ -141,7 +141,7 @@ fn check_members(inbox: u64, job: u64) -> Result<(), i32> {
         client.heap_abandon()?;
     }
     // Slot capacity is reclaimed; monotonic host queue IDs are not reused.
-    let mut client = service::HeapClient::heap_client(inbox, job)?;
+    let mut client = heap_service::HeapClient::heap_client(inbox, job)?;
     client.heap_register()?;
     if client.heap_stop() != Err(-4) {
         return Err(-3);
@@ -170,7 +170,7 @@ fn check_client_run(setup: u64) -> Result<u64, i32> {
     if !(1..=4).contains(&tag) || check_word(&cfg, 36)? != 500 {
         return Err(-1);
     }
-    let mut client = service::HeapClient::heap_client(inbox, job)?;
+    let mut client = heap_service::HeapClient::heap_client(inbox, job)?;
     client.heap_register()?;
     let mut ram = memory::Memory::with_call_handle(record)?;
     ram.attach(0, 67108864, window, 0, true)?;
@@ -267,9 +267,9 @@ fn check_fake_run(inbox: u64) -> Result<(), i32> {
 }
 fn check_failed_responses(record: u64, window: u64) -> Result<(), i32> {
     for mode in 1..=5u32 {
-        let inbox = service::heap_inbox()?;
+        let inbox = heap_service::heap_inbox()?;
         let job = check_spawn(2, inbox, false)?;
-        let mut client = service::HeapClient::heap_client(inbox, job)?;
+        let mut client = heap_service::HeapClient::heap_client(inbox, job)?;
         if client.heap_initialize(record, window, mode, 0) != Err(-3)
             || client.heap_alloc(16, 4) != Err(-4)
         {
@@ -287,9 +287,9 @@ fn check_bad_initialization(record: u64, window: u64) -> Result<(), i32> {
         (record, window, 0u32, -1i32),
         (record, window + 1000000, 65536, -4),
     ] {
-        let inbox = service::heap_inbox()?;
+        let inbox = heap_service::heap_inbox()?;
         let job = check_spawn(0, inbox, false)?;
-        let mut client = service::HeapClient::heap_client(inbox, job)?;
+        let mut client = heap_service::HeapClient::heap_client(inbox, job)?;
         if client.heap_initialize(selected_record, selected_window, base, 67108864) != Err(error) {
             return Err(-3);
         }
@@ -303,9 +303,9 @@ fn check_bad_initialization(record: u64, window: u64) -> Result<(), i32> {
 fn check_revocation(window: u64) -> Result<(), i32> {
     let closed = memory::Memory::new()?;
     let record = closed.call_handle();
-    let inbox = service::heap_inbox()?;
+    let inbox = heap_service::heap_inbox()?;
     let job = check_spawn(0, inbox, false)?;
-    let mut client = service::HeapClient::heap_client(inbox, job)?;
+    let mut client = heap_service::HeapClient::heap_client(inbox, job)?;
     client.heap_initialize(record, window, 0x1000000, 67108864)?;
     let before = client.heap_status()?;
     gamepkg::local_record_release(record)?;
@@ -322,9 +322,9 @@ fn check_revocation(window: u64) -> Result<(), i32> {
     if check_join(job)? != 0 || before != [0x1000000, 0, 0] {
         return Err(-3);
     }
-    let inbox = service::heap_inbox()?;
+    let inbox = heap_service::heap_inbox()?;
     let job = check_spawn(0, inbox, false)?;
-    let mut client = service::HeapClient::heap_client(inbox, job)?;
+    let mut client = heap_service::HeapClient::heap_client(inbox, job)?;
     if client.heap_initialize(record, window, 0x1000000, 67108864) != Err(-4) {
         return Err(-3);
     }
@@ -335,9 +335,9 @@ fn check_revocation(window: u64) -> Result<(), i32> {
     Ok(())
 }
 fn check_actor_cancel(record: u64, window: u64) -> Result<(), i32> {
-    let inbox = service::heap_inbox()?;
+    let inbox = heap_service::heap_inbox()?;
     let job = check_spawn(0, inbox, false)?;
-    let mut client = service::HeapClient::heap_client(inbox, job)?;
+    let mut client = heap_service::HeapClient::heap_client(inbox, job)?;
     client.heap_initialize(record, window, 0x1000000, 67108864)?;
     check_cancel(job)?;
     if check_join(job)? != (-4i64) as u64 || client.heap_alloc(64, 4) != Err(-4) {
@@ -392,7 +392,7 @@ fn check_cancelled_caller(setup: u64) -> Result<(), i32> {
         return Err(-3);
     }
     let mut client =
-        service::HeapClient::heap_client(check_long(&config, 0)?, check_long(&config, 8)?)?;
+        heap_service::HeapClient::heap_client(check_long(&config, 0)?, check_long(&config, 8)?)?;
     let result = client.heap_initialize(
         check_long(&config, 16)?,
         check_long(&config, 24)?,
@@ -406,7 +406,7 @@ fn check_cancelled_caller(setup: u64) -> Result<(), i32> {
     Err(-4)
 }
 fn check_pending_cancellation(record: u64, window: u64) -> Result<(), i32> {
-    let inbox = service::heap_inbox()?;
+    let inbox = heap_service::heap_inbox()?;
     let ready = gamepkg::local_mailbox_create(1, 1)?;
     let peer_setup = gamepkg::local_mailbox_create(16, 1)?;
     let caller_setup = gamepkg::local_mailbox_create(32, 1)?;
@@ -453,7 +453,7 @@ fn check_abandoned_client(setup: u64) -> Result<(), i32> {
         return Err(-3);
     }
     let mut client =
-        service::HeapClient::heap_client(check_long(&config, 0)?, check_long(&config, 8)?)?;
+        heap_service::HeapClient::heap_client(check_long(&config, 0)?, check_long(&config, 8)?)?;
     client.heap_register()?;
     let address = client.heap_alloc(16, 4)?;
     if address == 0 {
@@ -476,7 +476,7 @@ fn check_reclaimed_clients(inbox: u64, job: u64) -> Result<(), i32> {
             return Err(-3);
         }
     }
-    let mut cleanup = service::HeapClient::heap_client(inbox, job)?;
+    let mut cleanup = heap_service::HeapClient::heap_client(inbox, job)?;
     cleanup.heap_register()?;
     cleanup.heap_unregister()?;
     cleanup.heap_abandon()?;
@@ -485,9 +485,9 @@ fn check_reclaimed_clients(inbox: u64, job: u64) -> Result<(), i32> {
 }
 fn check_fatal_frames(record: u64, window: u64) -> Result<(), i32> {
     for mode in 0..2u32 {
-        let inbox = service::heap_inbox()?;
+        let inbox = heap_service::heap_inbox()?;
         let job = check_spawn(0, inbox, false)?;
-        let mut client = service::HeapClient::heap_client(inbox, job)?;
+        let mut client = heap_service::HeapClient::heap_client(inbox, job)?;
         client.heap_initialize(record, window, 0x1000000, 67108864)?;
         if mode == 0 {
             gamepkg::local_mailbox_send(inbox, &[])?;
@@ -520,13 +520,13 @@ pub fn heap_service_verify() -> Result<u64, i32> {
     let mut ram = memory::Memory::new()?;
     ram.attach(0, 67108864, window, 0, true)?;
     let record = ram.call_handle();
-    let inbox = service::heap_inbox()?;
+    let inbox = heap_service::heap_inbox()?;
     let job = check_spawn(0, inbox, true)?;
     // A full input queue returns Busy before acceptance and retains sequence 1.
     for _ in 0..32 {
         gamepkg::local_mailbox_send(inbox, &[])?;
     }
-    let mut client = service::HeapClient::heap_client(inbox, job)?;
+    let mut client = heap_service::HeapClient::heap_client(inbox, job)?;
     if client.heap_initialize(record, window, 0x1000000, 67108864) != Err(-2) {
         return Err(-3);
     }

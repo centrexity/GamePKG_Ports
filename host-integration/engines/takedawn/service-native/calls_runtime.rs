@@ -48,9 +48,13 @@ fn invoke_registered(
     target: u32,
     tag: u32,
 ) -> Result<(), i32> {
-    // Only generated functions currently have a checked direct invoker. A
-    // manual/kernel/entrypoint target remains an explicit required migration
-    // fault, never an "unknown original address" or a successful no-op body.
+    if tag >> 24 == 5 && ram.kernel_handle() != 0 {
+        return crate::kernel_pool::kernel_invoke(state, ram, tag & 0x00ffffff);
+    }
+    // Generated functions and the explicitly configured pool kernel slots
+    // have reviewed direct invokers. Other routes remain migration faults.
+    // Other manual/kernel/entrypoint targets remain explicit required
+    // migration faults, never successful absence/no-op bodies.
     if tag >> 24 != 1 {
         gamepkg::diagnostic(3, 0x544b0003, &[u64::from(target), u64::from(tag)])?;
         return Err(-5);

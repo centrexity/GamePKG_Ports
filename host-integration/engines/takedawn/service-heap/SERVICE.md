@@ -154,3 +154,8 @@ exports and guest-thread stack/TIB startup still need to call this shared owner.
 The original allocation/OOM/heap-trace reporting and the rest of the native
 kernel, memory/device, media and renderer migration remain required. This is
 component integration evidence, not native gameplay or measured frame pacing.
+
+The [pool kernel integration](../service-kernel-pool/README.md) now moves the
+primary client into Memory and gives each caller its own lazy client. Shared
+thread context carries only endpoint/record IDs, never a pending reply queue or
+sequence. The original title's other kernel/thread/device paths remain required.

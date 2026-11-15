@@ -762,6 +762,12 @@ fn compare_integer_rounding(output: &mut Option<File>) {
     }
     println!("PASS: {count} pinned integer-rounding bit comparisons, {store_count} signed integer-store comparisons, all 65536 control words, 16/32/64-bit range/tie edges and invalid widths");
 }
+fn native_pool_task(_: local::runtime::TaskContext, arg: u64) -> u64 {
+    heap_service::heap_serve(arg)
+}
+fn native_pool_worker(_: local::runtime::TaskContext, arg: u64) -> u64 {
+    pool_checks::pool_worker(arg)
+}
 fn main() {
     compare_vector_helpers();
     let args: Vec<_> = std::env::args().collect();
@@ -770,10 +776,10 @@ fn main() {
             address: 0x20000000,
             bytes: 0x04000000,
         }],
-        vec![],
+        vec![native_pool_task, native_pool_worker],
         128 * 1024 * 1024,
-        0,
-        65536,
+        8,
+        1048576,
     )
     .unwrap();
     let window = owner.windows().unwrap()[0].0;
@@ -836,6 +842,23 @@ fn main() {
         args.get(1)
             .map(|path| Path::new(path).with_file_name("debug-diagnostics")),
     );
+    let commit = [
+        window.to_le_bytes().as_slice(),
+        &8388608u64.to_le_bytes(),
+        &58720256u64.to_le_bytes(),
+        &2u32.to_le_bytes(),
+    ]
+    .concat();
+    local::call(2, &commit, 0).unwrap();
+    pool_checks::pool_verify(&mut ram, window).unwrap();
+    let decommit = [
+        window.to_le_bytes(),
+        8388608u64.to_le_bytes(),
+        58720256u64.to_le_bytes(),
+    ]
+    .concat();
+    local::call(4, &decommit, 0).unwrap();
+    println!("PASS: configured pool ordinals through actual traced/untraced native dispatch, per-caller shared heap context and four concurrent kernel callers; unsupported/data imports remain denied");
     memory_boundaries(&mut ram, window);
     println!("PASS: {} original native functions / {count} differential register and whole-RAM vectors; aliases, unaligned LE accesses, overflow, read-only/protected/uncommitted memory and revocation; no instruction interpreter",ADDRESSES.len());
 }

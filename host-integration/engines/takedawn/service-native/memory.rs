@@ -11,6 +11,10 @@ struct Span {
 pub struct Memory {
     spans: std::vec::Vec<Span>,
     calls: u64,
+    kernel: u64,
+    kernel_caller: u32,
+    heap_endpoints: [u64; 2],
+    heap_client: Option<crate::heap_service::HeapClient>,
 }
 impl Memory {
     pub fn new() -> Result<Self, i32> {
@@ -18,6 +22,10 @@ impl Memory {
         Ok(Self {
             spans: std::vec::Vec::new(),
             calls: gamepkg::local_record_create(&initial)?,
+            kernel: 0,
+            kernel_caller: 0,
+            heap_endpoints: [0; 2],
+            heap_client: None,
         })
     }
     // One title's views/tasks explicitly share an opaque GamePKG record ID.
@@ -26,7 +34,120 @@ impl Memory {
         Self {
             spans: std::vec::Vec::new(),
             calls: self.calls,
+            kernel: self.kernel,
+            kernel_caller: 0,
+            heap_endpoints: self.heap_endpoints,
+            heap_client: None,
         }
+    }
+    // Install the initialized primary client without copying its response
+    // channel/sequence. Failure leaves caller ownership intact for cleanup.
+    pub fn heap_install(
+        &mut self,
+        owner: &mut Option<crate::heap_service::HeapClient>,
+    ) -> Result<(), i32> {
+        self.call_snapshot()?;
+        if self.heap_endpoints != [0; 2] || self.heap_client.is_some() {
+            return Err(-1);
+        }
+        let client = owner.as_ref().ok_or(-1)?;
+        let (record, endpoints) = client.heap_binding().ok_or(-4)?;
+        if record != self.calls || endpoints[0] == 0 || endpoints[1] == 0 {
+            return Err(-4);
+        }
+        self.heap_endpoints = endpoints;
+        self.heap_client = owner.take();
+        Ok(())
+    }
+    // A call_view shares endpoint IDs, never the primary client. Each caller
+    // lazily registers its own exclusive reply/sequence state at first use.
+    pub fn heap_take(&mut self) -> Result<crate::heap_service::HeapClient, i32> {
+        self.call_snapshot()?;
+        if let Some(client) = self.heap_client.take() {
+            return Ok(client);
+        }
+        if self.heap_endpoints[0] == 0 || self.heap_endpoints[1] == 0 {
+            return Err(-5);
+        }
+        let mut client = crate::heap_service::HeapClient::heap_client(
+            self.heap_endpoints[0],
+            self.heap_endpoints[1],
+        )?;
+        if let Err(code) = client.heap_register() {
+            let _ = client.heap_abandon();
+            return Err(code);
+        }
+        Ok(client)
+    }
+    pub fn heap_put(&mut self, client: crate::heap_service::HeapClient) {
+        self.heap_client = Some(client);
+    }
+    pub fn heap_close(&mut self) -> Result<(), i32> {
+        self.heap_endpoints = [0; 2];
+        if let Some(mut client) = self.heap_client.take() {
+            let outcome = if client.heap_root_record() != 0 {
+                client.heap_stop()
+            } else {
+                client.heap_unregister()
+            };
+            let cleanup = client.heap_abandon();
+            outcome?;
+            cleanup?;
+        }
+        Ok(())
+    }
+    pub fn kernel_caller(&self) -> u32 {
+        self.kernel_caller
+    }
+    pub fn kernel_set_caller(&mut self, caller: u32) {
+        self.kernel_caller = caller;
+    }
+    pub fn kernel_clear(&mut self) -> Result<(), i32> {
+        if self.kernel == 0 {
+            return Ok(());
+        }
+        let id = self.kernel;
+        self.kernel = 0;
+        match gamepkg::local_record_release(id) {
+            Ok(()) | Err(-4) => Ok(()),
+            Err(code) => Err(code),
+        }
+    }
+    pub fn kernel_handle(&self) -> u64 {
+        self.kernel
+    }
+    pub fn kernel_install(&mut self, record: u64) -> Result<(), i32> {
+        self.call_snapshot()?;
+        if record == 0 || self.kernel != 0 {
+            return Err(-1);
+        }
+        self.kernel = record;
+        Ok(())
+    }
+    // Only shared opaque context IDs cross a reviewed task's setup message.
+    // Reply queues and in-flight client/sequence state never cross with them.
+    pub fn thread_context(&self) -> [u64; 4] {
+        [
+            self.calls,
+            self.kernel,
+            self.heap_endpoints[0],
+            self.heap_endpoints[1],
+        ]
+    }
+    pub fn with_context(context: [u64; 4]) -> Result<Self, i32> {
+        let mut ram = Self::with_call_handle(context[0])?;
+        if (context[2] == 0) != (context[3] == 0) {
+            return Err(-1);
+        }
+        if context[1] != 0 {
+            let _ = gamepkg::local_record_snapshot(context[1], 1536)?;
+        }
+        if context[3] != 0 && gamepkg::local_task_finished(context[3])? {
+            return Err(-4);
+        }
+        ram.kernel = context[1];
+        ram.heap_endpoints = [context[2], context[3]];
+        Ok(ram)
     }
     pub fn call_handle(&self) -> u64 {
         self.calls
@@ -37,7 +158,32 @@ impl Memory {
         Ok(Self {
             spans: std::vec::Vec::new(),
             calls: record,
+            kernel: 0,
+            kernel_caller: 0,
+            heap_endpoints: [0; 2],
+            heap_client: None,
         })
+    }
+    // A stale snapshot has not committed a call or touched game state. Yield
+    // through an unsignaled host-owned event before retrying, so one hot
+    // caller cannot exhaust another caller's bounded CAS attempts.
+    fn call_retry_pause() -> Result<(), i32> {
+        let mut reply = [0u8; 8];
+        if gamepkg::local_call(20, &[0u8; 8], &mut reply)? != 8 {
+            return Err(-3);
+        }
+        let event = u64::from_le_bytes(reply);
+        let mut request = std::vec::Vec::new();
+        request.extend(u64::to_le_bytes(event));
+        request.extend(u32::to_le_bytes(1));
+        let waited = gamepkg::local_call(23, &request, &mut []);
+        let released = gamepkg::local_call(25, &u64::to_le_bytes(event), &mut []);
+        released?;
+        match waited {
+            Err(-2) => Ok(()),
+            Err(code) => Err(code),
+            _ => Err(-3),
+        }
     }
     pub fn call_bounds(&self, low: u32, high: u32) -> Result<(), i32> {
         for _ in 0..64 {
@@ -47,7 +193,7 @@ impl Memory {
             match gamepkg::local_record_compare_exchange(self.calls, version, &state.call_encode())
             {
                 Ok(_) => return Ok(()),
-                Err(-2) => {}
+                Err(-2) => Self::call_retry_pause()?,
                 Err(error) => return Err(error),
             }
         }
@@ -71,7 +217,7 @@ impl Memory {
                     }
                     return Ok(call_is_code);
                 }
-                Err(-2) => {}
+                Err(-2) => Self::call_retry_pause()?,
                 Err(error) => return Err(error),
             }
         }

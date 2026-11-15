@@ -1,6 +1,6 @@
 // Maintainer-only runtime table. The admitted build injects its own fixed table.
 fn run_heap(_: local::runtime::TaskContext, arg: u64) -> u64 {
-    service::heap_serve(arg)
+    heap_service::heap_serve(arg)
 }
 fn run_client(_: local::runtime::TaskContext, arg: u64) -> u64 {
     service_checks::heap_test_client(arg)

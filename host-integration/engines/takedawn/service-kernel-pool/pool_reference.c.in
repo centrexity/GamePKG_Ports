@@ -1,0 +1,39 @@
+/* Maintainer-only wrapper following the exact heap oracle. No OS services. */
+typedef uint32_t ULONG;
+#define KERNEL_LOG_ON() 0
+#define KERNEL_VA_BASE 0xfe000000u
+#define BRIDGE_MEM32(address) (*(volatile uint32_t *)(g_memory_offset+(uint32_t)(address)))
+#define STACK_ARG(n) BRIDGE_MEM32(g_esp+(n)*4)
+static uint32_t g_eax,g_esp;
+static uint32_t xbox_HeapAlloc(uint32_t bytes,uint32_t alignment){return heap_alloc_unlocked(bytes,alignment);}
+static void xbox_HeapFree(uint32_t address){heap_free_unlocked(address);}
+static uint32_t xbox_HeapBlockSize(uint32_t address){return heap_block_size_unlocked(address);}
+/* GAMEPKG_PINNED_BRIDGE_EXALLOCATEPOOL */
+/* GAMEPKG_PINNED_BRIDGE_EXALLOCATEPOOLWITHTAG */
+/* GAMEPKG_PINNED_BRIDGE_EXFREEPOOL */
+/* GAMEPKG_PINNED_BRIDGE_EXQUERYPOOLBLOCKSIZE */
+/* GAMEPKG_PINNED_STDCALL_ARGS_FOR_ORDINAL */
+typedef void (*bridge_func_t)(void);
+static bridge_func_t bridge_for_ordinal(ULONG ordinal){
+    switch(ordinal){case 14:return bridge_ExAllocatePool;case 15:return bridge_ExAllocatePoolWithTag;case 17:return bridge_ExFreePool;case 23:return bridge_ExQueryPoolBlockSize;default:return NULL;}
+}
+static uint32_t kernel_data_va_for_ordinal(ULONG ordinal){(void)ordinal;return 0;}
+static const unsigned short *g_ordinal_remap=NULL;
+static int g_ordinal_remap_count=0;
+static ULONG g_slot_ordinals[378];
+static bridge_func_t g_slot_bridges[378];
+static int g_slot_arg_bytes[378];
+static uint8_t g_slot_arg_unknown[378];
+uint32_t gamepkg_pool_init(uint32_t table,uint32_t count){
+    uint32_t i;int resolved=0,bridged=0,unbridged=0;uint32_t g_thunk_table_base=table,g_thunk_table_count=count;
+    memset(g_slot_ordinals,0,sizeof(g_slot_ordinals));memset(g_slot_bridges,0,sizeof(g_slot_bridges));memset(g_slot_arg_bytes,0,sizeof(g_slot_arg_bytes));memset(g_slot_arg_unknown,0,sizeof(g_slot_arg_unknown));
+/* GAMEPKG_PINNED_INIT_LOOP */
+    return (uint32_t)(resolved+bridged+unbridged);
+}
+uint32_t gamepkg_pool_call(uint32_t slot,uint32_t *cpu){
+    uint32_t caller;g_eax=cpu[0];g_esp=cpu[7];
+    caller=g_esp?BRIDGE_MEM32(g_esp):0;g_esp+=4;
+    if(slot>=378 || !g_slot_bridges[slot])return 0xffffffffu;
+    g_slot_bridges[slot]();g_esp+=(uint32_t)g_slot_arg_bytes[slot];
+    cpu[0]=g_eax;cpu[7]=g_esp;return caller;
+}

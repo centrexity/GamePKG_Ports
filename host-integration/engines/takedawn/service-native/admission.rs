@@ -182,6 +182,16 @@ fn main() {
     ] {
         fs::copy(here.join(name), source.join("source/src").join(name)).unwrap();
     }
+    for (name, path) in [
+        ("heap.rs", here.join("../service-heap/heap.rs")),
+        ("heap_service.rs", here.join("../service-heap/service.rs")),
+        (
+            "kernel_pool.rs",
+            here.join("../service-kernel-pool/kernel_pool.rs"),
+        ),
+    ] {
+        fs::copy(path, source.join("source/src").join(name)).unwrap();
+    }
     if let Some(prepared) = prepared {
         let prepared = Path::new(prepared);
         let report: serde_json::Value =
@@ -214,7 +224,7 @@ fn main() {
             .unwrap();
         }
     }
-    let mut library="mod memory;mod call_state;mod call_checks;mod copy_checks;mod fill_checks;mod debug;mod debug_checks;mod vector;mod scalar;mod registers;mod game;mod dispatch;mod fixture;pub fn game_main(){fixture::game_main();}\n".to_owned();
+    let mut library="mod memory;mod heap;mod heap_service;mod kernel_pool;mod call_state;mod call_checks;mod copy_checks;mod fill_checks;mod debug;mod debug_checks;mod vector;mod scalar;mod registers;mod game;mod dispatch;mod fixture;pub fn game_main(){fixture::game_main();}\n".to_owned();
     if let Some(directory) = call_targets {
         let directory = Path::new(directory);
         let report: serde_json::Value =
@@ -245,6 +255,13 @@ fn main() {
         )
         .unwrap();
         library.push_str("mod targets;mod target_checks;mod calls_runtime;mod jump_checks;\n");
+        fs::copy(
+            here.join("../service-kernel-pool/pool_checks.rs"),
+            source.join("source/src/pool_checks.rs"),
+        )
+        .unwrap();
+        library.push_str("mod pool_checks;pub fn heap_worker(arg:u64)->u64{heap_service::heap_serve(arg)}pub fn pool_worker(arg:u64)->u64{pool_checks::pool_worker(arg)}\n");
+
         let fixture = source.join("source/src/fixture.rs");
         let original = fs::read_to_string(&fixture).unwrap();
         let marker = "crate::call_checks::call_verify()?;";
@@ -265,7 +282,7 @@ fn main() {
             fixture,
             original.replace(
                 marker,
-                &format!("{marker}crate::jump_checks::jump_verify()?;"),
+                &format!("{marker}crate::jump_checks::jump_verify()?;crate::pool_checks::pool_verify(&mut ram,window)?;"),
             ),
         )
         .unwrap();
@@ -340,7 +357,12 @@ fn main() {
         Target::Windows32,
     ] {
         let codegen_units = 4;
-        let mut plan = Plan::new(target, "game_main", vec![], LocalLayout::TakedawnRam, true)
+        let tasks = if call_targets.is_some() {
+            vec!["heap_worker".into(), "pool_worker".into()]
+        } else {
+            vec![]
+        };
+        let mut plan = Plan::new(target, "game_main", tasks, LocalLayout::TakedawnRam, true)
             .unwrap()
             .with_codegen_units(codegen_units)
             .unwrap();
@@ -421,7 +443,16 @@ fn main() {
             );
             std::thread::sleep(Duration::from_millis(1));
         }
-        assert_eq!(*samples.lock().unwrap(), [1234], "{}", owner.diagnostics());
+        assert_eq!(
+            *samples.lock().unwrap(),
+            [1234],
+            "{}; numeric events: {:?}",
+            owner.diagnostics(),
+            observed
+                .iter()
+                .filter(|e| e.bytes.is_none())
+                .collect::<Vec<_>>()
+        );
         let (batch, lost) = owner.host.take_diagnostics();
         assert_eq!(lost, 0);
         observed.extend(batch);
@@ -438,6 +469,11 @@ fn main() {
             let mut values = vec![0x8000, 0, 0];
             values.resize(19, 0);
             expected_events.push((2, 0x544b0002, values));
+        }
+        if call_targets.is_some() {
+            for stage in 1..=7u64 {
+                expected_events.push((0, 0x544b0600, vec![stage]));
+            }
         }
         let byte_events: Vec<_> = observed
             .iter()
@@ -470,7 +506,7 @@ fn main() {
         println!("PASS {target:?}: malformed/old vector formats, batch counts and truncated records rejected by the same audited confined child");
         println!("PASS {target:?}: actual confined native execution of every generated reference vector through host-owned RAM services; in-memory output only");
         if call_targets.is_some() {
-            println!("PASS {target:?}: original-target lookup vectors, exact diagnostics and untraced-jump conformance; no kernel/manual handler implementations");
+            println!("PASS {target:?}: original-target lookup vectors, exact diagnostics, untraced jumps and four configured pool ordinals with concurrent shared-heap callers; other kernel/manual routes remain unsupported");
         }
     }
     println!("Unsafe/OS reference source remains rejected; no source, import or legacy-profile exemption");

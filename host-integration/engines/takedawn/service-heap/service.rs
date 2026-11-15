@@ -244,6 +244,7 @@ pub struct HeapClient {
     job: u64,
     reply: u64,
     sequence: u64,
+    record: u64,
     active: bool,
     poisoned: bool,
 }
@@ -257,6 +258,7 @@ impl HeapClient {
             job,
             reply: gamepkg::local_mailbox_create(32, 1)?,
             sequence: 0,
+            record: 0,
             active: false,
             poisoned: false,
         })
@@ -349,6 +351,7 @@ impl HeapClient {
             self.poisoned = true;
             return Err(-3);
         }
+        self.record = record;
         self.active = true;
         Ok(())
     }
@@ -422,6 +425,16 @@ impl HeapClient {
         }
         self.active = false;
         Ok(())
+    }
+    // Port-internal ownership metadata. No native pointer or host authority.
+    pub fn heap_root_record(&self) -> u64 {
+        self.record
+    }
+    pub fn heap_binding(&self) -> Option<(u64, [u64; 2])> {
+        if !self.active || self.poisoned || self.reply == 0 {
+            return None;
+        }
+        Some((self.record, [self.inbox, self.job]))
     }
     // Explicit queue lifecycle. After an accepted but failed/abandoned request,
     // its mutation result may be unknown: abort; never replay that mutation.

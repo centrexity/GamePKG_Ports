@@ -48,13 +48,13 @@ private keys are included. Reference data is synthetic and generated locally.
 
 ## Contracts
 
-Requires app commit `c775eca` or a compatible later implementation, including
-`local_memory_fill` (local op 8), `diagnostic_bytes` (service op 64), and the
-local gather/scatter operations 9/15 described below. The shared-service digest
-is `86521a787ece4bd01a1164790b21294e3f1b696641412fc97cceb186d30aeca4`.
-The app's composite native recipe identity is `5c7fc32a2c8b443f`; these are
-different identities. Older SDKs without these operations are insufficient;
-stale executable receipts must be rebuilt.
+Requires app implementation `38a84d4` or a compatible later SDK, including
+local task-completion snapshots (op 16), gather/scatter (9/15), fill (8) and
+bounded byte diagnostics (service 64). Shared-service digest is
+`0db7bde13239a9ee091c18840f476a6844ff7af1015945a62b6de5e768e7b4bd`;
+the installed composite native recipe identity is `dd1e2928b1a6fb54`.
+These are different identities. Missing operations are insufficient; stale
+executable receipts must be rebuilt.
 
 The admission fixture requests `Plan::with_codegen_units(4)` and requires two
 to four retained, independently optimized game objects on each target. Every
@@ -905,5 +905,11 @@ ISO in place and every RAM hash; their image/startup behavior is unchanged.
 
 The [checked heap data component](../service-heap/README.md) now supplies the
 next owned data component after stack/TLS initialization. Its state and whole
-RAM match the pinned original helpers; shared-task serialization and public
-kernel-wrapper integration remain required before entrypoint admission.
+RAM match the pinned original helpers. The shared-task serializer and four
+pool kernel bridges are qualified separately below; complete public kernel
+wrappers and title startup remain required before entrypoint admission.
+
+The [checked pool kernel bridge integration](../service-kernel-pool/README.md)
+now routes four configured ordinals through the actual finite native call/jump
+path and shared per-caller heap clients. Other imports remain explicit required
+migration work; installing that bounded map does not enable the title.
