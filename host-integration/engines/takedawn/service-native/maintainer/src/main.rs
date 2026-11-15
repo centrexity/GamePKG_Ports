@@ -53,6 +53,19 @@ fn primitive(ty: &Type) -> Option<&'static str> {
         _ => return None,
     })
 }
+fn small_integer(expr: &Expr) -> Option<u32> {
+    match plain(expr) {
+        Expr::Lit(syn::ExprLit {
+            lit: syn::Lit::Int(lit),
+            ..
+        }) => lit.base10_parse().ok(),
+        Expr::Cast(c) if primitive(&c.ty).is_some() => small_integer(&c.expr),
+        _ => None,
+    }
+}
+fn plain_callee(call: &syn::ExprCall) -> bool {
+    matches!(plain(&call.func),Expr::Path(p) if p.qself.is_none() && p.path.leading_colon.is_none() && p.path.segments.len()==1 && matches!(p.path.segments[0].arguments,syn::PathArguments::None))
+}
 fn address(expr: &Expr) -> Option<Expr> {
     // Accept precisely the pinned C2Rust guest-address + host-relocation idiom.
     // Native casts, pointer arithmetic and other provenance expressions reject.
@@ -204,8 +217,28 @@ impl Lower {
             return false;
         }
         if ![
-            "eax", "ebx", "ecx", "edx", "esi", "edi", "ebp", "esp", "seh_ebp", "df", "fp_stack",
-            "fp_top", "fp_cc", "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7",
+            "eax",
+            "ebx",
+            "ecx",
+            "edx",
+            "esi",
+            "edi",
+            "ebp",
+            "esp",
+            "seh_ebp",
+            "df",
+            "fp_stack",
+            "fp_top",
+            "fp_cc",
+            "fp_control_word",
+            "xmm0",
+            "xmm1",
+            "xmm2",
+            "xmm3",
+            "xmm4",
+            "xmm5",
+            "xmm6",
+            "xmm7",
         ]
         .contains(&field)
         {
@@ -313,6 +346,75 @@ impl Lower {
             return None;
         };
         Some((*field.base.clone(), *index.index.clone(), view.to_string()))
+    }
+    fn scalar_call(&mut self, call: &syn::ExprCall, name: &str) -> Option<Expr> {
+        if !call.attrs.is_empty()
+            || !plain_callee(call)
+            || self.locals.contains_key(name)
+            || self.tls.contains_key(name)
+        {
+            self.reject("unproven scalar helper binding");
+            return None;
+        }
+        if name == "RC_ROT" {
+            if call.args.len() != 5
+                || !self.guest_u32(&call.args[0])
+                || !self.guest_u32(&call.args[1])
+            {
+                self.reject("rotate-carry arity or value width");
+                return None;
+            }
+            let (Some(width), Some(direction)) =
+                (small_integer(&call.args[3]), small_integer(&call.args[4]))
+            else {
+                self.reject("rotate-carry width/direction must be reviewed constants");
+                return None;
+            };
+            if ![8, 16, 32].contains(&width) || direction > 1 {
+                self.reject("rotate-carry width/direction");
+                return None;
+            }
+            let Expr::RawAddr(reference) = plain(&call.args[2]) else {
+                self.reject("rotate-carry requires exact local mutable carry");
+                return None;
+            };
+            let Some(binding) = path(&reference.expr) else {
+                self.reject("rotate-carry carry is not local");
+                return None;
+            };
+            if !reference.attrs.is_empty()
+                || !matches!(plain(&reference.expr),Expr::Path(p) if p.qself.is_none() && p.attrs.is_empty() && p.path.segments.len()==1 && matches!(p.path.segments[0].arguments,syn::PathArguments::None))
+                || !matches!(reference.mutability, syn::PointerMutability::Mut(_))
+                || self.locals.get(&binding).map(String::as_str) != Some("i32")
+            {
+                self.reject("rotate-carry carry type or rights");
+                return None;
+            }
+            let mut value = call.args[0].clone();
+            let mut count = call.args[1].clone();
+            self.visit_expr_mut(&mut value);
+            self.visit_expr_mut(&mut count);
+            let carry = syn::Ident::new(&binding, Span::call_site());
+            let left = direction == 1;
+            return Some(
+                parse_quote!(crate::scalar::rotate_carry(#value,#count,&mut #carry,#width,#left)?),
+            );
+        }
+        if call.args.len() != 1 {
+            self.reject("scalar helper arity");
+            return None;
+        }
+        if name == "recomp_parity8" && !self.guest_u32(&call.args[0]) {
+            self.reject("parity value not proven u32");
+            return None;
+        }
+        let mut value = call.args[0].clone();
+        self.visit_expr_mut(&mut value);
+        Some(if name == "recomp_parity8" {
+            parse_quote!(crate::scalar::parity8(#value))
+        } else {
+            parse_quote!(crate::scalar::round24(#value))
+        })
     }
     fn vector_call(&mut self, call: &syn::ExprCall, name: &str) -> Option<Expr> {
         let (helper, count, access) = match name {
@@ -660,6 +762,12 @@ impl VisitMut for Lower {
                 self.reject("indirect call");
                 return;
             };
+            if ["recomp_fp_round24", "recomp_parity8", "RC_ROT"].contains(&name.as_str()) {
+                if let Some(value) = self.scalar_call(call, &name) {
+                    *expr = value;
+                }
+                return;
+            }
             if name == "core::mem::size_of" && call.args.is_empty() {
                 if let Expr::Path(p) = plain(&call.func) {
                     if let syn::PathArguments::AngleBracketed(arguments) =
@@ -985,7 +1093,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         return Err("generated Rust formatting failed".into());
     }
-    let provenance = serde_json::json!({"schema":1,"register_record_version":2,"register_record_bytes":240,"float_arithmetic_nan_policy":"quiet-first-NaN-preserve-sign-and-payload","generator_source_sha256":format!("{:x}",Sha256::digest(include_bytes!("main.rs"))),"generator_batch_sha256":format!("{:x}",Sha256::digest(include_bytes!("batch.rs"))),"generator_inventory_sha256":format!("{:x}",Sha256::digest(include_bytes!("../reviewed_units.tsv"))),"generator_lock_sha256":format!("{:x}",Sha256::digest(include_bytes!("../Cargo.lock"))),"formatter_version":String::from_utf8(formatter.stdout)?.trim(),"game_sha256":format!("{:x}",Sha256::digest(fs::read(output.join("game.rs"))?)),"dispatch_sha256":format!("{:x}",Sha256::digest(fs::read(output.join("dispatch.rs"))?)),"input_sha256":source_hash,"source_kit_sha256":"6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4","converted":accepted.keys().collect::<Vec<_>>(),"rejected":rejected,"production_ready":false});
+    let provenance = serde_json::json!({"schema":1,"register_record_version":3,"register_record_bytes":240,"float_arithmetic_nan_policy":"quiet-first-NaN-preserve-sign-and-payload","generator_source_sha256":format!("{:x}",Sha256::digest(include_bytes!("main.rs"))),"generator_batch_sha256":format!("{:x}",Sha256::digest(include_bytes!("batch.rs"))),"generator_inventory_sha256":format!("{:x}",Sha256::digest(include_bytes!("../reviewed_units.tsv"))),"generator_lock_sha256":format!("{:x}",Sha256::digest(include_bytes!("../Cargo.lock"))),"formatter_version":String::from_utf8(formatter.stdout)?.trim(),"game_sha256":format!("{:x}",Sha256::digest(fs::read(output.join("game.rs"))?)),"dispatch_sha256":format!("{:x}",Sha256::digest(fs::read(output.join("dispatch.rs"))?)),"input_sha256":source_hash,"source_kit_sha256":"6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4","converted":accepted.keys().collect::<Vec<_>>(),"rejected":rejected,"production_ready":false});
     fs::write(
         output.join("provenance.json"),
         serde_json::to_vec_pretty(&provenance)?,
@@ -1087,6 +1195,30 @@ mod tests {
         assert!(lowered("XMM_MEM(0x100001234u64);").is_err());
         assert!(lowered("XMM_ZERO(1u32);").is_err());
         assert!(lowered("let a:RecompXmm=XMM_ZERO();let lane=a.u[0usize];").is_ok());
+    }
+    #[test]
+    fn scalar_helpers_accept_only_proven_values_and_local_carry_borrows() {
+        let (function,_)=lowered("let mut carry:int32_t=1;let result=RC_ROT(1u32,31u32,&raw mut carry,32u32,1);let parity=recomp_parity8(1u32);let fp=recomp_fp_round24(1.0f64);").unwrap();
+        let text = function.to_token_stream().to_string();
+        assert!(text.contains("crate :: scalar :: rotate_carry"));
+        assert!(text.contains("& mut carry"));
+        assert!(!text.contains("raw"));
+        for body in [
+            "let mut carry:int64_t=1;RC_ROT(1u32,1u32,&raw mut carry,32u32,1);",
+            "let mut carry:int32_t=1;RC_ROT(1u64,1u32,&raw mut carry,32u32,1);",
+            "let mut carry:int32_t=1;RC_ROT(1u32,1u64,&raw mut carry,32u32,1);",
+            "let mut carry:int32_t=1;RC_ROT(1u32,1u32,&raw const carry,32u32,1);",
+            "let mut carry:int32_t=1;RC_ROT(1u32,1u32,&raw mut carry,64u32,1);",
+            "let mut carry:int32_t=1;RC_ROT(1u32,1u32,&raw mut carry,32u32,2);",
+            "let mut carry:int32_t=1;let width:u32=32;RC_ROT(1u32,1u32,&raw mut carry,width,1);",
+            "let mut carry:int32_t=1;RC_ROT(1u32,1u32,&mut carry,32u32,1);",
+            "recomp_parity8(1u64);",
+            "recomp_parity8::<u64>(1u32);",
+            "recomp_fp_round24(1.0f64,2.0f64);",
+            "let recomp_fp_round24=other;recomp_fp_round24(1.0f64);",
+        ] {
+            assert!(lowered(body).is_err(), "{body}");
+        }
     }
     #[test]
     fn control_flow_enums_preserve_ordinal_values_and_lexical_scope() {

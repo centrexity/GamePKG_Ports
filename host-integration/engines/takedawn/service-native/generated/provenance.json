@@ -37,11 +37,11 @@
   "generator_batch_sha256": "09cadcf977e2f6a00f48e53eb0c90ffa4c9c530095ee78a55aef7f3a00cd2f76",
   "generator_inventory_sha256": "7d7ab7a7cfd00067396a84a82c055a588e308bc8cdc0a94451232cf0f8f12169",
   "generator_lock_sha256": "6d55a2c76709a6c1825c3fc3c9ac08e03d6e140635858336762f4ac2595a5259",
-  "generator_source_sha256": "b8b81f34773b982f13dba91410fc6a68f3c0808c456d56b79585577e117124f4",
+  "generator_source_sha256": "bb8e1662c8ad9a182d35c9d9455ba7bde60fef16b67fe9cbfad36eb4d83148db",
   "input_sha256": "442f7812516f3c5157ee74e15aede23d0ac423105acb7d973733bbe9f01ad94d",
   "production_ready": false,
   "register_record_bytes": 240,
-  "register_record_version": 2,
+  "register_record_version": 3,
   "rejected": {
     "sub_00013D10": [
       "raw/function pointer type",

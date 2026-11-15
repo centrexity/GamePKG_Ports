@@ -48,7 +48,13 @@ fn main() {
     ] {
         fs::copy(app.join("examples/minimal").join(name), source.join(name)).unwrap();
     }
-    for name in ["memory.rs", "registers.rs", "fixture.rs", "vector.rs"] {
+    for name in [
+        "memory.rs",
+        "registers.rs",
+        "fixture.rs",
+        "vector.rs",
+        "scalar.rs",
+    ] {
         fs::copy(here.join(name), source.join("source/src").join(name)).unwrap();
     }
     if args.len() == 5 {
@@ -73,7 +79,7 @@ fn main() {
             .unwrap();
         }
     }
-    fs::write(source.join("source/src/lib.rs"),"mod memory;mod vector;mod registers;mod game;mod dispatch;mod fixture;pub fn game_main(){fixture::game_main();}\n").unwrap();
+    fs::write(source.join("source/src/lib.rs"),"mod memory;mod vector;mod scalar;mod registers;mod game;mod dispatch;mod fixture;pub fn game_main(){fixture::game_main();}\n").unwrap();
     // Preserve the source's attribution in the temporary signed test package.
     let mut licenses = fs::read(source.join("LICENSE")).unwrap();
     licenses.extend(b"\n\nUpstream Takedawn / XboxRecomp notices:\n");

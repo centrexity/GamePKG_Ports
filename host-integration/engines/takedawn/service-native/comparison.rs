@@ -28,6 +28,7 @@ fn initial_state(seed: &mut u64) -> registers::Registers {
     r.df = (next_random(seed) & 1) as i32;
     r.fp_top = (next_random(seed) & 7) as i32;
     r.fp_cc = next_random(seed) as u16;
+    r.fp_control_word = [0x037f, 0x027f, 0x007f][(next_random(seed) % 3) as usize];
     for v in &mut r.fp_stack {
         *v = f64::from_bits(next_random(seed) & 0xffef_ffff_ffff_ffff);
     }
@@ -248,6 +249,139 @@ fn compare_vector_helpers() {
     println!("Observed {dual_nan_selections} baseline dual-NaN payload choices; portable result bits independently verified");
     println!("PASS: 1575 pinned-original vector helper edge comparisons, all 256 shuffle selectors and checked lane bounds/bit preservation");
 }
+fn compare_scalar_helpers(output: &mut Option<File>) {
+    let fractions = [
+        0u64,
+        1,
+        0x0fffffff,
+        0x10000000,
+        0x10000001,
+        0x1fffffff,
+        0x20000000,
+        0x30000000,
+        0x0007ffffffffffff,
+        0x0008000000000000,
+        0x000fffffe0000000,
+        0x000fffffffffffff,
+    ];
+    let mut values = Vec::new();
+    for exponent in 0u64..2048 {
+        for fraction in fractions {
+            for sign in [0, 0x8000000000000000] {
+                values.push(sign | (exponent << 52) | fraction);
+            }
+        }
+    }
+    let mut random = 0xb93a14721c5d8e6fu64;
+    for _ in 0..65536 {
+        values.push(next_random(&mut random));
+    }
+    if let Some(file) = output.as_mut() {
+        file.write_all(&(values.len() as u32).to_le_bytes())
+            .unwrap();
+    }
+    for bits in &values {
+        let input = f64::from_bits(*bits);
+        let expected = unsafe { oracle::scalar_round24(input) }.to_bits();
+        let actual = scalar::round24(input).to_bits();
+        assert_eq!(actual, expected, "round24 input {bits:016x}");
+        if let Some(file) = output.as_mut() {
+            file.write_all(&bits.to_le_bytes()).unwrap();
+            file.write_all(&expected.to_le_bytes()).unwrap();
+        }
+    }
+    let parity_count = 65536u32;
+    if let Some(file) = output.as_mut() {
+        file.write_all(&parity_count.to_le_bytes()).unwrap();
+    }
+    for index in 0..parity_count {
+        let value = index.wrapping_mul(0x9e3779b9);
+        let expected = unsafe { oracle::scalar_parity8(value) };
+        assert_eq!(expected, i32::from((value as u8).count_ones() % 2 == 0));
+        assert_eq!(scalar::parity8(value), expected);
+        if let Some(file) = output.as_mut() {
+            file.write_all(&value.to_le_bytes()).unwrap();
+            file.write_all(&expected.to_le_bytes()).unwrap();
+        }
+    }
+    let rotate_count = (256 + 64 + 64) * 68 * 5 * 2u32;
+    if let Some(file) = output.as_mut() {
+        file.write_all(&rotate_count.to_le_bytes()).unwrap();
+    }
+    let mut rotations = 0;
+    for width in [8, 16, 32] {
+        let mut words = vec![
+            0u32,
+            1,
+            0xffff,
+            0x8000,
+            0x7fff,
+            u32::MAX,
+            0x80000000,
+            0x7fffffff,
+        ];
+        while words.len() < 64 {
+            words.push(next_random(&mut random) as u32);
+        }
+        if width == 8 {
+            words = (0..256u32).map(|i| i.wrapping_mul(0x01010101)).collect();
+        }
+        let mut counts = (0..64).collect::<Vec<u32>>();
+        counts.extend([255, 256, 0x80000000, u32::MAX]);
+        for value in words {
+            for count in &counts {
+                for carry in [-2, -1, 0, 1, 2] {
+                    for left in [false, true] {
+                        let mut expected_carry = carry;
+                        let expected = unsafe {
+                            oracle::scalar_rotate(value, *count, &mut expected_carry, width, left)
+                        };
+                        let mut actual_carry = carry;
+                        assert_eq!(
+                            scalar::rotate_carry(value, *count, &mut actual_carry, width, left),
+                            Ok(expected)
+                        );
+                        assert_eq!(actual_carry, expected_carry);
+                        if let Some(file) = output.as_mut() {
+                            for word in [
+                                value,
+                                *count,
+                                carry as u32,
+                                width,
+                                u32::from(left),
+                                expected,
+                                expected_carry as u32,
+                            ] {
+                                file.write_all(&word.to_le_bytes()).unwrap();
+                            }
+                        }
+                        rotations += 1;
+                    }
+                }
+            }
+        }
+    }
+    assert_eq!(rotations, rotate_count);
+    for invalid in [0, 1, 7, 9, 15, 17, 31, 33, 64, u32::MAX] {
+        let mut carry = -1;
+        assert_eq!(
+            scalar::rotate_carry(u32::MAX, 1, &mut carry, invalid, true),
+            Err(-1)
+        );
+        assert_eq!(carry, -1);
+    }
+    // Control words occupy previously reserved bytes, without widening the
+    // private record. Every bit survives encode/decode independent of FP math.
+    for control in 0..=u16::MAX {
+        let mut state = registers::Registers::new();
+        state.fp_control_word = control;
+        let bytes = state.encode();
+        let mut decoded = registers::Registers::new();
+        decoded.decode(&bytes).unwrap();
+        assert_eq!(decoded.fp_control_word, control);
+    }
+    println!("PASS: {} pinned round24 bit comparisons, {parity_count} parity inputs, {rotations} rotate/carry comparisons, invalid-width atomicity and 65536 control-word records; default floating environment only",values.len());
+}
 fn main() {
     compare_vector_helpers();
     let args: Vec<_> = std::env::args().collect();
@@ -274,7 +408,7 @@ fn main() {
     };
     let count = 1024 + (ADDRESSES.len() as u32 - 1) * 32;
     if let Some(file) = &mut output {
-        file.write_all(b"TKN3").unwrap();
+        file.write_all(b"TKN4").unwrap();
         file.write_all(&count.to_le_bytes()).unwrap();
     }
     let mut reference = vec![0u8; 8 * 1024 * 1024];
@@ -292,6 +426,7 @@ fn main() {
             );
         }
     }
+    compare_scalar_helpers(&mut output);
     memory_boundaries(&mut ram, window);
     println!("PASS: {} original native functions / {count} differential register and whole-RAM vectors; aliases, unaligned LE accesses, overflow, read-only/protected/uncommitted memory and revocation; no instruction interpreter",ADDRESSES.len());
 }

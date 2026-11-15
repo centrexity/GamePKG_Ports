@@ -33,15 +33,23 @@ def main():
         scratch=Path(name)
         with tarfile.open(kit) as archive:
             original=archive.extractfile(UNIT).read()
-            extra_unit=archive.extractfile('prepared/src/recomp_0000_000.rs').read().decode()
             extra_helpers=[]
-            for helper in ['XMM_SUB','XMM_XOR']:
-                found=re.search(r'(?m)^#\[inline\]\nunsafe extern "C" fn '+helper+r'\(',extra_unit)
-                start=found.start();opening=extra_unit.index('{',start);end=opening+1;depth=1
-                # These exact kit-pinned helper bodies have no braces in literals/comments.
-                while depth:
-                    depth+=(extra_unit[end]=='{')-(extra_unit[end]=='}');end+=1
-                extra_helpers.append(extra_unit[start:end])
+            helper_units=[('prepared/src/recomp_0000_000.rs',['XMM_SUB','XMM_XOR']),
+                          ('prepared/src/recomp_0002_018.rs',['recomp_fp_round24']),
+                          ('prepared/src/recomp_0004_010.rs',['recomp_parity8']),
+                          ('prepared/src/recomp_0007_000.rs',['RC_ROT'])]
+            pins=dict(line.split('\t') for line in (here/'maintainer/reviewed_units.tsv').read_text().splitlines())
+            for unit_name,helpers_in_unit in helper_units:
+                data=archive.extractfile(unit_name).read()
+                assert hashlib.sha256(data).hexdigest()==pins[Path(unit_name).name]
+                extra_unit=data.decode()
+                for helper in helpers_in_unit:
+                    found=re.search(r'(?m)^#\[inline\]\nunsafe extern "C" fn '+helper+r'\(',extra_unit)
+                    start=found.start();opening=extra_unit.index('{',start);end=opening+1;depth=1
+                    # Exact kit-pinned bodies: no braces in literals/comments.
+                    while depth:
+                        depth+=(extra_unit[end]=='{')-(extra_unit[end]=='}');end+=1
+                    extra_helpers.append(extra_unit[start:end])
         if hashlib.sha256(original).hexdigest()!=UNIT_HASH:raise RuntimeError('Changed original unit')
         unit=scratch/'original.rs';unit.write_bytes(original)
         generated=scratch/'generated'
@@ -69,9 +77,10 @@ def main():
         oracle=here.joinpath('oracle_prefix.inc.rs').read_text()+'\n'+generated.joinpath('oracle_helpers.rs').read_text()+'\n'+'\n'.join(extra_helpers)+'\n'+generated.joinpath('oracle.rs').read_text()
         oracle+='\npub unsafe fn invoke(address:u32){match address{'+''.join(f'0x{n[4:]}=>{n}(),' for n in names)+'_=>panic!("unknown reference function")}}\n'
         oracle+='\npub unsafe fn helper(operation:u32,first:[u32;4],second:[u32;4],immediate:u32)->[u32;4]{let a=RecompXmm{u:first};let b=RecompXmm{u:second};let result=match operation{0=>XMM_ADD(a,b),1=>XMM_SUB(a,b),2=>XMM_MUL(a,b),3=>XMM_XOR(a,b),4=>XMM_SHUFFLE(a,b,immediate),5=>XMM_SCALAR(f32::from_bits(first[0])),6=>XMM_ZERO(),_=>panic!("unknown helper")};result.u}\n'
+        oracle+='\npub unsafe fn scalar_round24(value:f64)->f64{recomp_fp_round24(value)}pub unsafe fn scalar_parity8(value:u32)->i32{recomp_parity8(value)}pub unsafe fn scalar_rotate(value:u32,count:u32,carry:&mut i32,width:u32,left:bool)->u32{RC_ROT(value,count,carry,width,i32::from(left))}\n'
         oracle_file=scratch/'reference.rs';oracle_file.write_text(oracle)
         wrapper='#![allow(non_camel_case_types,non_snake_case,non_upper_case_globals,unused_assignments,unused_variables,unused_mut,unused_parens,dead_code,unreachable_code)]\n'
-        for module,path in [('gamepkg',app/'engines/native-services/client.rs'),('local',app/'engines/native-services/local_bindings.rs'),('memory',here/'memory.rs'),('vector',here/'vector.rs'),('registers',here/'registers.rs'),('game',generated/'game.rs'),('dispatch',generated/'dispatch.rs'),('oracle',oracle_file)]:
+        for module,path in [('gamepkg',app/'engines/native-services/client.rs'),('local',app/'engines/native-services/local_bindings.rs'),('memory',here/'memory.rs'),('vector',here/'vector.rs'),('scalar',here/'scalar.rs'),('registers',here/'registers.rs'),('game',generated/'game.rs'),('dispatch',generated/'dispatch.rs'),('oracle',oracle_file)]:
             wrapper+=f'#[path={json.dumps(str(path))}]mod {module};\n'
         wrapper+=f'const ADDRESSES:[u32;{len(names)}]=['+','.join('0x'+n[4:] for n in names)+'];\n'
         wrapper+=here.joinpath('comparison.rs').read_text()

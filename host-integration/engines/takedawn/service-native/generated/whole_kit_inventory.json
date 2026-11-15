@@ -3,27 +3,23 @@
   "production_ready": false,
   "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
   "inventory_sha256": "7d7ab7a7cfd00067396a84a82c055a588e308bc8cdc0a94451232cf0f8f12169",
-  "converter_main_sha256": "b8b81f34773b982f13dba91410fc6a68f3c0808c456d56b79585577e117124f4",
+  "converter_main_sha256": "bb8e1662c8ad9a182d35c9d9455ba7bde60fef16b67fe9cbfad36eb4d83148db",
   "converter_batch_sha256": "09cadcf977e2f6a00f48e53eb0c90ffa4c9c530095ee78a55aef7f3a00cd2f76",
   "converter_lock_sha256": "6d55a2c76709a6c1825c3fc3c9ac08e03d6e140635858336762f4ac2595a5259",
   "definitions": 24015,
   "unique_definitions": 24015,
-  "locally_convertible_definitions": 20636,
-  "closed_definitions": 16880,
+  "locally_convertible_definitions": 20994,
+  "closed_definitions": 17122,
   "source_units": 485,
-  "candidate_source_files": 2129,
-  "candidate_source_bytes": 51202788,
-  "direct_closed_edges": 1249,
-  "cross_unit_closed_edges": 823,
+  "candidate_source_files": 2160,
+  "candidate_source_bytes": 61860082,
+  "direct_closed_edges": 1558,
+  "cross_unit_closed_edges": 1026,
   "duplicate_symbols": 0,
-  "unconverted_unique_definitions": 7135,
-  "closed_graph_sha256": "fccfacf253db9d032d69b71abdbbada58d8584d30d0406b22be2949043892dbc",
-  "emitted_inventory_sha256": "b0ce6918c53c81cde6cdff5355892572adbfd0615b1485db318c58d07035c03f",
+  "unconverted_unique_definitions": 6893,
+  "closed_graph_sha256": "bc89e02b92629c9b1c0316f3cb7ee1bf4c39208a4c78c828db6ad38b861a3e18",
+  "emitted_inventory_sha256": "3c08b164ae42920b45e800fd1002aed66c3484465b3b505ec4996bd12ca56f87",
   "most_blocking_dependencies": [
-    [
-      "sub_00141010",
-      170
-    ],
     [
       "sub_000CDDD0",
       75
@@ -38,11 +34,19 @@
     ],
     [
       "sub_00063670",
+      70
+    ],
+    [
+      "sub_00244DF0",
       69
     ],
     [
       "sub_001C69C0",
-      64
+      66
+    ],
+    [
+      "sub_00141010",
+      65
     ],
     [
       "sub_000CBE40",
@@ -50,7 +54,7 @@
     ],
     [
       "sub_000B9620",
-      54
+      55
     ],
     [
       "sub_002447BF",
@@ -58,21 +62,24 @@
     ],
     [
       "sub_001B2C60",
-      49
+      53
     ],
     [
       "sub_000146E0",
       46
-    ],
-    [
-      "sub_001FEDC0",
-      41
     ]
   ],
   "semantic_reference_functions": 29,
   "semantic_reference_vectors_per_target": 1920,
   "synthetic_control_flow_comparisons_per_target": 12288,
   "synthetic_control_flow_variants": 3,
-  "qualification": "Candidate inventory/source facts; see README for actual build checks. No full game, devices or pacing qualification.",
-  "compiler_memory_bytes": 8589934592
+  "round24_reference_cases_per_target": 114688,
+  "parity_reference_cases_per_target": 65536,
+  "rotate_carry_reference_cases_per_target": 261120,
+  "control_word_records_per_target": 65536,
+  "register_record_version": 3,
+  "register_record_bytes": 240,
+  "vector_container": "TKN4",
+  "compiler_memory_bytes": 8589934592,
+  "qualification": "Candidate inventory/source facts; see README for actual build checks. Scalar FP value checks use the default host FP environment; no exception-flag, nondefault rounding, full-game, device or pacing qualification."
 }

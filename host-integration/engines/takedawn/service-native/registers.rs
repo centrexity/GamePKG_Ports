@@ -13,6 +13,7 @@ pub struct Registers {
     pub df: i32,
     pub fp_top: i32,
     pub fp_cc: u16,
+    pub fp_control_word: u16,
     pub fp_stack: [f64; 8],
     pub xmm0: [u32; 4],
     pub xmm1: [u32; 4],
@@ -46,6 +47,7 @@ impl Registers {
             df: 0,
             fp_top: 0,
             fp_cc: 0,
+            fp_control_word: 0x037f,
             fp_stack: [0.0; 8],
             xmm0: [0; 4],
             xmm1: [0; 4],
@@ -78,7 +80,7 @@ impl Registers {
         bytes.extend(i32::to_le_bytes(self.df));
         bytes.extend(i32::to_le_bytes(self.fp_top));
         bytes.extend(u16::to_le_bytes(self.fp_cc));
-        bytes.extend([0u8; 2]);
+        bytes.extend(u16::to_le_bytes(self.fp_control_word));
         for value in self.fp_stack {
             bytes.extend(f64::to_le_bytes(value));
         }
@@ -92,7 +94,7 @@ impl Registers {
         bytes
     }
     pub fn decode(&mut self, bytes: &[u8]) -> Result<(), i32> {
-        if bytes.len() != 240 || bytes[46] != 0 || bytes[47] != 0 {
+        if bytes.len() != 240 {
             return Err(-1);
         }
         let top = register_word(bytes, 40) as i32;
@@ -111,6 +113,7 @@ impl Registers {
         self.df = register_word(bytes, 36) as i32;
         self.fp_top = top;
         self.fp_cc = u16::from_le_bytes([bytes[44], bytes[45]]);
+        self.fp_control_word = u16::from_le_bytes([bytes[46], bytes[47]]);
         for index in 0..8 {
             let offset = 48 + index * 8;
             self.fp_stack[index] = f64::from_le_bytes([

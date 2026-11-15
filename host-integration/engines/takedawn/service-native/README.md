@@ -23,7 +23,7 @@ they are never included in admitted game objects.
   output hashes, coverage and excluded definitions. `production_ready` is false.
 - `vector.rs`: checked word/float lane access, arithmetic, scalar values,
   shuffles and RAM transfers. Ordinary native math, with explicit NaN policy.
-- `registers.rs`: explicit integer/floating values and fixed 240-byte version-2 LE test
+- `registers.rs`: explicit integer/floating values and fixed 240-byte version-3 LE test
   record. No TLS globals, native struct layout, pointers or aliases.
 - `memory.rs`: up to 32 explicit, nonoverlapping guest spans referencing existing
   opaque GamePKG RAM windows. Mirrors can share backing offsets. No native
@@ -89,12 +89,12 @@ symbols are never selected by archive order: all owners and their dependent
 callers are rejected, including identical definitions.
 
 The pinned kit contains **24,015 unique native definitions**. Existing lowering
-rules recognize 20,636 locally; removing missing dependencies transitively leaves
-**16,880 closed candidates**, with 1,249 direct edges, including 823 across units.
-The other **7,135** definitions remain explicitly unconverted. There are no
+rules recognize 20,994 locally; removing missing dependencies transitively leaves
+**17,122 closed candidates**, with 1,558 direct edges, including 1,026 across units.
+The other **6,893** definitions remain explicitly unconverted. There are no
 substitute bodies, dynamic native function pointers or unknown-target fallbacks.
 
-Prepared candidates use 2,129 Rust files (51,202,788 bytes). Eight native
+Prepared candidates use 2,160 Rust files (61,860,082 bytes). Eight native
 functions per module bound source size. An AST pass rewrites only direct function
 paths to their owning modules; literals are untouched. Binary selection routes
 call statically compiled functions directly, with at most logarithmic selection
@@ -125,11 +125,11 @@ The whole graph passes source admission and separate optimized object auditing/
 trusted linking for Linux64/Linux32/Windows64/Windows32. Confined native Linux
 children execute the existing 1,920 vectors with the complete graph linked.
 **Semantic differential coverage is 29 functions**; compiling/auditing
-16,880 functions does not establish the other functions' behavior. Windows
+17,122 functions does not establish the other functions' behavior. Windows
 reference comparisons execute under Wine; the prepared service executables
 are build evidence, not physical Windows gameplay. The full engine, ISO loader,
 kernel/media bridges, verified renderer, saves, input/audio, pacing and the
-remaining 7,135 functions still require migration/qualification before enablement.
+remaining 6,893 functions still require migration/qualification before enablement.
 
 ## Compacted control-flow contract
 
@@ -152,8 +152,8 @@ An additional explicitly invoked native test compares three original/converted
 CFG variants on 4,096 inputs each for every target (49,152 comparisons), covering
 ordinal values, first/final trap ordering, guarded effects and fault propagation.
 Windows executions use Wine. The 29-function kit reference suite has 1,920
-vectors per target. Private TKN3 vectors add signed extrema around the actual
-`0x463b14` load; register records remain 240-byte version 2. Test files are not a
+vectors per target. Private TKN4 vectors add signed extrema around the actual
+`0x463b14` load; register records remain 240 bytes, now version 3. Test files are not a
 public SDK/save ABI. No physical game/device/pacing evidence is implied.
 
 The whole-kit admission fixture uses
@@ -162,6 +162,42 @@ host after proving the 4 GiB cap exhausted memory. This budget is validated,
 OS-enforced and bound in Plan/receipt identity, separate from game memory. The
 app's source checks, exact object audit, import vocabulary and confinement stay
 mandatory; no creator flag can grant a larger compiler budget or exempt code.
+
+## Scalar value helpers and control words
+
+`scalar.rs` remains dependency-free checked game code. It provides:
+
+- `round24(f64) -> f64`: nearest/even 24-bit significand rounding over the
+  double-backed model's full binary64 exponent range. It preserves signed zero
+  and infinity; NaNs retain sign and the payload kept by f64-to-f32-to-f64
+  conversion and are quieted. Integer bit operations avoid an overflowing or
+  underflowing plain float cast for large/tiny finite inputs.
+- `parity8(u32) -> i32`: even parity of the low byte; higher bits are ignored.
+- `rotate_carry(u32, u32, &mut i32, u32, bool) -> Result<u32, i32>`: exact pinned
+  count masking/modulo, value masking and carry normalization for 8/16/32-bit
+  widths. Invalid widths return Invalid before modifying carry. No CPU flags,
+  intrinsic, assembly or raw pointer is exposed.
+
+The converter recognizes only unshadowed exact helper calls. Parity/rotate
+values must be proven u32. Carry must be the exact mutable address of a proven
+local i32; it becomes a safe mutable borrow. Width/direction must be reviewed
+literal constants. Aliases, fields, indirect calls, unproven widths, immutable
+or wider carry values and malformed helper signatures remain rejected.
+
+`fp_control_word` is an explicit u16 register value. Version-3 test records use
+bytes 46..48, previously reserved, keeping the total 240 bytes. No native layout
+or host FP state is shared. All 65,536 control words round-trip as data; this is
+not qualification of their rounding/exception behavior. TKN4 private vector
+files include bounded, batched scalar conformance records after function cases;
+old test containers fail their magic check. No public SDK/save ABI changed.
+
+Per target, the unchanged kit helpers are compared bit-for-bit against 114,688
+round24 cases across every exponent, signs, ties, NaNs and random inputs; 65,536
+parity inputs; and 261,120 rotate/carry cases. Reference bodies are extracted
+from individually hashed kit units. Confined Linux children also execute every
+record through the same checked helper code. The Windows references run under
+Wine. FP exception flags and nondefault host rounding remain **unqualified**;
+the complete title remains gated. No helper was moved into trusted host code.
 
 ## Floating-point portability
 
@@ -206,7 +242,7 @@ resulting Rust source and GamePKG compiler, with no Python or converter setup.
 
 Executed checks:
 
-- Thirteen regular converter/emitter tests cover pointer/TLS/alias/macro/platform/indirect-call
+- Fourteen regular converter/emitter tests cover pointer/TLS/alias/macro/platform/indirect-call
   rejection, address-width proof, mismatched memory widths, direct dependency
   recording, signatures and attributes. Maintainer strict clippy passes.
 - Every converted function matches its unchanged pinned reference in 1,920

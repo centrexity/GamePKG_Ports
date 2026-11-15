@@ -4,6 +4,7 @@ use crate::dispatch;
 use crate::gamepkg;
 use crate::memory;
 use crate::registers;
+use crate::scalar;
 fn fixture_read(handle: u64, offset: &mut u64, bytes: &mut [u8]) -> Result<(), i32> {
     let mut used = 0usize;
     while used < bytes.len() {
@@ -13,6 +14,100 @@ fn fixture_read(handle: u64, offset: &mut u64, bytes: &mut [u8]) -> Result<(), i
         }
         used += count;
         *offset = offset.checked_add(count as u64).ok_or(-1)?;
+    }
+    Ok(())
+}
+fn fixture_word(bytes: &[u8], at: usize) -> u32 {
+    u32::from_le_bytes([bytes[at], bytes[at + 1], bytes[at + 2], bytes[at + 3]])
+}
+fn fixture_wide(bytes: &[u8], at: usize) -> u64 {
+    u64::from_le_bytes([
+        bytes[at],
+        bytes[at + 1],
+        bytes[at + 2],
+        bytes[at + 3],
+        bytes[at + 4],
+        bytes[at + 5],
+        bytes[at + 6],
+        bytes[at + 7],
+    ])
+}
+fn fixture_count(handle: u64, offset: &mut u64, maximum: u32) -> Result<usize, i32> {
+    let mut bytes = [0u8; 4];
+    fixture_read(handle, offset, &mut bytes)?;
+    let count = u32::from_le_bytes(bytes);
+    if count > maximum {
+        return Err(-1);
+    }
+    Ok(count as usize)
+}
+fn fixture_scalar_round(handle: u64, offset: &mut u64) -> Result<(), i32> {
+    let mut remaining = fixture_count(handle, offset, 131072)?;
+    while remaining != 0 {
+        let part = remaining.min(512);
+        let mut bytes = std::vec::Vec::new();
+        bytes.resize(part * 16, 0u8);
+        fixture_read(handle, offset, &mut bytes)?;
+        for index in 0..part {
+            let at = index * 16;
+            let actual = f64::to_bits(scalar::round24(f64::from_bits(fixture_wide(&bytes, at))));
+            if actual != fixture_wide(&bytes, at + 8) {
+                return Err(-3);
+            }
+        }
+        remaining -= part;
+    }
+    Ok(())
+}
+fn fixture_scalar_parity(handle: u64, offset: &mut u64) -> Result<(), i32> {
+    let mut remaining = fixture_count(handle, offset, 65536)?;
+    while remaining != 0 {
+        let part = remaining.min(512);
+        let mut bytes = std::vec::Vec::new();
+        bytes.resize(part * 8, 0u8);
+        fixture_read(handle, offset, &mut bytes)?;
+        for index in 0..part {
+            let at = index * 8;
+            if scalar::parity8(fixture_word(&bytes, at)) != fixture_word(&bytes, at + 4) as i32 {
+                return Err(-3);
+            }
+        }
+        remaining -= part;
+    }
+    Ok(())
+}
+fn fixture_scalar_rotate(handle: u64, offset: &mut u64) -> Result<(), i32> {
+    let mut remaining = fixture_count(handle, offset, 262144)?;
+    while remaining != 0 {
+        let part = remaining.min(512);
+        let mut bytes = std::vec::Vec::new();
+        bytes.resize(part * 28, 0u8);
+        fixture_read(handle, offset, &mut bytes)?;
+        for index in 0..part {
+            let at = index * 28;
+            let mut carry = fixture_word(&bytes, at + 8) as i32;
+            let direction = fixture_word(&bytes, at + 16);
+            if direction > 1 {
+                return Err(-1);
+            }
+            let actual = scalar::rotate_carry(
+                fixture_word(&bytes, at),
+                fixture_word(&bytes, at + 4),
+                &mut carry,
+                fixture_word(&bytes, at + 12),
+                direction != 0,
+            )?;
+            if actual != fixture_word(&bytes, at + 20)
+                || carry != fixture_word(&bytes, at + 24) as i32
+            {
+                return Err(-3);
+            }
+        }
+        remaining -= part;
+    }
+    let mut carry = -1;
+    if scalar::rotate_carry(1, 1, &mut carry, 64, true) != Err(-1) || carry != -1 {
+        return Err(-3);
     }
     Ok(())
 }
@@ -27,7 +122,7 @@ fn fixture_execute() -> Result<(), i32> {
     let mut offset = 0u64;
     let mut header = [0u8; 8];
     fixture_read(handle, &mut offset, &mut header)?;
-    if header[..4] != [84, 75, 78, 51] {
+    if header[..4] != [84, 75, 78, 52] {
         return Err(-1);
     }
     let cases = u32::from_le_bytes([header[4], header[5], header[6], header[7]]);
@@ -97,6 +192,9 @@ fn fixture_execute() -> Result<(), i32> {
             }
         }
     }
+    fixture_scalar_round(handle, &mut offset)?;
+    fixture_scalar_parity(handle, &mut offset)?;
+    fixture_scalar_rotate(handle, &mut offset)?;
     if gamepkg::file_size(handle)? != offset {
         return Err(-3);
     }
