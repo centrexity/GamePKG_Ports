@@ -1,5 +1,6 @@
 // Port-owned saveguard transitions. This module performs no I/O or callbacks.
 // The adapter executes Work on its reviewed worker task using shared services.
+use crate::paths;
 const FREE: u32 = 0;
 const PREPARING: u32 = 1;
 const OPEN: u32 = 2;
@@ -142,13 +143,17 @@ fn title_path(path: &str) -> bool {
     if path.is_empty() || path.len() > 4089 || hidden(path) {
         return false;
     }
-    for part in path.split('/') {
+    let parts = match paths::segments(path) {
+        Ok(data) => data,
+        Err(_) => return false,
+    };
+    for part in parts {
         if part.is_empty()
             || part == "."
             || part == ".."
             || part.len() > 249
-            || part.ends_with(' ')
-            || part.ends_with('.')
+            || part.ends_with(" ")
+            || part.ends_with(".")
         {
             return false;
         }
@@ -480,6 +485,33 @@ impl Guard {
             }
         }
         count
+    }
+    pub fn startup_idle(&self) -> bool {
+        if self.active.is_some() {
+            return false;
+        }
+        for entry in &self.entries {
+            if entry.phase != FREE {
+                return false;
+            }
+        }
+        true
+    }
+    pub fn startup_published(&mut self, real: &str, durable: bool) -> Result<(), i32> {
+        self.startup_check(real)?;
+        if !durable {
+            self.report(real, -6, true);
+        }
+        Ok(())
+    }
+    pub fn startup_check(&self, real: &str) -> Result<(), i32> {
+        if !self.startup_idle() {
+            return Err(-2);
+        }
+        if !title_path(real) {
+            return Err(-1);
+        }
+        Ok(())
     }
     pub fn pending_count(&self) -> usize {
         self.pending.len()

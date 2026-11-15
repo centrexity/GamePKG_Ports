@@ -109,6 +109,60 @@ pub fn copy_seed(grant: u64, source: &str, real: &str) -> Result<u64, i32> {
     result
 }
 
+// Caller owns the newly-created archive directory. Never overwrite an existing
+// path; failures remove partial output while keeping the source untouched.
+pub fn copy_new(grant: u64, source: &str, destination: &str) -> Result<u64, i32> {
+    if source == destination || gamepkg::file_exists(grant, destination)? {
+        return Err(-4);
+    }
+    let input = gamepkg::file_open(grant, false, source)?;
+    let output = match gamepkg::file_open(grant, true, destination) {
+        Ok(output) => output,
+        Err(error) => {
+            let _ = gamepkg::file_close(input);
+            return Err(error);
+        }
+    };
+    let copied = copy_open(input, output);
+    let output_status = sync_close(output);
+    let input_status = gamepkg::file_close(input);
+    let result = match copied {
+        Err(error) => Err(error),
+        Ok(count) => match output_status {
+            Err(error) => Err(error),
+            Ok(()) => match input_status {
+                Ok(()) => Ok(count),
+                Err(error) => Err(error),
+            },
+        },
+    };
+    if result.is_err() {
+        let _ = gamepkg::file_remove(grant, destination);
+    }
+    result
+}
+
+pub fn read_small(grant: u64, path: &str, maximum: u64) -> Result<std::vec::Vec<u8>, i32> {
+    let handle = gamepkg::file_open(grant, false, path)?;
+    let result = read_small_open(handle, maximum);
+    let close_status = gamepkg::file_close(handle);
+    let bytes = result?;
+    close_status?;
+    Ok(bytes)
+}
+fn read_small_open(handle: u64, maximum: u64) -> Result<std::vec::Vec<u8>, i32> {
+    let length = gamepkg::file_size(handle)?;
+    if length > maximum || length > 1048576 {
+        return Err(-1);
+    }
+    let mut bytes = std::vec::Vec::new();
+    bytes.resize(length as usize, 0u8);
+    if read_block(handle, 0, &mut bytes)? != bytes.len() {
+        return Err(-3);
+    }
+    Ok(bytes)
+}
+
 fn same_open(first: u64, second: u64) -> Result<bool, i32> {
     let mut left = std::vec::Vec::new();
     left.resize(32768, 0u8);

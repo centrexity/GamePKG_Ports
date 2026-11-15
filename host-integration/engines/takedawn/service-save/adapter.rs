@@ -54,6 +54,18 @@ impl SaveGuard {
     pub fn set_history(&mut self, enabled: bool) {
         self.core.set_history(enabled);
     }
+    pub fn for_grant(&self, id: u64) -> bool {
+        self.grant == id
+    }
+    pub fn startup_idle(&self) -> bool {
+        self.core.startup_idle()
+    }
+    pub fn startup_published(&mut self, real: &str, durable: bool) -> Result<(), i32> {
+        self.core.startup_published(real, durable)
+    }
+    pub fn startup_check(&self, real: &str) -> Result<(), i32> {
+        self.core.startup_check(real)
+    }
     pub fn busy(&self) -> usize {
         self.core.busy()
     }

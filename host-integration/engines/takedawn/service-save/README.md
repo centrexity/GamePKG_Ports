@@ -1,5 +1,8 @@
 # Saveguard file operations
 
+Current startup/export contracts and native interruption results:
+[STARTUP.md](STARTUP.md).
+
 `files.rs` ports the pinned saveguard's file helpers to the host-supplied
 dependency-free GamePKG client. `state.rs` implements its bounded open/close,
 worker and pending-save transitions without I/O or callbacks. `adapter.rs` now
@@ -7,17 +10,18 @@ connects those transitions to actual file operations through the shared client.
 No production module calls filesystem/system APIs directly. They are not yet
 connected to the engine, and are not the complete saveguard.
 
-The adapter requires app commit `e118ba7995cb8cb4e352040de90609ae0600d6da` or a compatible
+Recovery/export requires app commit `5bfdf4dd8d4ef9759549bb376757f65906f6a699` or a compatible
 later SDK. Exact API contracts: `app/docs/SAVEGUARD_SERVICE_HANDOFF.md` and
 `app/docs/FILE_RECOVERY_SERVICE_HANDOFF.md`, plus `app/docs/PORT_SERVICES.md`.
-Validation on 2026-11-14: twelve real-service file/adapter tests, all four target
+Validation on 2026-11-14: twenty-one real-service file/adapter tests, all four target
 builds, and all four source rejection cases passed.
 
 The combined file/transition component also passes all four target audits.
-Seventeen transition tests pass, including a differential test comparing 4,096
+Eighteen transition tests pass, including a differential test comparing 4,096
 policy events in 128 deterministic traces against unchanged pending-policy
 functions extracted from the hash-pinned C saveguard. These are synthetic state
-events, not interrupted disk writes or actual game-save recovery tests.
+events. Separately, ten actual Linux process terminations and ten subsequent
+confined startup recoveries pass with synthetic saves; see STARTUP.md for scope.
 
 Contracts:
 
@@ -76,7 +80,7 @@ The object-import policy was not changed to admit it.
 - Startup's disk scanner first compares timestamps, attempts publication and
   preserves history where required. `recovered_pending` registers only a newer
   complete file still blocked there; it warns immediately and permits one more
-  close-triggered retry. The scanner/history operation is still to be ported.
+  close-triggered retry. The connected scanner/history contracts are in STARTUP.md.
 
 Recovery capacity is reserved before writing a new shadow: at most sixteen
 distinct active-or-pending paths. Full tables and a fifth handle return Busy,
@@ -109,7 +113,7 @@ cleanup on the worker. A completed job cannot execute again. A pending rename
 that returned -6 is already visible: its new pending path is recorded, and
 `preservation_durable` is false. It must not retry the consumed shadow name.
 
-The source check stages the exact `files.rs`, `state.rs` and `adapter.rs` modules
+The source check stages the exact six production modules listed in STARTUP.md
 before injecting bindings. Test includes, scripts and the C oracle are maintainer
 tools and never enter game source. The C oracle validates transition policy;
 the real-service tests use temporary files and synthetic failure injection,
@@ -131,9 +135,9 @@ scanned before binding injection, optimized and object-audited for Linux64,
 Linux32, Windows64 and Windows32; closure/macro/alias/filesystem attacks must
 remain rejected. Python and the harness are maintainer tools, not player inputs.
 
-Still required: connect a reviewed worker task; port the startup sweep/history
-and direct title-hook dispatch;
-connect bounded shutdown waits, then integrate the engine and test real
-interruption/recovery behavior. Source kit, recipe and profile admission remain
+Still required: connect a reviewed worker task, bounded shutdown waits, clock
+labels, original retention/import/UI behavior and Windows rename retry timing;
+then integrate the engine and qualify real game save behavior. Source kit,
+recipe and profile admission remain
 unchanged. These tests do not establish actual Burnout saves, gameplay, Windows
 runtime, audio or pacing.

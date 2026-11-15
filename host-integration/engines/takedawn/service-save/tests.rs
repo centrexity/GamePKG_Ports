@@ -1,3 +1,5 @@
+#[path = "paths.rs"]
+mod paths;
 // Maintainer harness. Production modules are separately source/object audited.
 extern crate gamepkg;
 #[allow(dead_code)]
@@ -5,6 +7,12 @@ extern crate gamepkg;
 mod adapter;
 #[path = "files.rs"]
 mod files;
+#[allow(dead_code)]
+#[path = "history.rs"]
+mod history;
+#[allow(dead_code)]
+#[path = "recovery.rs"]
+mod recovery;
 #[allow(dead_code)]
 #[path = "state.rs"]
 mod state;
@@ -222,3 +230,5 @@ fn published_without_durability_is_explicit_and_never_blindly_retried() {
 }
 
 include!("adapter_cases.inc.rs");
+
+include!("recovery_cases.inc.rs");

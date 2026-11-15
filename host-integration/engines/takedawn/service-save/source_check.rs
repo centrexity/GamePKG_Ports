@@ -20,20 +20,39 @@ fn main() {
     ] {
         fs::copy(app.join("examples/minimal").join(name), source.join(name)).unwrap();
     }
-    for module in ["files.rs", "state.rs", "adapter.rs"] {
+    for module in [
+        "paths.rs",
+        "files.rs",
+        "state.rs",
+        "adapter.rs",
+        "history.rs",
+        "recovery.rs",
+    ] {
         fs::copy(here.join(module), source.join("source/src").join(module)).unwrap();
     }
     let game = String::from(
         r#"
+mod paths;
 mod files;
 mod state;
 mod adapter;
+mod history;
+mod recovery;
 fn accept_finished(guard:&mut adapter::SaveGuard, completed:adapter::Finished){
     if let Ok(cleanup)=guard.finish(completed){let _=adapter::clean_obsolete(1,cleanup);}
 }
 pub fn game_main(){
     let _=gamepkg::directory_list(1,"");
     let mut guard=adapter::SaveGuard::new(1);
+    if let Ok(mut startup)=recovery::Recovery::begin(&mut guard,1,"12345678"){
+        if let Ok(recovery::RecoveryStep::History{real,pending,newer,error})=startup.step(){
+            let _=newer;let _=error;
+            match history::archive_pending(1,"12345678","20261114-120000",&real,&pending){
+                Ok(proof)=>{let _=startup.history_done(&proof);},
+                Err(code)=>{let _=startup.history_failed(code);},
+            }
+        }
+    }
     guard.set_history(true);
     if let Ok(handle)=guard.open_write("save") {
         let _=guard.resize(handle,1);

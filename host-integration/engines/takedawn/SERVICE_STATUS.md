@@ -14,14 +14,20 @@ against the unchanged pinned C pending policy. Combined production source passes
 all four native target audits. `service-save/adapter.rs` now connects real disk
 operations, with twelve actual file/service tests and explicit synthetic I/O
 fault injection. App `e118ba7995cb8cb4e352040de90609ae0600d6da` adds presence,
-typed directory helpers and reviewed local text validation. Spawned worker,
-startup/history and interruption recovery remain pending.
+typed directory helpers and reviewed local text validation. App
+`5bfdf4dd8d4ef9759549bb376757f65906f6a699` adds empty-directory cleanup.
+[Startup/export integration](service-save/STARTUP.md) now passes 21 real-file
+tests, 18 transition tests and ten actual native process terminations followed
+by ten confined recoveries across Linux64/Linux32. Timestamp/retention/UI and
+the reviewed worker connection remain pending; this is not actual game or
+Windows runtime qualification.
 
 The current application contract is GamePKG commit
-`e118ba7995cb8cb4e352040de90609ae0600d6da`:
+`5bfdf4dd8d4ef9759549bb376757f65906f6a699`:
 
 - `docs/PORT_SERVICES.md`: exact wire/API, resource, permission and error contracts.
 - `docs/FILE_RECOVERY_SERVICE_HANDOFF.md`: presence, directory and local text contracts.
+- `docs/STARTUP_RECOVERY_HANDOFF.md`: startup/export contracts and native interruption evidence.
 - `docs/TAKEDAWN_SERVICE_HANDOFF.md`: builder, launcher, rendering and remaining work.
 - `docs/NVI1.md`: verified program representation and reserved-value checks.
 - `docs/TAKEDAWN_SERVICE_VALIDATION.md`: infrastructure test scope and limitations.

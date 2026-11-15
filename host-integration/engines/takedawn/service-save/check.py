@@ -83,6 +83,13 @@ def main():
                         "--extern", f"gamepkg={library}", "-L", f"dependency={deps}",
                         "-o", str(scratch / "source-check")], check=True)
         subprocess.run([str(scratch / "source-check"), str(app), str(here), str(scratch)], check=True)
+        native = ["rustc", "--edition=2021", "-D", "warnings", str(here / "native_probe.rs"),
+                  "--extern", f"gamepkg={library}", "-L", f"dependency={deps}",
+                  "-o", str(scratch / "native-probe")]
+        for name in ["cap_std", "tempfile", "toml"]:
+            native += ["--extern", f"{name}={dependency(library, name)}"]
+        subprocess.run(native, check=True)
+        subprocess.run([str(scratch / "native-probe"), str(app), str(here)], check=True)
 
 
 if __name__ == "__main__":

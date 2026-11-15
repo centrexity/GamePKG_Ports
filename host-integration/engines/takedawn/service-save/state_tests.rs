@@ -1,3 +1,5 @@
+#[path = "paths.rs"]
+mod paths;
 // Maintainer transition tests. No test attributes/macros enter game source.
 #[path = "state.rs"]
 mod state;
@@ -439,6 +441,19 @@ fn confirmed_missing_pending_cannot_shift_an_active_retry_to_another_record() {
     published(&mut guard, job);
     guard.pending_missing("second").unwrap();
     assert_eq!(guard.pending_count(), 0);
+}
+
+#[test]
+fn startup_checks_run_before_publication_and_preserve_uncertain_publication_notice() {
+    let mut guard = Guard::new();
+    assert!(guard.startup_idle());
+    assert_eq!(guard.startup_check("../save"), Err(-1));
+    guard.startup_published("save", false).unwrap();
+    assert!(guard.problem().unwrap().durability);
+    open(&mut guard, "save", 10);
+    assert!(!guard.startup_idle());
+    assert_eq!(guard.startup_check("save"), Err(-2));
+    assert_eq!(guard.startup_published("save", true), Err(-2));
 }
 
 #[test]
