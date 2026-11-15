@@ -347,6 +347,22 @@ impl Lower {
         };
         Some((*field.base.clone(), *index.index.clone(), view.to_string()))
     }
+    fn control_u16(&self, expr: &Expr) -> bool {
+        match plain(expr) {
+            Expr::Cast(c) => primitive(&c.ty) == Some("u16"),
+            Expr::Path(_) => path(expr)
+                .and_then(|n| self.locals.get(&n))
+                .is_some_and(|n| n == "u16"),
+            Expr::Unary(u) if matches!(u.op, syn::UnOp::Deref(_)) => path(&u.expr)
+                .and_then(|n| self.tls.get(&n))
+                .is_some_and(|n| n == "fp_control_word"),
+            Expr::Lit(syn::ExprLit {
+                lit: syn::Lit::Int(lit),
+                ..
+            }) => lit.suffix() == "u16",
+            _ => false,
+        }
+    }
     fn scalar_call(&mut self, call: &syn::ExprCall, name: &str) -> Option<Expr> {
         if !call.attrs.is_empty()
             || !plain_callee(call)
@@ -355,6 +371,35 @@ impl Lower {
         {
             self.reject("unproven scalar helper binding");
             return None;
+        }
+        if name == "recomp_fist" || name == "recomp_frndint" {
+            let expected = if name == "recomp_fist" { 3 } else { 2 };
+            if call.args.len() != expected || !self.control_u16(&call.args[1]) {
+                self.reject("integer rounding arity or control-word width");
+                return None;
+            }
+            let width = if name == "recomp_fist" {
+                let Some(width) = small_integer(&call.args[2]) else {
+                    self.reject("integer-store width must be a reviewed constant");
+                    return None;
+                };
+                if ![16, 32, 64].contains(&width) {
+                    self.reject("integer-store width");
+                    return None;
+                }
+                width
+            } else {
+                0
+            };
+            let mut value = call.args[0].clone();
+            let mut control = call.args[1].clone();
+            self.visit_expr_mut(&mut value);
+            self.visit_expr_mut(&mut control);
+            return Some(if name == "recomp_fist" {
+                parse_quote!(crate::scalar::integer_store(#value,#control,#width)?)
+            } else {
+                parse_quote!(crate::scalar::round_integer(#value,#control))
+            });
         }
         if name == "RC_ROT" {
             if call.args.len() != 5
@@ -970,7 +1015,15 @@ impl VisitMut for Lower {
                 self.reject("indirect call");
                 return;
             };
-            if ["recomp_fp_round24", "recomp_parity8", "RC_ROT"].contains(&name.as_str()) {
+            if [
+                "recomp_fp_round24",
+                "recomp_parity8",
+                "RC_ROT",
+                "recomp_fist",
+                "recomp_frndint",
+            ]
+            .contains(&name.as_str())
+            {
                 if let Some(value) = self.scalar_call(call, &name) {
                     *expr = value;
                 }
@@ -1454,6 +1507,25 @@ mod tests {
                 "let {binding}:*mut uint8_t=::core::ptr::null_mut::<uint8_t>();"
             ))
             .is_err());
+        }
+    }
+    #[test]
+    fn integer_rounding_requires_reviewed_control_words_and_fixed_store_widths() {
+        let (function,_)=lowered("let control:uint16_t=0x37fu16;let result=recomp_fist(1.5f64,control,64u32);let rounded=recomp_frndint(-1.5f64,control);").unwrap();
+        let text = function.to_token_stream().to_string();
+        assert!(text.contains("scalar :: integer_store"));
+        assert!(text.contains("scalar :: round_integer"));
+        for body in [
+            "recomp_fist(1.5f64,0x37fu32,64u32);",
+            "recomp_fist(1.5f64,0x37fu16,8u32);",
+            "let width:u32=64;recomp_fist(1.5f64,0x37fu16,width);",
+            "recomp_fist(1.5f64,0x37fu16);",
+            "recomp_fist::<u64>(1.5f64,0x37fu16,64u32);",
+            "let recomp_fist=other;recomp_fist(1.5f64,0x37fu16,64u32);",
+            "recomp_frndint(1.5f64,0x37fu64);",
+            "recomp_frndint(1.5f64,0x37fu16,0u32);",
+        ] {
+            assert!(lowered(body).is_err(), "{body}");
         }
     }
     #[test]

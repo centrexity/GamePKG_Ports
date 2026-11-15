@@ -75,3 +75,57 @@ pub fn rotate_carry(
     *carry = ((extended >> width) & 1) as i32;
     Ok((extended & mask) as u32)
 }
+
+// Explicit control-word rounding, independent of the host FP rounding mode.
+// The pinned helper returns nonfinite inputs unchanged, including NaN payloads.
+pub fn round_integer(value: f64, control: u16) -> f64 {
+    let bits = f64::to_bits(value);
+    let sign = bits & 0x8000000000000000;
+    let magnitude = bits & 0x7fffffffffffffff;
+    let exponent = (magnitude >> 52) as i32 - 1023;
+    if exponent >= 52 || magnitude == 0 {
+        return value;
+    }
+    let mode = (control >> 10) & 3;
+    if exponent < 0 {
+        let increment = match mode {
+            0 => magnitude > 0x3fe0000000000000,
+            1 => sign != 0,
+            2 => sign == 0,
+            _ => false,
+        };
+        return f64::from_bits(sign | if increment { 0x3ff0000000000000 } else { 0 });
+    }
+    let unit = 1u64 << (52 - exponent as u32);
+    let remainder = magnitude & (unit - 1);
+    let mut rounded = magnitude & !(unit - 1);
+    let increment = remainder != 0
+        && match mode {
+            0 => remainder > unit / 2 || (remainder == unit / 2 && rounded & unit != 0),
+            1 => sign != 0,
+            2 => sign == 0,
+            _ => false,
+        };
+    if increment {
+        rounded += unit;
+    }
+    f64::from_bits(sign | rounded)
+}
+
+// FIST's indefinite integer on nonfinite/out-of-range input is the signed
+// minimum of the requested width. Unknown widths fail rather than shifting.
+pub fn integer_store(value: f64, control: u16, width: u32) -> Result<i64, i32> {
+    if width != 16 && width != 32 && width != 64 {
+        return Err(-1);
+    }
+    let rounded = round_integer(value, control);
+    let limit = f64::from_bits(u64::from(1023 + width - 1) << 52);
+    if !rounded.is_finite() || rounded < -limit || rounded >= limit {
+        return Ok(if width == 64 {
+            -9223372036854775807i64 - 1
+        } else {
+            -(1i64 << (width - 1))
+        });
+    }
+    Ok(rounded as i64)
+}

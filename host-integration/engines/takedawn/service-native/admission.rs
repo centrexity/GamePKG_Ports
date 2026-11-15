@@ -122,18 +122,26 @@ fn main() {
         Target::Windows64,
         Target::Windows32,
     ] {
+        let codegen_units = 4;
         let mut plan = Plan::new(target, "game_main", vec![], LocalLayout::TakedawnRam, true)
             .unwrap()
-            .with_codegen_units(4)
+            .with_codegen_units(codegen_units)
             .unwrap();
         if args.len() == 5 {
             plan = plan
-                .with_compiler_memory_bytes(8 * 1024 * 1024 * 1024)
+                .with_compiler_memory_bytes(12 * 1024 * 1024 * 1024)
                 .unwrap();
         }
         let artifact = preparation::build(project.path(), &checked, &plan, vec![], vec![]).unwrap();
         artifact.executable().unwrap();
-        assert!((2..=4).contains(&artifact.receipt().game.objects.len()));
+        assert_eq!(artifact.receipt().plan.identity(), plan.identity());
+        if args.len() == 5 {
+            assert_eq!(
+                serde_json::to_value(&artifact.receipt().plan).unwrap()["compiler_memory_bytes"],
+                12u64 * 1024 * 1024 * 1024
+            );
+        }
+        assert!((2..=codegen_units as usize).contains(&artifact.receipt().game.objects.len()));
         assert_eq!(
             artifact.receipt().raw_objects.len(),
             artifact.receipt().game.objects.len()
@@ -142,7 +150,7 @@ fn main() {
             .receipt()
             .arguments
             .iter()
-            .any(|arg| arg == "codegen-units=4"));
+            .any(|arg| arg == &format!("codegen-units={codegen_units}")));
         for (raw, audited) in artifact
             .receipt()
             .raw_objects

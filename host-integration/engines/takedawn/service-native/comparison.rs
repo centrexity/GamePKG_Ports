@@ -11,7 +11,7 @@ const SPANS: [(u32, usize); 7] = [
 ];
 fn reference_case_count(address: u32) -> u32 {
     match address {
-        0x13f10 => 1024,
+        0x13f10 | 0x244df0 => 1024,
         0x13d10 | 0x13e50 => 128,
         _ => 32,
     }
@@ -71,6 +71,37 @@ fn compare_case(
     }
     if address == 0x13e50 {
         r.eax = 0x10100;
+    }
+    if address == 0x244df0 {
+        let edges = [
+            0u64,
+            0x8000000000000000,
+            0x3ff0000000000000,
+            0xbff0000000000000,
+            0x3fe0000000000000,
+            0xbfe0000000000000,
+            0x3ff8000000000000,
+            0xbff8000000000000,
+            0x4004000000000000,
+            0xc004000000000000,
+            0x43dfffffffffffff,
+            0x43e0000000000000,
+            0xc3e0000000000000,
+            0xc3e0000000000001,
+            1,
+            0x8000000000000001,
+            0x7ff0000000000000,
+            0xfff0000000000000,
+            0x7ff8000000000001,
+            0x7ff0000000000001,
+        ];
+        let bits = if iteration % 2 == 0 {
+            edges[(iteration as usize / 2) % edges.len()]
+        } else {
+            next_random(seed)
+        };
+        r.fp_stack[r.fp_top as usize] = f64::from_bits(bits);
+        r.fp_control_word = 0x037f | ((iteration / 40 % 4) as u16) << 10;
     }
     let input_state = r.encode();
     let mut initial = Vec::new();
@@ -402,6 +433,7 @@ fn compare_scalar_helpers(output: &mut Option<File>) {
         );
         assert_eq!(carry, -1);
     }
+    compare_integer_rounding(output);
     // Control words occupy previously reserved bytes, without widening the
     // private record. Every bit survives encode/decode independent of FP math.
     for control in 0..=u16::MAX {
@@ -413,6 +445,129 @@ fn compare_scalar_helpers(output: &mut Option<File>) {
         assert_eq!(decoded.fp_control_word, control);
     }
     println!("PASS: {} pinned round24 bit comparisons, {parity_count} parity inputs, {rotations} rotate/carry comparisons, invalid-width atomicity and 65536 control-word records; default floating environment only",values.len());
+}
+fn compare_integer_rounding(output: &mut Option<File>) {
+    let mut values = Vec::new();
+    // All binary64 exponent classes, signed subnormal/normal/nonfinite values,
+    // tie neighbors, carry boundaries and signed-integer range boundaries.
+    let fractions = [
+        0u64,
+        1,
+        0x0003ffffffffffff,
+        0x0004000000000000,
+        0x0004000000000001,
+        0x0007ffffffffffff,
+        0x0008000000000000,
+        0x0008000000000001,
+        0x000fffffffffffff,
+    ];
+    for exponent in 0u64..2048 {
+        for fraction in fractions {
+            for sign in [0, 0x8000000000000000] {
+                values.push(sign | exponent << 52 | fraction);
+            }
+        }
+    }
+    for width in [16u32, 32, 64] {
+        let limit = (1023u64 + u64::from(width) - 1) << 52;
+        for offset in -8i64..=8 {
+            for sign in [0, 0x8000000000000000] {
+                values.push(sign | limit.wrapping_add_signed(offset));
+            }
+        }
+    }
+    let mut random = 0x651bc3742f91a85du64;
+    for _ in 0..16384 {
+        values.push(next_random(&mut random));
+    }
+    let base_count = values.len() as u32 * 4;
+    // Additional records exercise every control-word pattern independently of
+    // its rounding bits; status/mask/precision fields must not change values.
+    let count = base_count + 65536;
+    if let Some(file) = output.as_mut() {
+        file.write_all(&count.to_le_bytes()).unwrap();
+    }
+    for index in 0..count {
+        let (bits, control) = if index < base_count {
+            (
+                values[(index / 4) as usize],
+                0x037fu16 | ((index % 4) as u16) << 10,
+            )
+        } else {
+            let control = (index - base_count) as u16;
+            (
+                [
+                    0x3ff8000000000000,
+                    0xbff8000000000000,
+                    0x3fe0000000000000,
+                    0xbfe0000000000000,
+                    1,
+                    0x8000000000000001,
+                    0x7ff0000000000001,
+                    0xfff8000000000001,
+                ][control as usize % 8],
+                control,
+            )
+        };
+        let expected =
+            unsafe { oracle::scalar_round_integer(f64::from_bits(bits), control) }.to_bits();
+        assert_eq!(
+            scalar::round_integer(f64::from_bits(bits), control).to_bits(),
+            expected,
+            "round integer input {bits:016x}, control {control:04x}"
+        );
+        if let Some(file) = output.as_mut() {
+            file.write_all(&bits.to_le_bytes()).unwrap();
+            file.write_all(&u32::from(control).to_le_bytes()).unwrap();
+            file.write_all(&expected.to_le_bytes()).unwrap();
+        }
+    }
+    let store_count = count * 3;
+    if let Some(file) = output.as_mut() {
+        file.write_all(&store_count.to_le_bytes()).unwrap();
+    }
+    for index in 0..count {
+        let (bits, control) = if index < base_count {
+            (
+                values[(index / 4) as usize],
+                0x037fu16 | ((index % 4) as u16) << 10,
+            )
+        } else {
+            let control = (index - base_count) as u16;
+            (
+                [
+                    0x3ff8000000000000,
+                    0xbff8000000000000,
+                    0x3fe0000000000000,
+                    0xbfe0000000000000,
+                    1,
+                    0x8000000000000001,
+                    0x7ff0000000000001,
+                    0xfff8000000000001,
+                ][control as usize % 8],
+                control,
+            )
+        };
+        for width in [16, 32, 64] {
+            let expected =
+                unsafe { oracle::scalar_integer_store(f64::from_bits(bits), control, width) };
+            assert_eq!(
+                scalar::integer_store(f64::from_bits(bits), control, width),
+                Ok(expected),
+                "integer store input {bits:016x}, control {control:04x}, width {width}"
+            );
+            if let Some(file) = output.as_mut() {
+                file.write_all(&bits.to_le_bytes()).unwrap();
+                file.write_all(&u32::from(control).to_le_bytes()).unwrap();
+                file.write_all(&width.to_le_bytes()).unwrap();
+                file.write_all(&(expected as u64).to_le_bytes()).unwrap();
+            }
+        }
+    }
+    for width in [0, 1, 8, 15, 17, 31, 33, 63, 65, u32::MAX] {
+        assert_eq!(scalar::integer_store(f64::NAN, 0x37f, width), Err(-1));
+    }
+    println!("PASS: {count} pinned integer-rounding bit comparisons, {store_count} signed integer-store comparisons, all 65536 control words, 16/32/64-bit range/tie edges and invalid widths");
 }
 fn main() {
     compare_vector_helpers();
@@ -443,7 +598,7 @@ fn main() {
         .map(|address| reference_case_count(*address))
         .sum();
     if let Some(file) = &mut output {
-        file.write_all(b"TKN5").unwrap();
+        file.write_all(b"TKN6").unwrap();
         file.write_all(&count.to_le_bytes()).unwrap();
     }
     let mut reference = vec![0u8; 8 * 1024 * 1024];

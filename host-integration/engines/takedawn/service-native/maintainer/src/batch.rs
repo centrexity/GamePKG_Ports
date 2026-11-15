@@ -123,6 +123,51 @@ fn branch(first: usize, last: usize, addresses: &[u32], nodes: &mut Vec<String>)
         id / 128
     )
 }
+fn token_count(tokens: proc_macro2::TokenStream) -> usize {
+    let mut pending = vec![tokens];
+    let mut count = 0;
+    while let Some(tokens) = pending.pop() {
+        for token in tokens {
+            if let proc_macro2::TokenTree::Group(group) = token {
+                count += 2;
+                pending.push(group.stream());
+            } else {
+                count += 1;
+            }
+        }
+    }
+    count
+}
+fn source_partitions(
+    accepted: &BTreeMap<String, Candidate>,
+) -> Result<Vec<Vec<&String>>, Box<dyn std::error::Error>> {
+    let mut partitions = Vec::new();
+    let mut current = Vec::new();
+    let mut bytes = 0;
+    let mut tokens = 0;
+    // Leave space for the direct route and path remapping below. The app's
+    // independent source token/complexity limits are not changed or bypassed.
+    for (name, candidate) in accepted {
+        let weight = candidate.code.len() + candidate.dependencies.len() * 16;
+        let count = token_count(candidate.code.parse()?) + candidate.dependencies.len() * 4;
+        if weight > 1024 * 1024 - 4096 || count > 120000 {
+            return Err(format!("native function {name} needs structural source partitioning ({weight} bytes, {count} tokens)").into());
+        }
+        if current.len() == 8 || bytes + weight > 1024 * 1024 - 4096 || tokens + count > 120000 {
+            partitions.push(current);
+            current = Vec::new();
+            bytes = 0;
+            tokens = 0;
+        }
+        current.push(name);
+        bytes += weight;
+        tokens += count;
+    }
+    if !current.is_empty() {
+        partitions.push(current);
+    }
+    Ok(partitions)
+}
 fn emit_closed(
     accepted: &BTreeMap<String, Candidate>,
     output: &Path,
@@ -130,16 +175,16 @@ fn emit_closed(
     if accepted.is_empty() {
         return Err("no closed functions to prepare".into());
     }
-    let names = accepted.keys().collect::<Vec<_>>();
-    let mapping = names
+    let partitions = source_partitions(accepted)?;
+    let mapping = partitions
         .iter()
         .enumerate()
-        .map(|(index, name)| ((*name).clone(), index / 8))
+        .flat_map(|(index, names)| names.iter().map(move |name| ((*name).clone(), index)))
         .collect::<BTreeMap<_, _>>();
     let mut files = BTreeMap::<String, String>::new();
     let mut game = String::new();
     let mut addresses = Vec::new();
-    for (index, chunk) in names.chunks(8).enumerate() {
+    for (index, chunk) in partitions.iter().enumerate() {
         game.push_str(&format!("pub mod unit_{index:04};\n"));
         addresses.push(u32::from_str_radix(&chunk[0][4..], 16)?);
         let mut body = String::from(
@@ -156,7 +201,9 @@ fn emit_closed(
         }
         body.push_str(&format!("pub fn route(native_state:&mut crate::registers::Registers,guest_ram:&mut crate::memory::Memory,address:u32)->Result<(),i32>{{match address{{{arms}_=>Err(-5)}}}}"));
         if body.len() > 1024 * 1024 {
-            return Err("candidate unit requires smaller source partitioning".into());
+            return Err(
+                format!("candidate unit {index} exceeds its byte bound after remapping").into(),
+            );
         }
         files.insert(format!("game/unit_{index:04}.rs"), body);
     }
@@ -307,6 +354,49 @@ mod tests {
             code: String::new(),
             dependencies: deps.iter().map(|s| (*s).to_owned()).collect(),
         }
+    }
+    #[test]
+    fn source_partitioning_splits_large_groups_and_rejects_oversized_functions_before_output() {
+        let mut candidates = BTreeMap::new();
+        for (index, size) in [(0, 600000), (1, 600000)] {
+            let name = format!("sub_{index:08X}");
+            candidates.insert(
+                name.clone(),
+                Candidate {
+                    unit: "synthetic.rs".into(),
+                    code: format!("pub fn {name}(){{let padding=\"{}\";}}", "x".repeat(size)),
+                    dependencies: BTreeSet::new(),
+                },
+            );
+        }
+        let groups = source_partitions(&candidates).unwrap();
+        assert_eq!(groups.iter().map(Vec::len).collect::<Vec<_>>(), vec![1, 1]);
+        let candidate = candidates.get_mut("sub_00000000").unwrap();
+        candidate.code = format!(
+            "pub fn sub_00000000(){{let padding=\"{}\";}}",
+            "x".repeat(1024 * 1024)
+        );
+        assert!(source_partitions(&candidates)
+            .unwrap_err()
+            .to_string()
+            .contains("sub_00000000"));
+        let root = std::env::temp_dir().join(format!(
+            "gamepkg-oversized-candidate-{}",
+            std::process::id()
+        ));
+        let output = root.join("must-not-exist");
+        assert!(!output.exists());
+        assert!(emit_closed(&candidates, &output).is_err());
+        assert!(!output.exists());
+        candidate_token_budget_test(&mut candidates);
+    }
+    fn candidate_token_budget_test(candidates: &mut BTreeMap<String, Candidate>) {
+        candidates.get_mut("sub_00000000").unwrap().code =
+            format!("pub fn sub_00000000(){{{}}}", "let n=1;".repeat(25000));
+        assert!(source_partitions(candidates)
+            .unwrap_err()
+            .to_string()
+            .contains("tokens"));
     }
     #[test]
     fn graph_removes_transitive_missing_calls_and_preserves_closed_cycles() {

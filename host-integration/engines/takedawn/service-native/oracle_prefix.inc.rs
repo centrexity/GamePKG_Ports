@@ -60,3 +60,8 @@ unsafe fn gamepkg_tls_g_fp_control_word()->*mut u16 {&raw mut ORIGINAL.fp_contro
 
 // Reference-only libc copy used by unchanged pinned function bodies.
 unsafe extern "C" {fn memcpy(destination:*mut ::core::ffi::c_void,source:*const ::core::ffi::c_void,bytes:size_t)->*mut ::core::ffi::c_void;}
+
+// Exact pinned helper dependencies; maintainer reference only.
+const INT64_MIN:i64=i64::MIN;
+#[cfg_attr(unix,link(name="m"))]
+unsafe extern "C" {fn floor(value:f64)->f64;fn ceil(value:f64)->f64;fn trunc(value:f64)->f64;fn fmod(first:f64,second:f64)->f64;fn copysign(first:f64,second:f64)->f64;}

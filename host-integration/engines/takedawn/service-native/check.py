@@ -8,6 +8,17 @@ KIT = "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4"
 UNIT = "prepared/src/recomp_0000_001.rs"
 UNIT_HASH = "442f7812516f3c5157ee74e15aede23d0ac423105acb7d973733bbe9f01ad94d"
 
+def pinned_function(text, prefix):
+    # Only these exact hash-pinned, reviewed bodies have no brace-bearing
+    # literals/comments. Refuse the extraction if that invariant ever changes.
+    assert text.count(prefix)==1
+    start=text.index(prefix);opening=text.index('{',start);end=opening+1;depth=1
+    while depth:
+        depth+=(text[end]=='{')-(text[end]=='}');end+=1
+    body=text[start:end]
+    assert not any(marker in text[opening+1:end] for marker in ['"','//','/*',"'{'","'}'"])
+    return body
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--app',type=Path,required=True)
@@ -34,10 +45,12 @@ def main():
         with tarfile.open(kit) as archive:
             original=archive.extractfile(UNIT).read()
             extra_helpers=[]
+            extra_original=""
             helper_units=[('prepared/src/recomp_0000_000.rs',['XMM_SUB','XMM_XOR']),
                           ('prepared/src/recomp_0002_018.rs',['recomp_fp_round24']),
                           ('prepared/src/recomp_0004_010.rs',['recomp_parity8']),
-                          ('prepared/src/recomp_0007_000.rs',['RC_ROT'])]
+                          ('prepared/src/recomp_0007_000.rs',['RC_ROT']),
+                          ('prepared/src/recomp_0007_001.rs',['recomp_frndint','recomp_fist'])]
             pins=dict(line.split('\t') for line in (here/'maintainer/reviewed_units.tsv').read_text().splitlines())
             for unit_name,helpers_in_unit in helper_units:
                 data=archive.extractfile(unit_name).read()
@@ -50,6 +63,8 @@ def main():
                     while depth:
                         depth+=(extra_unit[end]=='{')-(extra_unit[end]=='}');end+=1
                     extra_helpers.append(extra_unit[start:end])
+                if args.prepared and unit_name=="prepared/src/recomp_0007_001.rs":
+                    extra_original=pinned_function(extra_unit,'pub unsafe extern "C" fn sub_00244DF0(')
         if hashlib.sha256(original).hexdigest()!=UNIT_HASH:raise RuntimeError('Changed original unit')
         unit=scratch/'original.rs';unit.write_bytes(original)
         generated=scratch/'generated'
@@ -73,14 +88,34 @@ def main():
         # keep the small early diagnostic for the default single-unit fixture.
         if not prepared:
             subprocess.run([str(probe),str(app),str(here),"--source-only"],check=True)
-        names=record['converted']
-        oracle=here.joinpath('oracle_prefix.inc.rs').read_text()+'\n'+generated.joinpath('oracle_helpers.rs').read_text()+'\n'+'\n'.join(extra_helpers)+'\n'+generated.joinpath('oracle.rs').read_text()
+        names=list(record['converted'])
+        game_file=generated/'game.rs';dispatch_file=generated/'dispatch.rs'
+        if args.prepared:
+            report=json.loads((args.prepared/'inventory.json').read_text())
+            entry=report['closed_graph']['sub_00244DF0']
+            assert entry['unit']=='recomp_0007_001.rs' and entry['dependencies']==[]
+            selected=[]
+            for filename,expected in report['emitted_files'].items():
+                if not re.fullmatch(r'game/unit_[0-9]+\.rs',filename):continue
+                data=(args.prepared/filename).read_bytes()
+                assert hashlib.sha256(data).hexdigest()==expected
+                text=data.decode()
+                if 'pub fn sub_00244DF0(' in text:
+                    selected.append(pinned_function(text,'pub fn sub_00244DF0('))
+            assert len(selected)==1 and extra_original
+            game_file=scratch/'combined_game.rs'
+            game_file.write_text((generated/'game.rs').read_text()+'\n'+selected[0])
+            dispatch_file=scratch/'combined_dispatch.rs'
+            dispatch_file.write_text('pub fn invoke(native_state:&mut crate::registers::Registers,guest_ram:&mut crate::memory::Memory,address:u32)->Result<(),i32>{if address==0x244df0{if !native_state.valid(){return Err(-1);}crate::game::sub_00244DF0(native_state,guest_ram)}else{crate::base_dispatch::invoke(native_state,guest_ram,address)}}')
+            names.append('sub_00244DF0')
+        oracle=here.joinpath('oracle_prefix.inc.rs').read_text()+'\n'+generated.joinpath('oracle_helpers.rs').read_text()+'\n'+'\n'.join(extra_helpers)+'\n'+generated.joinpath('oracle.rs').read_text()+'\n'+extra_original
         oracle+='\npub unsafe fn invoke(address:u32){match address{'+''.join(f'0x{n[4:]}=>{n}(),' for n in names)+'_=>panic!("unknown reference function")}}\n'
         oracle+='\npub unsafe fn helper(operation:u32,first:[u32;4],second:[u32;4],immediate:u32)->[u32;4]{let a=RecompXmm{u:first};let b=RecompXmm{u:second};let result=match operation{0=>XMM_ADD(a,b),1=>XMM_SUB(a,b),2=>XMM_MUL(a,b),3=>XMM_XOR(a,b),4=>XMM_SHUFFLE(a,b,immediate),5=>XMM_SCALAR(f32::from_bits(first[0])),6=>XMM_ZERO(),_=>panic!("unknown helper")};result.u}\n'
         oracle+='\npub unsafe fn scalar_round24(value:f64)->f64{recomp_fp_round24(value)}pub unsafe fn scalar_parity8(value:u32)->i32{recomp_parity8(value)}pub unsafe fn scalar_rotate(value:u32,count:u32,carry:&mut i32,width:u32,left:bool)->u32{RC_ROT(value,count,carry,width,i32::from(left))}\n'
+        oracle+='\npub unsafe fn scalar_round_integer(value:f64,control:u16)->f64{recomp_frndint(value,control)}pub unsafe fn scalar_integer_store(value:f64,control:u16,width:u32)->i64{recomp_fist(value,control,width)}\n'
         oracle_file=scratch/'reference.rs';oracle_file.write_text(oracle)
         wrapper='#![allow(non_camel_case_types,non_snake_case,non_upper_case_globals,unused_assignments,unused_variables,unused_mut,unused_parens,dead_code,unreachable_code)]\n'
-        for module,path in [('gamepkg',app/'engines/native-services/client.rs'),('local',app/'engines/native-services/local_bindings.rs'),('memory',here/'memory.rs'),('copy_checks',here/'copy_checks.rs'),('vector',here/'vector.rs'),('scalar',here/'scalar.rs'),('registers',here/'registers.rs'),('game',generated/'game.rs'),('dispatch',generated/'dispatch.rs'),('oracle',oracle_file)]:
+        for module,path in [('gamepkg',app/'engines/native-services/client.rs'),('local',app/'engines/native-services/local_bindings.rs'),('memory',here/'memory.rs'),('copy_checks',here/'copy_checks.rs'),('vector',here/'vector.rs'),('scalar',here/'scalar.rs'),('registers',here/'registers.rs'),('game',game_file),('base_dispatch',generated/'dispatch.rs'),('dispatch',dispatch_file),('oracle',oracle_file)]:
             wrapper+=f'#[path={json.dumps(str(path))}]mod {module};\n'
         wrapper+=f'const ADDRESSES:[u32;{len(names)}]=['+','.join('0x'+n[4:] for n in names)+'];\n'
         wrapper+=here.joinpath('comparison.rs').read_text()
