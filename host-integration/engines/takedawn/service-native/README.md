@@ -913,3 +913,26 @@ The [checked pool kernel bridge integration](../service-kernel-pool/README.md)
 now routes four configured ordinals through the actual finite native call/jump
 path and shared per-caller heap clients. Other imports remain explicit required
 migration work; installing that bounded map does not enable the title.
+
+
+The optional three-bank host preset is now available in app implementation
+[`f4bdfea`](https://github.com/centrexity/GamePKG/commit/f4bdfea):
+`LocalLayout::TakedawnMemory` enumerates independent 64 MiB main RAM, 64 MiB
+contiguous RAM and 1 MiB flash backing, initially inaccessible. Full SDK digest
+is `c36219e59748d51107cbc5be62593dbcc119cd58b4d9763a09c3d959b3bb73e8`;
+composite native recipe identity is `e5624d54d141c27b`. Current one-bank component
+fixtures retain `TakedawnRam` and its 16-byte enumeration response. A future
+three-bank bootstrap must validate the 48-byte ID/length response and explicitly
+select its backing before committing pages. This does not silently migrate any
+existing fixture, resolver or launcher.
+
+The app qualifies all four build targets and actual confined Linux32/64 bank
+isolation/protection/copy/decommit behavior. Standalone native Linux32/64 and
+Windows32/64-under-Wine runtime tests also exercise all-bank charging, collision
+rejection and teardown/reuse. None establishes complete Xbox guest aliasing or
+device behavior. Port code must still supply exact guest views (including the
+contiguous/tiled aliases), flash initialization, the original contiguous
+allocator and shared caller ownership. Keep the 32-span ceiling, reject
+unmapped MMIO and do not turn NV2A/MCPX registers into zero-filled successful RAM
+fallbacks. The complete native entry/title gate remains closed. See the app's
+[preset contract](https://github.com/centrexity/GamePKG/blob/f4bdfea/docs/PORT_SERVICES.md#child-local-runtime-separate-abi-namespace).
