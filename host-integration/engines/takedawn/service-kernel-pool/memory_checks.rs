@@ -3,6 +3,7 @@ use crate::calls_runtime;
 use crate::gamepkg;
 use crate::heap_service;
 use crate::kernel_pool;
+use crate::layout;
 use crate::memory;
 use crate::registers;
 fn memory_long(bytes: &[u8], at: usize) -> Result<u64, i32> {
@@ -307,10 +308,12 @@ fn memory_worker_run(setup: u64) -> Result<u64, i32> {
     if !(1..=4).contains(&tag) {
         return Err(-1);
     }
-    let mut ram = memory::Memory::with_context(context)?;
-    ram.attach(0, 67108864, main, 0, true)?;
-    ram.attach(0x80000000, 67108864, physical, 0, true)?;
-    ram.attach(0xf0000000, 67108864, physical, 0, true)?;
+    let source = memory::Memory::with_context(context)?;
+    let plan = layout::Layout::layout_current(&source)?;
+    if plan.layout_banks()[0] != main || plan.layout_banks()[1] != physical {
+        return Err(-4);
+    }
+    let mut ram = plan.layout_view(&source)?;
     let sp = 0x70000 + tag as u32 * 4096;
     let mut state = registers::Registers::new();
     for iteration in 0..128u32 {
@@ -443,8 +446,11 @@ fn memory_map_controls(ram: &mut memory::Memory, main: u64) -> Result<(), i32> {
     Ok(())
 }
 pub fn memory_kernel_verify(ram: &mut memory::Memory, main: u64, physical: u64) -> Result<(), i32> {
-    ram.attach(0x80000000, 67108864, physical, 0, true)?;
-    ram.attach(0xf0000000, 67108864, physical, 0, true)?;
+    let plan = layout::Layout::layout_current(ram)?;
+    if plan.layout_banks()[0] != main || plan.layout_banks()[1] != physical {
+        return Err(-4);
+    }
+    *ram = plan.layout_view(ram)?;
     memory_table(ram)?;
     let mut table = [0u8; 40];
     ram.read_bytes(0x21000, &mut table)?;

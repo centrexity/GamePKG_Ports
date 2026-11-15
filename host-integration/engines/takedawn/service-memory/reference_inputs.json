@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "production_ready": false,
+  "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+  "member": "toolkit/src/kernel/xbox_memory_layout.c",
+  "source_sha256": "c83cb0a4586ef3298911f4639e79ec1f904b4133b8469676ff0fa461b63f82f4",
+  "header_member": "toolkit/src/kernel/xbox_memory_layout.h",
+  "header_sha256": "ab33604d604d715d6c794ddeb6d42d03770ab476db811a9ca035951eb9269be7",
+  "regions": {
+    "mirror_loop": {
+      "start": 171989,
+      "end": 174290,
+      "sha256": "b26162998d6cd83365011229b34b64be7ab988e501c0e58d8510ca35535dc698"
+    },
+    "flash": {
+      "start": 167481,
+      "end": 168203,
+      "sha256": "827700d540135798c02bce840c31f339d7c6c9ab3bfa93dc913f55755081bb55"
+    },
+    "tiled": {
+      "start": 175135,
+      "end": 179204,
+      "sha256": "2217e7a8a5aefa6e920b7022a3197797746bc6d0634dd445ea75e3df635d9ba7"
+    }
+  },
+  "contract": "Reviewed retail 64 MiB guest-view geometry from pinned mirror/tiled/flash source regions; tests exercise GamePKG RAM aliases, not original OS mapping calls, device models or title gameplay"
+}

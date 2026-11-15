@@ -202,11 +202,8 @@ fn main() {
     }
     local::install(runtime.clone()).unwrap();
     let mut ram = memory::Memory::new().unwrap();
-    ram.attach(0, 67108864, windows[0].0, 0, true).unwrap();
-    ram.attach(0x80000000, 67108864, windows[1].0, 0, true)
-        .unwrap();
-    ram.attach(0xf0000000, 67108864, windows[1].0, 0, true)
-        .unwrap();
+    let plan = layout::Layout::layout_current(&ram).unwrap();
+    ram = plan.layout_view(&ram).unwrap();
     let inbox = heap_service::heap_inbox().unwrap();
     let job = spawn(inbox);
     let mut client = heap_service::HeapClient::heap_client(inbox, job).unwrap();

@@ -134,3 +134,12 @@ allocation/reuse/coalescing/query and zero-fill semantics against the original
 helpers. The shared-task owner/client now has separate concurrency and lifecycle
 qualification. Public kernel wrappers, actual title-thread startup and diagnostic
 reporting still require integration.
+
+
+The current fixture uses the [retail three-bank guest layout](../service-memory/README.md).
+Main RAM plus 28 mirrors share one 64 MiB backing; Contiguous/tiled/flash spans
+are attached but remain uncommitted during this CPU-data test. For successful
+startup it observes the loaded image, TIB/TLS and stack through every main mirror,
+while preserving all original CPU and whole-main-RAM comparisons. This is an
+explicit fixture migration to `TakedawnMemory`, not a legacy-launcher exemption.
+The title's native entry and other kernel/device work remain gated.

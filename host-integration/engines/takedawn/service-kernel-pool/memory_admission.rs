@@ -62,6 +62,7 @@ fn main() {
     }
     for (name, path) in [
         ("heap.rs", here.join("../service-heap/heap.rs")),
+        ("layout.rs", here.join("../service-memory/layout.rs")),
         (
             "contiguous.rs",
             here.join("../service-contiguous/contiguous.rs"),
@@ -89,7 +90,7 @@ fn main() {
         fs::write(path, data).unwrap();
     }
     fs::write(source.join("source/src/lib.rs"),r#"
-mod memory;mod registers;mod call_state;mod calls_runtime;mod vector;mod scalar;mod debug;mod heap;mod contiguous;mod heap_service;mod kernel_pool;mod memory_checks;mod game;mod dispatch;mod targets;
+mod layout;mod memory;mod registers;mod call_state;mod calls_runtime;mod vector;mod scalar;mod debug;mod heap;mod contiguous;mod heap_service;mod kernel_pool;mod memory_checks;mod game;mod dispatch;mod targets;
 pub fn heap_worker(arg:u64)->u64{heap_service::heap_serve(arg)}
 pub fn memory_worker(arg:u64)->u64{memory_checks::kernel_memory_worker(arg)}
 fn run()->Result<(),i32>{

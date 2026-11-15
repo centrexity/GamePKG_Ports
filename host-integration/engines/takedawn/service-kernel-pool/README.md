@@ -228,3 +228,11 @@ allocator-only setup is not a complete resolver. Finish generated/manual/media
 and renderer paths before native entry/title admission. These tests establish
 neither gameplay nor physical controls, audible audio, rendering fidelity or
 measured frame pacing. The legacy title build/play/cache/export gate stays closed.
+
+
+The extended nine-wrapper fixture now stages the [retail guest layout](../service-memory/README.md)
+and uses its complete 32-span topology for the coordinator, four independently
+registered worker contexts and maintainer original-code comparison. The older
+four-pool fixture and full generated-candidate four-pool regression remain
+independent. This changes no kernel record/stack/allocator protocol, budget,
+source/object rule or title-admission gate.

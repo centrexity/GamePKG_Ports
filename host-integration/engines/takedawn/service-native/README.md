@@ -949,3 +949,15 @@ compares 2,115 pinned-original calls per target, audits every game object on fou
 targets and runs concurrent/error controls in confined Linux32/64. The full native
 candidate matrix retains its four-pool routing fixture and 38-function/4,864-vector
 regressions. Neither establishes complete guest memory/device views or native entry.
+
+
+The [retail guest layout](../service-memory/README.md) now constructs all 32
+reviewed guest views over those three opaque banks: main RAM and 28 mirrors,
+Contiguous with its tiled alias, and independent zeroed flash. No MMIO or masked
+fallback is added. CPU-startup and nine-wrapper allocator fixtures stage and use
+this helper as ordinary checked game source; workers preserve their shared
+context and independently acquire clients. Its own native/confinement matrix
+checks alias geometry, protection/decommit, cross-mirror transfer atomicity and
+holes. This qualifies the retail RAM topology, not NV2A/MCPX device behavior,
+complete guest-thread/kernel startup or native title entry. See its contract for
+page commitment, root-versus-RAM lifetimes and precise proof limits.

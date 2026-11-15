@@ -97,6 +97,7 @@ fn main() {
     for (name, path) in [
         ("disc.rs", here.join("../service-disc/disc.rs")),
         ("memory.rs", here.join("../service-native/memory.rs")),
+        ("layout.rs", here.join("../service-memory/layout.rs")),
         (
             "contiguous.rs",
             here.join("../service-contiguous/contiguous.rs"),
@@ -115,7 +116,7 @@ fn main() {
     ] {
         fs::copy(path, source.join("source/src").join(name)).unwrap();
     }
-    fs::write(source.join("source/src/lib.rs"),"mod disc;mod memory;mod call_state;mod contiguous;mod heap_service;mod heap;mod sha256;mod xbe;mod bootstrap;mod registers;mod probe;pub fn game_main(){probe::game_main();}\n").unwrap();
+    fs::write(source.join("source/src/lib.rs"),"mod layout;mod disc;mod memory;mod call_state;mod contiguous;mod heap_service;mod heap;mod sha256;mod xbe;mod bootstrap;mod registers;mod probe;pub fn game_main(){probe::game_main();}\n").unwrap();
     let mut manifest =
         gamepkg::manifest::Manifest::parse(&fs::read(source.join("manifest.toml")).unwrap())
             .unwrap();
@@ -151,10 +152,16 @@ fn main() {
         Target::Windows64,
         Target::Windows32,
     ] {
-        let plan = Plan::new(target, "game_main", vec![], LocalLayout::TakedawnRam, true)
-            .unwrap()
-            .with_codegen_units(2)
-            .unwrap();
+        let plan = Plan::new(
+            target,
+            "game_main",
+            vec![],
+            LocalLayout::TakedawnMemory,
+            true,
+        )
+        .unwrap()
+        .with_codegen_units(2)
+        .unwrap();
         let artifact = preparation::build(root.path(), &checked, &plan, vec![], vec![]).unwrap();
         artifact.executable().unwrap();
         assert_eq!(artifact.receipt().game.objects.len(), 2);
@@ -366,5 +373,5 @@ fn main() {
             println!("PASS {target:?} {mode}: all 64 MiB RAM hashes and CPU context/layout match original toolkit/TIB/TLS initialization, or unchanged loaded image on rejection; no entrypoint execution");
         }
     }
-    println!("CPU-data component only: heap allocator, kernel exports, device mappings/mirrors and native entrypoint remain unqualified");
+    println!("CPU-data and retail RAM-view components only: complete kernel exports, device semantics and native entrypoint remain unqualified");
 }

@@ -2,12 +2,13 @@
 use crate::bootstrap;
 use crate::disc;
 use crate::gamepkg;
+use crate::layout;
 use crate::memory;
 use crate::sha256;
 use crate::xbe;
 fn image_memory() -> Result<memory::Memory, i32> {
-    let mut windows = [0u8; 16];
-    if gamepkg::local_call(1, &[], &mut windows)? != 16 {
+    let mut windows = [0u8; 48];
+    if gamepkg::local_call(1, &[], &mut windows)? != 48 {
         return Err(-3);
     }
     let window = u64::from_le_bytes([
@@ -22,8 +23,12 @@ fn image_memory() -> Result<memory::Memory, i32> {
     if gamepkg::local_call(2, &request, &mut [])? != 0 {
         return Err(-3);
     }
-    let mut ram = memory::Memory::new()?;
-    ram.attach(0, 67108864, window, 0, true)?;
+    let root = memory::Memory::new()?;
+    let plan = layout::Layout::layout_current(&root)?;
+    if plan.layout_banks()[0] != window {
+        return Err(-3);
+    }
+    let mut ram = plan.layout_view(&root)?;
     ram.fill(0, 0xa5, 67108864)?;
     Ok(ram)
 }
@@ -44,18 +49,18 @@ fn image_run(
         ram.call_bounds(0, 0)?;
     }
     let startup = bootstrap::Bootstrap::boot_plan(&plan, ram)?;
-    let layout = startup.boot_layout();
+    let startup_fields = startup.boot_layout();
     let mut fields = [0u64; 14];
     for number in 0..14usize {
-        fields[number] = u64::from(layout[number]);
+        fields[number] = u64::from(startup_fields[number]);
     }
     gamepkg::diagnostic(1, 0x544b0300, &fields)?;
     if scenario == 1 {
         gamepkg::local_record_release(ram.call_handle())?;
     }
     if scenario == 2 {
-        let mut windows = [0u8; 16];
-        if gamepkg::local_call(1, &[], &mut windows)? != 16 {
+        let mut windows = [0u8; 48];
+        if gamepkg::local_call(1, &[], &mut windows)? != 48 {
             return Err(-3);
         }
         let window = u64::from_le_bytes([
@@ -78,6 +83,26 @@ fn image_run(
         startup.boot_apply(ram)?
     };
     gamepkg::diagnostic_bytes(1, 0x544b0301, &context.encode())?;
+    // Loaded image and startup writes must be visible through every main mirror.
+    for offset in [0x10000u32, context.fs_base, context.esp] {
+        let expected = ram.read_u32(offset)?;
+        for mirror in 1..29u32 {
+            if ram.read_u32(mirror * 67108864 + offset)? != expected {
+                return Err(-3);
+            }
+        }
+    }
+    for at in [
+        0x80000000u32,
+        0xf0000000,
+        0xff000000,
+        0xfd000000,
+        0xfe800000,
+    ] {
+        if ram.read_u8(at) != Err(-4) {
+            return Err(-3);
+        }
+    }
 
     Ok(())
 }
