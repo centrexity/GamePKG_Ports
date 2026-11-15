@@ -91,15 +91,15 @@ callers are rejected, including identical definitions.
 The current inventory covers **24,015 distinct `sub_XXXXXXXX` definitions**,
 including recovered/unresolved sources. Named entrypoints and `_gen` variants
 need separate inclusion; this count is not the entire runnable title. Existing lowering
-rules recognize 22,513 locally; removing missing dependencies transitively leaves
-**18,556 candidates closed over literal direct dependencies**, with 3,513 direct edges, including 2,380 across units.
-Runtime routes remain partial: 594 retained functions contain rewritten runtime
+rules recognize 22,551 locally; removing missing dependencies transitively leaves
+**18,651 candidates closed over literal direct dependencies**, with 3,661 direct edges, including 2,476 across units.
+Runtime routes remain partial: 630 retained functions contain rewritten runtime
 calls, and known unmigrated destinations fail Unsupported. This is not a fully
-closed runtime graph. The other **5,459** definitions remain explicitly
+closed runtime graph. The other **5,364** definitions remain explicitly
 unconverted. There are no
 substitute bodies, dynamic native function pointers or unknown-target fallbacks.
 
-Prepared candidates use 2,344 Rust files (95,672,829 bytes). At most eight native
+Prepared candidates use 2,356 Rust files (97,078,371 bytes). At most eight native
 functions per module plus byte/token-aware splitting bound source size. An AST pass rewrites only direct function
 paths to their owning modules; literals are untouched. Binary selection routes
 call statically compiled functions directly, with at most logarithmic selection
@@ -132,11 +132,11 @@ trusted linking for Linux64/Linux32/Windows64/Windows32. Confined native Linux
 children execute 4,224 vectors with the complete graph linked, including 1,024
 cases for original `sub_00244DF0` and 512 cases for original `sub_001FBAE0`.
 **Semantic differential coverage is 36 functions**; compiling/auditing
-18,556 functions does not establish the other functions' behavior. Windows
+18,651 functions does not establish the other functions' behavior. Windows
 reference comparisons execute under Wine; the prepared service executables
 are build evidence, not physical Windows gameplay. The full engine, ISO loader,
 kernel/media bridges, verified renderer, saves, input/audio, pacing and the
-remaining 5,459 functions still require migration/qualification before enablement.
+remaining 5,364 functions still require migration/qualification before enablement.
 
 ## Compacted control-flow contract
 
@@ -574,7 +574,7 @@ cases per target, including observable effects after the block. They remain
 separate from original-function semantic qualification. The single-unit golden
 now retains original `sub_00015570`, checked in 128 register/whole-RAM/trace/log
 cases with null/non-null objects, original registered callees, absent/non-code
-targets and code-range guards. Prepared runs cover 35 original functions and
+targets and code-range guards. Prepared runs cover 36 original functions and
 4,224 vectors in bounded batches, as documented below.
 
 The single-unit component now contains runtime calls too, so `check.py` always
@@ -619,6 +619,36 @@ later batches and truncated records, with bounded waits and dummy output.
 
 Both direct startup helpers `sub_001D18B0` and `sub_001D19FD` are now retained.
 The entrypoint itself still needs inclusion, and `sub_001D2E6F` remains blocked
-by `sub_001CFF88`. Complete the remaining functions and service/renderer/loader
+by `sub_001CFF88`. That routine now lowers locally, but its default branch needs
+`sub_001D3970 -> sub_00243816 -> sub_00246622`; the final formatting routine
+still contains unmigrated callback/tail-call regions. None of those bodies are
+replaced by stubs. Complete the remaining functions and service/renderer/loader
 integration before enabling a title; retained literal-call closure is not full
 runtime routing or gameplay qualification.
+
+## Calls with an explicit common exit
+
+An additional exact rule handles nine trace/lookup/fallback statements followed
+immediately by an unconditional labeled `break` at the end of the same block.
+All fallback exits must name that same destination. The original full-region
+AST, fixed-width target/stack, register-alias and capture checks still apply.
+Comparison copies normalize only optional trailing commas in generic argument
+lists; argument types, count and order remain exact. This accepts the equivalent
+spelling in the original startup routine without accepting changed reads/calls.
+Only the call machinery becomes a checked direct helper; the explicit break
+remains in its original lexical scope. This preserves skipped caller effects
+when leaving an ancestor block or loop. The earlier nine-statement rule still
+rejects ancestor and loop exits where no explicit common jump exists.
+
+Negative cases reject mismatched fallback destinations, unlabeled/value breaks,
+trailing statements and changed guards. Native controlled-handler comparisons
+add 7,680 cases per target, including the inner skip path, observable intervening
+effects and post-exit effects. They run on Linux32/64 and Windows32/64 under
+Wine; these are synthetic control-flow checks, not complete original-function
+or physical gameplay qualification. No host API, runtime permission or legacy
+admission gate changes.
+
+The final inventory retains 95 additional functions. All 18,556 previously
+retained function/dependency records, including their lowered-body hashes, are
+unchanged. This does not expand original-function semantic qualification beyond
+the 36 functions/4,224 vectors recorded above.

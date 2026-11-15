@@ -74,6 +74,23 @@ pub(super) fn capture_safe(
     !check.bad
 }
 
+// Generic argument lists permit a trailing comma without changing arguments.
+// Canonicalize only that punctuation on the comparison copies, on both sides.
+// Types, argument count/order, calls and every other token remain significant.
+fn generic_punctuation(block: &mut syn::Block) {
+    struct Canonical;
+    impl VisitMut for Canonical {
+        fn visit_angle_bracketed_generic_arguments_mut(
+            &mut self,
+            arguments: &mut syn::AngleBracketedGenericArguments,
+        ) {
+            arguments.args.pop_punct();
+            visit_mut::visit_angle_bracketed_generic_arguments_mut(self, arguments);
+        }
+    }
+    Canonical.visit_block_mut(block);
+}
+
 pub(super) fn rewrite(statements: &[Stmt], pass: &Lower) -> Option<Stmt> {
     if statements.len() < 4 {
         return None;
@@ -178,7 +195,9 @@ pub(super) fn rewrite(statements: &[Stmt], pass: &Lower) -> Option<Stmt> {
         return None;
     }
     normalize.visit_block_mut(&mut actual);
-    let expected: syn::Block = syn::parse_str(&format!("{{{template}}}")).ok()?;
+    let mut expected: syn::Block = syn::parse_str(&format!("{{{template}}}")).ok()?;
+    generic_punctuation(&mut actual);
+    generic_punctuation(&mut expected);
     if actual.to_token_stream().to_string() != expected.to_token_stream().to_string() {
         return None;
     }
@@ -200,6 +219,23 @@ pub(super) fn rewrite_tail(statements: &[Stmt], pass: &Lower, label: &str) -> Op
     let mut isolated = statements[..3].to_vec();
     isolated.push(wrapper);
     rewrite(&isolated, pass)
+}
+// A common ancestor exit is safe only when normal completion explicitly takes
+// that same exit. Keep the original break in its original lexical scope: the
+// checked helper replaces the call machinery, not the caller's control flow.
+pub(super) fn rewrite_leaving(statements: &[Stmt], pass: &Lower) -> Option<Vec<Stmt>> {
+    if statements.len() != 10 {
+        return None;
+    }
+    let Stmt::Expr(Expr::Break(exit), Some(_)) = &statements[9] else {
+        return None;
+    };
+    if !exit.attrs.is_empty() || exit.expr.is_some() {
+        return None;
+    }
+    let label = exit.label.as_ref()?.ident.to_string();
+    let call = rewrite_tail(&statements[..9], pass, &label)?;
+    Some(vec![call, statements[9].clone()])
 }
 pub(super) fn label_used(block: &mut syn::Block, name: &str) -> bool {
     struct Used<'a> {
@@ -339,15 +375,90 @@ mod tests {
             &BTreeMap::from([("outer".into(), "s_200".into())])
         ));
     }
-    fn tail_pattern() -> String {
+    fn tail_statements() -> Vec<Stmt> {
         let mut original: syn::Block =
             syn::parse_str(&format!("{{{}}}", include_str!("icall_template.inc"))).unwrap();
         let Stmt::Expr(Expr::Block(outer), None) = original.stmts.pop().unwrap() else {
             panic!("pinned template shape");
         };
         original.stmts.extend(outer.block.stmts);
-        let statements = original.stmts;
+        original.stmts
+    }
+    fn tail_pattern() -> String {
+        let statements = tail_statements();
         quote!('s_200:{#(#statements)*}).to_string()
+    }
+    fn alternate_commas(pattern: &str) -> String {
+        struct Toggle;
+        impl VisitMut for Toggle {
+            fn visit_angle_bracketed_generic_arguments_mut(
+                &mut self,
+                arguments: &mut syn::AngleBracketedGenericArguments,
+            ) {
+                if !arguments.args.is_empty() {
+                    if arguments.args.trailing_punct() {
+                        arguments.args.pop_punct();
+                    } else {
+                        arguments.args.push_punct(Default::default());
+                    }
+                }
+                visit_mut::visit_angle_bracketed_generic_arguments_mut(self, arguments);
+            }
+        }
+        let mut block: syn::Block = syn::parse_str(&format!("{{{pattern}}}")).unwrap();
+        Toggle.visit_block_mut(&mut block);
+        let statements = block.stmts;
+        quote!(#(#statements)*).to_string()
+    }
+    #[test]
+    fn optional_generic_commas_preserve_the_exact_types_and_argument_list() {
+        for pattern in [
+            include_str!("icall_template.inc"),
+            include_str!("icall_guarded_template.inc"),
+        ] {
+            let changed = alternate_commas(pattern);
+            let (mut function, _) = candidate(&changed, "").unwrap();
+            assert_eq!(count(&mut function), 1);
+            for alteration in [
+                changed.replacen("< uint32_t >", "< uint32_t , uint32_t >", 1),
+                changed.replacen("< uint32_t >", "< uint64_t >", 1),
+            ] {
+                assert_ne!(alteration, changed);
+                assert!(candidate(&alteration, "").is_err());
+            }
+        }
+    }
+    fn leaving_pattern(body: &str) -> String {
+        format!(
+            "'s_200:{{'inner:{{if _va==0{{break 'inner;}}{body}}}*__gamepkg_tls_g_eax^=0x1111;}}"
+        )
+    }
+    #[test]
+    fn common_ancestor_exit_is_preserved_and_requires_an_exact_unconditional_jump() {
+        let statements = tail_statements();
+        let body = quote!(#(#statements)* break 's_200;).to_string();
+        let pattern = leaving_pattern(&body);
+        let (mut function, deps) = candidate(&pattern, "").unwrap();
+        assert!(deps.is_empty());
+        assert_eq!(count(&mut function), 1);
+        let lowered = function.to_token_stream().to_string();
+        assert!(lowered.contains("break 's_200 ;"), "{lowered}");
+        assert!(lowered.contains("break 'inner ;"), "{lowered}");
+        assert!(lowered.contains("^= 0x1111"), "{lowered}");
+        // A loop exit is also retained, never converted to plain fallthrough.
+        let loop_pattern = pattern.replacen("'s_200:{", "'s_200:loop{", 1);
+        assert!(candidate(&loop_pattern, "").is_ok());
+        for changed in [
+            body.replacen("break 's_200", "break 'other", 1),
+            format!("{} break 'other;", quote!(#(#statements)*)),
+            format!("{} break;", quote!(#(#statements)*)),
+            format!("{} break 's_200 7;", quote!(#(#statements)*)),
+            format!("{body}let trailing:u32=1;"),
+            body.replacen("_va >=", "_icall_esp >=", 1),
+        ] {
+            assert_ne!(changed, body);
+            assert!(candidate(&leaving_pattern(&changed), "").is_err());
+        }
     }
     #[test]
     fn tail_sequence_requires_the_current_block_label_and_no_trailing_effects() {
@@ -386,6 +497,17 @@ mod tests {
         let tail = source(&tail_pattern());
         assert!(lower(syn::parse_str(&tail).unwrap()).is_ok());
         crate::call_reference::compare(&tail, &canonical, "tail");
+        let statements = tail_statements();
+        let leaving = source(&leaving_pattern(&alternate_commas(
+            &quote!(#(#statements)* break 's_200;).to_string(),
+        )));
+        let canonical: ItemFn = syn::parse_str(&source(&leaving_pattern(&format!(
+            "{} break 's_200;",
+            include_str!("icall_template.inc").replace("'s_", "'owned_")
+        ))))
+        .unwrap();
+        assert!(lower(syn::parse_str(&leaving).unwrap()).is_ok());
+        crate::call_reference::compare(&leaving, &canonical, "leaving");
     }
     #[test]
     fn partial_altered_shadowed_wrong_width_or_wrong_register_sequences_remain_rejected() {

@@ -3,22 +3,22 @@
   "production_ready": false,
   "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
   "inventory_sha256": "7d7ab7a7cfd00067396a84a82c055a588e308bc8cdc0a94451232cf0f8f12169",
-  "converter_main_sha256": "b9765ebf6b09bf53c87c07a2f7f29c3884c1648301eb7ab8646692031a9f31a1",
+  "converter_main_sha256": "611f4f0b63a2ee8c62e77a8c7cb5567a5d00e21e02c780a899a851a0812a0754",
   "converter_batch_sha256": "a80185907d8d91fe6b15711f79b8343d7e38c808300aa79a40e5e3633e897d95",
   "converter_lock_sha256": "6d55a2c76709a6c1825c3fc3c9ac08e03d6e140635858336762f4ac2595a5259",
   "definitions": 24015,
   "unique_definitions": 24015,
-  "locally_convertible_definitions": 22513,
-  "closed_definitions": 18556,
+  "locally_convertible_definitions": 22551,
+  "closed_definitions": 18651,
   "source_units": 485,
-  "candidate_source_files": 2344,
-  "candidate_source_bytes": 95672829,
-  "direct_closed_edges": 3513,
-  "cross_unit_closed_edges": 2380,
+  "candidate_source_files": 2356,
+  "candidate_source_bytes": 97078371,
+  "direct_closed_edges": 3661,
+  "cross_unit_closed_edges": 2476,
   "duplicate_symbols": 0,
-  "unconverted_unique_definitions": 5459,
-  "closed_graph_sha256": "c5948a05e92c95804e3a0b9a4c887a5d7add9daac04405f0e08a05b3e03afa8b",
-  "emitted_inventory_sha256": "aaf15549c55dae7dd11aa2914c42f6974f792458f1df5bb4121f3156c979b5b6",
+  "unconverted_unique_definitions": 5364,
+  "closed_graph_sha256": "01044a849b2d652ba5bfc226a5b2605ed869a22602d726a30cd2c4169529dea9",
+  "emitted_inventory_sha256": "98001009625898c733e4aa13ac4d2013acea6d14cb81d4bfec08744bee284507",
   "most_blocking_dependencies": [
     [
       "sub_00141010",
@@ -41,10 +41,6 @@
       58
     ],
     [
-      "sub_0031B4D8",
-      54
-    ],
-    [
       "sub_003518E0",
       50
     ],
@@ -55,6 +51,10 @@
     [
       "sub_000D0890",
       37
+    ],
+    [
+      "sub_003651A1",
+      35
     ],
     [
       "sub_001C19A0",
@@ -91,10 +91,10 @@
   "integer_store_function_reference_cases_per_target": 1024,
   "compiler_codegen_units": 4,
   "definition_scope": "sub_XXXXXXXX only; named entrypoint and five _gen bodies still require inclusion",
-  "converter_icall_sha256": "ac0439f07eb4cd71e9e3766346103b5fe3b00522d7c4385fd09b5edce1a59a65",
+  "converter_icall_sha256": "7f1e28fa4ac5aefc0d035630ccc499cb0e42ccc107dcecd7f55f7c70fa4ad0d5",
   "converter_icall_pattern_sha256": "2610d0cf8e13c604631cefb56deed07262ac63fde336dd2c39711a21d0319405",
   "closed_graph_scope": "literal direct dependencies only; runtime native routes remain partial and must fault on known but unmigrated targets",
-  "runtime_call_functions": 594,
+  "runtime_call_functions": 630,
   "runtime_call_function_reference_cases_per_target": 512,
   "converter_icall_compacted_sha256": "92eb1fbc3d53a469fecac8fe257d7cc3d0efec61ad1e7e797258a4da057eefb0",
   "converter_icall_compacted_pattern_sha256": "8fd80ad1c27069b724a061b241a59c443a6955bffbface366da9057cb0d91f21",
@@ -109,5 +109,6 @@
   "private_vector_batches": 2,
   "private_vector_max_batches": 16,
   "private_vector_cases_per_batch": 4096,
-  "guest_fs_record_cases_per_target": 65536
+  "guest_fs_record_cases_per_target": 65536,
+  "common_exit_call_graph_reference_cases_per_target": 7680
 }

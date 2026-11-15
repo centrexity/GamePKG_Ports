@@ -145,6 +145,13 @@ impl Lower {
         let mut statements = Vec::new();
         let mut remaining = std::mem::take(&mut block.stmts).into_iter();
         while !remaining.as_slice().is_empty() {
+            if let Some(replacement) = icall::rewrite_leaving(remaining.as_slice(), self) {
+                for _ in 0..10 {
+                    remaining.next();
+                }
+                statements.extend(replacement);
+                continue;
+            }
             if let Some(label) = label {
                 if let Some(statement) = icall::rewrite_tail(remaining.as_slice(), self, label) {
                     for _ in 0..9 {
