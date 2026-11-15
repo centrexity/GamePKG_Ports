@@ -64,3 +64,28 @@ pub fn call_verify() -> Result<(), i32> {
     }
     Ok(())
 }
+
+pub fn call_memory_verify() -> Result<(), i32> {
+    let root = crate::memory::Memory::new()?;
+    let view = root.call_view();
+    root.call_bounds(1, 2)?;
+    if !view.call_begin(1)? {
+        return Err(-3);
+    }
+    let worker = crate::memory::Memory::with_call_handle(root.call_handle())?;
+    if !worker.call_begin(0xfe000000)? {
+        return Err(-3);
+    }
+    let (trace, index, total) = root.call_snapshot()?;
+    if trace[0] != 1 || trace[1] != 0xfe000000 || index != 2 || total != 2 {
+        return Err(-3);
+    }
+    crate::gamepkg::local_record_release(root.call_handle())?;
+    if root.call_snapshot() != Err(-4)
+        || view.call_snapshot() != Err(-4)
+        || worker.call_snapshot() != Err(-4)
+    {
+        return Err(-3);
+    }
+    Ok(())
+}

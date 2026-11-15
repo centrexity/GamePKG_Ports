@@ -12,20 +12,30 @@ pub struct CallState {
     used: u32,
 }
 impl CallState {
-    pub fn call_new(low: u32, high: u32) -> Result<Self, i32> {
-        if high != 0 && low > high {
-            return Err(-1);
-        }
-        Ok(Self {
-            low,
-            high,
+    pub fn call_default() -> Self {
+        Self {
+            low: 0,
+            high: 0,
             trace: [0; 16],
             index: 0,
             total: 0,
             seen: [0; 16],
             hits: [0; 16],
             used: 0,
-        })
+        }
+    }
+    pub fn call_new(low: u32, high: u32) -> Result<Self, i32> {
+        let mut state = Self::call_default();
+        state.call_set_bounds(low, high)?;
+        Ok(state)
+    }
+    pub fn call_set_bounds(&mut self, low: u32, high: u32) -> Result<(), i32> {
+        if high != 0 && low > high {
+            return Err(-1);
+        }
+        self.low = low;
+        self.high = high;
+        Ok(())
     }
     // Match the original ordering: write target, advance the ring and total,
     // then test code bounds. Zero high disables bounds; >= FE000000 is kernel.
@@ -86,5 +96,70 @@ impl CallState {
     }
     pub fn call_emit_missing(&self, target: u32) -> Result<u64, i32> {
         gamepkg::diagnostic(2, 0x544b0002, &self.call_missing_values(target))
+    }
+}
+
+fn call_word(bytes: &[u8], at: usize) -> u32 {
+    u32::from_le_bytes([bytes[at], bytes[at + 1], bytes[at + 2], bytes[at + 3]])
+}
+fn call_wide(bytes: &[u8], at: usize) -> u64 {
+    u64::from_le_bytes([
+        bytes[at],
+        bytes[at + 1],
+        bytes[at + 2],
+        bytes[at + 3],
+        bytes[at + 4],
+        bytes[at + 5],
+        bytes[at + 6],
+        bytes[at + 7],
+    ])
+}
+impl CallState {
+    // Fixed 280-byte LE value record, independent of native struct layout.
+    pub fn call_encode(&self) -> std::vec::Vec<u8> {
+        let mut bytes = std::vec::Vec::new();
+        bytes.resize(280, 0u8);
+        bytes[..4].copy_from_slice(&u32::to_le_bytes(self.low));
+        bytes[4..8].copy_from_slice(&u32::to_le_bytes(self.high));
+        for index in 0..16 {
+            let at = 8 + index * 4;
+            bytes[at..at + 4].copy_from_slice(&u32::to_le_bytes(self.trace[index]));
+            let at = 88 + index * 4;
+            bytes[at..at + 4].copy_from_slice(&u32::to_le_bytes(self.seen[index]));
+            let at = 152 + index * 8;
+            bytes[at..at + 8].copy_from_slice(&u64::to_le_bytes(self.hits[index]));
+        }
+        bytes[72..76].copy_from_slice(&u32::to_le_bytes(self.index));
+        bytes[76..84].copy_from_slice(&u64::to_le_bytes(self.total));
+        bytes[84..88].copy_from_slice(&u32::to_le_bytes(self.used));
+        bytes
+    }
+    pub fn call_decode(bytes: &[u8]) -> Result<Self, i32> {
+        if bytes.len() != 280 {
+            return Err(-1);
+        }
+        let mut value = Self::call_new(call_word(bytes, 0), call_word(bytes, 4))?;
+        value.used = call_word(bytes, 84);
+        if value.used > 16 {
+            return Err(-1);
+        }
+        for index in 0..16 {
+            value.trace[index] = call_word(bytes, 8 + index * 4);
+            value.seen[index] = call_word(bytes, 88 + index * 4);
+            value.hits[index] = call_wide(bytes, 152 + index * 8);
+            if index >= value.used as usize && (value.seen[index] != 0 || value.hits[index] != 0) {
+                return Err(-1);
+            }
+            if index < value.used as usize {
+                for previous in 0..index {
+                    if value.seen[previous] == value.seen[index] {
+                        return Err(-1);
+                    }
+                }
+            }
+        }
+        value.index = call_word(bytes, 72);
+        value.total = call_wide(bytes, 76);
+        Ok(value)
     }
 }

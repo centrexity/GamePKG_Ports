@@ -65,3 +65,28 @@ unsafe extern "C" {fn memcpy(destination:*mut ::core::ffi::c_void,source:*const 
 const INT64_MIN:i64=i64::MIN;
 #[cfg_attr(unix,link(name="m"))]
 unsafe extern "C" {fn floor(value:f64)->f64;fn ceil(value:f64)->f64;fn trunc(value:f64)->f64;fn fmod(first:f64,second:f64)->f64;fn copysign(first:f64,second:f64)->f64;}
+
+// Original ICALL global values. The original native function and logger bodies
+// remain unchanged; the maintainer console adapter collects their numeric data.
+static mut g_icall_trace:[u32;16]=[0;16];
+static mut g_icall_trace_idx:u32=0;
+static mut g_icall_count:u64=0;
+static mut g_xbox_code_lo:u32=0;
+static mut g_xbox_code_hi:u32=0;
+const ICALL_TRACE_SIZE:i32=16;
+struct C2Rust_Unnamed(u32);
+impl C2Rust_Unnamed {const SLOTS:Self=Self(16);}
+type FILE=::core::ffi::c_void;
+type recomp_func_t=Option<unsafe extern "C" fn()>;
+unsafe extern "C" {
+    fn gamepkg_native_stderr()->*mut FILE;
+    fn gamepkg_native_fflush(stream:*mut FILE)->i32;
+    fn gamepkg_native_fprintf(stream:*mut FILE,format:*const ::core::ffi::c_char,...)->i32;
+}
+unsafe fn recomp_lookup_manual(_:u32)->recomp_func_t {None}
+unsafe fn recomp_lookup_kernel(_:u32)->recomp_func_t {None}
+unsafe fn recomp_lookup(address:u32)->recomp_func_t {
+    match address {0x155a0=>Some(sub_000155A0),_=>None}
+}
+pub unsafe fn call_bounds(low:u32,high:u32) {g_xbox_code_lo=low;g_xbox_code_hi=high;}
+pub unsafe fn call_snapshot()->([u32;16],u32,u64) {(g_icall_trace,g_icall_trace_idx,g_icall_count)}

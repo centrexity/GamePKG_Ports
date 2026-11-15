@@ -28,6 +28,34 @@ impl Backend for Silent {
         Err(gamepkg::port_host::Error::Unsupported)
     }
 }
+fn read_events(path: &Path) -> Vec<(u32, u32, Vec<u64>)> {
+    let bytes = fs::read(path).unwrap();
+    let mut offset = 0usize;
+    let word = |offset: &mut usize| {
+        let value = u32::from_le_bytes(bytes[*offset..*offset + 4].try_into().unwrap());
+        *offset += 4;
+        value
+    };
+    let count = word(&mut offset);
+    assert!(count <= 16384);
+    let mut events = Vec::new();
+    for _ in 0..count {
+        let level = word(&mut offset);
+        let code = word(&mut offset);
+        let length = word(&mut offset);
+        assert!(length <= 32);
+        let mut values = Vec::new();
+        for _ in 0..length {
+            values.push(u64::from_le_bytes(
+                bytes[offset..offset + 8].try_into().unwrap(),
+            ));
+            offset += 8;
+        }
+        events.push((level, code, values));
+    }
+    assert_eq!(offset, bytes.len());
+    events
+}
 fn main() {
     let args: Vec<_> = std::env::args().collect();
     assert!([4, 5, 6].contains(&args.len()));
@@ -104,7 +132,12 @@ fn main() {
             source.join("source/src/target_checks.rs"),
         )
         .unwrap();
-        library.push_str("mod targets;mod target_checks;\n");
+        fs::copy(
+            here.join("calls_runtime.rs"),
+            source.join("source/src/calls_runtime.rs"),
+        )
+        .unwrap();
+        library.push_str("mod targets;mod target_checks;mod calls_runtime;\n");
         let fixture = source.join("source/src/fixture.rs");
         let original = fs::read_to_string(&fixture).unwrap();
         let marker = "crate::call_checks::call_verify()?;";
@@ -230,9 +263,14 @@ fn main() {
             || {},
         )
         .unwrap();
+        let mut observed = Vec::new();
         let end = Instant::now() + Duration::from_secs(120);
         loop {
             owner.dispatch(32);
+            let (batch, lost) = owner.host.take_diagnostics();
+            assert_eq!(lost, 0);
+            observed.extend(batch);
+            assert!(observed.len() <= 16384);
             if let Some(code) = owner.poll().unwrap() {
                 assert_eq!(code, 0, "{}", owner.diagnostics());
                 break;
@@ -245,23 +283,26 @@ fn main() {
             std::thread::sleep(Duration::from_millis(1));
         }
         assert_eq!(*samples.lock().unwrap(), [1234], "{}", owner.diagnostics());
-        let (events, dropped) = owner.host.take_diagnostics();
-        assert_eq!(dropped, 0);
-        assert_eq!(events.len(), 2);
-        assert_eq!(
-            (events[0].sequence, events[0].level, events[0].code),
-            (1, 2, 0x544b0002)
-        );
-        assert_eq!(&events[0].values[..3], &[0x12345678, 10023, 10023]);
-        assert_eq!(
-            &events[0].values[3..],
-            &[9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8]
-        );
-        assert_eq!(
-            (events[1].sequence, events[1].level, events[1].code),
-            (2, 2, 0x544b0001)
-        );
-        assert_eq!(events[1].values, [0, 1, 1]);
+        let (batch, lost) = owner.host.take_diagnostics();
+        assert_eq!(lost, 0);
+        observed.extend(batch);
+        let mut expected_events = read_events(&vectors.with_file_name("diagnostics"));
+        expected_events.push((
+            2,
+            0x544b0002,
+            vec![
+                0x12345678, 10023, 10023, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8,
+            ],
+        ));
+        expected_events.push((2, 0x544b0001, vec![0, 1, 1]));
+        assert_eq!(observed.len(), expected_events.len());
+        for (index, (event, expected)) in observed.iter().zip(&expected_events).enumerate() {
+            assert_eq!(event.sequence, index as u64 + 1);
+            assert_eq!(
+                (event.level, event.code, &event.values),
+                (expected.0, expected.1, &expected.2)
+            );
+        }
         owner.stop().unwrap();
         println!("PASS {target:?}: actual confined native execution of every generated reference vector through host-owned RAM services; in-memory output only");
         if call_targets.is_some() {

@@ -7,6 +7,7 @@ struct Candidate {
     unit: String,
     code: String,
     dependencies: BTreeSet<String>,
+    runtime_calls: u32,
 }
 fn definitions(source: syn::File) -> impl Iterator<Item = ItemFn> {
     source.items.into_iter().filter_map(|item| match item {
@@ -294,7 +295,8 @@ pub(super) fn run(
                 .or_default()
                 .push((*name).to_owned());
             match lower(function) {
-                Ok((function, dependencies)) => {
+                Ok((mut function, dependencies)) => {
+                    let runtime_calls = icall::count(&mut function);
                     locally_convertible += 1;
                     accepted.insert(
                         id,
@@ -302,6 +304,7 @@ pub(super) fn run(
                             unit: (*name).to_owned(),
                             code: function.to_token_stream().to_string(),
                             dependencies,
+                            runtime_calls,
                         },
                     );
                 }
@@ -318,7 +321,7 @@ pub(super) fn run(
     // bodies require explicit ownership review before any caller may use them.
     let duplicates = reject_duplicates(&owners, &mut accepted, &mut rejected);
     close_graph(&mut accepted, &mut rejected);
-    let graph=accepted.iter().map(|(name,c)| (name.clone(),serde_json::json!({"unit":c.unit,"dependencies":c.dependencies,"lowered_sha256":format!("{:x}",Sha256::digest(c.code.as_bytes()))}))).collect::<BTreeMap<_,_>>();
+    let graph=accepted.iter().map(|(name,c)| (name.clone(),serde_json::json!({"unit":c.unit,"dependencies":c.dependencies,"runtime_calls":c.runtime_calls,"lowered_sha256":format!("{:x}",Sha256::digest(c.code.as_bytes()))}))).collect::<BTreeMap<_,_>>();
     let total = owners.values().map(Vec::len).sum::<usize>();
     let emitted = if emit {
         emit_closed(&accepted, output)?
@@ -331,11 +334,15 @@ pub(super) fn run(
         "inventory_sha256":format!("{:x}",Sha256::digest(INVENTORY.as_bytes())),
         "converter_main_sha256":format!("{:x}",Sha256::digest(include_bytes!("main.rs"))),
         "converter_batch_sha256":format!("{:x}",Sha256::digest(include_bytes!("batch.rs"))),
+        "converter_icall_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall.rs"))),
+        "converter_icall_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_template.inc"))),
         "converter_lock_sha256":format!("{:x}",Sha256::digest(include_bytes!("../Cargo.lock"))),
         "units":units.iter().map(|(name,hash)|(*name,*hash)).collect::<BTreeMap<_,_>>(),
         "definitions":total,"unique_definitions":owners.len(),"locally_convertible_definitions":locally_convertible,
         "closed_definitions":accepted.len(),"duplicates":duplicates,"closed_graph":graph,"rejected":rejected,
         "emitted_files":emitted,
+        "runtime_call_functions":accepted.iter().filter(|(_,c)|c.runtime_calls!=0).map(|(n,c)|(n,c.runtime_calls)).collect::<BTreeMap<_,_>>(),
+        "closed_graph_scope":"literal direct dependencies only; runtime native routes remain partial and must fault on known but unmigrated targets",
         "qualification":"Maintainer lowering only; emitted candidates still require source admission, separate object audits and differential checks; no full-game behavior or device qualification"
     });
     fs::write(
@@ -353,6 +360,7 @@ mod tests {
             unit: "test.rs".into(),
             code: String::new(),
             dependencies: deps.iter().map(|s| (*s).to_owned()).collect(),
+            runtime_calls: 0,
         }
     }
     #[test]
@@ -366,6 +374,7 @@ mod tests {
                     unit: "synthetic.rs".into(),
                     code: format!("pub fn {name}(){{let padding=\"{}\";}}", "x".repeat(size)),
                     dependencies: BTreeSet::new(),
+                    runtime_calls: 0,
                 },
             );
         }
@@ -462,7 +471,7 @@ mod tests {
             } else {
                 format!("native_state.value+={index};")
             };
-            candidates.insert(name.clone(),Candidate{unit:"test.rs".into(),code:format!("pub fn {name}(native_state:&mut crate::registers::Registers,guest_ram:&mut crate::memory::Memory)->Result<(),i32>{{{body}Ok(())}}"),dependencies:if index==0 {BTreeSet::from(["sub_00000108".into()])}else{BTreeSet::new()}});
+            candidates.insert(name.clone(),Candidate{unit:"test.rs".into(),runtime_calls:0,code:format!("pub fn {name}(native_state:&mut crate::registers::Registers,guest_ram:&mut crate::memory::Memory)->Result<(),i32>{{{body}Ok(())}}"),dependencies:if index==0 {BTreeSet::from(["sub_00000108".into()])}else{BTreeSet::new()}});
         }
         let hashes = emit_closed(&candidates, &output).unwrap();
         assert_eq!(hashes.len(), 5);

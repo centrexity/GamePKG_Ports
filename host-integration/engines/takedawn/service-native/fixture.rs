@@ -173,7 +173,7 @@ fn fixture_execute() -> Result<(), i32> {
     let mut offset = 0u64;
     let mut header = [0u8; 8];
     fixture_read(handle, &mut offset, &mut header)?;
-    if header[..4] != [84, 75, 78, 54] {
+    if header[..4] != [84, 75, 78, 55] {
         return Err(-1);
     }
     let cases = u32::from_le_bytes([header[4], header[5], header[6], header[7]]);
@@ -196,7 +196,7 @@ fn fixture_execute() -> Result<(), i32> {
     if gamepkg::local_call(2, &commit, &mut [])? != 0 {
         return Err(-3);
     }
-    let mut ram = memory::Memory::new();
+    let mut ram = memory::Memory::new()?;
     ram.attach(0, 67108864, window, 0, true)?;
     let mut context = registers::Registers::new();
     for _ in 0..cases {
@@ -206,6 +206,9 @@ fn fixture_execute() -> Result<(), i32> {
         let mut state_bytes = [0u8; 240];
         fixture_read(handle, &mut offset, &mut state_bytes)?;
         context.decode(&state_bytes)?;
+        let mut bounds = [0u8; 8];
+        fixture_read(handle, &mut offset, &mut bounds)?;
+        ram.call_bounds(fixture_word(&bounds, 0), fixture_word(&bounds, 4))?;
         for (guest, count) in [
             (65536u32, 1024usize),
             (69632, 1024),
@@ -244,6 +247,17 @@ fn fixture_execute() -> Result<(), i32> {
                 return Err(-3);
             }
         }
+        let mut calls = [0u8; 76];
+        fixture_read(handle, &mut offset, &mut calls)?;
+        let (trace, index, total) = ram.call_snapshot()?;
+        for item in 0..16 {
+            if trace[item] != fixture_word(&calls, item * 4) {
+                return Err(-3);
+            }
+        }
+        if index != fixture_word(&calls, 64) || total != fixture_wide(&calls, 68) {
+            return Err(-3);
+        }
     }
     fixture_scalar_round(handle, &mut offset)?;
     fixture_scalar_parity(handle, &mut offset)?;
@@ -255,6 +269,7 @@ fn fixture_execute() -> Result<(), i32> {
     gamepkg::file_close(handle)?;
     crate::copy_checks::verify(&mut ram, window)?;
     crate::call_checks::call_verify()?;
+    crate::call_checks::call_memory_verify()?;
     // Unknown native call targets and unmapped data are hard failures.
     if dispatch::invoke(&mut context, &mut ram, 0xffffffff) != Err(-5) {
         return Err(-3);

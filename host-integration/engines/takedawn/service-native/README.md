@@ -42,7 +42,7 @@ private keys are included. Reference data is synthetic and generated locally.
 
 ## Contracts
 
-Requires app commit `af2c8b0f6e127325a292c390ee949d7dadcbe13c` or a compatible
+Requires app commit `efffad16cc4d49d82083bf7fe3e06be1954c5b7e` or a compatible
 later service SDK; stale executable receipts must be rebuilt.
 
 The admission fixture requests `Plan::with_codegen_units(4)` and requires two
@@ -91,12 +91,15 @@ callers are rejected, including identical definitions.
 The current inventory covers **24,015 distinct `sub_XXXXXXXX` definitions**,
 including recovered/unresolved sources. Named entrypoints and `_gen` variants
 need separate inclusion; this count is not the entire runnable title. Existing lowering
-rules recognize 21,218 locally; removing missing dependencies transitively leaves
-**17,343 closed candidates**, with 1,864 direct edges, including 1,218 across units.
-The other **6,672** definitions remain explicitly unconverted. There are no
+rules recognize 21,456 locally; removing missing dependencies transitively leaves
+**17,635 candidates closed over literal direct dependencies**, with 2,098 direct edges, including 1,372 across units.
+Runtime routes remain partial: 152 retained functions contain rewritten runtime
+calls, and known unmigrated destinations fail Unsupported. This is not a fully
+closed runtime graph. The other **6,380** definitions remain explicitly
+unconverted. There are no
 substitute bodies, dynamic native function pointers or unknown-target fallbacks.
 
-Prepared candidates use 2,190 Rust files (71,910,461 bytes). At most eight native
+Prepared candidates use 2,227 Rust files (73,818,894 bytes). At most eight native
 functions per module plus byte/token-aware splitting bound source size. An AST pass rewrites only direct function
 paths to their owning modules; literals are untouched. Binary selection routes
 call statically compiled functions directly, with at most logarithmic selection
@@ -120,19 +123,20 @@ python3 host-integration/engines/takedawn/service-native/check_inventory.py \
 python3 host-integration/engines/takedawn/service-native/check.py \
   --app /path/to/GamePKG/app \
   --app-lib /path/to/target/debug/deps/libgamepkg-HASH.rlib --wine \
-  --prepared /path/to/new-private-candidate-directory
+  --prepared /path/to/new-private-candidate-directory \
+  --call-targets /path/to/new-private-targets
 ```
 
 The whole graph passes source admission and separate optimized object auditing/
 trusted linking for Linux64/Linux32/Windows64/Windows32. Confined native Linux
-children execute 3,200 vectors with the complete graph linked, including 1,024
-new cases for original `sub_00244DF0`. **Semantic differential coverage is 32
-functions**; compiling/auditing
-17,343 functions does not establish the other functions' behavior. Windows
+children execute 3,712 vectors with the complete graph linked, including 1,024
+cases for original `sub_00244DF0` and 512 cases for original `sub_001FBAE0`.
+**Semantic differential coverage is 33 functions**; compiling/auditing
+17,635 functions does not establish the other functions' behavior. Windows
 reference comparisons execute under Wine; the prepared service executables
 are build evidence, not physical Windows gameplay. The full engine, ISO loader,
 kernel/media bridges, verified renderer, saves, input/audio, pacing and the
-remaining 6,672 functions still require migration/qualification before enablement.
+remaining 6,380 functions still require migration/qualification before enablement.
 
 ## Compacted control-flow contract
 
@@ -155,7 +159,7 @@ An additional explicitly invoked native test compares three original/converted
 CFG variants on 4,096 inputs each for every target (49,152 comparisons), covering
 ordinal values, first/final trap ordering, guarded effects and fault propagation.
 Windows executions use Wine. The 31-function kit reference suite has 2,176
-vectors per target. Private TKN6 vectors add signed extrema around the actual
+vectors per target. Private TKN7 vectors add signed extrema around the actual
 `0x463b14` load; register records remain 240 bytes, now version 3. Test files are not a
 public SDK/save ABI. No physical game/device/pacing evidence is implied.
 
@@ -193,7 +197,7 @@ or wider carry values and malformed helper signatures remain rejected.
 `fp_control_word` is an explicit u16 register value. Version-3 test records use
 bytes 46..48, previously reserved, keeping the total 240 bytes. No native layout
 or host FP state is shared. All 65,536 control words round-trip as data; this is
-not qualification of their rounding/exception behavior. TKN6 private vector
+not qualification of their rounding/exception behavior. TKN7 private vector
 files include bounded, batched scalar conformance records after function cases;
 old test containers fail their magic check. No public SDK/save ABI changed.
 
@@ -248,7 +252,7 @@ resulting Rust source and GamePKG compiler, with no Python or converter setup.
 
 Executed checks:
 
-- Seventeen regular converter/emitter tests cover pointer/TLS/alias/macro/platform/indirect-call
+- Nineteen regular converter/emitter tests cover pointer/TLS/alias/macro/platform/indirect-call
   rejection, address-width proof, mismatched memory widths, direct dependency
   recording, signatures and attributes. Maintainer strict clippy passes.
 - Every converted function matches its unchanged pinned reference in 2,176
@@ -307,7 +311,7 @@ actual mapped range. Counts negative on 32-bit hosts and overflow fail.
 The original matrix/copy routines `sub_00013D10` and `sub_00013E50` now have
 128 finite bounded input vectors each, covering both direction modes; all
 register bits and the whole committed 8 MiB remain exact comparisons. This
-does not qualify arbitrary matrix NaN propagation. Private TKN6 vectors add a
+does not qualify arbitrary matrix NaN propagation. Private TKN7 vectors add a
 seventh synthetic constant span; register records remain version 3.
 `copy_checks.rs` is itself source checked, separately optimized/object audited
 and run in confined Linux children: 1,048,593-byte copy with every byte checked,
@@ -345,7 +349,7 @@ rounding-bit cases and 836,808 signed integer-store cases match the unchanged
 `recomp_0007_001.rs`. Cases cover all exponent classes and all 65,536 control
 words, signed zero, subnormals, quiet/signaling NaNs, infinities, ties and
 neighbors of all three signed range limits. Invalid store widths reject.
-Private TKN6 vector trailers carry these results in bounded batches to actual
+Private TKN7 vector trailers carry these results in bounded batches to actual
 confined Linux32/Linux64 children; register records remain version 3/240 bytes.
 This qualifies these helpers' returned values, not x87 exception flags or the
 entire game's floating environment and behavior.
@@ -364,7 +368,7 @@ integer-range edges, signed zeros, subnormals, infinities and NaNs. Register bit
 and all committed 8 MiB RAM compare exactly; its 1,024 records also run in
 confined Linux32/Linux64 children linked with the complete candidate graph.
 The single-unit golden remains 31 functions/2,176 vectors; prepared runs cover
-32 functions/3,200 vectors, without treating other compiled functions as
+33 functions/3,712 vectors, without treating other compiled functions as
 semantically qualified. `sub_00244DF0` has no native function dependencies; its
 reference is extracted only from its exact hash-pinned unit, and its prepared
 body from an inventoried/hash-checked source file. No extra body is admitted
@@ -373,11 +377,9 @@ complete prepared tree before host bindings.
 
 ## Next resolver migration requirements
 
-The current highest-fanout rejections (`sub_000CDDD0`, `sub_000D4700`,
-`sub_000CCC90`, `sub_00063670` and `sub_001FBAE0`) share the generated indirect
-lookup sequence. This is still rejected, not a newly approved call mechanism.
-The inspected original `sub_001FBAE0` in pinned `recomp_0005_013.rs` establishes
-requirements for its future safe translation:
+The exact reviewed trace/lookup sequence is now lowered from pinned
+`sub_001FBAE0` in `recomp_0005_013.rs`. Unmatched or changed sequences remain
+rejected. The replacement preserves these original requirements:
 
 - Record the guest target, advance the bounded trace ring and wrapping call
   counter before validating the target. These need owned, bounded value state;
@@ -449,18 +451,39 @@ The target tool validates 106,272 original-table, neighbor/miss, random and
 reserved-range/alignment cases on each reference target. The admitted fixture
 checks those vectors through read-only private file grants in real Linux32/64
 children and verifies the host received the exact two synthetic diagnostic
-records. Source checks run before host bindings; all target-classifier and
+records plus original-call diagnostic records. Source checks run before host bindings; all target-classifier and
 call-state objects participate in the same strict audits as generated functions.
 Call-state tests on all four targets cover range edges, ring/counter wraparound,
 16-offender saturation, power-of-ten output and diagnostic error propagation.
 Windows reference execution is under Wine. There are no physical controls,
 audible audio, visible rendering, FPS or actual title-handler results here.
 
-The classifier/state are not yet substituted for the rejected original ICALL
-sequence. Remaining work is an exact template rewrite, shared per-title/thread
-state ownership, original fallback/stack behavior, and direct checked routing
-to migrated generated, manual and kernel bodies. Known-but-unmigrated entries
-must fault explicitly rather than becoming original lookup absence. The named
+The maintainer matcher compares all four original trace/lookup/fallback
+statements as one AST after narrowly scoped temporary/label normalization.
+Target and saved-stack values must be proven u32; TLS aliases must name ESP/EAX.
+Changed guards, masks, counters, lookup order, fallback assignments, marker
+strings, partial sequences or shadowed globals remain rejected. It emits one
+safe `calls_runtime::invoke_call` with direct generated dispatch. Original
+non-code and absent-table destinations preserve EAX/ESP fallback; known but
+unmigrated generated/manual/entry/kernel/soundtrack destinations return
+Unsupported rather than absence or success. No native callback or instruction
+interpreter is introduced.
+
+One title's trace/throttle state uses an opaque GamePKG atomic record. Memory
+views and workers explicitly copy its ID; 280-byte LE snapshots and bounded
+64-attempt compare/exchange updates retain coherent counters without importing
+platform mutexes into game objects. Release revokes all copied IDs. No lock is
+held across game execution or broker diagnostics. Numeric diagnostics follow
+a committed update; concurrent tasks need not publish them in counter order.
+The host reserves and limits records as documented in PORT_SERVICES.md.
+
+Reference execution now adds 512 original `sub_001FBAE0` cases on each of four
+targets, checking whole 8 MiB RAM, every register bit, trace and numeric logger
+fields/order against the unchanged pinned routine. Selected original generated
+callee, true table absence, non-code guards, zero/high ranges and fallback
+stack cleanup are exercised. Separate guard checks cover known unmigrated
+categories and revocation; they do not implement those handlers. Private
+vectors use TKN7 with code bounds and expected trace values. The named
 entrypoint and five `_gen` bodies also require inclusion in the function pipeline:
 
 | Symbol | Pinned source unit |
@@ -476,3 +499,10 @@ entrypoint and five `_gen` bodies also require inclusion in the function pipelin
 not an executable, admission receipt or title enablement. Full classifier source
 and vectors remain private verification outputs; players need no maintainer
 converter or Python. Source-kit/catalog pins and legacy gates remain unchanged.
+
+The next converter gap includes compacted-state lookup sequences whose trace
+writes and lookup/fallback body are split across different state arms (for
+example pinned `sub_000CDDD0`). They do not match the reviewed contiguous
+four-statement template and remain rejected. Any further rewrite must prove
+those transitions and preserve control flow; do not admit indirect calls or
+flatten arbitrary state arms to increase inventory counts.

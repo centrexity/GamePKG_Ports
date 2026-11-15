@@ -12,6 +12,7 @@ const SPANS: [(u32, usize); 7] = [
 fn reference_case_count(address: u32) -> u32 {
     match address {
         0x13f10 | 0x244df0 => 1024,
+        0x1fbae0 => 512,
         0x13d10 | 0x13e50 => 128,
         _ => 32,
     }
@@ -103,6 +104,20 @@ fn compare_case(
         r.fp_stack[r.fp_top as usize] = f64::from_bits(bits);
         r.fp_control_word = 0x037f | ((iteration / 40 % 4) as u16) << 10;
     }
+    let bounds = if address == 0x1fbae0 {
+        match iteration / 4 % 4 {
+            0 => (0, 0),
+            1 => (0x10000, 0x20000),
+            2 => (0x16000, 0x20000),
+            _ => (1, 0),
+        }
+    } else {
+        (0, 0)
+    };
+    ram.call_bounds(bounds.0, bounds.1).unwrap();
+    unsafe {
+        oracle::call_bounds(bounds.0, bounds.1);
+    }
     let input_state = r.encode();
     let mut initial = Vec::new();
     for &(base, count) in &SPANS {
@@ -163,6 +178,26 @@ fn compare_case(
         if base == 0x3a34a0 {
             bytes[24..28].copy_from_slice(&1.0f32.to_bits().to_le_bytes());
         }
+        if address == 0x1fbae0 {
+            if base == 0x10000 {
+                bytes[..4].copy_from_slice(&0x10100u32.to_le_bytes());
+                bytes[4..8].copy_from_slice(&0x11000u32.to_le_bytes());
+            }
+            if base == 0x11000 {
+                bytes[4..8].copy_from_slice(&0x11100u32.to_le_bytes());
+                let target = match iteration % 4 {
+                    0 | 1 => 0x155a0u32,
+                    2 => 0x8000 + (iteration % 24) * 4,
+                    _ => 0,
+                };
+                bytes[256..260].copy_from_slice(&target.to_le_bytes());
+            }
+            if base == 0x1fe00 {
+                let at = (r.esp - base) as usize;
+                bytes[at + 4..at + 8].copy_from_slice(&0x10000u32.to_le_bytes());
+                bytes[at + 8..at + 12].fill(0);
+            }
+        }
         ram.write_bytes(base, &bytes).unwrap();
         reference[base as usize..base as usize + count].copy_from_slice(&bytes);
         initial.extend(bytes);
@@ -173,6 +208,13 @@ fn compare_case(
     }
     let expected = unsafe { oracle::capture() };
     dispatch::invoke(&mut r, ram, address).unwrap();
+    let expected_calls = unsafe { oracle::call_snapshot() };
+    assert_eq!(
+        ram.call_snapshot().unwrap(),
+        expected_calls,
+        "call trace mismatch at {address:08x}, vector {iteration}"
+    );
+    compare_call_events();
     assert_eq!(
         r.encode(),
         expected,
@@ -191,25 +233,32 @@ fn compare_case(
     if let Some(file) = output {
         file.write_all(&address.to_le_bytes()).unwrap();
         file.write_all(&input_state).unwrap();
+        file.write_all(&bounds.0.to_le_bytes()).unwrap();
+        file.write_all(&bounds.1.to_le_bytes()).unwrap();
         file.write_all(&initial).unwrap();
         file.write_all(&expected).unwrap();
         for &(base, count) in &SPANS {
             file.write_all(&reference[base as usize..base as usize + count])
                 .unwrap();
         }
+        for value in expected_calls.0 {
+            file.write_all(&value.to_le_bytes()).unwrap();
+        }
+        file.write_all(&expected_calls.1.to_le_bytes()).unwrap();
+        file.write_all(&expected_calls.2.to_le_bytes()).unwrap();
     }
 }
 fn memory_boundaries(ram: &mut memory::Memory, window: u64) {
     assert_eq!(ram.write_bytes(0, &vec![0; 1048561]), Err(-1));
     assert_eq!(ram.read_bytes(0, &mut vec![0; 1048577]), Err(-1));
-    let mut mirror = memory::Memory::new();
+    let mut mirror = ram.call_view();
     mirror
         .attach(0x80000000, 0x4000000, window, 0, true)
         .unwrap();
     assert_eq!(mirror.read_u32(0x80010000), ram.read_u32(0x10000));
     mirror.write_u32(0x80010001, 0x12345678).unwrap();
     assert_eq!(ram.read_u32(0x10001), Ok(0x12345678));
-    let mut ro = memory::Memory::new();
+    let mut ro = ram.call_view();
     ro.attach(0, 0x1000, window, 0, false).unwrap();
     assert_eq!(ro.write_u8(0, 0), Err(-4));
     assert_eq!(ram.attach(0, 1, window, 0, true), Err(-1));
@@ -586,7 +635,7 @@ fn main() {
     let window = owner.windows().unwrap()[0].0;
     owner.commit(window, 0, 8 * 1024 * 1024, 2).unwrap();
     local::install(owner).unwrap();
-    let mut ram = memory::Memory::new();
+    let mut ram = memory::Memory::new().unwrap();
     ram.attach(0, 0x04000000, window, 0, true).unwrap();
     let mut output = if args.len() == 2 {
         Some(File::create(Path::new(&args[1])).unwrap())
@@ -598,7 +647,7 @@ fn main() {
         .map(|address| reference_case_count(*address))
         .sum();
     if let Some(file) = &mut output {
-        file.write_all(b"TKN6").unwrap();
+        file.write_all(b"TKN7").unwrap();
         file.write_all(&count.to_le_bytes()).unwrap();
     }
     let mut reference = vec![0u8; 8 * 1024 * 1024];
@@ -616,6 +665,10 @@ fn main() {
             );
         }
     }
+    if args.len() == 2 {
+        write_call_events(Path::new(&args[1]).with_file_name("diagnostics").as_path());
+    }
+    compare_runtime_guards();
     compare_scalar_helpers(&mut output);
     copy_checks::verify(&mut ram, window).unwrap();
     memory_boundaries(&mut ram, window);

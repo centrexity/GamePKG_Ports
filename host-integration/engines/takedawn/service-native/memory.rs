@@ -10,12 +10,84 @@ struct Span {
 }
 pub struct Memory {
     spans: std::vec::Vec<Span>,
+    calls: u64,
 }
 impl Memory {
-    pub fn new() -> Self {
+    pub fn new() -> Result<Self, i32> {
+        let initial = crate::call_state::CallState::call_default().call_encode();
+        Ok(Self {
+            spans: std::vec::Vec::new(),
+            calls: gamepkg::local_record_create(&initial)?,
+        })
+    }
+    // One title's views/tasks explicitly share an opaque GamePKG record ID.
+    // The record lives until explicit release or local-runtime revocation.
+    pub fn call_view(&self) -> Self {
         Self {
             spans: std::vec::Vec::new(),
+            calls: self.calls,
         }
+    }
+    pub fn call_handle(&self) -> u64 {
+        self.calls
+    }
+    pub fn with_call_handle(record: u64) -> Result<Self, i32> {
+        let (_, bytes) = gamepkg::local_record_snapshot(record, 280)?;
+        crate::call_state::CallState::call_decode(&bytes)?;
+        Ok(Self {
+            spans: std::vec::Vec::new(),
+            calls: record,
+        })
+    }
+    pub fn call_bounds(&self, low: u32, high: u32) -> Result<(), i32> {
+        for _ in 0..64 {
+            let (version, bytes) = gamepkg::local_record_snapshot(self.calls, 280)?;
+            let mut state = crate::call_state::CallState::call_decode(&bytes)?;
+            state.call_set_bounds(low, high)?;
+            match gamepkg::local_record_compare_exchange(self.calls, version, &state.call_encode())
+            {
+                Ok(_) => return Ok(()),
+                Err(-2) => {}
+                Err(error) => return Err(error),
+            }
+        }
+        Err(-2)
+    }
+    pub fn call_begin(&self, target: u32) -> Result<bool, i32> {
+        for _ in 0..64 {
+            let (version, bytes) = gamepkg::local_record_snapshot(self.calls, 280)?;
+            let mut state = crate::call_state::CallState::call_decode(&bytes)?;
+            let call_is_code = state.call_record(target);
+            let values = if call_is_code {
+                None
+            } else {
+                state.call_noncode_values(target)
+            };
+            match gamepkg::local_record_compare_exchange(self.calls, version, &state.call_encode())
+            {
+                Ok(_) => {
+                    if let Some(words) = values {
+                        gamepkg::diagnostic(2, 0x544b0001, &words)?;
+                    }
+                    return Ok(call_is_code);
+                }
+                Err(-2) => {}
+                Err(error) => return Err(error),
+            }
+        }
+        Err(-2)
+    }
+    pub fn call_absent(&self, target: u32) -> Result<(), i32> {
+        let (_, bytes) = gamepkg::local_record_snapshot(self.calls, 280)?;
+        let state = crate::call_state::CallState::call_decode(&bytes)?;
+        gamepkg::diagnostic(2, 0x544b0002, &state.call_missing_values(target))?;
+        Ok(())
+    }
+    pub fn call_snapshot(&self) -> Result<([u32; 16], u32, u64), i32> {
+        let (_, bytes) = gamepkg::local_record_snapshot(self.calls, 280)?;
+        let state = crate::call_state::CallState::call_decode(&bytes)?;
+        let (index, total) = state.call_counters();
+        Ok((state.call_trace(), index, total))
     }
     pub fn attach(
         &mut self,

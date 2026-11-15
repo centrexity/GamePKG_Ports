@@ -3,22 +3,22 @@
   "production_ready": false,
   "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
   "inventory_sha256": "7d7ab7a7cfd00067396a84a82c055a588e308bc8cdc0a94451232cf0f8f12169",
-  "converter_main_sha256": "27a3ba427f9876b83a187ad5cc34b276aeccf1bbe817eb2c1b04ee5ab6d26fc4",
-  "converter_batch_sha256": "5af1e4c41bd0e15f16e7a0ad71c392c42515c974f7587c295754b6e86863a9ed",
+  "converter_main_sha256": "8da6cd9335fbf00647702846c85d550a936ee506fc06fe5a76bf91cd785c5f40",
+  "converter_batch_sha256": "75353afff67efdf3140a236272e013dd9dd573630c6763c75a3f98fe44d4da5c",
   "converter_lock_sha256": "6d55a2c76709a6c1825c3fc3c9ac08e03d6e140635858336762f4ac2595a5259",
   "definitions": 24015,
   "unique_definitions": 24015,
-  "locally_convertible_definitions": 21218,
-  "closed_definitions": 17343,
+  "locally_convertible_definitions": 21456,
+  "closed_definitions": 17635,
   "source_units": 485,
-  "candidate_source_files": 2190,
-  "candidate_source_bytes": 71910461,
-  "direct_closed_edges": 1864,
-  "cross_unit_closed_edges": 1218,
+  "candidate_source_files": 2227,
+  "candidate_source_bytes": 73818894,
+  "direct_closed_edges": 2098,
+  "cross_unit_closed_edges": 1372,
   "duplicate_symbols": 0,
-  "unconverted_unique_definitions": 6672,
-  "closed_graph_sha256": "f70090112148192e6c02e002610162c7d27260adf157598772b5cc5eff2a8d34",
-  "emitted_inventory_sha256": "811486a45aeb9d646ecdfba8512a83e73ce58882a02840a1856847bffd9b913d",
+  "unconverted_unique_definitions": 6380,
+  "closed_graph_sha256": "dd67a39b3739ec3b15748fd6d03025c72450f3bfb8d24e983190e32c6e13cb2b",
+  "emitted_inventory_sha256": "385797898935e9dbf6b82b7f5b8073707be6b02f55c3bf1564945bee0c2cb075",
   "most_blocking_dependencies": [
     [
       "sub_000CDDD0",
@@ -53,24 +53,16 @@
       56
     ],
     [
+      "sub_002447BF",
+      55
+    ],
+    [
       "sub_001B2C60",
       54
-    ],
-    [
-      "sub_002447BF",
-      54
-    ],
-    [
-      "sub_003518E0",
-      48
-    ],
-    [
-      "sub_000146E0",
-      47
     ]
   ],
-  "semantic_reference_functions": 32,
-  "semantic_reference_vectors_per_target": 3200,
+  "semantic_reference_functions": 33,
+  "semantic_reference_vectors_per_target": 3712,
   "synthetic_control_flow_comparisons_per_target": 12288,
   "synthetic_control_flow_variants": 3,
   "round24_reference_cases_per_target": 114688,
@@ -79,7 +71,7 @@
   "control_word_records_per_target": 65536,
   "register_record_version": 3,
   "register_record_bytes": 240,
-  "vector_container": "TKN6",
+  "vector_container": "TKN7",
   "compiler_memory_bytes": 12884901888,
   "qualification": "Candidate inventory/source facts; see README for actual build checks. Scalar FP value checks use the default host FP environment; no exception-flag, nondefault rounding, full-game, device or pacing qualification.",
   "copy_conformance_bytes_per_target": 1048593,
@@ -90,5 +82,10 @@
   "single_unit_reference_vectors_per_target": 2176,
   "integer_store_function_reference_cases_per_target": 1024,
   "compiler_codegen_units": 4,
-  "definition_scope": "sub_XXXXXXXX only; named entrypoint and five _gen bodies still require inclusion"
+  "definition_scope": "sub_XXXXXXXX only; named entrypoint and five _gen bodies still require inclusion",
+  "converter_icall_sha256": "b0f691048eca4b61dad1b6abcfb32de87cd8510fbd65066a610647b57c2c4d85",
+  "converter_icall_pattern_sha256": "2610d0cf8e13c604631cefb56deed07262ac63fde336dd2c39711a21d0319405",
+  "closed_graph_scope": "literal direct dependencies only; runtime native routes remain partial and must fault on known but unmigrated targets",
+  "runtime_call_functions": 152,
+  "runtime_call_function_reference_cases_per_target": 512
 }

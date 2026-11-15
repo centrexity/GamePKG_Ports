@@ -15,6 +15,40 @@ mod gamepkg {
 mod call_state {
     include!("call_state.rs");
     #[test]
+    fn ledger_codec_is_fixed_little_endian_and_rejects_malformed_owned_data() {
+        let mut value = CallState::call_new(0x11223344, 0x55667788).unwrap();
+        value.index = u32::MAX;
+        value.total = u64::MAX;
+        value.used = 16;
+        for index in 0..16 {
+            value.trace[index] = index as u32 * 0x01010101;
+            value.seen[index] = index as u32;
+            value.hits[index] = u64::MAX - index as u64;
+        }
+        let bytes = value.call_encode();
+        assert_eq!(bytes.len(), 280);
+        assert_eq!(
+            &bytes[..8],
+            &[0x44, 0x33, 0x22, 0x11, 0x88, 0x77, 0x66, 0x55]
+        );
+        assert_eq!(&bytes[72..84], &[255; 12]);
+        assert_eq!(CallState::call_decode(&bytes).unwrap().call_encode(), bytes);
+        assert!(CallState::call_decode(&bytes[..279]).is_err());
+        assert!(CallState::call_decode(&[bytes.clone(), vec![0]].concat()).is_err());
+        let mut malformed = bytes.clone();
+        malformed[84..88].copy_from_slice(&17u32.to_le_bytes());
+        assert!(CallState::call_decode(&malformed).is_err());
+        malformed = bytes.clone();
+        malformed[92..96].copy_from_slice(&0u32.to_le_bytes());
+        assert!(CallState::call_decode(&malformed).is_err());
+        malformed = CallState::call_default().call_encode();
+        malformed[88] = 1;
+        assert!(CallState::call_decode(&malformed).is_err());
+        malformed = CallState::call_default().call_encode();
+        malformed[152] = 1;
+        assert!(CallState::call_decode(&malformed).is_err());
+    }
+    #[test]
     fn ring_bounds_zero_high_kernel_classification_and_wrapping_counters() {
         let mut value = CallState::call_new(10, 20).unwrap();
         for target in 0..1000 {

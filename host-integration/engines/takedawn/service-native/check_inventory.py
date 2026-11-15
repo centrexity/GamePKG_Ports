@@ -19,6 +19,8 @@ def validate(report, here, output, expected):
     for field, path in [
         ('converter_main_sha256', here/'maintainer/src/main.rs'),
         ('converter_batch_sha256', here/'maintainer/src/batch.rs'),
+        ('converter_icall_sha256',here/'maintainer/src/icall.rs'),
+        ('converter_icall_pattern_sha256',here/'maintainer/src/icall_template.inc'),
         ('converter_lock_sha256', here/'maintainer/Cargo.lock'),
         ('inventory_sha256', here/'maintainer/reviewed_units.tsv'),
     ]:

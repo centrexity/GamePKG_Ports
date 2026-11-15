@@ -1,5 +1,6 @@
 //! Maintainer-only AST converter, not a runtime or game dependency.
 mod batch;
+mod icall;
 use proc_macro2::Span;
 use quote::{format_ident, quote, ToTokens};
 use sha2::{Digest, Sha256};
@@ -761,7 +762,16 @@ impl VisitMut for Lower {
         let outer_tls = self.tls.clone();
         let outer_enums = self.enums.clone();
         let mut statements = Vec::new();
-        for mut statement in std::mem::take(&mut block.stmts) {
+        let mut remaining = std::mem::take(&mut block.stmts).into_iter();
+        while !remaining.as_slice().is_empty() {
+            if let Some(statement) = icall::rewrite(remaining.as_slice(), self) {
+                for _ in 0..4 {
+                    remaining.next();
+                }
+                statements.push(statement);
+                continue;
+            }
+            let mut statement = remaining.next().unwrap();
             if self.tls_local(&statement) || self.enum_local(&statement) {
                 continue;
             }
@@ -1311,6 +1321,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         output.join("oracle_helpers.rs"),
         quote!(#(#original_helpers)*).to_string(),
     )?;
+    let runtime_call_functions = accepted
+        .iter_mut()
+        .filter_map(|(name, (function, _))| {
+            let count = icall::count(function);
+            (count != 0).then_some((name.clone(), count))
+        })
+        .collect::<BTreeMap<_, _>>();
     let originals = accepted.keys().map(|n| &original[n]).collect::<Vec<_>>();
     fs::write(output.join("oracle.rs"), quote!(#(#originals)*).to_string())?;
     let mut routes = Vec::new();
@@ -1354,7 +1371,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         return Err("generated Rust formatting failed".into());
     }
-    let provenance = serde_json::json!({"schema":1,"register_record_version":3,"register_record_bytes":240,"float_arithmetic_nan_policy":"quiet-first-NaN-preserve-sign-and-payload","generator_source_sha256":format!("{:x}",Sha256::digest(include_bytes!("main.rs"))),"generator_batch_sha256":format!("{:x}",Sha256::digest(include_bytes!("batch.rs"))),"generator_inventory_sha256":format!("{:x}",Sha256::digest(include_bytes!("../reviewed_units.tsv"))),"generator_lock_sha256":format!("{:x}",Sha256::digest(include_bytes!("../Cargo.lock"))),"formatter_version":String::from_utf8(formatter.stdout)?.trim(),"game_sha256":format!("{:x}",Sha256::digest(fs::read(output.join("game.rs"))?)),"dispatch_sha256":format!("{:x}",Sha256::digest(fs::read(output.join("dispatch.rs"))?)),"input_sha256":source_hash,"source_kit_sha256":"6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4","converted":accepted.keys().collect::<Vec<_>>(),"rejected":rejected,"production_ready":false});
+    let provenance = serde_json::json!({"schema":1,"register_record_version":3,"register_record_bytes":240,"float_arithmetic_nan_policy":"quiet-first-NaN-preserve-sign-and-payload","generator_source_sha256":format!("{:x}",Sha256::digest(include_bytes!("main.rs"))),"generator_batch_sha256":format!("{:x}",Sha256::digest(include_bytes!("batch.rs"))),"generator_icall_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall.rs"))),"generator_icall_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_template.inc"))),"generator_inventory_sha256":format!("{:x}",Sha256::digest(include_bytes!("../reviewed_units.tsv"))),"generator_lock_sha256":format!("{:x}",Sha256::digest(include_bytes!("../Cargo.lock"))),"formatter_version":String::from_utf8(formatter.stdout)?.trim(),"game_sha256":format!("{:x}",Sha256::digest(fs::read(output.join("game.rs"))?)),"dispatch_sha256":format!("{:x}",Sha256::digest(fs::read(output.join("dispatch.rs"))?)),"input_sha256":source_hash,"source_kit_sha256":"6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4","runtime_call_functions":runtime_call_functions,"converted":accepted.keys().collect::<Vec<_>>(),"rejected":rejected,"production_ready":false});
     fs::write(
         output.join("provenance.json"),
         serde_json::to_vec_pretty(&provenance)?,

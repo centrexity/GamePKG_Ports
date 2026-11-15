@@ -30,7 +30,7 @@ pub fn verify(ram: &mut memory::Memory, window: u64) -> Result<(), i32> {
     }
     // Reject overlapping physical backing even through numerically disjoint
     // guest aliases; rejection cannot alter the destination sentinel.
-    let mut alias = memory::Memory::new();
+    let mut alias = ram.call_view();
     alias.attach(0, 67108864, window, 0, true)?;
     alias.attach(0x80000000, 67108864, window, 0, true)?;
     alias.attach(0x90000000, 4096, window, 0, false)?;
