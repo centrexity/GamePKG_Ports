@@ -27,13 +27,23 @@ GamePKG-owned mailboxes; the actual generated engine still needs to call it.
 Timestamp/retention/UI and original Windows rename retry timing remain pending.
 This is not actual game or Windows worker-runtime qualification.
 
+First generated-game migration: [service-native/README.md](service-native/README.md)
+now contains 24 checked direct native functions from one pinned 50-function unit,
+explicit register values, and safe offsets over GamePKG-owned RAM. The remaining
+26 functions in that unit have explicit exclusions, not fallbacks. Each target
+passes 1760 original-body register/whole-RAM comparisons (Linux32/64 native,
+Windows32/64 under Wine). Exact source/object admission passes on all four;
+actual confined Linux children execute the vectors. This is an incomplete
+component, not a complete kit, actual title entry or game-performance result.
+
 The current application contract is GamePKG commit
-`f1dd3fb8359f6524d7a5ca00f7a282b99a9f124b`:
+`62f3a61f002cd89707952ef415d772feafca8dc8`:
 
 - `docs/PORT_SERVICES.md`: exact wire/API, resource, permission and error contracts.
 - `docs/FILE_RECOVERY_SERVICE_HANDOFF.md`: presence, directory and local text contracts.
 - `docs/STARTUP_RECOVERY_HANDOFF.md`: startup/export contracts and native interruption evidence.
 - `docs/TAKEDAWN_SERVICE_HANDOFF.md`: builder, launcher, rendering and remaining work.
+- `docs/NATIVE_FUNCTION_MIGRATION.md`: checked native-function/RAM component and its limitations.
 - `docs/NVI1.md`: verified program representation and reserved-value checks.
 - `docs/TAKEDAWN_SERVICE_VALIDATION.md`: infrastructure test scope and limitations.
 
