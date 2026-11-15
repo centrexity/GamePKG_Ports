@@ -3,66 +3,74 @@
   "production_ready": false,
   "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
   "inventory_sha256": "7d7ab7a7cfd00067396a84a82c055a588e308bc8cdc0a94451232cf0f8f12169",
-  "converter_main_sha256": "8da6cd9335fbf00647702846c85d550a936ee506fc06fe5a76bf91cd785c5f40",
-  "converter_batch_sha256": "75353afff67efdf3140a236272e013dd9dd573630c6763c75a3f98fe44d4da5c",
+  "converter_main_sha256": "0de41f7b8e065cadaad197ca0156fa350f331350f0b2d133af6d77e6dbbc3fda",
+  "converter_batch_sha256": "bef7c8dacd9b5d93d8020e35cb0b84f8d45a159059318ca93a97b37bc9ae6a31",
   "converter_lock_sha256": "6d55a2c76709a6c1825c3fc3c9ac08e03d6e140635858336762f4ac2595a5259",
   "definitions": 24015,
   "unique_definitions": 24015,
-  "locally_convertible_definitions": 21456,
-  "closed_definitions": 17635,
+  "locally_convertible_definitions": 22237,
+  "closed_definitions": 18002,
   "source_units": 485,
-  "candidate_source_files": 2227,
-  "candidate_source_bytes": 73818894,
-  "direct_closed_edges": 2098,
-  "cross_unit_closed_edges": 1372,
+  "candidate_source_files": 2273,
+  "candidate_source_bytes": 87013871,
+  "direct_closed_edges": 2639,
+  "cross_unit_closed_edges": 1749,
   "duplicate_symbols": 0,
-  "unconverted_unique_definitions": 6380,
-  "closed_graph_sha256": "dd67a39b3739ec3b15748fd6d03025c72450f3bfb8d24e983190e32c6e13cb2b",
-  "emitted_inventory_sha256": "385797898935e9dbf6b82b7f5b8073707be6b02f55c3bf1564945bee0c2cb075",
+  "unconverted_unique_definitions": 6013,
+  "closed_graph_sha256": "9fb69680dd4272746e1ee90c346b49b1b61ae91b2d87fafe90534e112157e36e",
+  "emitted_inventory_sha256": "3c91aa94e9d42dd163f943c604384124b98e63d8197310633cbf4eb70865637e",
   "most_blocking_dependencies": [
     [
-      "sub_000CDDD0",
-      75
-    ],
-    [
-      "sub_000D4700",
-      73
-    ],
-    [
       "sub_00063670",
-      71
-    ],
-    [
-      "sub_000CCC90",
-      71
+      77
     ],
     [
       "sub_00141010",
-      62
+      75
     ],
     [
-      "sub_000CBE40",
-      62
+      "sub_002447BF",
+      63
+    ],
+    [
+      "sub_001B2C60",
+      60
     ],
     [
       "sub_001C69C0",
       59
     ],
     [
+      "sub_001FEDC0",
+      59
+    ],
+    [
       "sub_000B9620",
-      56
+      58
     ],
     [
-      "sub_002447BF",
-      55
-    ],
-    [
-      "sub_001B2C60",
+      "sub_0031B4D8",
       54
+    ],
+    [
+      "sub_001D192B",
+      52
+    ],
+    [
+      "sub_000146E0",
+      51
+    ],
+    [
+      "sub_003518E0",
+      50
+    ],
+    [
+      "sub_001D1953",
+      50
     ]
   ],
-  "semantic_reference_functions": 33,
-  "semantic_reference_vectors_per_target": 3712,
+  "semantic_reference_functions": 34,
+  "semantic_reference_vectors_per_target": 3968,
   "synthetic_control_flow_comparisons_per_target": 12288,
   "synthetic_control_flow_variants": 3,
   "round24_reference_cases_per_target": 114688,
@@ -83,9 +91,13 @@
   "integer_store_function_reference_cases_per_target": 1024,
   "compiler_codegen_units": 4,
   "definition_scope": "sub_XXXXXXXX only; named entrypoint and five _gen bodies still require inclusion",
-  "converter_icall_sha256": "b0f691048eca4b61dad1b6abcfb32de87cd8510fbd65066a610647b57c2c4d85",
+  "converter_icall_sha256": "b4b8d101dd71e1beae9acf2507b757baf2c7ec382b5f3e9e8abab9e9e1e76318",
   "converter_icall_pattern_sha256": "2610d0cf8e13c604631cefb56deed07262ac63fde336dd2c39711a21d0319405",
   "closed_graph_scope": "literal direct dependencies only; runtime native routes remain partial and must fault on known but unmigrated targets",
-  "runtime_call_functions": 152,
-  "runtime_call_function_reference_cases_per_target": 512
+  "runtime_call_functions": 357,
+  "runtime_call_function_reference_cases_per_target": 512,
+  "converter_icall_compacted_sha256": "562330c1fbcb09ad7f4cab0bbcc563867685430968fb22e156f8e43e07f98857",
+  "converter_icall_compacted_pattern_sha256": "8fd80ad1c27069b724a061b241a59c443a6955bffbface366da9057cb0d91f21",
+  "compacted_call_graph_reference_cases_per_target": 7680,
+  "compacted_call_function_reference_cases_per_target": 256
 }

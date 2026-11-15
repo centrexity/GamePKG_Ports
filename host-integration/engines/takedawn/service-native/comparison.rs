@@ -13,6 +13,7 @@ fn reference_case_count(address: u32) -> u32 {
     match address {
         0x13f10 | 0x244df0 => 1024,
         0x1fbae0 => 512,
+        0x243450 => 256,
         0x13d10 | 0x13e50 => 128,
         _ => 32,
     }
@@ -104,7 +105,8 @@ fn compare_case(
         r.fp_stack[r.fp_top as usize] = f64::from_bits(bits);
         r.fp_control_word = 0x037f | ((iteration / 40 % 4) as u16) << 10;
     }
-    let bounds = if address == 0x1fbae0 {
+    if address==0x243450 {r.eax=0x10000+(iteration/16%6)*4;}
+    let bounds = if address==0x243450 {if iteration%2==0 {(0,0)}else{(0x10000,0x20000)}} else if address == 0x1fbae0 {
         match iteration / 4 % 4 {
             0 => (0, 0),
             1 => (0x10000, 0x20000),
@@ -149,6 +151,11 @@ fn compare_case(
                 ][iteration as usize % 8]
                     .to_le_bytes(),
             );
+        }
+        if base==0x1fe00 && address==0x243450 {
+            let at=(r.esp-base) as usize;
+            let target=[0x15590u32,0x155a0,0x155e0,0x15600][iteration as usize%4];
+            for (offset,value) in [(4,0x10000u32),(8,4),(12,target)] {bytes[at+offset..at+offset+4].copy_from_slice(&value.to_le_bytes());}
         }
         if base == 0x1fe00 && matches!(address, 0x13bd0 | 0x13ca0) {
             let at = (r.esp - base) as usize;

@@ -1,7 +1,7 @@
 //! Match the complete reviewed trace/lookup/fallback sequence, never a loose
 //! function-pointer idiom. This code is maintainer tooling, not game runtime.
 use super::*;
-fn temporary(name: &str, base: &str) -> bool {
+pub(super) fn temporary(name: &str, base: &str) -> bool {
     name == base
         || name
             .strip_prefix(&format!("{base}_"))
@@ -19,7 +19,7 @@ fn assignment(statement: &Stmt) -> Option<&syn::ExprAssign> {
         _ => None,
     }
 }
-fn tls_lhs(expr: &Expr) -> Option<String> {
+pub(super) fn tls_lhs(expr: &Expr) -> Option<String> {
     let Expr::Unary(u) = plain(expr) else {
         return None;
     };
@@ -28,9 +28,9 @@ fn tls_lhs(expr: &Expr) -> Option<String> {
     }
     path(&u.expr)
 }
-struct Normalize {
-    names: BTreeMap<String, String>,
-    labels: BTreeMap<String, String>,
+pub(super) struct Normalize {
+    pub(super) names: BTreeMap<String, String>,
+    pub(super) labels: BTreeMap<String, String>,
 }
 impl VisitMut for Normalize {
     fn visit_ident_mut(&mut self, ident: &mut syn::Ident) {

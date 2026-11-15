@@ -91,15 +91,15 @@ callers are rejected, including identical definitions.
 The current inventory covers **24,015 distinct `sub_XXXXXXXX` definitions**,
 including recovered/unresolved sources. Named entrypoints and `_gen` variants
 need separate inclusion; this count is not the entire runnable title. Existing lowering
-rules recognize 21,456 locally; removing missing dependencies transitively leaves
-**17,635 candidates closed over literal direct dependencies**, with 2,098 direct edges, including 1,372 across units.
-Runtime routes remain partial: 152 retained functions contain rewritten runtime
+rules recognize 22,237 locally; removing missing dependencies transitively leaves
+**18,002 candidates closed over literal direct dependencies**, with 2,639 direct edges, including 1,749 across units.
+Runtime routes remain partial: 357 retained functions contain rewritten runtime
 calls, and known unmigrated destinations fail Unsupported. This is not a fully
-closed runtime graph. The other **6,380** definitions remain explicitly
+closed runtime graph. The other **6,013** definitions remain explicitly
 unconverted. There are no
 substitute bodies, dynamic native function pointers or unknown-target fallbacks.
 
-Prepared candidates use 2,227 Rust files (73,818,894 bytes). At most eight native
+Prepared candidates use 2,273 Rust files (87,013,871 bytes). At most eight native
 functions per module plus byte/token-aware splitting bound source size. An AST pass rewrites only direct function
 paths to their owning modules; literals are untouched. Binary selection routes
 call statically compiled functions directly, with at most logarithmic selection
@@ -129,14 +129,14 @@ python3 host-integration/engines/takedawn/service-native/check.py \
 
 The whole graph passes source admission and separate optimized object auditing/
 trusted linking for Linux64/Linux32/Windows64/Windows32. Confined native Linux
-children execute 3,712 vectors with the complete graph linked, including 1,024
+children execute 3,968 vectors with the complete graph linked, including 1,024
 cases for original `sub_00244DF0` and 512 cases for original `sub_001FBAE0`.
-**Semantic differential coverage is 33 functions**; compiling/auditing
-17,635 functions does not establish the other functions' behavior. Windows
+**Semantic differential coverage is 34 functions**; compiling/auditing
+18,002 functions does not establish the other functions' behavior. Windows
 reference comparisons execute under Wine; the prepared service executables
 are build evidence, not physical Windows gameplay. The full engine, ISO loader,
 kernel/media bridges, verified renderer, saves, input/audio, pacing and the
-remaining 6,380 functions still require migration/qualification before enablement.
+remaining 6,013 functions still require migration/qualification before enablement.
 
 ## Compacted control-flow contract
 
@@ -252,7 +252,7 @@ resulting Rust source and GamePKG compiler, with no Python or converter setup.
 
 Executed checks:
 
-- Nineteen regular converter/emitter tests cover pointer/TLS/alias/macro/platform/indirect-call
+- Twenty-two regular converter/emitter tests cover pointer/TLS/alias/macro/platform/indirect-call
   rejection, address-width proof, mismatched memory widths, direct dependency
   recording, signatures and attributes. Maintainer strict clippy passes.
 - Every converted function matches its unchanged pinned reference in 2,176
@@ -368,7 +368,7 @@ integer-range edges, signed zeros, subnormals, infinities and NaNs. Register bit
 and all committed 8 MiB RAM compare exactly; its 1,024 records also run in
 confined Linux32/Linux64 children linked with the complete candidate graph.
 The single-unit golden remains 31 functions/2,176 vectors; prepared runs cover
-33 functions/3,712 vectors, without treating other compiled functions as
+34 functions/3,968 vectors, without treating other compiled functions as
 semantically qualified. `sub_00244DF0` has no native function dependencies; its
 reference is extracted only from its exact hash-pinned unit, and its prepared
 body from an inventoried/hash-checked source file. No extra body is admitted
@@ -500,9 +500,50 @@ not an executable, admission receipt or title enablement. Full classifier source
 and vectors remain private verification outputs; players need no maintainer
 converter or Python. Source-kit/catalog pins and legacy gates remain unchanged.
 
-The next converter gap includes compacted-state lookup sequences whose trace
-writes and lookup/fallback body are split across different state arms (for
-example pinned `sub_000CDDD0`). They do not match the reviewed contiguous
-four-statement template and remain rejected. Any further rewrite must prove
-those transitions and preserve control flow; do not admit indirect calls or
-flatten arbitrary state arms to increase inventory counts.
+## Compacted call-region proof
+
+The maintainer `icall_compacted` pass reconstructs only the complete reviewed
+region from pinned `recomp_0002_001.rs` / `sub_000CDDD0` (unit SHA-256
+`6b8df098cc94321e31a452d2c764367f7961a97897de5dc2f9d94a08790d99c2`).
+It verifies the entry's four trace/guard groups and all eight lookup/fallback
+arms together after bounded temporary/state-name normalization. Changed guards,
+counters, state edges, call order or extra effects fail the whole comparison.
+
+The selector must have exactly one explicitly typed private binding. Only
+literal-variant assignments and match selection may use it; observation,
+borrowing, inferred declarations and shadowing are rejected. Qualified incoming
+variant expressions outside the complete region reject reconstruction, including
+initialization and shared lookup nodes. This proof is cached only within one
+unchanged original function, never across inputs or converter identities.
+
+The pass reconstructs the already reviewed contiguous template and a common
+exit assignment. Existing u32/TLS/shadowing proofs must still accept it. Only an
+exact, now-unused `let mut _fn: recomp_func_t = None` declaration can be removed;
+any surviving function-pointer type is explicitly rejected. Former internal
+arms become proven-impossible traps, then ordinary lowering emits Err for them.
+No engine exemption or new game callback mechanism is introduced.
+
+Native synthetic reference checks compare 7,680 original/reconstructed cases
+per target with controlled handlers, covering lookup precedence, code bounds,
+fallback registers, trace/counter wrapping and diagnostics. These are graph
+transformation tests, separate from original-function qualification.
+
+Prepared runs additionally compare 256 original `sub_00243450` cases with bounded
+arrays and actual registered `sub_00015590`, `sub_000155A0`, `sub_000155E0` and
+`sub_00015600` callbacks with matching stack conventions. This adds signed
+comparison branches and repeated real call/return paths. An exploratory fixture
+with absent callbacks crashed in the original routine after its stack fallback
+and caller cleanup disagreed; those invalid callback-contract combinations are
+not normal equivalence vectors. Original absent/non-code fallback remains
+covered by `sub_001FBAE0` and the separate graph/route checks.
+
+The complete prepared tree must still pass source checking before bindings,
+all separate object audits, trusted linking and confined execution. The optional
+maintainer `--reference-only` diagnostic explicitly omits those checks and
+cannot establish admission or production readiness. New module/template hashes
+are bound into both golden provenance and whole-kit inventory.
+
+Other lookup shapes remain rejected, including alternate contiguous guard
+layouts and shared/state graphs outside this exact proof. Complete remaining
+native functions, named entry/_gen bodies, manual/kernel services, loader and
+verified renderer integration before enabling Burnout or qualifying gameplay.

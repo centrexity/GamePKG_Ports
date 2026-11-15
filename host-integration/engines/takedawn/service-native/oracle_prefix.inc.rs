@@ -86,7 +86,7 @@ unsafe extern "C" {
 unsafe fn recomp_lookup_manual(_:u32)->recomp_func_t {None}
 unsafe fn recomp_lookup_kernel(_:u32)->recomp_func_t {None}
 unsafe fn recomp_lookup(address:u32)->recomp_func_t {
-    match address {0x155a0=>Some(sub_000155A0),_=>None}
+    match address {0x15590=>Some(sub_00015590),0x155a0=>Some(sub_000155A0),0x155e0=>Some(sub_000155E0),0x15600=>Some(sub_00015600),_=>None}
 }
 pub unsafe fn call_bounds(low:u32,high:u32) {g_xbox_code_lo=low;g_xbox_code_hi=high;}
 pub unsafe fn call_snapshot()->([u32;16],u32,u64) {(g_icall_trace,g_icall_trace_idx,g_icall_count)}

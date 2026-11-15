@@ -27,6 +27,7 @@ def main():
     parser.add_argument('--app-lib',type=Path,required=True)
     parser.add_argument('--prepared',type=Path,help='whole-kit candidate directory to source-check and compile in place of the single unit')
     parser.add_argument('--call-targets',type=Path,help='verified original-target classifier and lookup vectors to admit alongside game source')
+    parser.add_argument('--reference-only',action='store_true',help='maintainer diagnostics only: skip source/object admission, linking and confined execution; never production qualification')
     parser.add_argument('--wine',action='store_true',help='also execute Windows comparison binaries under Wine')
     args=parser.parse_args()
     here=Path(__file__).resolve().parent;app=args.app.resolve(strict=True);library=args.app_lib.resolve(strict=True)
@@ -38,7 +39,8 @@ def main():
     manifest=here/'maintainer/Cargo.toml'
     subprocess.run(['cargo','test','--locked','--offline','--manifest-path',str(manifest)],env=env,check=True)
     if args.wine:
-        subprocess.run(['cargo','test','--locked','--offline','--manifest-path',str(manifest),'native_control_flow_matches','--','--ignored','--test-threads=1'],env=env,check=True)
+        for test in ['native_control_flow_matches','compacted_native_reference']:
+            subprocess.run(['cargo','test','--locked','--offline','--manifest-path',str(manifest),test,'--','--ignored','--test-threads=1'],env=env,check=True)
     subprocess.run(['cargo','build','--locked','--offline','--manifest-path',str(manifest)],env=env,check=True)
     tool=target/'debug/takedawn-safe-source-preparation'
     kit=here.parents[3]/'takedawn/assets/takedawn-source-kit.tar.gz'
@@ -50,6 +52,7 @@ def main():
             extra_helpers=[]
             extra_original=""
             icall_original=""
+            split_original=""
             helper_units=[('prepared/src/recomp_0000_000.rs',['XMM_SUB','XMM_XOR']),
                           ('prepared/src/recomp_0002_018.rs',['recomp_fp_round24']),
                           ('prepared/src/recomp_0004_010.rs',['recomp_parity8']),
@@ -64,6 +67,9 @@ def main():
                 icall_data=archive.extractfile('prepared/src/recomp_0005_013.rs').read()
                 assert hashlib.sha256(icall_data).hexdigest()==pins['recomp_0005_013.rs']
                 icall_original=pinned_function(icall_data.decode(),'pub unsafe extern "C" fn sub_001FBAE0(')
+                split_data=archive.extractfile('prepared/src/recomp_0006_019.rs').read()
+                assert hashlib.sha256(split_data).hexdigest()==pins['recomp_0006_019.rs']
+                split_original=pinned_function(split_data.decode(),'pub unsafe extern "C" fn sub_00243450(')
 
             for unit_name,helpers_in_unit in helper_units:
                 data=archive.extractfile(unit_name).read()
@@ -108,7 +114,7 @@ def main():
         game_file=generated/'game.rs';dispatch_file=generated/'dispatch.rs'
         if args.prepared:
             report=json.loads((args.prepared/'inventory.json').read_text());selected={}
-            wanted={'sub_00244DF0':'recomp_0007_001.rs','sub_001FBAE0':'recomp_0005_013.rs'}
+            wanted={'sub_00244DF0':'recomp_0007_001.rs','sub_001FBAE0':'recomp_0005_013.rs','sub_00243450':'recomp_0006_019.rs'}
             for name,unit_name in wanted.items():
                 entry=report['closed_graph'][name];assert entry['unit']==unit_name and entry['dependencies']==[]
             for filename,expected in report['emitted_files'].items():
@@ -118,13 +124,13 @@ def main():
                 for name in wanted:
                     if 'pub fn '+name+'(' in text:
                         assert name not in selected;selected[name]=pinned_function(text,'pub fn '+name+'(')
-            assert set(selected)==set(wanted) and extra_original and icall_original
+            assert set(selected)==set(wanted) and extra_original and icall_original and split_original
             game_file=scratch/'combined_game.rs';game_file.write_text((generated/'game.rs').read_text()+'\n'+'\n'.join(selected.values()))
             dispatch_file=scratch/'combined_dispatch.rs'
             branches=''.join('0x'+name[4:]+'=>crate::game::'+name+'(native_state,guest_ram),' for name in selected)
             dispatch_file.write_text('pub fn invoke(native_state:&mut crate::registers::Registers,guest_ram:&mut crate::memory::Memory,address:u32)->Result<(),i32>{if !native_state.valid(){return Err(-1);}match address{'+branches+'_=>crate::base_dispatch::invoke(native_state,guest_ram,address)}}')
             names+=list(selected)
-        oracle=here.joinpath('oracle_prefix.inc.rs').read_text()+'\n'+generated.joinpath('oracle_helpers.rs').read_text()+'\n'+'\n'.join(extra_helpers)+'\n'+generated.joinpath('oracle.rs').read_text()+'\n'+extra_original+'\n'+icall_original
+        oracle=here.joinpath('oracle_prefix.inc.rs').read_text()+'\n'+generated.joinpath('oracle_helpers.rs').read_text()+'\n'+'\n'.join(extra_helpers)+'\n'+generated.joinpath('oracle.rs').read_text()+'\n'+extra_original+'\n'+icall_original+'\n'+split_original
         oracle+='\npub unsafe fn invoke(address:u32){match address{'+''.join(f'0x{n[4:]}=>{n}(),' for n in names)+'_=>panic!("unknown reference function")}}\n'
         oracle+='\npub unsafe fn helper(operation:u32,first:[u32;4],second:[u32;4],immediate:u32)->[u32;4]{let a=RecompXmm{u:first};let b=RecompXmm{u:second};let result=match operation{0=>XMM_ADD(a,b),1=>XMM_SUB(a,b),2=>XMM_MUL(a,b),3=>XMM_XOR(a,b),4=>XMM_SHUFFLE(a,b,immediate),5=>XMM_SCALAR(f32::from_bits(first[0])),6=>XMM_ZERO(),_=>panic!("unknown helper")};result.u}\n'
         oracle+='\npub unsafe fn scalar_round24(value:f64)->f64{recomp_fp_round24(value)}pub unsafe fn scalar_parity8(value:u32)->i32{recomp_parity8(value)}pub unsafe fn scalar_rotate(value:u32,count:u32,carry:&mut i32,width:u32,left:bool)->u32{RC_ROT(value,count,carry,width,i32::from(left))}\n'
@@ -169,6 +175,9 @@ def main():
             elif args.wine:
                 subprocess.run(['wine',str(exe)],check=True,env=dict(os.environ,WINEDEBUG='-all',WINEPREFIX='/tmp/gamepkg-port-replace-wine'),timeout=180)
             else:print(f'PASS {triple}: compilation only; runtime not exercised',flush=True)
+        if args.reference_only:
+            print('Reference execution only: source/object admission, trusted linking and confined game execution NOT performed. Not production qualification.')
+            return
         subprocess.run([str(probe),str(app),str(here),str(vectors),*prepared],check=True)
     print('Component evidence only: no complete generated game, ISO load, graphics, physical devices, audible audio or frame pacing.')
 if __name__=='__main__':main()

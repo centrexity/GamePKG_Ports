@@ -36,12 +36,14 @@
   "float_arithmetic_nan_policy": "quiet-first-NaN-preserve-sign-and-payload",
   "formatter_version": "rustfmt 1.8.0-stable (29483883ee 2025-08-04)",
   "game_sha256": "ab8ea5fd84031d600d882c376d694f864ffbf41755167eac33c23c938cdcd6ee",
-  "generator_batch_sha256": "75353afff67efdf3140a236272e013dd9dd573630c6763c75a3f98fe44d4da5c",
+  "generator_batch_sha256": "bef7c8dacd9b5d93d8020e35cb0b84f8d45a159059318ca93a97b37bc9ae6a31",
+  "generator_icall_compacted_pattern_sha256": "8fd80ad1c27069b724a061b241a59c443a6955bffbface366da9057cb0d91f21",
+  "generator_icall_compacted_sha256": "562330c1fbcb09ad7f4cab0bbcc563867685430968fb22e156f8e43e07f98857",
   "generator_icall_pattern_sha256": "2610d0cf8e13c604631cefb56deed07262ac63fde336dd2c39711a21d0319405",
-  "generator_icall_sha256": "b0f691048eca4b61dad1b6abcfb32de87cd8510fbd65066a610647b57c2c4d85",
+  "generator_icall_sha256": "b4b8d101dd71e1beae9acf2507b757baf2c7ec382b5f3e9e8abab9e9e1e76318",
   "generator_inventory_sha256": "7d7ab7a7cfd00067396a84a82c055a588e308bc8cdc0a94451232cf0f8f12169",
   "generator_lock_sha256": "6d55a2c76709a6c1825c3fc3c9ac08e03d6e140635858336762f4ac2595a5259",
-  "generator_source_sha256": "8da6cd9335fbf00647702846c85d550a936ee506fc06fe5a76bf91cd785c5f40",
+  "generator_source_sha256": "0de41f7b8e065cadaad197ca0156fa350f331350f0b2d133af6d77e6dbbc3fda",
   "input_sha256": "442f7812516f3c5157ee74e15aede23d0ac423105acb7d973733bbe9f01ad94d",
   "production_ready": false,
   "register_record_bytes": 240,
@@ -74,7 +76,8 @@
       "unreviewed call recomp_lookup_manual",
       "unreviewed global g_xbox_code_hi",
       "unreviewed global g_xbox_code_lo",
-      "unreviewed guest pointer"
+      "unreviewed guest pointer",
+      "unreviewed type recomp_func_t"
     ],
     "sub_00014730": [
       "unconverted dependencies: sub_001BEEF0,sub_001C8E20"
@@ -89,18 +92,16 @@
       "unreviewed call recomp_lookup",
       "unreviewed call recomp_lookup_kernel",
       "unreviewed call recomp_lookup_manual",
-      "unreviewed call recomp_patch_mark"
+      "unreviewed call recomp_patch_mark",
+      "unreviewed type recomp_func_t"
     ],
     "sub_00014C80": [
       "indirect call",
       "unreviewed call recomp_icall_fail_log",
-      "unreviewed call recomp_icall_not_code_log",
       "unreviewed call recomp_lookup",
       "unreviewed call recomp_lookup_kernel",
       "unreviewed call recomp_lookup_manual",
-      "unreviewed global g_xbox_code_hi",
-      "unreviewed global g_xbox_code_lo",
-      "unreviewed guest pointer"
+      "unreviewed type recomp_func_t"
     ],
     "sub_00014D20": [
       "unconverted dependencies: sub_001AE6F0,sub_0034C2E0"
@@ -108,13 +109,10 @@
     "sub_00014D80": [
       "indirect call",
       "unreviewed call recomp_icall_fail_log",
-      "unreviewed call recomp_icall_not_code_log",
       "unreviewed call recomp_lookup",
       "unreviewed call recomp_lookup_kernel",
       "unreviewed call recomp_lookup_manual",
-      "unreviewed global g_xbox_code_hi",
-      "unreviewed global g_xbox_code_lo",
-      "unreviewed guest pointer"
+      "unreviewed type recomp_func_t"
     ],
     "sub_00014FB0": [
       "unconverted dependencies: sub_001CB6C0,sub_001CBF30,sub_001CE140,sub_001CE6A0"
@@ -131,7 +129,8 @@
       "unreviewed call recomp_icall_fail_log",
       "unreviewed call recomp_lookup",
       "unreviewed call recomp_lookup_kernel",
-      "unreviewed call recomp_lookup_manual"
+      "unreviewed call recomp_lookup_manual",
+      "unreviewed type recomp_func_t"
     ],
     "sub_000154A0": [
       "unconverted dependencies: sub_001C93D0,sub_001C9480,sub_001C9600,sub_002CC951"
@@ -148,7 +147,8 @@
       "unreviewed call recomp_lookup_manual",
       "unreviewed global g_xbox_code_hi",
       "unreviewed global g_xbox_code_lo",
-      "unreviewed guest pointer"
+      "unreviewed guest pointer",
+      "unreviewed type recomp_func_t"
     ]
   },
   "runtime_call_functions": {},
