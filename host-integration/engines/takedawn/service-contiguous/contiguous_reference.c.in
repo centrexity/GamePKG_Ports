@@ -1,0 +1,51 @@
+/* Maintainer-only exact data-operation oracle. No device or OS services. */
+#include <stdint.h>
+#include <stddef.h>
+#include <string.h>
+static int silent_fprintf(void *stream,const char *format,...){(void)stream;(void)format;return 0;}
+static int silent_flush(void *stream){(void)stream;return 0;}
+#define fprintf silent_fprintf
+#define fflush silent_flush
+#define stderr ((void *)0)
+#define XBOX_CONTIG_BASE 0x80000000u
+#define XBOX_CONTIG_SIZE (64u * 1024u * 1024u)
+#define XBOX_GPU_INSTANCE_DEFAULT (128u * 1024u)
+#define CONTIG_PAGE 4096u
+#define CONTIG_PAGES (XBOX_CONTIG_SIZE / CONTIG_PAGE)
+#define CONTIG_USABLE ((XBOX_CONTIG_SIZE - XBOX_GPU_INSTANCE_DEFAULT) / CONTIG_PAGE)
+#define CONTIG_LOW_RESERVE_START ((15u << 20) / CONTIG_PAGE)
+#define CONTIG_LOW_RESERVE_END ((16u << 20) / CONTIG_PAGE)
+#define CONTIG_RESERVED 2u
+static uintptr_t g_memory_offset;
+static uint8_t *oracle_ram;
+static uint8_t g_contig_used[CONTIG_PAGES];
+static uint32_t g_contig_len[CONTIG_PAGES];
+static uint32_t g_contig_pages_in_use,g_contig_high,g_contig_first_free;
+static uint32_t g_contig_allocs,g_contig_frees,g_contig_peak_pages;
+static void contig_lock(void){}
+static void contig_unlock(void){}
+static void contig_report(const char *what,uint32_t va,uint32_t pages){(void)what;(void)va;(void)pages;}
+/* GAMEPKG_PINNED_CONTIG_TAKE */
+/* GAMEPKG_PINNED_XBOX_CONTIGUOUSALLOCEX */
+/* GAMEPKG_PINNED_XBOX_CONTIGUOUSALLOC */
+/* GAMEPKG_PINNED_XBOX_CONTIGUOUSCLAIM */
+/* GAMEPKG_PINNED_XBOX_CONTIGUOUSFREE */
+/* GAMEPKG_PINNED_XBOX_CONTIGUOUSBLOCKSIZE */
+/* GAMEPKG_PINNED_XBOX_CONTIGUOUSALLOCATEDBYTES */
+/* GAMEPKG_PINNED_XBOX_CONTIGUOUSINUSEBYTES */
+void gamepkg_contig_reset(uint8_t *ram){
+ oracle_ram=ram;g_memory_offset=(uintptr_t)ram-XBOX_CONTIG_BASE;
+ memset(ram,0xa5,XBOX_CONTIG_SIZE);memset(g_contig_used,0,sizeof(g_contig_used));memset(g_contig_len,0,sizeof(g_contig_len));
+ g_contig_used[0]=CONTIG_RESERVED;g_contig_pages_in_use=0;g_contig_high=CONTIG_PAGE;g_contig_first_free=1;g_contig_allocs=0;g_contig_frees=0;g_contig_peak_pages=0;
+}
+uint32_t gamepkg_contig_operation(uint32_t op,uint32_t a,uint32_t b,uint32_t c,uint32_t d){
+ if(op==0)return xbox_ContiguousAllocEx(a,b,c,d);
+ if(op==1){xbox_ContiguousClaim(a,b);return 0;}
+ if(op==2)return (uint32_t)xbox_ContiguousFree(a);
+ if(op==3)return xbox_ContiguousBlockSize(a);
+ if(op==4){memset(oracle_ram+a,0x7b,b);return 0;}
+ if(op==5)return xbox_ContiguousAlloc(a,b);
+ return 0;
+}
+void gamepkg_contig_stats(uint32_t *out){out[0]=xbox_ContiguousInUseBytes()/CONTIG_PAGE;out[1]=xbox_ContiguousAllocatedBytes();out[2]=g_contig_first_free;out[3]=g_contig_allocs;out[4]=g_contig_frees;out[5]=g_contig_peak_pages;}
+void gamepkg_contig_record(uint32_t page,uint32_t *out){out[0]=g_contig_used[page];out[1]=g_contig_len[page];}

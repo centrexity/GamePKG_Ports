@@ -1,0 +1,64 @@
+{
+  "schema": 1,
+  "production_ready": false,
+  "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+  "member": "toolkit/src/kernel/xbox_memory_layout.c",
+  "source_sha256": "c83cb0a4586ef3298911f4639e79ec1f904b4133b8469676ff0fa461b63f82f4",
+  "header": "toolkit/src/kernel/kernel.h",
+  "header_sha256": "efae4f1b5aab8a2a420d00b8fb5fd75a1fb9a717704a709c34baddcc254bd17e",
+  "defines": {
+    "XBOX_CONTIG_BASE": "0x80000000u",
+    "XBOX_CONTIG_SIZE": "(64u * 1024u * 1024u)",
+    "XBOX_GPU_INSTANCE_DEFAULT": "(128u * 1024u)"
+  },
+  "functions": {
+    "contig_take": {
+      "start": 196650,
+      "end": 197145,
+      "sha256": "7c621d5222278fe8963223355b6f97d8c219c76c1b3e4e0c0115fd03d03d9e60"
+    },
+    "xbox_ContiguousAllocEx": {
+      "start": 197147,
+      "end": 199776,
+      "sha256": "c40ca36e15aa04ead60161f97c8c741d1b2fa021ff940ed35c5ecb48c91ff04f"
+    },
+    "xbox_ContiguousAlloc": {
+      "start": 199778,
+      "end": 199914,
+      "sha256": "78743476050ce00928563a07b7bc0bd08467905f6dcb6ef02c857d0436662792"
+    },
+    "xbox_ContiguousClaim": {
+      "start": 200213,
+      "end": 200860,
+      "sha256": "94a41a40ba597791c99dcd87293d5ace72a6eb5c41b6477156a42743c2f2b9bf"
+    },
+    "xbox_ContiguousFree": {
+      "start": 201015,
+      "end": 201877,
+      "sha256": "545134691b962d8a1828df07ac29131d73c1307b96f5e3f43692499b10955729"
+    },
+    "xbox_ContiguousBlockSize": {
+      "start": 202078,
+      "end": 202680,
+      "sha256": "a3524fd259be2d59b46da6a18ac2be38266f362c2186e5026f2c10507fd78af8"
+    },
+    "xbox_ContiguousAllocatedBytes": {
+      "start": 203117,
+      "end": 203191,
+      "sha256": "77ac160f7271851b6e00e74856e09cf4eb2d7617b9e20bf5813cfe1df36f2922"
+    },
+    "xbox_ContiguousInUseBytes": {
+      "start": 203460,
+      "end": 203552,
+      "sha256": "18bc1c5daa6a144167087ecf2e9ab6a5031007982b097af0ac2fc7d9065cf6a8"
+    }
+  },
+  "source_defines": {
+    "CONTIG_PAGE": "4096u",
+    "CONTIG_PAGES": "(XBOX_CONTIG_SIZE / CONTIG_PAGE)",
+    "CONTIG_USABLE": "((XBOX_CONTIG_SIZE - XBOX_GPU_INSTANCE_DEFAULT) / CONTIG_PAGE)",
+    "CONTIG_LOW_RESERVE_START": "((15u << 20) / CONTIG_PAGE)",
+    "CONTIG_LOW_RESERVE_END": "((16u << 20) / CONTIG_PAGE)",
+    "CONTIG_RESERVED": "2u"
+  }
+}
