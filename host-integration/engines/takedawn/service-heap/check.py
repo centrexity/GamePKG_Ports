@@ -15,7 +15,7 @@ def main():
    marker='/* GAMEPKG_PINNED_'+name.upper()+' */';assert text.count(marker)==1;body=source[pinned['start']:pinned['end']];assert hashlib.sha256(body).hexdigest()==pinned['sha256'];text=text.replace(marker,body.decode())
   reference=scratch/'reference.c';reference.write_text(text)
   wrapper='#![allow(dead_code)]\n'
-  for name,path in [('client',app/'engines/native-services/client.rs'),('local',app/'engines/native-services/local_bindings.rs'),('memory',here.parent/'service-native/memory.rs'),('call_state',here.parent/'service-native/call_state.rs'),('heap',here/'heap.rs'),('heap_service',here/'service.rs'),('denials',here/'denials.rs'),('reference_cases',here/'reference_cases.rs')]:wrapper+='#[path='+json.dumps(str(path))+']mod '+name+';\n'
+  for name,path in [('client',app/'engines/native-services/client.rs'),('local',app/'engines/native-services/local_bindings.rs'),('memory',here.parent/'service-native/memory.rs'),('call_state',here.parent/'service-native/call_state.rs'),('heap',here/'heap.rs'),('contiguous',here.parent/'service-contiguous/contiguous.rs'),('heap_service',here/'service.rs'),('denials',here/'denials.rs'),('reference_cases',here/'reference_cases.rs')]:wrapper+='#[path='+json.dumps(str(path))+']mod '+name+';\n'
   wrapper+='#[allow(unused_imports)]mod gamepkg{pub use crate::client::*;}\n'+(here/'reference_main.rs').read_text();main_rs=scratch/'main.rs';main_rs.write_text(wrapper)
   native_obj=None
   for triple,compiler,extra in [('x86_64-unknown-linux-gnu','gcc',[]),('i686-unknown-linux-gnu','gcc-11',['-m32']),('x86_64-pc-windows-gnu','x86_64-w64-mingw32-gcc',[]),('i686-pc-windows-gnu','i686-w64-mingw32-gcc',[])]:

@@ -3,8 +3,9 @@
 This dependency-free Rust component preserves the pinned original contiguous
 page allocator's data behavior using GamePKG-owned RAM access. It exposes no
 OS allocation, native pointer, raw page-map reference, device access, Cargo
-dependency or successful unmapped-memory fallback. It is **not yet connected to
-the shared allocator task, kernel imports, guest threads or native entry**.
+dependency or successful unmapped-memory fallback. It now connects to the existing
+[shared allocator owner](../service-heap/SERVICE.md#contiguous-extension-private-protocol-version-2).
+**Kernel wrappers, guest-thread startup and native entry remain incomplete**.
 
 Requires the app's reviewed three-bank `LocalLayout::TakedawnMemory` preset,
 implementation [`f4bdfea`](https://github.com/centrexity/GamePKG/commit/f4bdfea).
@@ -48,6 +49,12 @@ These IDs coordinate game state; they do not replace host capability checks.
   Zero size, below-window, overflow/out-of-window and any already-used/reserved
   page are quiet no-ops, preserving the original void-call semantics. Explicit
   claims may occupy the GPU-instance reserve. They cannot claim page zero.
+- `contiguous_clear_claim(&Memory, address, size) -> Result<(), i32>` validates
+  a complete bound-bank extent, clears exactly those bytes, then performs the
+  original intersected-page claim. A zero-sized request does not claim pages;
+  original overlapping/no-op claims do not undo the requested clear. This is
+  the data action used by the fixed-range kernel bridge, not qualification of
+  its branch conditions, stack cleanup, returned VA or diagnostics.
 - `contiguous_free(&Memory, address) -> Result<bool, i32>` releases only a
   page-aligned allocation/claim start. Null/outside/unaligned/interior/double free
   returns false; success returns true. Freed RAM is not cleared. First-free can
@@ -82,7 +89,7 @@ allocate/claim/free/size/high-water/in-use functions. Logging/reporting and lock
 are inert only in the single-threaded value oracle; C and its raw pointers never
 enter checked game source or trusted runtime objects.
 
-Native Linux32/64 and Windows32/64-under-Wine each compare 92,209 operations in
+Native Linux32/64 and Windows32/64-under-Wine each compare 92,213 operations in
 five cases, including an empty case. Every operation compares result and all six
 state counters. Final comparisons cover every byte of 64 MiB RAM and every one
 of the 16,384 page-state/length records. Cases cover all-size/alignment edges,
@@ -116,20 +123,47 @@ All fixtures use synthetic RAM, hidden output and no ROM, game window, physical
 input, real audio or timing measurement. Windows builds/Wine do not qualify
 Windows AppContainer execution or actual gameplay.
 
-## Required integration next
+## Shared-owner qualification and remaining work
 
-Extend the existing [shared allocator owner](../service-heap/SERVICE.md) so one
-reviewed game task owns both Heap and Contiguous and serializes every mutation
-through GamePKG's copied-message services. Do not construct a separate
-Contiguous per guest caller or make copies of pending clients. Preserve client
-sequences, membership/backpressure, cancellation, correlation, poisoned replies,
-non-consuming liveness and shutdown. Record any protocol extension explicitly;
-these core data tests do not prove concurrency or wrapper behavior.
+Add `--shared` to the command above to use the actual version-2 owner/client path.
+`service_reference.rs`, `service_probe.rs` and `service_admission.rs` separately
+replay the same original corpus through copied requests. Every operation and
+six quiescent counter observations match the C oracle; complete RAM and page
+records are independently compared again. The four extra vectors use exact
+pinned clear/claim statements from the original kernel source, including an
+unaligned/overlapping range, reserved page-zero bytes, the final bank byte and
+zero length. The surrounding kernel branch/stack/return behavior is not claimed.
 
-Wire reviewed original contiguous kernel ordinals, fixed-range/instance claims,
-free fallback and the contiguous-first size query. Ordinal 180 remains
-Unsupported until its combined behavior is complete. Preserve original wrapper
-reporting, bounded OOM/allocation diagnostics and device page-map use. Guest
-mirrors/tiled views, full device semantics, kernel/data imports, thread/TIB/IRQ
-startup, remaining generated/manual/media/renderer paths and native entry remain
-required. The title build/play/cache/export gate remains closed.
+`shared_checks.rs` exercises mixed v1/v2 framing, rejected owner replacement,
+unsupported unconfigured operations, missing/trailing payload, bad versions,
+sequence gaps/replays, reserved fields and explicit combined-free/size fallback.
+Four callers hold 1,000 paired Heap/Contiguous allocation iterations plus four
+fixed-range claims. They verify exclusive held bytes in both banks, correct
+interior sizes and exactly 1,004 Contiguous allocations/frees after joining.
+Ownership checks stop when a block is released: another caller may immediately
+reuse it. Final accounting is checked only after all callers finish.
+
+Invalid fixed clears and late read-only pages preserve counters and earlier
+bytes. Root revocation denies observations/mutations while shutdown still works.
+Five fake-peer modes test wrong reply version/sequence, short response, invalid
+boolean and invalid status, including no further request after poisoning. A
+separate peer acknowledges consuming a v2 request before the caller is cancelled;
+the caller returns Denied, poisons its client, sends no replay, releases its queue
+and remains joinable. These controls use the same finite reviewed task table,
+GamePKG RAM/queues/tasks and existing budgets, not platform fallbacks.
+
+The original v1 owner checks still exercise 2,000 concurrent heap lifetimes,
+queue/membership/correlation/revocation/fatal-peer and cancellation controls.
+All dependent image/bootstrap/heap/native fixtures now stage Contiguous as normal
+checked game source before host-generated bindings. No dependency, source,
+object-import, budget, confinement or legacy admission rule is exempted.
+
+Next wire reviewed original contiguous kernel ordinals, fixed-range/instance
+claims, free fallback and the contiguous-first size query through these methods.
+Ordinal 180 remains Unsupported until its complete kernel wrapper is qualified.
+Preserve original reporting, bounded OOM/allocation diagnostics and device
+page-map use. Guest mirrors/tiled views, full device semantics, kernel/data
+imports, thread/TIB/IRQ startup, remaining generated/manual/media/renderer paths
+and native entry remain required. The title build/play/cache/export gate stays
+closed; neither shared-owner tests nor Wine establish actual gameplay, physical
+controls, audible output or measured frame pacing.

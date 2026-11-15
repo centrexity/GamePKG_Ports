@@ -162,6 +162,23 @@ impl Contiguous {
         self.frees = self.frees.wrapping_add(1);
         Ok(true)
     }
+    // Original fixed-range bridge semantics: clear exactly the requested
+    // bytes, then record the intersected pages without clearing them again.
+    // The shared owner must serialize both parts as one accepted operation.
+    pub fn contiguous_clear_claim(
+        &mut self,
+        ram: &memory::Memory,
+        address: u32,
+        size: u32,
+    ) -> Result<(), i32> {
+        self.contiguous_live(ram)?;
+        let offset = address.checked_sub(0x80000000).ok_or(-1)?;
+        if u64::from(offset) + u64::from(size) > 67108864 {
+            return Err(-1);
+        }
+        gamepkg::local_memory_fill(self.window, u64::from(offset), u64::from(size), 0)?;
+        self.contiguous_claim(ram, address, size)
+    }
     pub fn contiguous_size(&self, ram: &memory::Memory, address: u32) -> Result<u32, i32> {
         self.contiguous_live(ram)?;
         if !(0x80000000..0x84000000).contains(&address) {

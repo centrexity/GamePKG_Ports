@@ -931,8 +931,8 @@ isolation/protection/copy/decommit behavior. Standalone native Linux32/64 and
 Windows32/64-under-Wine runtime tests also exercise all-bank charging, collision
 rejection and teardown/reuse. None establishes complete Xbox guest aliasing or
 device behavior. Port code must still supply exact guest views (including the
-contiguous/tiled aliases), flash initialization, the original contiguous
-allocator and shared caller ownership. Keep the 32-span ceiling, reject
+contiguous/tiled aliases), flash initialization and device behavior. The checked
+contiguous allocator and shared owner are described below. Keep the 32-span ceiling, reject
 unmapped MMIO and do not turn NV2A/MCPX registers into zero-filled successful RAM
 fallbacks. The complete native entry/title gate remains closed. See the app's
 [preset contract](https://github.com/centrexity/GamePKG/blob/f4bdfea/docs/PORT_SERVICES.md#child-local-runtime-separate-abi-namespace).
@@ -940,6 +940,7 @@ fallbacks. The complete native entry/title gate remains closed. See the app's
 The [checked contiguous allocator data](../service-contiguous/README.md) now
 preserves the original page/range/reserve/claim/free/query behavior over the
 reviewed second RAM bank, with original-code and confined replay qualification.
-It must next join Heap in the existing shared owner; constructing independent
-allocators per guest thread is incorrect. This does not yet enable contiguous
-kernel ordinals, combined size queries, guest memory/device views or native entry.
+It now joins Heap in the existing shared owner through the explicit private
+version-2 protocol; constructing independent allocators per guest thread is
+incorrect. This does not yet enable contiguous kernel ordinals or their size-query
+wrappers, guest memory/device views or native entry.

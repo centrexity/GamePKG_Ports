@@ -1,11 +1,12 @@
 # Shared heap task and client contract
 
-`service.rs` keeps exactly one `Heap` exclusively owned by one reviewed game
-task. All allocation, free and query requests run serially in that task,
+`service.rs` keeps exactly one `Heap` and an optional `Contiguous` exclusively
+owned by one reviewed game task. All allocation, free and query requests run serially in that task,
 including zero-fill. Caller tasks never share its Rust table or native pointers.
 GamePKG owns every native task, copied queue, memory mapping and protection.
 The allocator/protocol remain ordinary dependency-free game Rust, not trusted
-engine code. This does not yet bind title kernel exports or start guest threads.
+engine code. Four pool ordinals use this owner through the checked native router; contiguous
+kernel wrappers and guest-thread startup still require migration.
 
 This component requires app implementation
 `38a84d4acdce1bc3107dbf2725dc3a2e02848372` or a compatible later shared SDK
@@ -98,7 +99,7 @@ completion; no client consumes the supervisor's join result.
 
 All integers are LE. Initialization is exactly 48 bytes: version u32=1, op u32=0,
 response ID u64, sequence u64=1, base/top u32, call-record ID u64, RAM-window ID
-u64. Subsequent requests are exactly 32 bytes: version/op u32, response ID and
+u64. Subsequent version-1 requests are exactly 32 bytes: version/op u32, response ID and
 sequence u64, first/second u32.
 
 | Op | First / second | Meaning |
@@ -159,3 +160,83 @@ The [pool kernel integration](../service-kernel-pool/README.md) now moves the
 primary client into Memory and gives each caller its own lazy client. Shared
 thread context carries only endpoint/record IDs, never a pending reply queue or
 sequence. The original title's other kernel/thread/device paths remain required.
+
+
+## Contiguous extension: private protocol version 2
+
+The extension requires the app's three-bank preset from implementation `f4bdfea`;
+heap-only v1 use retains the earlier minimum SDK above.
+
+The same reviewed actor can now own both allocator tables. It starts with
+Contiguous absent; only the initialized primary owner may configure it once.
+`heap_contiguous_initialize(window)` requires the exact second bank from the
+app's `TakedawnMemory` preset. Wrong main/flash/zero/guessed IDs, another root or
+an already-configured arena cannot substitute/reset that state. Other callers
+register through unchanged v1 op 7 and keep their own exclusive client objects.
+These are game bookkeeping/lifecycle identities, not new host authorization.
+The actor constructs the [checked contiguous core](../service-contiguous/README.md)
+as ordinary game source; it is not moved behind a trusted engine exemption.
+
+The original v1 initialization, operations, replies, sequence and error behavior
+remain intact, including unknown correctly framed v1 requests consuming their
+sequence. The queue is still 48 bytes/depth 32, replies 32 bytes/depth 1, and at
+most 12 clients fit within the unchanged 16-queue/1 MiB runtime limits.
+
+Version-2 requests have the same first 32 LE bytes as v1. Only op 9 appends
+physical lowest/highest u32, making exactly 40 bytes. All other v2 requests are
+exactly 32 bytes. Valid new replies echo version 2, status, sequence, result and
+the existing three **Heap** counters; the reply does not silently substitute
+Contiguous counters. v1/v2 operations share one monotonically increasing
+per-client sequence. The typed client chooses the version for each operation
+and requires an exact 32-byte reply with that version and echoed sequence.
+
+| Op | First / second | Additional words | Result |
+| --- | --- | --- | --- |
+| 8 | contiguous bank ID low/high u32 | none | zero; primary owner only, once |
+| 9 | size / alignment | physical low / inclusive high u32 | guest VA, zero on ordinary exhaustion |
+| 10 | address / byte count | none | zero; claim without clearing |
+| 11 | address / zero | none | bool u32; free only from Contiguous |
+| 12 | address / zero | none | bytes remaining in Contiguous |
+| 13 | address / zero | none | Contiguous size first, then Heap only if zero |
+| 14 | address / zero | none | zero; Contiguous free first, then Heap if not owned |
+| 15 | address / byte count | none | zero; exact-byte clear then intersecting-page claim |
+| 16 | counter index 0..5 / zero | none | one serialized Contiguous counter observation |
+| 17 | first page / count 1..4 | none | copied page-state bytes packed LE into u32; unused bytes zero |
+| 18 | page index / zero | none | allocation length at that page, in pages |
+
+Ops 9..18 return Unsupported until Contiguous is configured; combined size/free
+must not approximate that with only Heap. The same live root is checked before
+all new observations/mutations. Reserved fields, record/map extents and complete
+RAM access are independently validated. Invalid header versions/lengths do not
+advance the sequence and produce the existing version-1 Invalid envelope. A
+valid v2 replay/gap/unknown member produces a version-2 negative reply without a
+mutation. Correctly framed, next-sequence operation errors consume their sequence.
+No reset, native pointer, arbitrary window/address or device aperture is added.
+
+Typed methods are `heap_contiguous_initialize`, `heap_contiguous_allocate`,
+`heap_contiguous_claim`, `heap_contiguous_free`, `heap_contiguous_query`,
+`heap_allocation_query`, `heap_allocation_release`, `heap_contiguous_clear_claim`,
+`heap_contiguous_counter`, `heap_contiguous_pages` and `heap_contiguous_length`.
+Allocation takes size/alignment/physical-low/physical-high u32; the combined
+methods take one guest address. Claim/clear-claim take guest address and byte
+count. Free-only returns bool and rejects any other wire value. Page copying
+returns `[u8; 4]`; invalid local count/counter arguments fail before acceptance,
+while the actor also validates raw requests. Counter indices copy in-use pages,
+high-water bytes, first-free page, allocations, frees and peak pages. Six separate
+counter reads are not an atomic snapshot when other writers run. Copied-map
+chunks are independently serialized, not a frozen whole-map view.
+
+The fixed-range clear/claim is one actor operation: validate the complete span,
+clear exactly the requested bytes, and perform the original claim. Claims do
+not clear rounded padding. Overlapping claims may be original no-ops, while the
+requested clear still occurs. An inaccessible late page prevents the clear and
+metadata mutation. Root revocation between independent runtime calls still
+requires abort; no cross-call rollback is claimed.
+
+All accepted operations retain existing response correlation, liveness,
+cooperative cancellation, poison-on-indeterminate-result and explicit queue
+cleanup. A bad version/sequence/length/status or invalid bool from a peer poisons
+the client and prevents another request. Cancellation after a v2 allocation is
+consumed also poisons and closes the client; the mutation is never replayed.
+Unregister/stop remain v1 lifecycle operations permitted after root revocation.
+No legacy builtin/native profile or kernel ordinal is enabled by this extension.

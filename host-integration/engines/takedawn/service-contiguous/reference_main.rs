@@ -44,6 +44,7 @@ fn main() {
                     gamepkg::local_memory_fill(window, u64::from(a), u64::from(b), 0x7b).map(|()| 0)
                 }
                 5 => state.contiguous_allocate(&ram, a, b, 0, u32::MAX),
+                6 => state.contiguous_clear_claim(&ram, a, b).map(|()| 0),
                 _ => panic!("operation {op}"),
             };
             assert_eq!(

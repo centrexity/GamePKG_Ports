@@ -1,4 +1,5 @@
 // Port-owned serialized heap task. GamePKG owns the tasks, queues and RAM.
+use crate::contiguous;
 use crate::gamepkg;
 use crate::heap;
 use crate::memory;
@@ -23,13 +24,14 @@ fn service_reply(
     sequence: u64,
     result: Result<u32, i32>,
     stats: [u32; 3],
+    version: u32,
 ) -> Result<(), i32> {
     let (status, value) = match result {
         Ok(value) => (0i32, value),
         Err(status) => (status, 0),
     };
     let mut bytes = [0u8; 32];
-    bytes[..4].copy_from_slice(&u32::to_le_bytes(1));
+    bytes[..4].copy_from_slice(&u32::to_le_bytes(version));
     bytes[4..8].copy_from_slice(&i32::to_le_bytes(status));
     bytes[8..16].copy_from_slice(&u64::to_le_bytes(sequence));
     bytes[16..20].copy_from_slice(&u32::to_le_bytes(value));
@@ -65,11 +67,12 @@ fn service_run(inbox: u64, clients: &mut [u64; 12]) -> Result<(), i32> {
     let (mut ram, mut state) = match configured {
         Ok(values) => values,
         Err(code) => {
-            service_reply(owner, 1, Err(code), [0; 3])?;
+            service_reply(owner, 1, Err(code), [0; 3], 1)?;
             return Err(code);
         }
     };
-    service_reply(owner, 1, Ok(0), state.heap_stats())?;
+    service_reply(owner, 1, Ok(0), state.heap_stats(), 1)?;
+    let mut physical = None;
     let mut sequences = [0u64; 12];
     let mut tasks = [0u64; 12];
     clients[0] = owner;
@@ -93,16 +96,19 @@ fn service_run(inbox: u64, clients: &mut [u64; 12]) -> Result<(), i32> {
                 break;
             }
         }
-        if length != 32 || service_word(&bytes, 0)? != 1 {
-            service_reply(reply, sequence, Err(-1), state.heap_stats())?;
+        let operation = service_word(&bytes, 4)?;
+        let version = service_word(&bytes, 0)?;
+        let extended = version == 2 && (8..=18).contains(&operation);
+        let expected = if extended && operation == 9 { 40 } else { 32 };
+        if length != expected || (version != 1 && !extended) {
+            service_reply(reply, sequence, Err(-1), state.heap_stats(), 1)?;
             continue;
         }
-        let operation = service_word(&bytes, 4)?;
         let first = service_word(&bytes, 24)?;
         let second = service_word(&bytes, 28)?;
         if operation == 7 {
             if slot != 12 || sequence != 1 {
-                service_reply(reply, sequence, Err(-1), state.heap_stats())?;
+                service_reply(reply, sequence, Err(-1), state.heap_stats(), version)?;
                 continue;
             }
             let task = u64::from(first) | (u64::from(second) << 32);
@@ -110,11 +116,11 @@ fn service_run(inbox: u64, clients: &mut [u64; 12]) -> Result<(), i32> {
                 match gamepkg::local_task_finished(task) {
                     Ok(false) => {}
                     Ok(true) => {
-                        service_reply(reply, sequence, Err(-4), state.heap_stats())?;
+                        service_reply(reply, sequence, Err(-4), state.heap_stats(), version)?;
                         continue;
                     }
                     Err(code) => {
-                        service_reply(reply, sequence, Err(code), state.heap_stats())?;
+                        service_reply(reply, sequence, Err(code), state.heap_stats(), version)?;
                         continue;
                     }
                 }
@@ -146,63 +152,76 @@ fn service_run(inbox: u64, clients: &mut [u64; 12]) -> Result<(), i32> {
                 }
             }
             if slot == 12 {
-                service_reply(reply, sequence, Err(-2), state.heap_stats())?;
+                service_reply(reply, sequence, Err(-2), state.heap_stats(), version)?;
                 continue;
             }
             // Registration touches no heap. A stale response queue fails before
             // membership publication; its ID is never silently treated as live.
-            service_reply(reply, sequence, Ok(0), state.heap_stats())?;
+            service_reply(reply, sequence, Ok(0), state.heap_stats(), version)?;
             clients[slot] = reply;
             sequences[slot] = sequence;
             tasks[slot] = task;
             continue;
         }
         if slot == 12 {
-            service_reply(reply, sequence, Err(-4), state.heap_stats())?;
+            service_reply(reply, sequence, Err(-4), state.heap_stats(), version)?;
             continue;
         }
         if sequences[slot].checked_add(1) != Some(sequence) {
-            service_reply(reply, sequence, Err(-1), state.heap_stats())?;
+            service_reply(reply, sequence, Err(-1), state.heap_stats(), version)?;
             continue;
         }
         sequences[slot] = sequence;
-        let result = match operation {
-            1 => state.heap_allocate(&mut ram, first, second),
-            2 => {
-                if second != 0 {
-                    Err(-1)
-                } else {
-                    match state.heap_free(&ram, first) {
-                        Ok(()) => Ok(0),
-                        Err(code) => Err(code),
+        let result = if extended {
+            service_physical(
+                &mut physical,
+                &mut state,
+                &mut ram,
+                slot == 0,
+                operation,
+                first,
+                second,
+                &bytes,
+            )
+        } else {
+            match operation {
+                1 => state.heap_allocate(&mut ram, first, second),
+                2 => {
+                    if second != 0 {
+                        Err(-1)
+                    } else {
+                        match state.heap_free(&ram, first) {
+                            Ok(()) => Ok(0),
+                            Err(code) => Err(code),
+                        }
                     }
                 }
-            }
-            3 => {
-                if second != 0 {
-                    Err(-1)
-                } else {
-                    state.heap_size(&ram, first)
-                }
-            }
-            4 | 5 | 6 => {
-                if first != 0 || second != 0 {
-                    Err(-1)
-                } else if (operation == 4 && slot != 0) || (operation == 6 && slot == 0) {
-                    Err(-4)
-                } else if operation == 5 {
-                    match ram.call_snapshot() {
-                        Ok(_) => Ok(0),
-                        Err(code) => Err(code),
+                3 => {
+                    if second != 0 {
+                        Err(-1)
+                    } else {
+                        state.heap_size(&ram, first)
                     }
-                } else {
-                    Ok(0)
                 }
+                4 | 5 | 6 => {
+                    if first != 0 || second != 0 {
+                        Err(-1)
+                    } else if (operation == 4 && slot != 0) || (operation == 6 && slot == 0) {
+                        Err(-4)
+                    } else if operation == 5 {
+                        match ram.call_snapshot() {
+                            Ok(_) => Ok(0),
+                            Err(code) => Err(code),
+                        }
+                    } else {
+                        Ok(0)
+                    }
+                }
+                _ => Err(-1),
             }
-            _ => Err(-1),
         };
         let accepted = result.is_ok();
-        service_reply(reply, sequence, result, state.heap_stats())?;
+        service_reply(reply, sequence, result, state.heap_stats(), version)?;
         if accepted && operation == 4 {
             return Ok(());
         }
@@ -213,6 +232,90 @@ fn service_run(inbox: u64, clients: &mut [u64; 12]) -> Result<(), i32> {
         }
     }
 }
+// Version-2 requests share the existing sequence/membership registry and owner.
+// They never execute in a caller thread or invoke an OS allocator.
+fn service_physical(
+    physical: &mut Option<contiguous::Contiguous>,
+    state: &mut heap::Heap,
+    ram: &mut memory::Memory,
+    owner: bool,
+    operation: u32,
+    first: u32,
+    second: u32,
+    bytes: &[u8],
+) -> Result<u32, i32> {
+    ram.call_snapshot()?;
+    if operation == 8 {
+        if !owner {
+            return Err(-4);
+        }
+        if physical.is_some() {
+            return Err(-1);
+        }
+        let window = u64::from(first) | (u64::from(second) << 32);
+        *physical = Some(contiguous::Contiguous::contiguous_new(ram, window)?);
+        return Ok(0);
+    }
+    let arena = physical.as_mut().ok_or(-5)?;
+    match operation {
+        9 => arena.contiguous_allocate(
+            ram,
+            first,
+            second,
+            service_word(bytes, 32)?,
+            service_word(bytes, 36)?,
+        ),
+        10 => {
+            arena.contiguous_claim(ram, first, second)?;
+            Ok(0)
+        }
+        11 | 12 | 13 | 14 | 16 | 18 => {
+            if second != 0 {
+                return Err(-1);
+            }
+            match operation {
+                11 => Ok(u32::from(arena.contiguous_free(ram, first)?)),
+                12 => arena.contiguous_size(ram, first),
+                13 => {
+                    let size = arena.contiguous_size(ram, first)?;
+                    if size != 0 {
+                        Ok(size)
+                    } else {
+                        state.heap_size(ram, first)
+                    }
+                }
+                14 => {
+                    if !arena.contiguous_free(ram, first)? {
+                        state.heap_free(ram, first)?;
+                    }
+                    Ok(0)
+                }
+                16 => {
+                    if first >= 6 {
+                        return Err(-1);
+                    }
+                    Ok(arena.contiguous_stats()[first as usize])
+                }
+                18 => Ok(arena.contiguous_record(first)?[1]),
+                _ => Err(-1),
+            }
+        }
+        15 => {
+            arena.contiguous_clear_claim(ram, first, second)?;
+            Ok(0)
+        }
+        17 => {
+            if second == 0 || second > 4 {
+                return Err(-1);
+            }
+            let mut copied = [0u8; 4];
+            arena.contiguous_pages(first, &mut copied[..second as usize])?;
+            Ok(u32::from_le_bytes(copied))
+        }
+        _ => Err(-1),
+    }
+}
+
 fn service_configure(bytes: &[u8]) -> Result<(memory::Memory, heap::Heap), i32> {
     let mut ram = memory::Memory::with_call_handle(service_long(bytes, 32)?)?;
     ram.attach(0, 67108864, service_long(bytes, 40)?, 0, true)?;
@@ -276,7 +379,12 @@ impl HeapClient {
         service_alive()?;
         let sequence = self.sequence.checked_add(1).ok_or(-3)?;
         let mut request = std::vec::Vec::new();
-        request.extend(u32::to_le_bytes(1));
+        let version = if (8..=18).contains(&operation) {
+            2u32
+        } else {
+            1u32
+        };
+        request.extend(u32::to_le_bytes(version));
         request.extend(u32::to_le_bytes(operation));
         request.extend(u64::to_le_bytes(self.reply));
         request.extend(u64::to_le_bytes(sequence));
@@ -286,7 +394,7 @@ impl HeapClient {
         // Busy here means this request was never accepted; sequence is retained.
         gamepkg::local_mailbox_send(self.inbox, &request)?;
         self.sequence = sequence;
-        let reply = self.service_response(sequence);
+        let reply = self.service_response(sequence, version);
         if reply.is_err() {
             self.poisoned = true;
         }
@@ -308,13 +416,13 @@ impl HeapClient {
             ],
         ))
     }
-    fn service_response(&self, sequence: u64) -> Result<[u8; 32], i32> {
+    fn service_response(&self, sequence: u64, version: u32) -> Result<[u8; 32], i32> {
         let mut bytes = [0u8; 32];
         loop {
             service_alive()?;
             match gamepkg::local_mailbox_receive(self.reply, 1000, &mut bytes) {
                 Ok(32) => {
-                    if service_word(&bytes, 0)? != 1 || service_long(&bytes, 8)? != sequence {
+                    if service_word(&bytes, 0)? != version || service_long(&bytes, 8)? != sequence {
                         return Err(-3);
                     }
                     return Ok(bytes);
@@ -426,6 +534,111 @@ impl HeapClient {
         self.active = false;
         Ok(())
     }
+    fn service_zero_result(&mut self, result: u32) -> Result<(), i32> {
+        if result != 0 {
+            self.poisoned = true;
+            return Err(-3);
+        }
+        Ok(())
+    }
+    pub fn heap_contiguous_initialize(&mut self, window: u64) -> Result<(), i32> {
+        if !self.active || self.record == 0 {
+            return Err(-4);
+        }
+        let result = self
+            .service_call(8, window as u32, (window >> 32) as u32, &[])?
+            .0;
+        self.service_zero_result(result)
+    }
+    pub fn heap_contiguous_allocate(
+        &mut self,
+        size: u32,
+        alignment: u32,
+        low: u32,
+        high: u32,
+    ) -> Result<u32, i32> {
+        if !self.active {
+            return Err(-4);
+        }
+        let mut range = std::vec::Vec::new();
+        range.extend(u32::to_le_bytes(low));
+        range.extend(u32::to_le_bytes(high));
+        Ok(self.service_call(9, size, alignment, &range)?.0)
+    }
+    pub fn heap_contiguous_claim(&mut self, address: u32, size: u32) -> Result<(), i32> {
+        if !self.active {
+            return Err(-4);
+        }
+        let result = self.service_call(10, address, size, &[])?.0;
+        self.service_zero_result(result)
+    }
+    pub fn heap_contiguous_free(&mut self, address: u32) -> Result<bool, i32> {
+        if !self.active {
+            return Err(-4);
+        }
+        match self.service_call(11, address, 0, &[])?.0 {
+            0 => Ok(false),
+            1 => Ok(true),
+            _ => {
+                self.poisoned = true;
+                Err(-3)
+            }
+        }
+    }
+    pub fn heap_contiguous_query(&mut self, address: u32) -> Result<u32, i32> {
+        if !self.active {
+            return Err(-4);
+        }
+        Ok(self.service_call(12, address, 0, &[])?.0)
+    }
+    pub fn heap_allocation_query(&mut self, address: u32) -> Result<u32, i32> {
+        if !self.active {
+            return Err(-4);
+        }
+        Ok(self.service_call(13, address, 0, &[])?.0)
+    }
+    pub fn heap_allocation_release(&mut self, address: u32) -> Result<(), i32> {
+        if !self.active {
+            return Err(-4);
+        }
+        let result = self.service_call(14, address, 0, &[])?.0;
+        self.service_zero_result(result)
+    }
+    pub fn heap_contiguous_clear_claim(&mut self, address: u32, size: u32) -> Result<(), i32> {
+        if !self.active {
+            return Err(-4);
+        }
+        let result = self.service_call(15, address, size, &[])?.0;
+        self.service_zero_result(result)
+    }
+    // Each counter read is one serialized observation, not a multi-call snapshot.
+    pub fn heap_contiguous_counter(&mut self, index: u32) -> Result<u32, i32> {
+        if !self.active {
+            return Err(-4);
+        }
+        if index >= 6 {
+            return Err(-1);
+        }
+        Ok(self.service_call(16, index, 0, &[])?.0)
+    }
+    pub fn heap_contiguous_pages(&mut self, first: u32, count: u32) -> Result<[u8; 4], i32> {
+        if !self.active {
+            return Err(-4);
+        }
+        if count == 0 || count > 4 {
+            return Err(-1);
+        }
+        Ok(u32::to_le_bytes(
+            self.service_call(17, first, count, &[])?.0,
+        ))
+    }
+    pub fn heap_contiguous_length(&mut self, page: u32) -> Result<u32, i32> {
+        if !self.active {
+            return Err(-4);
+        }
+        Ok(self.service_call(18, page, 0, &[])?.0)
+    }
+
     // Port-internal ownership metadata. No native pointer or host authority.
     pub fn heap_root_record(&self) -> u64 {
         self.record

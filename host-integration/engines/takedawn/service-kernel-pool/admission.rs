@@ -62,6 +62,10 @@ fn main() {
     }
     for (name, path) in [
         ("heap.rs", here.join("../service-heap/heap.rs")),
+        (
+            "contiguous.rs",
+            here.join("../service-contiguous/contiguous.rs"),
+        ),
         ("heap_service.rs", here.join("../service-heap/service.rs")),
         ("kernel_pool.rs", here.join("kernel_pool.rs")),
         ("pool_checks.rs", here.join("pool_checks.rs")),
@@ -85,7 +89,7 @@ fn main() {
         fs::write(path, data).unwrap();
     }
     fs::write(source.join("source/src/lib.rs"),r#"
-mod memory;mod registers;mod call_state;mod calls_runtime;mod vector;mod scalar;mod debug;mod heap;mod heap_service;mod kernel_pool;mod pool_checks;mod game;mod dispatch;mod targets;
+mod memory;mod registers;mod call_state;mod calls_runtime;mod vector;mod scalar;mod debug;mod heap;mod contiguous;mod heap_service;mod kernel_pool;mod pool_checks;mod game;mod dispatch;mod targets;
 pub fn heap_worker(arg:u64)->u64{heap_service::heap_serve(arg)}
 pub fn pool_worker(arg:u64)->u64{pool_checks::pool_worker(arg)}
 fn run()->Result<(),i32>{let mut windows=[0u8;16];if gamepkg::local_call(1,&[],&mut windows)?!=16{return Err(-3);}let window=u64::from_le_bytes([windows[0],windows[1],windows[2],windows[3],windows[4],windows[5],windows[6],windows[7]]);let mut req=std::vec::Vec::new();req.extend(u64::to_le_bytes(window));req.extend(u64::to_le_bytes(0));req.extend(u64::to_le_bytes(67108864));req.extend(u32::to_le_bytes(2));gamepkg::local_call(2,&req,&mut [])?;let mut ram=memory::Memory::new()?;ram.attach(0,67108864,window,0,true)?;pool_checks::pool_verify(&mut ram,window)}

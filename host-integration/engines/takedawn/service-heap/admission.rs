@@ -99,6 +99,10 @@ fn main() {
     }
     for (name, path) in [
         ("memory.rs", here.join("../service-native/memory.rs")),
+        (
+            "contiguous.rs",
+            here.join("../service-contiguous/contiguous.rs"),
+        ),
         ("heap_service.rs", here.join("../service-heap/service.rs")),
         (
             "call_state.rs",
@@ -111,7 +115,7 @@ fn main() {
     ] {
         fs::copy(path, source.join("source/src").join(name)).unwrap();
     }
-    fs::write(source.join("source/src/lib.rs"),"mod memory;mod call_state;mod heap_service;mod sha256;mod heap;mod denials;mod probe;pub fn game_main(){probe::game_main();}\n").unwrap();
+    fs::write(source.join("source/src/lib.rs"),"mod memory;mod call_state;mod contiguous;mod heap_service;mod sha256;mod heap;mod denials;mod probe;pub fn game_main(){probe::game_main();}\n").unwrap();
     let mut manifest =
         gamepkg::manifest::Manifest::parse(&fs::read(source.join("manifest.toml")).unwrap())
             .unwrap();

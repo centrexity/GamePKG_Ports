@@ -51,13 +51,17 @@ fn main() {
             here.join("../service-native/call_state.rs"),
         ),
         ("heap.rs", here.join("heap.rs")),
+        (
+            "contiguous.rs",
+            here.join("../service-contiguous/contiguous.rs"),
+        ),
         ("heap_service.rs", here.join("service.rs")),
         ("service_checks.rs", here.join("service_checks.rs")),
     ] {
         fs::copy(path, source.join("source/src").join(name)).unwrap();
     }
     fs::write(source.join("source/src/lib.rs"),r#"
-mod memory;mod call_state;mod heap;mod heap_service;mod service_checks;
+mod memory;mod call_state;mod heap;mod contiguous;mod heap_service;mod service_checks;
 pub fn heap_worker(arg:u64)->u64{heap_service::heap_serve(arg)}
 pub fn client_worker(arg:u64)->u64{service_checks::heap_test_client(arg)}
 pub fn fake_worker(arg:u64)->u64{service_checks::heap_test_fake(arg)}

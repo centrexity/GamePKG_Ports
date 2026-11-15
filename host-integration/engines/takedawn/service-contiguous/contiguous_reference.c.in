@@ -45,6 +45,9 @@ uint32_t gamepkg_contig_operation(uint32_t op,uint32_t a,uint32_t b,uint32_t c,u
  if(op==3)return xbox_ContiguousBlockSize(a);
  if(op==4){memset(oracle_ram+a,0x7b,b);return 0;}
  if(op==5)return xbox_ContiguousAlloc(a,b);
+ if(op==6){uint32_t xbox_va=a,size=b;uintptr_t g_xbox_mem_offset=g_memory_offset;
+/* GAMEPKG_PINNED_FIXED_CLEAR_CLAIM */
+ return 0;}
  return 0;
 }
 void gamepkg_contig_stats(uint32_t *out){out[0]=xbox_ContiguousInUseBytes()/CONTIG_PAGE;out[1]=xbox_ContiguousAllocatedBytes();out[2]=g_contig_first_free;out[3]=g_contig_allocs;out[4]=g_contig_frees;out[5]=g_contig_peak_pages;}

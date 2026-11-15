@@ -182,6 +182,14 @@ pub fn make_case(index: u32) -> Fixture {
                     build.step(3, at, 0, 0, 0);
                 }
             }
+            for (address, size) in [
+                (0x80001003u32, 4096u32),
+                (0x80000001, 16),
+                (0x83ffffff, 1),
+                (0x83000000, 0),
+            ] {
+                build.step(6, address, size, 0, 0);
+            }
             for address in [
                 0x80001001u32,
                 0x80002000,

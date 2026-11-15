@@ -128,6 +128,10 @@ fn contiguous_execute() -> Result<(), i32> {
                 }
             }
             5 => state.contiguous_allocate(&ram, first, second, 0, u32::MAX),
+            6 => match state.contiguous_clear_claim(&ram, first, second) {
+                Ok(()) => Ok(0),
+                Err(code) => Err(code),
+            },
             _ => return Err(-1),
         };
         if result != Ok(contiguous_word(vector, 20)?) {

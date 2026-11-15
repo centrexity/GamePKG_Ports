@@ -60,5 +60,13 @@
     "CONTIG_LOW_RESERVE_START": "((15u << 20) / CONTIG_PAGE)",
     "CONTIG_LOW_RESERVE_END": "((16u << 20) / CONTIG_PAGE)",
     "CONTIG_RESERVED": "2u"
+  },
+  "fixed_clear_claim": {
+    "member": "toolkit/src/kernel/kernel_bridge.c",
+    "source_sha256": "bf62f8787a2e78a0abdb28e10ad8f79c5267dc655491353af231067747ce446e",
+    "start": 51487,
+    "end": 51680,
+    "sha256": "f130d792d3a7c2d2684a8909db166fbe28668c7f5152bf85735dc9bd0321ed4e",
+    "scope": "Exact clear-and-claim data actions only; not the full fixed-range branch condition, return/stack/reporting or kernel bridge qualification"
   }
 }
