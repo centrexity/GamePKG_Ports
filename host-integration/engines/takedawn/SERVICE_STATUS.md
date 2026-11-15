@@ -28,12 +28,14 @@ Timestamp/retention/UI and original Windows rename retry timing remain pending.
 This is not actual game or Windows worker-runtime qualification.
 
 First generated-game migration: [service-native/README.md](service-native/README.md)
-now contains 24 checked direct native functions from one pinned 50-function unit,
+now contains 28 checked direct native functions from one pinned 50-function unit,
 explicit register values, and safe offsets over GamePKG-owned RAM. The remaining
-26 functions in that unit have explicit exclusions, not fallbacks. Each target
-passes 1760 original-body register/whole-RAM comparisons (Linux32/64 native,
+22 functions in that unit have explicit exclusions, not fallbacks. Each target
+passes 1888 original-body register/whole-RAM comparisons (Linux32/64 native,
 Windows32/64 under Wine). Exact source/object admission passes on all four;
-actual confined Linux children execute the vectors. This is an incomplete
+actual confined Linux children execute the vectors. Vector helpers also pass
+1575 edge cases and 256 shuffle controls, with an explicit portable dual-NaN
+payload policy; see the component README for the narrow reference difference. This is an incomplete
 component, not a complete kit, actual title entry or game-performance result.
 
 The current application contract is GamePKG commit

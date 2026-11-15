@@ -153,7 +153,7 @@ impl Lower {
         }
         if ![
             "eax", "ebx", "ecx", "edx", "esi", "edi", "ebp", "esp", "seh_ebp", "df", "fp_stack",
-            "fp_top", "fp_cc",
+            "fp_top", "fp_cc", "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7",
         ]
         .contains(&field)
         {
@@ -189,13 +189,110 @@ impl Lower {
                 .any(|n| m.method == *n)
                     && self.guest_u32(&m.receiver)
             }
-            Expr::Binary(b) => self.guest_u32(&b.left) && self.guest_u32(&b.right),
+            Expr::Binary(b) => {
+                matches!(
+                    b.op,
+                    syn::BinOp::Add(_)
+                        | syn::BinOp::Sub(_)
+                        | syn::BinOp::Mul(_)
+                        | syn::BinOp::Div(_)
+                        | syn::BinOp::Rem(_)
+                        | syn::BinOp::BitXor(_)
+                        | syn::BinOp::BitAnd(_)
+                        | syn::BinOp::BitOr(_)
+                        | syn::BinOp::Shl(_)
+                        | syn::BinOp::Shr(_)
+                ) && self.guest_u32(&b.left)
+                    && self.guest_u32(&b.right)
+            }
             Expr::Lit(syn::ExprLit {
                 lit: syn::Lit::Int(n),
                 ..
             }) => n.suffix() == "u32",
             _ => false,
         }
+    }
+    fn float32(&self, expr: &Expr) -> bool {
+        if self
+            .vector_lane(expr)
+            .is_some_and(|(_, _, view)| view == "f")
+        {
+            return true;
+        }
+        match plain(expr) {
+            Expr::Cast(c) => primitive(&c.ty) == Some("f32"),
+            Expr::Path(_) => path(expr)
+                .and_then(|n| self.locals.get(&n))
+                .is_some_and(|n| n == "f32"),
+            Expr::Binary(b)
+                if matches!(
+                    b.op,
+                    syn::BinOp::Add(_) | syn::BinOp::Sub(_) | syn::BinOp::Mul(_)
+                ) =>
+            {
+                self.float32(&b.left) && self.float32(&b.right)
+            }
+            Expr::Call(c) => path(&c.func).as_deref() == Some("sqrtf"),
+            _ => false,
+        }
+    }
+    fn vector_value(&self, expr: &Expr) -> bool {
+        match plain(expr) {
+            Expr::Unary(u) if matches!(u.op, syn::UnOp::Deref(_)) => path(&u.expr)
+                .and_then(|n| self.tls.get(&n))
+                .is_some_and(|n| n.starts_with("xmm")),
+            Expr::Path(_) => path(expr)
+                .and_then(|n| self.locals.get(&n))
+                .is_some_and(|n| n == "xmm"),
+            _ => false,
+        }
+    }
+    fn vector_lane(&self, expr: &Expr) -> Option<(Expr, Expr, String)> {
+        let Expr::Index(index) = plain(expr) else {
+            return None;
+        };
+        let Expr::Field(field) = plain(&index.expr) else {
+            return None;
+        };
+        if !self.vector_value(&field.base) {
+            return None;
+        }
+        let syn::Member::Named(view) = &field.member else {
+            return None;
+        };
+        Some((*field.base.clone(), *index.index.clone(), view.to_string()))
+    }
+    fn vector_call(&mut self, call: &syn::ExprCall, name: &str) -> Option<Expr> {
+        let (helper, count, access) = match name {
+            "XMM_ZERO" => ("zero", 0, 0),
+            "XMM_SCALAR" => ("scalar", 1, 0),
+            "XMM_MEM" => ("load", 1, 1),
+            "XMM_STORE" => ("store", 2, 2),
+            "XMM_ADD" => ("add", 2, 0),
+            "XMM_SUB" => ("subtract", 2, 0),
+            "XMM_MUL" => ("multiply", 2, 0),
+            "XMM_XOR" => ("xor", 2, 0),
+            "XMM_SHUFFLE" => ("shuffle", 3, 0),
+            _ => return None,
+        };
+        if call.args.len() != count {
+            self.reject("vector helper arity");
+            return None;
+        }
+        if access != 0 && !self.guest_u32(&call.args[0]) {
+            self.reject("vector address not proven u32");
+            return None;
+        }
+        let mut args = call.args.clone();
+        for expr in &mut args {
+            self.visit_expr_mut(expr);
+        }
+        let method = format_ident!("{helper}");
+        Some(if access == 0 {
+            parse_quote!(crate::vector::#method(#args))
+        } else {
+            parse_quote!(crate::vector::#method(guest_ram,#args)?)
+        })
     }
     fn memory_call(&mut self, call: &syn::ExprCall, name: &str) -> Option<Expr> {
         let read = name == "core::ptr::read_volatile";
@@ -254,22 +351,62 @@ impl VisitMut for Lower {
         self.reject("nested item or alias");
     }
     fn visit_local_mut(&mut self, local: &mut syn::Local) {
-        if let syn::Pat::Type(p) = &local.pat {
-            if let syn::Pat::Ident(binding) = &*p.pat {
-                if let Some(ty) = primitive(&p.ty) {
-                    self.locals.insert(binding.ident.to_string(), ty.into());
+        let (name, ty) = match &local.pat {
+            syn::Pat::Ident(binding) => (binding.ident.to_string(), None),
+            syn::Pat::Type(p) => match &*p.pat {
+                syn::Pat::Ident(binding) => (
+                    binding.ident.to_string(),
+                    primitive(&p.ty).or_else(|| {
+                        (p.ty.to_token_stream().to_string() == "RecompXmm").then_some("xmm")
+                    }),
+                ),
+                _ => {
+                    self.reject("unreviewed binding pattern");
+                    return;
                 }
+            },
+            _ => {
+                self.reject("unreviewed binding pattern");
+                return;
+            }
+        };
+        // A let initializer still sees its outer binding, not the new shadow.
+        for attribute in &mut local.attrs {
+            self.visit_attribute_mut(attribute);
+        }
+        if let Some(init) = &mut local.init {
+            self.visit_expr_mut(&mut init.expr);
+            if let Some((_, diverge)) = &mut init.diverge {
+                self.visit_expr_mut(diverge);
             }
         }
-        visit_mut::visit_local_mut(self, local);
+        self.visit_pat_mut(&mut local.pat);
+        self.locals
+            .insert(name.clone(), ty.unwrap_or("unknown").into());
+        self.tls.remove(&name);
     }
     fn visit_block_mut(&mut self, block: &mut syn::Block) {
-        block.stmts.retain(|stmt| !self.tls_local(stmt));
-        visit_mut::visit_block_mut(self, block);
+        let outer_locals = self.locals.clone();
+        let outer_tls = self.tls.clone();
+        let mut statements = Vec::new();
+        for mut statement in std::mem::take(&mut block.stmts) {
+            if self.tls_local(&statement) {
+                continue;
+            }
+            self.visit_stmt_mut(&mut statement);
+            statements.push(statement);
+        }
+        block.stmts = statements;
+        self.locals = outer_locals;
+        self.tls = outer_tls;
     }
     fn visit_type_mut(&mut self, ty: &mut Type) {
         if let Some(name) = primitive(ty) {
             *ty = syn::parse_str(name).unwrap();
+            return;
+        }
+        if ty.to_token_stream().to_string() == "RecompXmm" {
+            *ty = parse_quote!([u32; 4]);
             return;
         }
         match ty {
@@ -289,6 +426,67 @@ impl VisitMut for Lower {
         visit_mut::visit_type_mut(self, ty);
     }
     fn visit_expr_mut(&mut self, expr: &mut Expr) {
+        if let Expr::Binary(binary) = expr {
+            if self.float32(&binary.left) && self.float32(&binary.right) {
+                let helper = match binary.op {
+                    syn::BinOp::Add(_) => Some("add_float"),
+                    syn::BinOp::Sub(_) => Some("subtract_float"),
+                    syn::BinOp::Mul(_) => Some("multiply_float"),
+                    _ => None,
+                };
+                if let Some(helper) = helper {
+                    let method = format_ident!("{helper}");
+                    let mut first = *binary.left.clone();
+                    let mut second = *binary.right.clone();
+                    self.visit_expr_mut(&mut first);
+                    self.visit_expr_mut(&mut second);
+                    *expr = parse_quote!(crate::vector::#method(#first,#second));
+                    return;
+                }
+            }
+        }
+        if let Expr::Assign(assignment) = expr {
+            if let Some((mut base, mut index, view)) = self.vector_lane(&assignment.left) {
+                let mut value = *assignment.right.clone();
+                self.visit_expr_mut(&mut value);
+                self.visit_expr_mut(&mut base);
+                self.visit_expr_mut(&mut index);
+                let setter = match view.as_str() {
+                    "f" => "set_float",
+                    "u" => "set_word",
+                    "i" => "set_signed",
+                    _ => {
+                        self.reject("unreviewed vector lane width");
+                        return;
+                    }
+                };
+                let method = format_ident!("{setter}");
+                *expr = parse_quote!({let converted_lane_value=#value;crate::vector::#method(&mut #base,#index,converted_lane_value)?;});
+                return;
+            }
+        }
+        if let Some((mut base, mut index, view)) = self.vector_lane(expr) {
+            self.visit_expr_mut(&mut base);
+            self.visit_expr_mut(&mut index);
+            let getter = match view.as_str() {
+                "f" => "float",
+                "u" => "word",
+                "i" => "signed",
+                _ => {
+                    self.reject("unreviewed vector lane width");
+                    return;
+                }
+            };
+            let method = format_ident!("{getter}");
+            *expr = parse_quote!(crate::vector::#method(#base,#index)?);
+            return;
+        }
+        if let Expr::Field(field) = expr {
+            if self.vector_value(&field.base) {
+                self.reject("unreviewed whole vector view");
+                return;
+            }
+        }
         if let Expr::Unary(unary) = expr {
             if matches!(unary.op, syn::UnOp::Deref(_)) {
                 if let Some(field) = path(&unary.expr).and_then(|n| self.tls.get(&n).cloned()) {
@@ -323,6 +521,14 @@ impl VisitMut for Lower {
                 self.reject("indirect call");
                 return;
             };
+            if name.starts_with("XMM_") {
+                if let Some(value) = self.vector_call(call, &name) {
+                    *expr = value;
+                } else {
+                    self.reject(format!("unreviewed vector helper {name}"));
+                }
+                return;
+            }
             if matches!(
                 name.as_str(),
                 "core::ptr::read_volatile" | "core::ptr::write_volatile"
@@ -418,6 +624,31 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Err("unreviewed input unit hash".into());
     }
     let ast = syn::parse_file(std::str::from_utf8(&source)?)?;
+    let original_helpers = ast
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            Item::Fn(f)
+                if [
+                    "XMM_ZERO",
+                    "XMM_SCALAR",
+                    "XMM_MEM",
+                    "XMM_STORE",
+                    "XMM_ADD",
+                    "XMM_SUB",
+                    "XMM_MUL",
+                    "XMM_XOR",
+                    "XMM_SHUFFLE",
+                ]
+                .iter()
+                .any(|name| f.sig.ident == *name) =>
+            {
+                Some(f)
+            }
+            _ => None,
+        })
+        .cloned()
+        .collect::<Vec<_>>();
     let mut original = BTreeMap::new();
     let mut accepted = BTreeMap::new();
     let mut rejected = BTreeMap::<String, Vec<String>>::new();
@@ -466,6 +697,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     let output = Path::new(&args[2]);
     fs::create_dir(output)?;
+    fs::write(
+        output.join("oracle_helpers.rs"),
+        quote!(#(#original_helpers)*).to_string(),
+    )?;
     let originals = accepted.keys().map(|n| &original[n]).collect::<Vec<_>>();
     fs::write(output.join("oracle.rs"), quote!(#(#originals)*).to_string())?;
     let mut routes = Vec::new();
@@ -509,7 +744,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         return Err("generated Rust formatting failed".into());
     }
-    let provenance = serde_json::json!({"schema":1,"generator_source_sha256":format!("{:x}",Sha256::digest(include_bytes!("main.rs"))),"generator_lock_sha256":format!("{:x}",Sha256::digest(include_bytes!("../Cargo.lock"))),"formatter_version":String::from_utf8(formatter.stdout)?.trim(),"game_sha256":format!("{:x}",Sha256::digest(fs::read(output.join("game.rs"))?)),"dispatch_sha256":format!("{:x}",Sha256::digest(fs::read(output.join("dispatch.rs"))?)),"input_sha256":source_hash,"source_kit_sha256":"6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4","converted":accepted.keys().collect::<Vec<_>>(),"rejected":rejected,"production_ready":false});
+    let provenance = serde_json::json!({"schema":1,"register_record_version":2,"register_record_bytes":240,"float_arithmetic_nan_policy":"quiet-first-NaN-preserve-sign-and-payload","generator_source_sha256":format!("{:x}",Sha256::digest(include_bytes!("main.rs"))),"generator_lock_sha256":format!("{:x}",Sha256::digest(include_bytes!("../Cargo.lock"))),"formatter_version":String::from_utf8(formatter.stdout)?.trim(),"game_sha256":format!("{:x}",Sha256::digest(fs::read(output.join("game.rs"))?)),"dispatch_sha256":format!("{:x}",Sha256::digest(fs::read(output.join("dispatch.rs"))?)),"input_sha256":source_hash,"source_kit_sha256":"6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4","converted":accepted.keys().collect::<Vec<_>>(),"rejected":rejected,"production_ready":false});
     fs::write(
         output.join("provenance.json"),
         serde_json::to_vec_pretty(&provenance)?,
@@ -554,7 +789,7 @@ mod tests {
         for body in [
             "let p:*mut u32=0 as *mut u32;*p=1;",
             "let other=unsafe{gamepkg_tls_g_eax()};",
-            "let __gamepkg_tls_g_xmm0=unsafe{gamepkg_tls_g_xmm0()};",
+            "let __gamepkg_tls_g_xmm8=unsafe{gamepkg_tls_g_xmm8()};",
             "let value=SDL_GetTicks();",
             "let f=some_function;f();",
             "let f=some_function;f.unwrap()();",
@@ -573,6 +808,44 @@ mod tests {
             .to_string()
             .contains("crate :: game :: sub_200"));
         assert!(converted.sig.unsafety.is_none() && converted.sig.abi.is_none());
+    }
+    #[test]
+    fn address_width_proofs_follow_lexical_scope_initializers_and_shadowing() {
+        assert!(lowered(&format!(
+            "let a:uint64_t=0x100001234;{{let a:uint32_t=0;}}{}",
+            load("a", "uint32_t")
+        ))
+        .is_err());
+        assert!(lowered(&format!(
+            "let a:uint32_t=0x1234;{{let a:uint64_t=0x100001234;}}{}",
+            load("a", "uint32_t")
+        ))
+        .is_ok());
+        assert!(lowered(&format!(
+            "let a:uint32_t=0x1234;let a=0x100001234u64;{}",
+            load("a", "uint32_t")
+        ))
+        .is_err());
+        assert!(lowered(&format!(
+            "let a:uint64_t=0x100001234;let a:uint32_t={{{}0}};",
+            load("a", "uint32_t")
+        ))
+        .is_err());
+        assert!(lowered(&load("(1 as uint32_t)==(2 as uint32_t)", "uint32_t")).is_err());
+        assert!(lowered("let __gamepkg_tls_g_eax=unsafe{gamepkg_tls_g_eax()};{let __gamepkg_tls_g_eax:uint64_t=0;*__gamepkg_tls_g_eax=1;}").is_err());
+    }
+    #[test]
+    fn vector_lowering_keeps_bit_views_checked_and_rejects_unknown_widths_and_addresses() {
+        let prefix = "let __gamepkg_tls_g_xmm0=unsafe{gamepkg_tls_g_xmm0()};";
+        assert!(lowered(&format!("{prefix}(*__gamepkg_tls_g_xmm0).f[0usize]=(*__gamepkg_tls_g_xmm0).f[1usize]+(*__gamepkg_tls_g_xmm0).f[2usize];")).is_ok());
+        assert!(lowered(&format!(
+            "{prefix}let value=(*__gamepkg_tls_g_xmm0).q[0usize];"
+        ))
+        .is_err());
+        assert!(lowered(&format!("{prefix}let value=(*__gamepkg_tls_g_xmm0).f;")).is_err());
+        assert!(lowered("XMM_MEM(0x100001234u64);").is_err());
+        assert!(lowered("XMM_ZERO(1u32);").is_err());
+        assert!(lowered("let a:RecompXmm=XMM_ZERO();let lane=a.u[0usize];").is_ok());
     }
     #[test]
     fn only_original_zero_argument_signatures_and_known_attributes_are_candidates() {

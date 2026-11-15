@@ -1,4 +1,299 @@
 // Maintainer-generated from pinned Takedawn; see LICENSE and provenance.json.
+pub fn sub_00013BD0(
+    native_state: &mut crate::registers::Registers,
+    guest_ram: &mut crate::memory::Memory,
+) -> Result<(), i32> {
+    let mut ebp: u32 = 0 as u32;
+    ebp = (native_state.ebp);
+    let mut _fa: u32 = 0 as u32;
+    let mut _fb: u32 = 0 as u32;
+    let mut _fas: i32 = 0 as i32;
+    let mut _fbs: i32 = 0 as i32;
+    let mut _pv: u32 = ebp;
+    (native_state.esp) = (native_state.esp).wrapping_sub(4 as u32);
+    guest_ram.write_u32((native_state.esp) as u32, _pv)?;
+    ebp = (native_state.esp);
+    (native_state.ebp) = ebp;
+    (native_state.seh_ebp) = ebp;
+    (native_state.esp) = (native_state.esp) & 0xfffffff0 as u32;
+    _fa = (native_state.esp) & 0xffffffff as u32;
+    _fas = _fa as i32;
+    _fb = 0xc as i32 as u32 & 0xffffffff as u32;
+    _fbs = _fb as i32;
+    (native_state.esp) = (native_state.esp).wrapping_sub(0xc as u32);
+    _fa = (native_state.esp) & 0xffffffff as u32;
+    _fas = _fa as i32;
+    (native_state.xmm1) = crate::vector::load(guest_ram, (native_state.ecx))?;
+    (native_state.edx) = guest_ram.read_u32((ebp.wrapping_add(8 as u32)) as u32)?;
+    (native_state.xmm0) = crate::vector::load(guest_ram, (native_state.edx))?;
+    let mut _pv_0: u32 = (native_state.esi);
+    (native_state.esp) = (native_state.esp).wrapping_sub(4 as u32);
+    guest_ram.write_u32((native_state.esp) as u32, _pv_0)?;
+    (native_state.xmm1) = crate::vector::add((native_state.xmm1), (native_state.xmm0));
+    crate::vector::store(guest_ram, (native_state.ecx), (native_state.xmm1))?;
+    (native_state.esi) = guest_ram.read_u32((native_state.ecx) as u32)?;
+    (native_state.edx) = (native_state.eax);
+    guest_ram.write_u32((native_state.edx) as u32, (native_state.esi))?;
+    (native_state.esi) = guest_ram.read_u32(((native_state.ecx).wrapping_add(4 as u32)) as u32)?;
+    guest_ram.write_u32(
+        ((native_state.edx).wrapping_add(4 as u32)) as u32,
+        (native_state.esi),
+    )?;
+    (native_state.esi) = guest_ram.read_u32(((native_state.ecx).wrapping_add(8 as u32)) as u32)?;
+    guest_ram.write_u32(
+        ((native_state.edx).wrapping_add(8 as u32)) as u32,
+        (native_state.esi),
+    )?;
+    (native_state.ecx) =
+        guest_ram.read_u32(((native_state.ecx).wrapping_add(0xc as u32)) as u32)?;
+    guest_ram.write_u32(
+        ((native_state.edx).wrapping_add(0xc as u32)) as u32,
+        (native_state.ecx),
+    )?;
+    (native_state.esi) = guest_ram.read_u32((native_state.esp) as u32)?;
+    (native_state.esp) = (native_state.esp).wrapping_add(4 as u32);
+    (native_state.esp) = ebp;
+    ebp = guest_ram.read_u32((native_state.esp) as u32)?;
+    (native_state.esp) = (native_state.esp).wrapping_add(4 as u32);
+    (native_state.esp) = (native_state.esp).wrapping_add(8 as u32);
+    Ok(())
+}
+pub fn sub_00013C10(
+    native_state: &mut crate::registers::Registers,
+    guest_ram: &mut crate::memory::Memory,
+) -> Result<(), i32> {
+    let mut ebp: u32 = 0 as u32;
+    ebp = (native_state.ebp);
+    let mut _fa: u32 = 0 as u32;
+    let mut _fb: u32 = 0 as u32;
+    let mut _fas: i32 = 0 as i32;
+    let mut _fbs: i32 = 0 as i32;
+    let mut _pv: u32 = ebp;
+    (native_state.esp) = (native_state.esp).wrapping_sub(4 as u32);
+    guest_ram.write_u32((native_state.esp) as u32, _pv)?;
+    ebp = (native_state.esp);
+    (native_state.ebp) = ebp;
+    (native_state.seh_ebp) = ebp;
+    (native_state.esp) = (native_state.esp) & 0xfffffff0 as u32;
+    _fa = (native_state.esp) & 0xffffffff as u32;
+    _fas = _fa as i32;
+    _fb = 0x20 as i32 as u32 & 0xffffffff as u32;
+    _fbs = _fb as i32;
+    (native_state.esp) = (native_state.esp).wrapping_sub(0x20 as u32);
+    _fa = (native_state.esp) & 0xffffffff as u32;
+    _fas = _fa as i32;
+    (native_state.xmm0) = crate::vector::load(guest_ram, (native_state.eax))?;
+    (native_state.xmm0) = crate::vector::multiply((native_state.xmm0), (native_state.xmm0));
+    (native_state.xmm1) = (native_state.xmm0);
+    (native_state.xmm1) =
+        crate::vector::shuffle((native_state.xmm1), (native_state.xmm0), 0x39 as u32);
+    {
+        let converted_lane_value = crate::vector::add_float(
+            crate::vector::float((native_state.xmm0), 0usize)?,
+            crate::vector::float((native_state.xmm1), 0usize)?,
+        );
+        crate::vector::set_float(&mut (native_state.xmm0), 0usize, converted_lane_value)?;
+    };
+    (native_state.xmm2) = (native_state.xmm1);
+    (native_state.xmm2) =
+        crate::vector::shuffle((native_state.xmm2), (native_state.xmm1), 0x39 as u32);
+    {
+        let converted_lane_value = crate::vector::add_float(
+            crate::vector::float((native_state.xmm0), 0usize)?,
+            crate::vector::float((native_state.xmm2), 0usize)?,
+        );
+        crate::vector::set_float(&mut (native_state.xmm0), 0usize, converted_lane_value)?;
+    };
+    crate::vector::store(
+        guest_ram,
+        (native_state.esp).wrapping_add(0x10 as u32),
+        (native_state.xmm0),
+    )?;
+    {
+        let converted_lane_value = (crate::vector::float((native_state.xmm0), 0usize)?).sqrt();
+        crate::vector::set_float(&mut (native_state.xmm0), 0usize, converted_lane_value)?;
+    };
+    guest_ram.write_f32(
+        ((native_state.esp).wrapping_add(0x10 as u32)) as u32,
+        crate::vector::float((native_state.xmm0), 0usize)?,
+    )?;
+    (native_state.xmm0) =
+        crate::vector::load(guest_ram, (native_state.esp).wrapping_add(0x10 as u32))?;
+    (native_state.ecx) = (native_state.esp).wrapping_add(0xc as u32);
+    guest_ram.write_f32(
+        (native_state.ecx) as u32,
+        crate::vector::float((native_state.xmm0), 0usize)?,
+    )?;
+    (native_state.xmm0) = crate::vector::scalar(
+        guest_ram.read_f32(((native_state.esp).wrapping_add(0xc as u32)) as u32)?,
+    );
+    (native_state.esp) = ebp;
+    ebp = guest_ram.read_u32((native_state.esp) as u32)?;
+    (native_state.esp) = (native_state.esp).wrapping_add(4 as u32);
+    (native_state.esp) = (native_state.esp).wrapping_add(4 as u32);
+    Ok(())
+}
+pub fn sub_00013C60(
+    native_state: &mut crate::registers::Registers,
+    guest_ram: &mut crate::memory::Memory,
+) -> Result<(), i32> {
+    let mut ebp: u32 = 0 as u32;
+    ebp = (native_state.ebp);
+    let mut _fa: u32 = 0 as u32;
+    let mut _fb: u32 = 0 as u32;
+    let mut _fas: i32 = 0 as i32;
+    let mut _fbs: i32 = 0 as i32;
+    let mut _pv: u32 = ebp;
+    (native_state.esp) = (native_state.esp).wrapping_sub(4 as u32);
+    guest_ram.write_u32((native_state.esp) as u32, _pv)?;
+    ebp = (native_state.esp);
+    (native_state.ebp) = ebp;
+    (native_state.seh_ebp) = ebp;
+    (native_state.esp) = (native_state.esp) & 0xfffffff0 as u32;
+    _fa = (native_state.esp) & 0xffffffff as u32;
+    _fas = _fa as i32;
+    _fb = 0x10 as i32 as u32 & 0xffffffff as u32;
+    _fbs = _fb as i32;
+    (native_state.esp) = (native_state.esp).wrapping_sub(0x10 as u32);
+    _fa = (native_state.esp) & 0xffffffff as u32;
+    _fas = _fa as i32;
+    (native_state.xmm1) = crate::vector::load(guest_ram, (native_state.eax))?;
+    (native_state.xmm0) = crate::vector::load(guest_ram, (native_state.ecx))?;
+    (native_state.xmm0) = crate::vector::multiply((native_state.xmm0), (native_state.xmm1));
+    (native_state.xmm1) = (native_state.xmm0);
+    (native_state.xmm1) =
+        crate::vector::shuffle((native_state.xmm1), (native_state.xmm0), 0x39 as u32);
+    (native_state.xmm2) = (native_state.xmm1);
+    {
+        let converted_lane_value = crate::vector::add_float(
+            crate::vector::float((native_state.xmm0), 0usize)?,
+            crate::vector::float((native_state.xmm1), 0usize)?,
+        );
+        crate::vector::set_float(&mut (native_state.xmm0), 0usize, converted_lane_value)?;
+    };
+    (native_state.xmm2) =
+        crate::vector::shuffle((native_state.xmm2), (native_state.xmm1), 0x39 as u32);
+    {
+        let converted_lane_value = crate::vector::add_float(
+            crate::vector::float((native_state.xmm0), 0usize)?,
+            crate::vector::float((native_state.xmm2), 0usize)?,
+        );
+        crate::vector::set_float(&mut (native_state.xmm0), 0usize, converted_lane_value)?;
+    };
+    (native_state.edx) = (native_state.esp).wrapping_add(0xc as u32);
+    guest_ram.write_f32(
+        (native_state.edx) as u32,
+        crate::vector::float((native_state.xmm0), 0usize)?,
+    )?;
+    (native_state.xmm0) = crate::vector::scalar(
+        guest_ram.read_f32(((native_state.esp).wrapping_add(0xc as u32)) as u32)?,
+    );
+    (native_state.esp) = ebp;
+    ebp = guest_ram.read_u32((native_state.esp) as u32)?;
+    (native_state.esp) = (native_state.esp).wrapping_add(4 as u32);
+    (native_state.esp) = (native_state.esp).wrapping_add(4 as u32);
+    Ok(())
+}
+pub fn sub_00013CA0(
+    native_state: &mut crate::registers::Registers,
+    guest_ram: &mut crate::memory::Memory,
+) -> Result<(), i32> {
+    let mut ebp: u32 = 0 as u32;
+    ebp = (native_state.ebp);
+    let mut _fa: u32 = 0 as u32;
+    let mut _fb: u32 = 0 as u32;
+    let mut _fas: i32 = 0 as i32;
+    let mut _fbs: i32 = 0 as i32;
+    let mut _pv: u32 = ebp;
+    (native_state.esp) = (native_state.esp).wrapping_sub(4 as u32);
+    guest_ram.write_u32((native_state.esp) as u32, _pv)?;
+    ebp = (native_state.esp);
+    (native_state.ebp) = ebp;
+    (native_state.seh_ebp) = ebp;
+    (native_state.esp) = (native_state.esp) & 0xfffffff0 as u32;
+    _fa = (native_state.esp) & 0xffffffff as u32;
+    _fas = _fa as i32;
+    _fb = 0x18 as i32 as u32 & 0xffffffff as u32;
+    _fbs = _fb as i32;
+    (native_state.esp) = (native_state.esp).wrapping_sub(0x18 as u32);
+    _fa = (native_state.esp) & 0xffffffff as u32;
+    _fas = _fa as i32;
+    let mut _pv_0: u32 = (native_state.esi);
+    (native_state.esp) = (native_state.esp).wrapping_sub(4 as u32);
+    guest_ram.write_u32((native_state.esp) as u32, _pv_0)?;
+    let mut _pv_1: u32 = (native_state.edi);
+    (native_state.esp) = (native_state.esp).wrapping_sub(4 as u32);
+    guest_ram.write_u32((native_state.esp) as u32, _pv_1)?;
+    (native_state.esi) = guest_ram.read_u32((ebp.wrapping_add(8 as u32)) as u32)?;
+    (native_state.edi) = guest_ram.read_u32((ebp.wrapping_add(0xc as u32)) as u32)?;
+    (native_state.xmm0) = crate::vector::scalar(guest_ram.read_f32((native_state.edi) as u32)?);
+    (native_state.xmm0) =
+        crate::vector::shuffle((native_state.xmm0), (native_state.xmm0), 0 as u32);
+    (native_state.xmm0) = crate::vector::multiply(
+        (native_state.xmm0),
+        crate::vector::load(guest_ram, (native_state.esi))?,
+    );
+    (native_state.xmm0) = crate::vector::add(
+        (native_state.xmm0),
+        crate::vector::load(guest_ram, (native_state.esi).wrapping_add(0x30 as u32))?,
+    );
+    (native_state.xmm1) = crate::vector::scalar(
+        guest_ram.read_f32(((native_state.edi).wrapping_add(4 as u32)) as u32)?,
+    );
+    (native_state.xmm1) =
+        crate::vector::shuffle((native_state.xmm1), (native_state.xmm1), 0 as u32);
+    (native_state.xmm1) = crate::vector::multiply(
+        (native_state.xmm1),
+        crate::vector::load(guest_ram, (native_state.esi).wrapping_add(0x10 as u32))?,
+    );
+    (native_state.xmm0) = crate::vector::add((native_state.xmm0), (native_state.xmm1));
+    (native_state.xmm1) = crate::vector::scalar(
+        guest_ram.read_f32(((native_state.edi).wrapping_add(8 as u32)) as u32)?,
+    );
+    (native_state.xmm1) =
+        crate::vector::shuffle((native_state.xmm1), (native_state.xmm1), 0 as u32);
+    (native_state.xmm1) = crate::vector::multiply(
+        (native_state.xmm1),
+        crate::vector::load(guest_ram, (native_state.esi).wrapping_add(0x20 as u32))?,
+    );
+    (native_state.xmm0) = crate::vector::add((native_state.xmm0), (native_state.xmm1));
+    crate::vector::store(
+        guest_ram,
+        (native_state.esp).wrapping_add(0x10 as u32),
+        (native_state.xmm0),
+    )?;
+    (native_state.edx) =
+        guest_ram.read_u32(((native_state.esp).wrapping_add(0x10 as u32)) as u32)?;
+    (native_state.ecx) = (native_state.eax);
+    guest_ram.write_u32((native_state.ecx) as u32, (native_state.edx))?;
+    (native_state.edx) =
+        guest_ram.read_u32(((native_state.esp).wrapping_add(0x14 as u32)) as u32)?;
+    guest_ram.write_u32(
+        ((native_state.ecx).wrapping_add(4 as u32)) as u32,
+        (native_state.edx),
+    )?;
+    (native_state.edx) =
+        guest_ram.read_u32(((native_state.esp).wrapping_add(0x18 as u32)) as u32)?;
+    guest_ram.write_u32(
+        ((native_state.ecx).wrapping_add(8 as u32)) as u32,
+        (native_state.edx),
+    )?;
+    (native_state.edx) =
+        guest_ram.read_u32(((native_state.esp).wrapping_add(0x1c as u32)) as u32)?;
+    (native_state.edi) = guest_ram.read_u32((native_state.esp) as u32)?;
+    (native_state.esp) = (native_state.esp).wrapping_add(4 as u32);
+    guest_ram.write_u32(
+        ((native_state.ecx).wrapping_add(0xc as u32)) as u32,
+        (native_state.edx),
+    )?;
+    (native_state.esi) = guest_ram.read_u32((native_state.esp) as u32)?;
+    (native_state.esp) = (native_state.esp).wrapping_add(4 as u32);
+    (native_state.esp) = ebp;
+    ebp = guest_ram.read_u32((native_state.esp) as u32)?;
+    (native_state.esp) = (native_state.esp).wrapping_add(4 as u32);
+    (native_state.esp) = (native_state.esp).wrapping_add(4 as u32);
+    Ok(())
+}
 pub fn sub_00013F10(
     native_state: &mut crate::registers::Registers,
     guest_ram: &mut crate::memory::Memory,

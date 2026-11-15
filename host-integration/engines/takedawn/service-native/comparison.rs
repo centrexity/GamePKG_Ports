@@ -30,6 +30,20 @@ fn initial_state(seed: &mut u64) -> registers::Registers {
     for v in &mut r.fp_stack {
         *v = f64::from_bits(next_random(seed) & 0xffef_ffff_ffff_ffff);
     }
+    for words in [
+        &mut r.xmm0,
+        &mut r.xmm1,
+        &mut r.xmm2,
+        &mut r.xmm3,
+        &mut r.xmm4,
+        &mut r.xmm5,
+        &mut r.xmm6,
+        &mut r.xmm7,
+    ] {
+        for word in words {
+            *word = next_random(seed) as u32;
+        }
+    }
     r
 }
 fn compare_case(
@@ -72,6 +86,11 @@ fn compare_case(
                 ][iteration as usize % 8]
                     .to_le_bytes(),
             );
+        }
+        if base == 0x1fe00 && matches!(address, 0x13bd0 | 0x13ca0) {
+            let at = (r.esp - base) as usize;
+            bytes[at + 4..at + 8].copy_from_slice(&0x11080u32.to_le_bytes());
+            bytes[at + 8..at + 12].copy_from_slice(&0x110c0u32.to_le_bytes());
         }
         ram.write_bytes(base, &bytes).unwrap();
         reference[base as usize..base as usize + count].copy_from_slice(&bytes);
@@ -152,7 +171,78 @@ fn memory_boundaries(ram: &mut memory::Memory, window: u64) {
     local::shutdown();
     assert_eq!(ram.read_u8(0), Err(-4));
 }
+fn compare_vector_helpers() {
+    let edges = [
+        0u32, 0x80000000, 1, 0x80000001, 0x007fffff, 0x00800000, 0x3f800000, 0xbf800000,
+        0x7f7fffff, 0xff7fffff, 0x7f800000, 0xff800000, 0x7fc12345, 0xffc23456, 0x7f812345,
+    ];
+    let mut dual_nan_selections = 0usize;
+    for left in 0..edges.len() {
+        for right in 0..edges.len() {
+            let first = std::array::from_fn(|lane| edges[(left + lane) % edges.len()]);
+            let second = std::array::from_fn(|lane| edges[(right + lane * 3) % edges.len()]);
+            for operation in 0..7 {
+                let expected = unsafe { oracle::helper(operation, first, second, 0x39) };
+                let actual = match operation {
+                    0 => vector::add(first, second),
+                    1 => vector::subtract(first, second),
+                    2 => vector::multiply(first, second),
+                    3 => vector::xor(first, second),
+                    4 => vector::shuffle(first, second, 0x39),
+                    5 => vector::scalar(f32::from_bits(first[0])),
+                    6 => vector::zero(),
+                    _ => unreachable!(),
+                };
+                for lane in 0..4 {
+                    let first_nan = (first[lane] & 0x7fffffff) > 0x7f800000;
+                    let second_nan = (second[lane] & 0x7fffffff) > 0x7f800000;
+                    if operation <= 2 && (first_nan || second_nan) {
+                        let prescribed = if first_nan {
+                            first[lane] | 0x400000
+                        } else {
+                            second[lane] | 0x400000
+                        };
+                        assert_eq!(
+                            actual[lane], prescribed,
+                            "portable NaN rule {operation}, edges {left}/{right}, lane {lane}"
+                        );
+                    }
+                    if actual[lane] != expected[lane] {
+                        // This exception is exactly the documented, observed
+                        // dual-NaN operand choice; finite results and all other
+                        // bit operations remain exact baseline comparisons.
+                        assert!(operation <= 2 && first_nan && second_nan);
+                        assert!(
+                            expected[lane] == (first[lane] | 0x400000)
+                                || expected[lane] == (second[lane] | 0x400000)
+                        );
+                        dual_nan_selections += 1;
+                    }
+                }
+            }
+        }
+    }
+    for immediate in 0..256 {
+        let first = [0x1, 0x2, 0x3, 0x4];
+        let second = [0x10, 0x20, 0x30, 0x40];
+        assert_eq!(vector::shuffle(first, second, immediate), unsafe {
+            oracle::helper(4, first, second, immediate)
+        });
+    }
+    let mut lanes = [0x7fc12345, 0x80000000, 1, 0x3f800000];
+    assert_eq!(vector::float(lanes, 0).unwrap().to_bits(), 0x7fc12345);
+    assert_eq!(vector::word(lanes, 4), Err(-1));
+    assert_eq!(vector::set_word(&mut lanes, 4, 0), Err(-1));
+    assert_eq!(
+        vector::set_float(&mut lanes, 1, f32::from_bits(0xffc23456)),
+        Ok(())
+    );
+    assert_eq!(lanes[1], 0xffc23456);
+    println!("Observed {dual_nan_selections} baseline dual-NaN payload choices; portable result bits independently verified");
+    println!("PASS: 1575 pinned-original vector helper edge comparisons, all 256 shuffle selectors and checked lane bounds/bit preservation");
+}
 fn main() {
+    compare_vector_helpers();
     let args: Vec<_> = std::env::args().collect();
     let owner = local::runtime::Runtime::new(
         &[local::runtime::Window {
@@ -177,7 +267,7 @@ fn main() {
     };
     let count = 1024 + (ADDRESSES.len() as u32 - 1) * 32;
     if let Some(file) = &mut output {
-        file.write_all(b"TKN1").unwrap();
+        file.write_all(b"TKN2").unwrap();
         file.write_all(&count.to_le_bytes()).unwrap();
     }
     let mut reference = vec![0u8; 8 * 1024 * 1024];

@@ -14,6 +14,14 @@ pub struct Registers {
     pub fp_top: i32,
     pub fp_cc: u16,
     pub fp_stack: [f64; 8],
+    pub xmm0: [u32; 4],
+    pub xmm1: [u32; 4],
+    pub xmm2: [u32; 4],
+    pub xmm3: [u32; 4],
+    pub xmm4: [u32; 4],
+    pub xmm5: [u32; 4],
+    pub xmm6: [u32; 4],
+    pub xmm7: [u32; 4],
 }
 fn register_word(bytes: &[u8], offset: usize) -> u32 {
     u32::from_le_bytes([
@@ -39,6 +47,14 @@ impl Registers {
             fp_top: 0,
             fp_cc: 0,
             fp_stack: [0.0; 8],
+            xmm0: [0; 4],
+            xmm1: [0; 4],
+            xmm2: [0; 4],
+            xmm3: [0; 4],
+            xmm4: [0; 4],
+            xmm5: [0; 4],
+            xmm6: [0; 4],
+            xmm7: [0; 4],
         }
     }
     pub fn valid(&self) -> bool {
@@ -66,10 +82,17 @@ impl Registers {
         for value in self.fp_stack {
             bytes.extend(f64::to_le_bytes(value));
         }
+        for words in [
+            self.xmm0, self.xmm1, self.xmm2, self.xmm3, self.xmm4, self.xmm5, self.xmm6, self.xmm7,
+        ] {
+            for value in words {
+                bytes.extend(u32::to_le_bytes(value));
+            }
+        }
         bytes
     }
     pub fn decode(&mut self, bytes: &[u8]) -> Result<(), i32> {
-        if bytes.len() != 112 || bytes[46] != 0 || bytes[47] != 0 {
+        if bytes.len() != 240 || bytes[46] != 0 || bytes[47] != 0 {
             return Err(-1);
         }
         let top = register_word(bytes, 40) as i32;
@@ -100,6 +123,30 @@ impl Registers {
                 bytes[offset + 6],
                 bytes[offset + 7],
             ]);
+        }
+        for lane in 0..4 {
+            self.xmm0[lane] = register_word(bytes, 112 + lane * 4);
+        }
+        for lane in 0..4 {
+            self.xmm1[lane] = register_word(bytes, 128 + lane * 4);
+        }
+        for lane in 0..4 {
+            self.xmm2[lane] = register_word(bytes, 144 + lane * 4);
+        }
+        for lane in 0..4 {
+            self.xmm3[lane] = register_word(bytes, 160 + lane * 4);
+        }
+        for lane in 0..4 {
+            self.xmm4[lane] = register_word(bytes, 176 + lane * 4);
+        }
+        for lane in 0..4 {
+            self.xmm5[lane] = register_word(bytes, 192 + lane * 4);
+        }
+        for lane in 0..4 {
+            self.xmm6[lane] = register_word(bytes, 208 + lane * 4);
+        }
+        for lane in 0..4 {
+            self.xmm7[lane] = register_word(bytes, 224 + lane * 4);
         }
         Ok(())
     }

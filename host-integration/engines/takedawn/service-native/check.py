@@ -2,7 +2,7 @@
 """Maintainer-only conversion/differential/admission checks. Never required by players."""
 import argparse, hashlib, importlib.util, json, os
 from pathlib import Path
-import subprocess, tarfile, tempfile
+import subprocess, tarfile, tempfile, re
 
 KIT = "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4"
 UNIT = "prepared/src/recomp_0000_001.rs"
@@ -30,6 +30,15 @@ def main():
         scratch=Path(name)
         with tarfile.open(kit) as archive:
             original=archive.extractfile(UNIT).read()
+            extra_unit=archive.extractfile('prepared/src/recomp_0000_000.rs').read().decode()
+            extra_helpers=[]
+            for helper in ['XMM_SUB','XMM_XOR']:
+                found=re.search(r'(?m)^#\[inline\]\nunsafe extern "C" fn '+helper+r'\(',extra_unit)
+                start=found.start();opening=extra_unit.index('{',start);end=opening+1;depth=1
+                # These exact kit-pinned helper bodies have no braces in literals/comments.
+                while depth:
+                    depth+=(extra_unit[end]=='{')-(extra_unit[end]=='}');end+=1
+                extra_helpers.append(extra_unit[start:end])
         if hashlib.sha256(original).hexdigest()!=UNIT_HASH:raise RuntimeError('Changed original unit')
         unit=scratch/'original.rs';unit.write_bytes(original)
         generated=scratch/'generated'
@@ -38,7 +47,7 @@ def main():
             if (generated/filename).read_bytes()!=(here/'generated'/filename).read_bytes():
                 raise RuntimeError(f'Checked-in generated {filename} is stale')
         record=json.loads((generated/'provenance.json').read_text())
-        if len(record['converted'])!=24 or len(record['rejected'])!=26:raise RuntimeError('Unexpected conversion coverage')
+        if len(record['converted'])!=28 or len(record['rejected'])!=22:raise RuntimeError('Unexpected conversion coverage')
         changed=scratch/'changed.rs';changed.write_bytes(original+b'\n')
         denied=subprocess.run([str(tool),str(changed),str(scratch/'must-not-exist')],capture_output=True)
         assert denied.returncode!=0 and not (scratch/'must-not-exist').exists()
@@ -49,11 +58,12 @@ def main():
         subprocess.run(command,check=True)
         subprocess.run([str(probe),str(app),str(here),"--source-only"],check=True)
         names=record['converted']
-        oracle=here.joinpath('oracle_prefix.inc.rs').read_text()+'\n'+generated.joinpath('oracle.rs').read_text()
+        oracle=here.joinpath('oracle_prefix.inc.rs').read_text()+'\n'+generated.joinpath('oracle_helpers.rs').read_text()+'\n'+'\n'.join(extra_helpers)+'\n'+generated.joinpath('oracle.rs').read_text()
         oracle+='\npub unsafe fn invoke(address:u32){match address{'+''.join(f'0x{n[4:]}=>{n}(),' for n in names)+'_=>panic!("unknown reference function")}}\n'
+        oracle+='\npub unsafe fn helper(operation:u32,first:[u32;4],second:[u32;4],immediate:u32)->[u32;4]{let a=RecompXmm{u:first};let b=RecompXmm{u:second};let result=match operation{0=>XMM_ADD(a,b),1=>XMM_SUB(a,b),2=>XMM_MUL(a,b),3=>XMM_XOR(a,b),4=>XMM_SHUFFLE(a,b,immediate),5=>XMM_SCALAR(f32::from_bits(first[0])),6=>XMM_ZERO(),_=>panic!("unknown helper")};result.u}\n'
         oracle_file=scratch/'reference.rs';oracle_file.write_text(oracle)
         wrapper='#![allow(non_camel_case_types,non_snake_case,non_upper_case_globals,unused_assignments,unused_variables,unused_mut,unused_parens,dead_code,unreachable_code)]\n'
-        for module,path in [('gamepkg',app/'engines/native-services/client.rs'),('local',app/'engines/native-services/local_bindings.rs'),('memory',here/'memory.rs'),('registers',here/'registers.rs'),('game',generated/'game.rs'),('dispatch',generated/'dispatch.rs'),('oracle',oracle_file)]:
+        for module,path in [('gamepkg',app/'engines/native-services/client.rs'),('local',app/'engines/native-services/local_bindings.rs'),('memory',here/'memory.rs'),('vector',here/'vector.rs'),('registers',here/'registers.rs'),('game',generated/'game.rs'),('dispatch',generated/'dispatch.rs'),('oracle',oracle_file)]:
             wrapper+=f'#[path={json.dumps(str(path))}]mod {module};\n'
         wrapper+=f'const ADDRESSES:[u32;{len(names)}]=['+','.join('0x'+n[4:] for n in names)+'];\n'
         wrapper+=here.joinpath('comparison.rs').read_text()

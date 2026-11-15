@@ -4,14 +4,42 @@ type int8_t=i8; type int16_t=i16; type int32_t=i32; type int64_t=i64;
 type uint8_t=u8; type uint16_t=u16; type uint32_t=u32; type uint64_t=u64;
 type uintptr_t=usize; type ptrdiff_t=isize; type size_t=usize;
 static mut ORIGINAL:crate::registers::Registers=crate::registers::Registers {
- eax:0,ebx:0,ecx:0,edx:0,esi:0,edi:0,ebp:0,esp:0,seh_ebp:0,df:0,fp_top:0,fp_cc:0,fp_stack:[0.0;8],
+ eax:0,ebx:0,ecx:0,edx:0,esi:0,edi:0,ebp:0,esp:0,seh_ebp:0,df:0,fp_top:0,fp_cc:0,fp_stack:[0.0;8],xmm0:[0;4],xmm1:[0;4],xmm2:[0;4],xmm3:[0;4],xmm4:[0;4],xmm5:[0;4],xmm6:[0;4],xmm7:[0;4],
 };
 static mut g_xbox_mem_offset:ptrdiff_t=0;
+#[derive(Copy,Clone)]
+#[repr(C)]
+pub union RecompXmm {pub f:[f32;4],pub d:[f64;2],pub u:[u32;4],pub i:[i32;4],pub q:[u64;2]}
+static mut XMM0:RecompXmm=RecompXmm{u:[0;4]};
+unsafe fn gamepkg_tls_g_xmm0()->*mut RecompXmm {&raw mut XMM0}
+static mut XMM1:RecompXmm=RecompXmm{u:[0;4]};
+unsafe fn gamepkg_tls_g_xmm1()->*mut RecompXmm {&raw mut XMM1}
+static mut XMM2:RecompXmm=RecompXmm{u:[0;4]};
+unsafe fn gamepkg_tls_g_xmm2()->*mut RecompXmm {&raw mut XMM2}
+static mut XMM3:RecompXmm=RecompXmm{u:[0;4]};
+unsafe fn gamepkg_tls_g_xmm3()->*mut RecompXmm {&raw mut XMM3}
+static mut XMM4:RecompXmm=RecompXmm{u:[0;4]};
+unsafe fn gamepkg_tls_g_xmm4()->*mut RecompXmm {&raw mut XMM4}
+static mut XMM5:RecompXmm=RecompXmm{u:[0;4]};
+unsafe fn gamepkg_tls_g_xmm5()->*mut RecompXmm {&raw mut XMM5}
+static mut XMM6:RecompXmm=RecompXmm{u:[0;4]};
+unsafe fn gamepkg_tls_g_xmm6()->*mut RecompXmm {&raw mut XMM6}
+static mut XMM7:RecompXmm=RecompXmm{u:[0;4]};
+unsafe fn gamepkg_tls_g_xmm7()->*mut RecompXmm {&raw mut XMM7}
 pub unsafe fn setup(bytes:&[u8],ram:*mut u8) {
  g_xbox_mem_offset=ram as ptrdiff_t;
  (*(&raw mut ORIGINAL)).decode(bytes).unwrap();
+ XMM0=RecompXmm{u:ORIGINAL.xmm0};
+ XMM1=RecompXmm{u:ORIGINAL.xmm1};
+ XMM2=RecompXmm{u:ORIGINAL.xmm2};
+ XMM3=RecompXmm{u:ORIGINAL.xmm3};
+ XMM4=RecompXmm{u:ORIGINAL.xmm4};
+ XMM5=RecompXmm{u:ORIGINAL.xmm5};
+ XMM6=RecompXmm{u:ORIGINAL.xmm6};
+ XMM7=RecompXmm{u:ORIGINAL.xmm7};
+
 }
-pub unsafe fn capture()->Vec<u8>{(*(&raw const ORIGINAL)).encode()}
+pub unsafe fn capture()->Vec<u8>{ORIGINAL.xmm0=XMM0.u;ORIGINAL.xmm1=XMM1.u;ORIGINAL.xmm2=XMM2.u;ORIGINAL.xmm3=XMM3.u;ORIGINAL.xmm4=XMM4.u;ORIGINAL.xmm5=XMM5.u;ORIGINAL.xmm6=XMM6.u;ORIGINAL.xmm7=XMM7.u;(*(&raw const ORIGINAL)).encode()}
 unsafe fn gamepkg_tls_g_eax()->*mut uint32_t {&raw mut ORIGINAL.eax}
 unsafe fn gamepkg_tls_g_ebx()->*mut uint32_t {&raw mut ORIGINAL.ebx}
 unsafe fn gamepkg_tls_g_ecx()->*mut uint32_t {&raw mut ORIGINAL.ecx}
@@ -25,3 +53,5 @@ unsafe fn gamepkg_tls_g_df()->*mut i32 {&raw mut ORIGINAL.df}
 unsafe fn gamepkg_tls_g_fp_stack()->*mut [f64;8] {&raw mut ORIGINAL.fp_stack}
 unsafe fn gamepkg_tls_g_fp_top()->*mut i32 {&raw mut ORIGINAL.fp_top}
 unsafe fn gamepkg_tls_g_fp_cc()->*mut u16 {&raw mut ORIGINAL.fp_cc}
+#[cfg_attr(unix,link(name="m"))]
+unsafe extern "C" {fn sqrtf(value:f32)->f32;}

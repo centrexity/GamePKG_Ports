@@ -1,8 +1,8 @@
 # Checked native generated-function migration
 
 This is the first **incomplete** source component, not a playable source kit.
-It converts 24 of the 50 native function definitions in pinned unit
-`prepared/src/recomp_0000_001.rs`. All 26 remaining definitions are explicitly
+It converts 28 of the 50 native function definitions in pinned unit
+`prepared/src/recomp_0000_001.rs`. All 22 remaining definitions are explicitly
 listed in `generated/provenance.json` with reasons. There are no replacement
 stubs, unsafe fallback links or exemptions. The game's legacy build/cache gate
 and source-kit/catalog pins remain unchanged.
@@ -21,7 +21,9 @@ they are never included in admitted game objects.
 - `generated/dispatch.rs`: finite direct-call routing; unknown targets fail.
 - `generated/provenance.json`: input/kit, converter source/lock, formatter and
   output hashes, coverage and excluded definitions. `production_ready` is false.
-- `registers.rs`: explicit integer/floating values and fixed 112-byte LE test
+- `vector.rs`: checked word/float lane access, arithmetic, scalar values,
+  shuffles and RAM transfers. Ordinary native math, with explicit NaN policy.
+- `registers.rs`: explicit integer/floating values and fixed 240-byte version-2 LE test
   record. No TLS globals, native struct layout, pointers or aliases.
 - `memory.rs`: up to 32 explicit, nonoverlapping guest spans referencing existing
   opaque GamePKG RAM windows. Mirrors can share backing offsets. No native
@@ -60,6 +62,27 @@ enter the output. Unknown entry labels and memory faults propagate; the engine
 must stop/report a native fault rather than treat an error as success. Earlier
 register/RAM changes in a faulting function are not rolled back.
 
+## Floating-point portability
+
+The original Rust helper's choice between two NaN operands differs between
+32-bit and 64-bit compiled references. Rust explicitly permits this payload
+nondeterminism in arithmetic; see the [Rust f32 contract](https://doc.rust-lang.org/stable/core/primitive.f32.html#nan-bit-patterns).
+Our add/subtract/multiply helpers, including scalar lane expressions, instead
+quiet the first NaN operand and preserve its sign/payload; if only the second
+operand is NaN, they quiet and preserve that operand. No-NaN inputs use the
+original native arithmetic. Scalar construction, raw lanes, XOR and shuffle
+preserve bits exactly and do not quiet signaling NaNs.
+
+Helper tests independently assert this exact portable result for every NaN
+input. Only the raw reference's choice between **two** NaN payloads is allowed
+to differ, and only if it is one of those operands quieted. These differences
+are counted and printed (32 in the tested Linux64 reference, zero in the other
+three references). Finite/infinite results and every non-arithmetic operation
+remain exact-bit baseline checks; full function/register/RAM vectors remain
+exact. No build, source, dependency, object or confinement check is relaxed.
+Native FP exception flags and nondefault rounding modes still need migration;
+these comparisons use the default floating environment.
+
 ## Reproduce
 
 Run with current app library and its offline dependencies available:
@@ -82,12 +105,14 @@ resulting Rust source and GamePKG compiler, with no Python or converter setup.
 
 Executed checks:
 
-- Four converter tests cover pointer/TLS/alias/macro/platform/indirect-call
+- Six converter tests cover pointer/TLS/alias/macro/platform/indirect-call
   rejection, address-width proof, mismatched memory widths, direct dependency
   recording, signatures and attributes. Maintainer strict clippy passes.
-- Every converted function matches its unchanged pinned reference in 1,760
+- Every converted function matches its unchanged pinned reference in 1,888
   register-bit/whole-8-MiB-RAM vectors per target. A branch-heavy routine covers
-  1,024 combinations of flags/output bytes; 23 functions cover 32 vectors each.
+  1,024 combinations of flags/output bytes; 27 functions cover 32 vectors each.
+- 1,575 vector-helper edge cases and all 256 shuffle selectors pass, with the
+  precise dual-NaN policy comparison above, checked lane bounds and bit views.
 - Native Linux64/Linux32 and Windows64/Windows32 under Wine execute comparisons.
   Extra checks cover explicit aliases, unaligned LE values, transfer/range
   bounds, read-only/protected/uncommitted memory, invalid top indices and revoke.
@@ -114,4 +139,4 @@ input/audio and verified surface/NVI1/postprocessing integration. Supply the
 complete checked source kit, shader/pipeline descriptors and reviewed entry/task
 table to both builders/launchers, preserving all object audits and confinement.
 Only real game/save/graphics/controls/audio/pacing qualification can satisfy the
-release gate; these 24 functions do not enable the title.
+release gate; these 28 functions do not enable the title.
