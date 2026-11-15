@@ -4,6 +4,8 @@
     "sub_00013C10",
     "sub_00013C60",
     "sub_00013CA0",
+    "sub_00013D10",
+    "sub_00013E50",
     "sub_00013F10",
     "sub_00015500",
     "sub_00015510",
@@ -30,35 +32,19 @@
     "sub_000156D0",
     "sub_000156E0"
   ],
-  "dispatch_sha256": "9050cf43ec61508e719a9fa97b8c0c661c1a72faba447891345375d729f1a58b",
+  "dispatch_sha256": "2542fcd4675754c98487b91fea3aee9d1a219df414fea47cf507331061833586",
   "float_arithmetic_nan_policy": "quiet-first-NaN-preserve-sign-and-payload",
   "formatter_version": "rustfmt 1.8.0-stable (29483883ee 2025-08-04)",
-  "game_sha256": "c65b04a912d947d275e26ac2a8aa49489cf474d50a678034d4c3c1387d61ffba",
+  "game_sha256": "ab8ea5fd84031d600d882c376d694f864ffbf41755167eac33c23c938cdcd6ee",
   "generator_batch_sha256": "09cadcf977e2f6a00f48e53eb0c90ffa4c9c530095ee78a55aef7f3a00cd2f76",
   "generator_inventory_sha256": "7d7ab7a7cfd00067396a84a82c055a588e308bc8cdc0a94451232cf0f8f12169",
   "generator_lock_sha256": "6d55a2c76709a6c1825c3fc3c9ac08e03d6e140635858336762f4ac2595a5259",
-  "generator_source_sha256": "bb8e1662c8ad9a182d35c9d9455ba7bde60fef16b67fe9cbfad36eb4d83148db",
+  "generator_source_sha256": "f4f562e14296dab04a0129a273451ba3b4ed9e90f5bfe3ebcbce70a883ca7eaf",
   "input_sha256": "442f7812516f3c5157ee74e15aede23d0ac423105acb7d973733bbe9f01ad94d",
   "production_ready": false,
   "register_record_bytes": 240,
   "register_record_version": 3,
   "rejected": {
-    "sub_00013D10": [
-      "raw/function pointer type",
-      "unreviewed call core::ptr::with_exposed_provenance_mut",
-      "unreviewed call memcpy",
-      "unreviewed global g_xbox_mem_offset",
-      "unreviewed type size_t",
-      "unreviewed type uintptr_t"
-    ],
-    "sub_00013E50": [
-      "raw/function pointer type",
-      "unreviewed call core::ptr::with_exposed_provenance_mut",
-      "unreviewed call memcpy",
-      "unreviewed global g_xbox_mem_offset",
-      "unreviewed type size_t",
-      "unreviewed type uintptr_t"
-    ],
     "sub_00013EB0": [
       "unconverted dependencies: sub_00116080"
     ],

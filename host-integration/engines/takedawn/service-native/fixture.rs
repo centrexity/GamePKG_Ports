@@ -122,7 +122,7 @@ fn fixture_execute() -> Result<(), i32> {
     let mut offset = 0u64;
     let mut header = [0u8; 8];
     fixture_read(handle, &mut offset, &mut header)?;
-    if header[..4] != [84, 75, 78, 52] {
+    if header[..4] != [84, 75, 78, 53] {
         return Err(-1);
     }
     let cases = u32::from_le_bytes([header[4], header[5], header[6], header[7]]);
@@ -162,6 +162,7 @@ fn fixture_execute() -> Result<(), i32> {
             (3872384, 64),
             (4856896, 64),
             (4602624, 64),
+            (3814560, 64),
         ] {
             let mut bytes = std::vec::Vec::new();
             bytes.resize(count, 0u8);
@@ -180,6 +181,7 @@ fn fixture_execute() -> Result<(), i32> {
             (3872384, 64),
             (4856896, 64),
             (4602624, 64),
+            (3814560, 64),
         ] {
             let mut expected = std::vec::Vec::new();
             expected.resize(count, 0u8);
@@ -199,6 +201,7 @@ fn fixture_execute() -> Result<(), i32> {
         return Err(-3);
     }
     gamepkg::file_close(handle)?;
+    crate::copy_checks::verify(&mut ram, window)?;
     // Unknown native call targets and unmapped data are hard failures.
     if dispatch::invoke(&mut context, &mut ram, 0xffffffff) != Err(-5) {
         return Err(-3);

@@ -416,6 +416,114 @@ impl Lower {
             parse_quote!(crate::scalar::round24(#value))
         })
     }
+    fn pointer_name(&self, expr: &Expr) -> Option<String> {
+        let Expr::Path(p) = plain(expr) else {
+            return None;
+        };
+        if p.qself.is_some()
+            || !p.attrs.is_empty()
+            || p.path.leading_colon.is_some()
+            || p.path.segments.len() != 1
+            || !matches!(p.path.segments[0].arguments, syn::PathArguments::None)
+        {
+            return None;
+        }
+        let name = p.path.segments[0].ident.to_string();
+        (self.locals.get(&name).map(String::as_str) == Some("guest-byte-pointer")).then_some(name)
+    }
+    fn pointer_value(&mut self, expr: &Expr) -> Option<Expr> {
+        if self.pointer_name(expr).is_some() {
+            return Some(expr.clone());
+        }
+        let Expr::Call(call) = plain(expr) else {
+            return None;
+        };
+        if !call.attrs.is_empty() || pointer_primitive(expr) != Some("u8") {
+            return None;
+        }
+        let name = path(&call.func)?;
+        if name == "core::ptr::null_mut" && call.args.is_empty() {
+            return Some(parse_quote!(None));
+        }
+        if !matches!(
+            name.as_str(),
+            "core::ptr::with_exposed_provenance_mut" | "core::ptr::with_exposed_provenance"
+        ) {
+            return None;
+        }
+        let mut value = address(expr)?;
+        if !self.guest_u32(&value) {
+            return None;
+        }
+        self.visit_expr_mut(&mut value);
+        Some(parse_quote!(Some(#value)))
+    }
+    fn pointer_operand(&mut self, expr: &Expr) -> Option<Expr> {
+        if let Some(name) = self.pointer_name(expr) {
+            let name = format_ident!("{name}");
+            return Some(parse_quote!(crate::memory::guest_position(#name)?));
+        }
+        let Expr::MethodCall(call) = plain(expr) else {
+            return None;
+        };
+        if call.method != "offset"
+            || call.args.len() != 1
+            || !call.attrs.is_empty()
+            || call.turbofish.is_some()
+        {
+            return None;
+        }
+        let name = self.pointer_name(&call.receiver)?;
+        let Expr::Cast(count) = plain(&call.args[0]) else {
+            return None;
+        };
+        if count.ty.to_token_stream().to_string() != "isize" || !self.guest_u32(&count.expr) {
+            return None;
+        }
+        let mut length = *count.expr.clone();
+        self.visit_expr_mut(&mut length);
+        let name = format_ident!("{name}");
+        Some(parse_quote!(crate::memory::guest_offset(#name,#length)?))
+    }
+    fn copy_call(&mut self, call: &syn::ExprCall) -> Option<Expr> {
+        if !plain_callee(call)
+            || !call.attrs.is_empty()
+            || call.args.len() != 3
+            || self.locals.contains_key("memcpy")
+            || self.tls.contains_key("memcpy")
+        {
+            return None;
+        }
+        let mut addresses = Vec::new();
+        for (index, argument) in call.args.iter().take(2).enumerate() {
+            let Expr::Cast(cast) = plain(argument) else {
+                return None;
+            };
+            let Type::Ptr(pointer) = &*cast.ty else {
+                return None;
+            };
+            if pointer.mutability.is_some() != (index == 0)
+                || pointer.elem.to_token_stream().to_string().replace(' ', "")
+                    != "::core::ffi::c_void"
+            {
+                return None;
+            }
+            let name = self.pointer_name(&cast.expr)?;
+            let name = format_ident!("{name}");
+            addresses.push(parse_quote!(crate::memory::guest_address(#name)?));
+        }
+        let Expr::Cast(length) = plain(&call.args[2]) else {
+            return None;
+        };
+        if length.ty.to_token_stream().to_string() != "size_t" || !self.guest_u32(&length.expr) {
+            return None;
+        }
+        let mut length = *length.expr.clone();
+        self.visit_expr_mut(&mut length);
+        let destination: &Expr = &addresses[0];
+        let source: &Expr = &addresses[1];
+        Some(parse_quote!(guest_ram.copy_nonoverlapping(#destination,#source,#length)?))
+    }
     fn vector_call(&mut self, call: &syn::ExprCall, name: &str) -> Option<Expr> {
         let (helper, count, access) = match name {
             "XMM_ZERO" => ("zero", 0, 0),
@@ -496,6 +604,16 @@ impl Lower {
 }
 impl VisitMut for Lower {
     fn visit_stmt_mut(&mut self, statement: &mut Stmt) {
+        if let Stmt::Expr(Expr::Call(call), Some(_)) = statement {
+            if path(&call.func).as_deref() == Some("memcpy") {
+                if let Some(value) = self.copy_call(call) {
+                    *statement = Stmt::Expr(value, Some(Default::default()));
+                } else {
+                    self.reject("unreviewed guest memcpy arguments");
+                }
+                return;
+            }
+        }
         if let Stmt::Macro(m) = statement {
             if m.attrs.is_empty() && compacted_trap(&m.mac) {
                 *statement = Stmt::Expr(parse_quote!(return Err(-1)), Some(Default::default()));
@@ -514,6 +632,51 @@ impl VisitMut for Lower {
         self.reject("nested item or alias");
     }
     fn visit_local_mut(&mut self, local: &mut syn::Local) {
+        if let syn::Pat::Type(pattern) = &local.pat {
+            if let Type::Ptr(pointer) = &*pattern.ty {
+                if pointer.mutability.is_some() && primitive(&pointer.elem) == Some("u8") {
+                    let syn::Pat::Ident(binding) = &*pattern.pat else {
+                        self.reject("guest pointer binding pattern");
+                        return;
+                    };
+                    if !pattern.attrs.is_empty()
+                        || !binding.attrs.is_empty()
+                        || binding.by_ref.is_some()
+                        || binding.subpat.is_some()
+                    {
+                        self.reject("guest pointer binding attributes or destructuring");
+                        return;
+                    }
+                    let name = binding.ident.to_string();
+                    let initializer = if let Some(init) = &local.init {
+                        if init.diverge.is_some() {
+                            self.reject("guest pointer divergence");
+                            return;
+                        }
+                        let Some(value) = self.pointer_value(&init.expr) else {
+                            self.reject("unproven guest pointer initializer");
+                            return;
+                        };
+                        Some(value)
+                    } else {
+                        None
+                    };
+                    for attr in &mut local.attrs {
+                        self.visit_attribute_mut(attr);
+                    }
+                    if let syn::Pat::Type(pattern) = &mut local.pat {
+                        pattern.ty = Box::new(parse_quote!(Option<u32>));
+                    }
+                    if let (Some(init), Some(value)) = (&mut local.init, initializer) {
+                        init.expr = Box::new(value);
+                    }
+                    self.locals
+                        .insert(name.clone(), "guest-byte-pointer".into());
+                    self.tls.remove(&name);
+                    return;
+                }
+            }
+        }
         let (name, ty) = match &local.pat {
             syn::Pat::Ident(binding) => (binding.ident.to_string(), None),
             syn::Pat::Type(p) => match &*p.pat {
@@ -632,6 +795,51 @@ impl VisitMut for Lower {
         } else {
             false
         };
+        if let Expr::Assign(assignment) = expr {
+            if self.pointer_name(&assignment.left).is_some() {
+                if let Some(value) = self.pointer_value(&assignment.right) {
+                    assignment.right = Box::new(value);
+                } else {
+                    self.reject("unproven guest pointer assignment");
+                }
+                return;
+            }
+        }
+        if let Expr::MethodCall(call) = expr {
+            if let Some(name) = self.pointer_name(&call.receiver) {
+                if call.method == "is_null"
+                    && call.args.is_empty()
+                    && call.turbofish.is_none()
+                    && call.attrs.is_empty()
+                {
+                    let name = format_ident!("{name}");
+                    *expr = parse_quote!(#name.is_none());
+                    return;
+                }
+            }
+        }
+        if let Expr::Binary(binary) = expr {
+            if matches!(
+                binary.op,
+                syn::BinOp::Lt(_) | syn::BinOp::Le(_) | syn::BinOp::Gt(_) | syn::BinOp::Ge(_)
+            ) {
+                let left = self.pointer_operand(&binary.left);
+                let right = self.pointer_operand(&binary.right);
+                if left.is_some() || right.is_some() {
+                    if let (Some(left), Some(right)) = (left, right) {
+                        binary.left = Box::new(left);
+                        binary.right = Box::new(right);
+                    } else {
+                        self.reject("unproven guest pointer comparison");
+                    }
+                    return;
+                }
+            }
+        }
+        if self.pointer_name(expr).is_some() {
+            self.reject("guest pointer escaped reviewed operations");
+            return;
+        }
         if let Expr::Path(p) = expr {
             if p.qself.is_none() && p.attrs.is_empty() {
                 if let Some(value) = self.enum_variant(&p.path) {
@@ -1195,6 +1403,58 @@ mod tests {
         assert!(lowered("XMM_MEM(0x100001234u64);").is_err());
         assert!(lowered("XMM_ZERO(1u32);").is_err());
         assert!(lowered("let a:RecompXmm=XMM_ZERO();let lane=a.u[0usize];").is_ok());
+    }
+    #[test]
+    fn guest_copy_temporaries_are_values_and_only_reviewed_uses_survive() {
+        let make = |value: &str| {
+            format!("::core::ptr::with_exposed_provenance_mut::<uint8_t>((({value}) as uintptr_t).wrapping_add(g_xbox_mem_offset as uintptr_t) as usize)")
+        };
+        let body=format!("let mut destination:*mut uint8_t=::core::ptr::null_mut::<uint8_t>();let source:*mut uint8_t={};destination={};if destination.offset(16u32 as isize)<=source || source.offset(16u32 as isize)<=destination{{memcpy(destination as *mut ::core::ffi::c_void,source as *const ::core::ffi::c_void,16u32 as size_t);}}",make("0x20000u32"),make("0x10000u32"));
+        let (function, _) = lowered(&body).unwrap();
+        let text = function.to_token_stream().to_string();
+        assert!(text.contains("Option < u32 >"));
+        assert!(text.contains("guest_offset"));
+        assert!(text.contains("copy_nonoverlapping"));
+        for removed in [
+            "uintptr_t",
+            "size_t",
+            "isize",
+            "core :: ptr",
+            "* mut",
+            "* const",
+        ] {
+            assert!(!text.contains(removed), "{text}");
+        }
+        let prefix = format!(
+            "let mut destination:*mut uint8_t={};let source:*mut uint8_t={};",
+            make("0x10000u32"),
+            make("0x20000u32")
+        );
+        for tail in [
+            "memcpy(destination as *mut ::core::ffi::c_void,source as *const ::core::ffi::c_void,16u64 as size_t);",
+            "let escaped=destination;", "let result=memcpy(destination as *mut ::core::ffi::c_void,source as *const ::core::ffi::c_void,16u32 as size_t);",
+            "destination=1u32 as *mut uint8_t;", "let n:u64=16;if destination.offset(n as isize)<=source{}",
+            "if destination.offset(-1isize)<=source{}", "if destination==source{}",
+            "memcpy(destination as *const ::core::ffi::c_void,source as *const ::core::ffi::c_void,16u32 as size_t);",
+            "memcpy(destination as *mut ::core::ffi::c_void,source as *mut ::core::ffi::c_void,16u32 as size_t);",
+            "SDL_Copy(destination);",
+        ] {assert!(lowered(&(prefix.clone()+tail)).is_err(),"{tail}");}
+        assert!(lowered(&format!(
+            "let wide:u64=0x100001000;let destination:*mut uint8_t={};",
+            make("wide")
+        ))
+        .is_err());
+        assert!(
+            lowered("let destination:*mut uint8_t=::core::ptr::null_mut::<uint16_t>();").is_err()
+        );
+        assert!(lowered("let destination:*const uint8_t=::core::ptr::null::<uint8_t>();").is_err());
+        assert!(lowered("let destination:*mut uint8_t=::core::ptr::null_mut::<uint8_t>();let empty=destination.is_null();").is_ok());
+        for binding in ["ref destination", "destination @ _"] {
+            assert!(lowered(&format!(
+                "let {binding}:*mut uint8_t=::core::ptr::null_mut::<uint8_t>();"
+            ))
+            .is_err());
+        }
     }
     #[test]
     fn scalar_helpers_accept_only_proven_values_and_local_carry_borrows() {

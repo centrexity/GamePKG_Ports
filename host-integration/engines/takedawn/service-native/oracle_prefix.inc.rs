@@ -57,3 +57,6 @@ unsafe fn gamepkg_tls_g_fp_cc()->*mut u16 {&raw mut ORIGINAL.fp_cc}
 unsafe extern "C" {fn sqrtf(value:f32)->f32;fn fabs(value:f64)->f64;fn frexp(value:f64,exponent:*mut i32)->f64;fn ldexp(value:f64,exponent:i32)->f64;}
 
 unsafe fn gamepkg_tls_g_fp_control_word()->*mut u16 {&raw mut ORIGINAL.fp_control_word}
+
+// Reference-only libc copy used by unchanged pinned function bodies.
+unsafe extern "C" {fn memcpy(destination:*mut ::core::ffi::c_void,source:*const ::core::ffi::c_void,bytes:size_t)->*mut ::core::ffi::c_void;}

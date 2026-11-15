@@ -1,8 +1,8 @@
 # Checked native generated-function migration
 
 This is the first **incomplete** source component, not a playable source kit.
-It converts 29 of the 50 native function definitions in pinned unit
-`prepared/src/recomp_0000_001.rs`. All 21 remaining definitions are explicitly
+It converts 31 of the 50 native function definitions in pinned unit
+`prepared/src/recomp_0000_001.rs`. All 19 remaining definitions are explicitly
 listed in `generated/provenance.json` with reasons. There are no replacement
 stubs, unsafe fallback links or exemptions. The game's legacy build/cache gate
 and source-kit/catalog pins remain unchanged.
@@ -42,7 +42,7 @@ private keys are included. Reference data is synthetic and generated locally.
 
 ## Contracts
 
-Requires app commit `28e7f027fbea02d11f5922e5a5253ae8d728ba54` or a compatible
+Requires app commit `9952b70f520f5fd7060bbf76adbd3496d64f56b5` or a compatible
 later service SDK; stale executable receipts must be rebuilt.
 
 The admission fixture requests `Plan::with_codegen_units(4)` and requires two
@@ -79,7 +79,7 @@ register/RAM changes in a faulting function are not rolled back.
 
 ## Whole-kit preparation
 
-The original single-unit fixture now contains 29 differentially checked functions.
+The original single-unit fixture now contains 31 differentially checked functions.
 The new maintainer `--inventory` and `--prepare-closed` modes inspect all **485**
 kit-pinned generated units. `maintainer/reviewed_units.tsv` binds every input
 hash; a full preflight completes before parsing or creating output. Each file
@@ -89,12 +89,12 @@ symbols are never selected by archive order: all owners and their dependent
 callers are rejected, including identical definitions.
 
 The pinned kit contains **24,015 unique native definitions**. Existing lowering
-rules recognize 20,994 locally; removing missing dependencies transitively leaves
-**17,122 closed candidates**, with 1,558 direct edges, including 1,026 across units.
-The other **6,893** definitions remain explicitly unconverted. There are no
+rules recognize 21,197 locally; removing missing dependencies transitively leaves
+**17,269 closed candidates**, with 1,749 direct edges, including 1,144 across units.
+The other **6,746** definitions remain explicitly unconverted. There are no
 substitute bodies, dynamic native function pointers or unknown-target fallbacks.
 
-Prepared candidates use 2,160 Rust files (61,860,082 bytes). Eight native
+Prepared candidates use 2,178 Rust files (66,263,343 bytes). Eight native
 functions per module bound source size. An AST pass rewrites only direct function
 paths to their owning modules; literals are untouched. Binary selection routes
 call statically compiled functions directly, with at most logarithmic selection
@@ -123,13 +123,13 @@ python3 host-integration/engines/takedawn/service-native/check.py \
 
 The whole graph passes source admission and separate optimized object auditing/
 trusted linking for Linux64/Linux32/Windows64/Windows32. Confined native Linux
-children execute the existing 1,920 vectors with the complete graph linked.
-**Semantic differential coverage is 29 functions**; compiling/auditing
-17,122 functions does not establish the other functions' behavior. Windows
+children execute the existing 2,176 vectors with the complete graph linked.
+**Semantic differential coverage is 31 functions**; compiling/auditing
+17,269 functions does not establish the other functions' behavior. Windows
 reference comparisons execute under Wine; the prepared service executables
 are build evidence, not physical Windows gameplay. The full engine, ISO loader,
 kernel/media bridges, verified renderer, saves, input/audio, pacing and the
-remaining 6,893 functions still require migration/qualification before enablement.
+remaining 6,746 functions still require migration/qualification before enablement.
 
 ## Compacted control-flow contract
 
@@ -151,8 +151,8 @@ platform-sized, unknown/alias and layout-dependent sizes stay unsupported.
 An additional explicitly invoked native test compares three original/converted
 CFG variants on 4,096 inputs each for every target (49,152 comparisons), covering
 ordinal values, first/final trap ordering, guarded effects and fault propagation.
-Windows executions use Wine. The 29-function kit reference suite has 1,920
-vectors per target. Private TKN4 vectors add signed extrema around the actual
+Windows executions use Wine. The 31-function kit reference suite has 2,176
+vectors per target. Private TKN5 vectors add signed extrema around the actual
 `0x463b14` load; register records remain 240 bytes, now version 3. Test files are not a
 public SDK/save ABI. No physical game/device/pacing evidence is implied.
 
@@ -187,7 +187,7 @@ or wider carry values and malformed helper signatures remain rejected.
 `fp_control_word` is an explicit u16 register value. Version-3 test records use
 bytes 46..48, previously reserved, keeping the total 240 bytes. No native layout
 or host FP state is shared. All 65,536 control words round-trip as data; this is
-not qualification of their rounding/exception behavior. TKN4 private vector
+not qualification of their rounding/exception behavior. TKN5 private vector
 files include bounded, batched scalar conformance records after function cases;
 old test containers fail their magic check. No public SDK/save ABI changed.
 
@@ -242,12 +242,13 @@ resulting Rust source and GamePKG compiler, with no Python or converter setup.
 
 Executed checks:
 
-- Fourteen regular converter/emitter tests cover pointer/TLS/alias/macro/platform/indirect-call
+- Fifteen regular converter/emitter tests cover pointer/TLS/alias/macro/platform/indirect-call
   rejection, address-width proof, mismatched memory widths, direct dependency
   recording, signatures and attributes. Maintainer strict clippy passes.
-- Every converted function matches its unchanged pinned reference in 1,920
+- Every converted function matches its unchanged pinned reference in 2,176
   register-bit/whole-8-MiB-RAM vectors per target. A branch-heavy routine covers
-  1,024 combinations of flags/output bytes; 27 functions cover 32 vectors each.
+  1,024 combinations of flags/output bytes; two matrix/copy functions cover
+  128 finite bounded input vectors each; the other 28 cover 32 vectors each.
 - 1,575 vector-helper edge cases and all 256 shuffle selectors pass, with the
   precise dual-NaN policy comparison above, checked lane bounds and bit views.
 - Native Linux64/Linux32 and Windows64/Windows32 under Wine execute comparisons.
@@ -276,4 +277,42 @@ input/audio and verified surface/NVI1/postprocessing integration. Supply the
 complete checked source kit, shader/pipeline descriptors and reviewed entry/task
 table to both builders/launchers, preserving all object audits and confinement.
 Only real game/save/graphics/controls/audio/pacing qualification can satisfy the
-release gate; these 29 functions do not enable the title.
+release gate; these 31 functions do not enable the title.
+
+## Checked guest-copy fast path
+
+The SDK's new `local_memory_copy(source, source_offset, destination,
+destination_offset, bytes)` uses child-local op 7: five LE u64 words, exact
+40-byte request, empty reply, at most 64 MiB. GamePKG validates both complete
+ranges and all page permissions before copying under the RAM lifetime lock.
+It permits overlap; the port's `Memory::copy_nonoverlapping` deliberately
+rejects overlapping backing offsets, even through guest mirrors, preserving
+the original caller's explicit forward/backward loops. Existing read/write
+transfers remain limited to 1 MiB. No host address or payload buffer escapes.
+
+Reviewed local `*mut u8` scratch values become `Option<u32>` guest addresses.
+Only exact pinned constructors, assignments, null tests, nonnegative checked
+byte offsets, ordering comparisons and discarded-result `memcpy` idioms lower.
+Null scratch and guest address zero stay distinct. Unknown widths, aliases,
+raw escape, pointer equality, malformed casts and value-used copies reject.
+Numeric ordering uses u64 and permits one-past 2^32; access still requires an
+actual mapped range. Counts negative on 32-bit hosts and overflow fail.
+
+The original matrix/copy routines `sub_00013D10` and `sub_00013E50` now have
+128 finite bounded input vectors each, covering both direction modes; all
+register bits and the whole committed 8 MiB remain exact comparisons. This
+does not qualify arbitrary matrix NaN propagation. Private TKN5 vectors add a
+seventh synthetic constant span; register records remain version 3.
+`copy_checks.rs` is itself source checked, separately optimized/object audited
+and run in confined Linux children: 1,048,593-byte copy with every byte checked,
+overlapping mirror/readonly/unmapped/overflow rejection and guest-address edges.
+Host tests additionally exercise exact 64 MiB copies, overlap in both directions,
+full permission checks before writes, malformed requests and revocation on all
+four targets (Windows under Wine). These are asset-free CPU-memory tests.
+
+The full-kit graph closes 147 additional definitions. The large guest-copy
+function now lowers but still depends on an unconverted dynamic-call resolver
+and floating-to-integer conversion;
+so does the high-fanout precision path. No body or bridge was stubbed to close
+the graph. Burnout remains gated pending complete loader/kernel/renderer and
+platform service integration plus physical gameplay qualification.

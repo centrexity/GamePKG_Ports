@@ -1,13 +1,21 @@
 // Maintainer harness only. Module paths are supplied by check.py in the wrapper.
 use std::{fs::File, io::Write, path::Path};
-const SPANS: [(u32, usize); 6] = [
+const SPANS: [(u32, usize); 7] = [
     (0x10000, 1024),
     (0x11000, 1024),
     (0x1fe00, 1024),
     (0x3b1680, 64),
     (0x4a1c40, 64),
     (0x463b00, 64),
+    (0x3a34a0, 64),
 ];
+fn reference_case_count(address: u32) -> u32 {
+    match address {
+        0x13f10 => 1024,
+        0x13d10 | 0x13e50 => 128,
+        _ => 32,
+    }
+}
 fn next_random(seed: &mut u64) -> u64 {
     *seed ^= *seed << 13;
     *seed ^= *seed >> 7;
@@ -57,6 +65,13 @@ fn compare_case(
     output: &mut Option<File>,
 ) {
     let mut r = initial_state(seed);
+    if address == 0x13d10 {
+        r.eax = 0x10100;
+        r.edx = 0x11100;
+    }
+    if address == 0x13e50 {
+        r.eax = 0x10100;
+    }
     let input_state = r.encode();
     let mut initial = Vec::new();
     for &(base, count) in &SPANS {
@@ -69,7 +84,7 @@ fn compare_case(
                 bytes[0x34 + n] = u8::from((iteration >> n) & 1 != 0);
             }
         }
-        if base == 0x10000 {
+        if base == 0x10000 && !matches!(address, 0x13d10 | 0x13e50) {
             for n in 0..4 {
                 bytes[(r.eax - base) as usize + n] = u8::from((iteration >> (6 + n)) & 1 != 0);
             }
@@ -99,6 +114,23 @@ fn compare_case(
                 &[0u32, 1, 2, 3, u32::MAX, 0x80000000, 0x7fffffff][iteration as usize % 7]
                     .to_le_bytes(),
             );
+        }
+        if matches!(address, 0x13d10 | 0x13e50) {
+            if base == 0x10000 || base == 0x11000 {
+                // Finite, bounded matrix/quaternion inputs; NaN helper policy is
+                // qualified separately, not hidden by relaxed RAM comparison.
+                for at in (0..count).step_by(4) {
+                    let value = ((next_random(seed) % 2049) as i32 - 1024) as f32 / 1024.0;
+                    bytes[at..at + 4].copy_from_slice(&value.to_bits().to_le_bytes());
+                }
+            }
+            if base == 0x1fe00 && address == 0x13e50 {
+                let at = (r.esp - base) as usize;
+                bytes[at + 4..at + 8].copy_from_slice(&0x11200u32.to_le_bytes());
+            }
+        }
+        if base == 0x3a34a0 {
+            bytes[24..28].copy_from_slice(&1.0f32.to_bits().to_le_bytes());
         }
         ram.write_bytes(base, &bytes).unwrap();
         reference[base as usize..base as usize + count].copy_from_slice(&bytes);
@@ -406,15 +438,18 @@ fn main() {
     } else {
         None
     };
-    let count = 1024 + (ADDRESSES.len() as u32 - 1) * 32;
+    let count: u32 = ADDRESSES
+        .iter()
+        .map(|address| reference_case_count(*address))
+        .sum();
     if let Some(file) = &mut output {
-        file.write_all(b"TKN4").unwrap();
+        file.write_all(b"TKN5").unwrap();
         file.write_all(&count.to_le_bytes()).unwrap();
     }
     let mut reference = vec![0u8; 8 * 1024 * 1024];
     let mut seed = 0x1234_5678_9abc_def0;
     for &address in &ADDRESSES {
-        let count = if address == 0x13f10 { 1024 } else { 32 };
+        let count = reference_case_count(address);
         for iteration in 0..count {
             compare_case(
                 address,
@@ -427,6 +462,7 @@ fn main() {
         }
     }
     compare_scalar_helpers(&mut output);
+    copy_checks::verify(&mut ram, window).unwrap();
     memory_boundaries(&mut ram, window);
     println!("PASS: {} original native functions / {count} differential register and whole-RAM vectors; aliases, unaligned LE accesses, overflow, read-only/protected/uncommitted memory and revocation; no instruction interpreter",ADDRESSES.len());
 }

@@ -91,6 +91,28 @@ impl Memory {
         }
         Err(-4)
     }
+    // Copy only disjoint backing ranges. The original caller retains its
+    // explicit forward/backward overlap loop; this is its memcpy fast path.
+    pub fn copy_nonoverlapping(
+        &mut self,
+        destination: u32,
+        source: u32,
+        length: u32,
+    ) -> Result<(), i32> {
+        if length == 0 {
+            return Ok(());
+        }
+        if length > 64 * 1024 * 1024 {
+            return Err(-1);
+        }
+        let (from_window, from) = self.resolve(source, u64::from(length), false)?;
+        let (to_window, to) = self.resolve(destination, u64::from(length), true)?;
+        let bytes = u64::from(length);
+        if from_window == to_window && from < to + bytes && to < from + bytes {
+            return Err(-1);
+        }
+        gamepkg::local_memory_copy(from_window, from, to_window, to, bytes)
+    }
     pub fn read_bytes(&self, address: u32, output: &mut [u8]) -> Result<(), i32> {
         if output.len() > 1048576 {
             return Err(-1);
@@ -206,4 +228,25 @@ impl Memory {
     pub fn write_f64(&mut self, address: u32, value: f64) -> Result<(), i32> {
         self.write_bytes(address, &f64::to_le_bytes(value))
     }
+}
+
+// These values describe guest byte addresses, never host pointer provenance.
+// None is the original uninitialized/null scratch value, distinct from guest 0.
+pub fn guest_address(pointer: Option<u32>) -> Result<u32, i32> {
+    pointer.ok_or(-1)
+}
+pub fn guest_position(pointer: Option<u32>) -> Result<u64, i32> {
+    Ok(u64::from(guest_address(pointer)?))
+}
+pub fn guest_offset(pointer: Option<u32>, bytes: u32) -> Result<u64, i32> {
+    // The original casts the proven unsigned count to native isize. Large
+    // negative-on-i686 counts have no portable pointer-arithmetic meaning.
+    if bytes > 2147483647 {
+        return Err(-1);
+    }
+    let end = guest_position(pointer)? + u64::from(bytes);
+    if end > 4294967296 {
+        return Err(-1);
+    }
+    Ok(end)
 }

@@ -58,7 +58,7 @@ def main():
             if (generated/filename).read_bytes()!=(here/'generated'/filename).read_bytes():
                 raise RuntimeError(f'Checked-in generated {filename} is stale')
         record=json.loads((generated/'provenance.json').read_text())
-        if len(record['converted'])!=29 or len(record['rejected'])!=21:raise RuntimeError('Unexpected conversion coverage')
+        if len(record['converted'])!=31 or len(record['rejected'])!=19:raise RuntimeError('Unexpected conversion coverage')
         changed=scratch/'changed.rs';changed.write_bytes(original+b'\n')
         denied=subprocess.run([str(tool),str(changed),str(scratch/'must-not-exist')],capture_output=True)
         assert denied.returncode!=0 and not (scratch/'must-not-exist').exists()
@@ -80,7 +80,7 @@ def main():
         oracle+='\npub unsafe fn scalar_round24(value:f64)->f64{recomp_fp_round24(value)}pub unsafe fn scalar_parity8(value:u32)->i32{recomp_parity8(value)}pub unsafe fn scalar_rotate(value:u32,count:u32,carry:&mut i32,width:u32,left:bool)->u32{RC_ROT(value,count,carry,width,i32::from(left))}\n'
         oracle_file=scratch/'reference.rs';oracle_file.write_text(oracle)
         wrapper='#![allow(non_camel_case_types,non_snake_case,non_upper_case_globals,unused_assignments,unused_variables,unused_mut,unused_parens,dead_code,unreachable_code)]\n'
-        for module,path in [('gamepkg',app/'engines/native-services/client.rs'),('local',app/'engines/native-services/local_bindings.rs'),('memory',here/'memory.rs'),('vector',here/'vector.rs'),('scalar',here/'scalar.rs'),('registers',here/'registers.rs'),('game',generated/'game.rs'),('dispatch',generated/'dispatch.rs'),('oracle',oracle_file)]:
+        for module,path in [('gamepkg',app/'engines/native-services/client.rs'),('local',app/'engines/native-services/local_bindings.rs'),('memory',here/'memory.rs'),('copy_checks',here/'copy_checks.rs'),('vector',here/'vector.rs'),('scalar',here/'scalar.rs'),('registers',here/'registers.rs'),('game',generated/'game.rs'),('dispatch',generated/'dispatch.rs'),('oracle',oracle_file)]:
             wrapper+=f'#[path={json.dumps(str(path))}]mod {module};\n'
         wrapper+=f'const ADDRESSES:[u32;{len(names)}]=['+','.join('0x'+n[4:] for n in names)+'];\n'
         wrapper+=here.joinpath('comparison.rs').read_text()

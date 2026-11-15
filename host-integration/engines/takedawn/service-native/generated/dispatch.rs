@@ -8,14 +8,14 @@ fn route_0(
         80912u32 => crate::game::sub_00013C10(native_state, guest_ram),
         80992u32 => crate::game::sub_00013C60(native_state, guest_ram),
         81056u32 => crate::game::sub_00013CA0(native_state, guest_ram),
+        81168u32 => crate::game::sub_00013D10(native_state, guest_ram),
+        81488u32 => crate::game::sub_00013E50(native_state, guest_ram),
         81680u32 => crate::game::sub_00013F10(native_state, guest_ram),
         87296u32 => crate::game::sub_00015500(native_state, guest_ram),
         87312u32 => crate::game::sub_00015510(native_state, guest_ram),
         87344u32 => crate::game::sub_00015530(native_state, guest_ram),
         87440u32 => crate::game::sub_00015590(native_state, guest_ram),
         87456u32 => crate::game::sub_000155A0(native_state, guest_ram),
-        87472u32 => crate::game::sub_000155B0(native_state, guest_ram),
-        87488u32 => crate::game::sub_000155C0(native_state, guest_ram),
         _ => Err(-5),
     }
 }
@@ -25,6 +25,8 @@ fn route_1(
     address: u32,
 ) -> Result<(), i32> {
     match address {
+        87472u32 => crate::game::sub_000155B0(native_state, guest_ram),
+        87488u32 => crate::game::sub_000155C0(native_state, guest_ram),
         87504u32 => crate::game::sub_000155D0(native_state, guest_ram),
         87520u32 => crate::game::sub_000155E0(native_state, guest_ram),
         87536u32 => crate::game::sub_000155F0(native_state, guest_ram),
@@ -35,8 +37,6 @@ fn route_1(
         87632u32 => crate::game::sub_00015650(native_state, guest_ram),
         87648u32 => crate::game::sub_00015660(native_state, guest_ram),
         87664u32 => crate::game::sub_00015670(native_state, guest_ram),
-        87680u32 => crate::game::sub_00015680(native_state, guest_ram),
-        87696u32 => crate::game::sub_00015690(native_state, guest_ram),
         _ => Err(-5),
     }
 }
@@ -46,6 +46,8 @@ fn route_2(
     address: u32,
 ) -> Result<(), i32> {
     match address {
+        87680u32 => crate::game::sub_00015680(native_state, guest_ram),
+        87696u32 => crate::game::sub_00015690(native_state, guest_ram),
         87712u32 => crate::game::sub_000156A0(native_state, guest_ram),
         87728u32 => crate::game::sub_000156B0(native_state, guest_ram),
         87744u32 => crate::game::sub_000156C0(native_state, guest_ram),
