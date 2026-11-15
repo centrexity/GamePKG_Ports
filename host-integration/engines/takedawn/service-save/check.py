@@ -2,10 +2,13 @@
 """Maintainer checks using the actual app session and unmodified generated client."""
 import argparse
 import json
+import hashlib
 import os
 from pathlib import Path
 import subprocess
 import tempfile
+import tarfile
+import re
 
 
 def dependency(library, name):
@@ -38,6 +41,31 @@ def main():
     deps = library.parent
     with tempfile.TemporaryDirectory(prefix="takedawn-save-service-") as name:
         scratch = Path(name)
+        archive_path = here.parents[3] / "takedawn/assets/takedawn-source-kit.tar.gz"
+        if hashlib.sha256(archive_path.read_bytes()).hexdigest() != "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4":
+            raise RuntimeError("Changed source kit requires saveguard review")
+        with tarfile.open(archive_path, "r:gz") as archive:
+            source = archive.extractfile("toolkit/src/kernel/kernel_saveguard.c").read().decode()
+        functions = []
+        for function in ["pend_of", "problem_set", "pend_drop", "pend_add", "pend_retry"]:
+            start = re.search(r"^static [^\n]*\b" + function + r"\(", source, re.MULTILINE).start()
+            opening = source.index("{", start)
+            depth = 1
+            end = opening + 1
+            # Exact pinned functions contain no braces inside strings/comments.
+            # The whole-kit hash above prevents silently changing this premise.
+            while depth:
+                depth += (source[end] == "{") - (source[end] == "}")
+                end += 1
+            functions.append(source[start:end])
+        (scratch / "pending.inc").write_text("\n\n".join(functions) + "\n")
+        subprocess.run(["cc", "-std=c11", "-O2", "-Wall", "-Wextra", "-Werror",
+                        "-I", str(scratch), str(here / "pending_oracle.c"),
+                        "-o", str(scratch / "pending-oracle")], check=True)
+        subprocess.run(["rustc", "--edition=2021", "-D", "warnings", "--test", str(here / "state_tests.rs"),
+                        "-o", str(scratch / "state-tests")], check=True)
+        subprocess.run([str(scratch / "state-tests")], env=dict(os.environ,
+                       TAKEDAWN_SAVE_PENDING_ORACLE=str(scratch / "pending-oracle")), check=True)
         client = scratch / "libgamepkg_client.rlib"
         subprocess.run(["rustc", "--edition=2021", "-D", "warnings", "--crate-type", "rlib",
                         "--crate-name", "gamepkg", str(app / "engines/native-services/client.rs"),

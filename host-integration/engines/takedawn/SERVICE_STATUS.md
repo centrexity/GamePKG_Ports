@@ -8,6 +8,11 @@ Incremental save migration: [service-save/README.md](service-save/README.md).
 App `75d180311f5e29765ad4778f265908daaa0afb31` adds scoped metadata and duplicate
 file handles. The save helper source passes all four target object audits and
 three real-service helper tests; the complete recovery/worker guard is pending.
+`service-save/state.rs` now supplies bounded open/close and worker/pending
+transitions, with fifteen transition tests and 4,096 synthetic events compared
+against the unchanged pinned C pending policy. Combined production source passes
+all four native target audits. Actual worker/disk integration, startup/history
+and interruption recovery remain pending.
 
 The current application contract is GamePKG commit
 `7d350e10572cf61e451f623324d78858fd327784`:

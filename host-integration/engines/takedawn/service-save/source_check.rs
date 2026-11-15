@@ -20,8 +20,11 @@ fn main() {
     ] {
         fs::copy(app.join("examples/minimal").join(name), source.join(name)).unwrap();
     }
-    let mut game = fs::read_to_string(here.join("files.rs")).unwrap();
+    fs::copy(here.join("state.rs"), source.join("source/src/state.rs")).unwrap();
+    let mut game = String::from("mod state;\n");
+    game.push_str(&fs::read_to_string(here.join("files.rs")).unwrap());
     game.push_str("\npub fn game_main(){let _=copy_shadow(1,\"save\");let _=same(1,\"save\",\"save.~new\");let _=modified(1,\"save\");let _=sync_close(1);let _=retain_for_flush(1);let _=publish(1,\"save.~new\",\"save\");}\n");
+    game = game.replace("pub fn game_main(){", "pub fn game_main(){let mut guard=state::Guard::new();guard.set_history(true);if let Ok(plan)=guard.prepare_write(\"save\"){let _=guard.opened(&plan.ticket,Some(1));let _=guard.wrote(1,1);let _=guard.closed(1,Some(2));}if let Ok(Some(job))=guard.next_work(){let _=guard.complete(job.token,state::Completion::Published{durable:true});}");
     fs::write(source.join("source/src/lib.rs"), &game).unwrap();
     let archive = scratch.join("save.gamepkg");
     gamepkg::pack::pack(&source, &archive, &[173; 32]).unwrap();
@@ -39,7 +42,7 @@ fn main() {
         let plan = Plan::new(target, "game_main", vec![], LocalLayout::None, true).unwrap();
         let artifact = preparation::build(scratch, &sources, &plan, vec![], vec![]).unwrap();
         artifact.executable().unwrap();
-        println!("PASS {target:?}: exact production save I/O source, checked before host bindings, optimized and object-audited before trusted link");
+        println!("PASS {target:?}: exact production save I/O and transition source, checked before host bindings, optimized and object-audited before trusted link");
     }
     for hostile in [
         "fn unused(){let held=|x:u32|x;held(1);}",

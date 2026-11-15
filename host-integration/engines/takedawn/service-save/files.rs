@@ -24,9 +24,9 @@ pub fn retain_for_flush(handle: u64) -> Result<u64, i32> {
 
 pub fn sync_close(handle: u64) -> Result<(), i32> {
     let flushed = gamepkg::file_sync(handle);
-    let closed = gamepkg::file_close(handle);
+    let close_result = gamepkg::file_close(handle);
     match flushed {
-        Ok(()) => closed,
+        Ok(()) => close_result,
         Err(error) => Err(error),
     }
 }
@@ -140,8 +140,8 @@ pub fn same(grant: u64, first: &str, second: &str) -> Result<bool, i32> {
 pub fn modified(grant: u64, path: &str) -> Result<(i64, u32), i32> {
     let handle = gamepkg::file_open(grant, false, path)?;
     let metadata = gamepkg::file_metadata(handle);
-    let closed = gamepkg::file_close(handle);
+    let close_result = gamepkg::file_close(handle);
     let metadata = metadata?;
-    closed?;
+    close_result?;
     Ok((metadata.modified_seconds, metadata.modified_nanoseconds))
 }
