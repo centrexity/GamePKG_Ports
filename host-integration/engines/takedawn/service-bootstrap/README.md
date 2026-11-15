@@ -131,5 +131,6 @@ The CPU startup APIs and original reference semantics above are unchanged.
 
 The [checked heap data component](../service-heap/README.md) now preserves
 allocation/reuse/coalescing/query and zero-fill semantics against the original
-helpers. Shared-task ownership, public kernel wrappers and diagnostics still
-require integration before the allocator is usable by all title threads.
+helpers. The shared-task owner/client now has separate concurrency and lifecycle
+qualification. Public kernel wrappers, actual title-thread startup and diagnostic
+reporting still require integration.

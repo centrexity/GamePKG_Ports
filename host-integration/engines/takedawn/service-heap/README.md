@@ -142,9 +142,10 @@ from `../service-native/UPSTREAM_LICENSES.txt` are retained in the test package.
 
 ## Remaining runtime integration
 
-Connect one owned heap to reviewed GamePKG task/message services, preserving
-cross-thread serialization including zero-fill. Wire actual kernel/manual
-allocation/free/query exports and thread/TIB allocation against it. Adapt the
+The [shared heap task and client](SERVICE.md) now serialize one owned heap
+through bounded GamePKG task/message services, including zero-fill. Wire actual
+kernel/manual allocation/free/query exports and thread/TIB allocation against
+that shared owner. Adapt the
 original rate-limited allocation logs, OOM histogram and optional heap-trace
 settings through bounded diagnostics; the core value component above does not
 yet implement those reporting paths. Do not claim the original public wrappers
