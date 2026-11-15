@@ -2,17 +2,19 @@
 
 `files.rs` ports the pinned saveguard's file helpers to the host-supplied
 dependency-free GamePKG client. `state.rs` implements its bounded open/close,
-worker and pending-save transitions without I/O or callbacks. Neither performs
-direct filesystem or system calls. They are not yet connected to the engine,
-and are not the complete saveguard.
+worker and pending-save transitions without I/O or callbacks. `adapter.rs` now
+connects those transitions to actual file operations through the shared client.
+No production module calls filesystem/system APIs directly. They are not yet
+connected to the engine, and are not the complete saveguard.
 
-Requires app commit `75d180311f5e29765ad4778f265908daaa0afb31` or a compatible
+The adapter requires app commit `e118ba7995cb8cb4e352040de90609ae0600d6da` or a compatible
 later SDK. Exact API contracts: `app/docs/SAVEGUARD_SERVICE_HANDOFF.md` and
-`app/docs/PORT_SERVICES.md`. Validation on 2026-11-14: all three service tests,
-all four target builds, and all four source rejection cases passed.
+`app/docs/FILE_RECOVERY_SERVICE_HANDOFF.md`, plus `app/docs/PORT_SERVICES.md`.
+Validation on 2026-11-14: twelve real-service file/adapter tests, all four target
+builds, and all four source rejection cases passed.
 
 The combined file/transition component also passes all four target audits.
-Fifteen transition tests pass, including a differential test comparing 4,096
+Seventeen transition tests pass, including a differential test comparing 4,096
 policy events in 128 deterministic traces against unchanged pending-policy
 functions extracted from the hash-pinned C saveguard. These are synthetic state
 events, not interrupted disk writes or actual game-save recovery tests.
@@ -83,6 +85,36 @@ backpressure preserves the whole-save contract under resource exhaustion.
 The adapter must supply canonical title-relative paths; these transition checks
 do not replace the host's portable-path/capability containment enforcement.
 
+## Connected disk adapter
+
+`SaveGuard` owns one supplied save grant and the transition state. `open_write`
+prepares or shares the shadow; pending data seeds subsequent partial writes.
+`open_read` redirects to pending data. Confirmed absence can retire a stale
+pending record; an I/O/permission error cannot. `write_at`, `resize` and `close`
+reject handles not owned by the guard before any service mutation.
+
+`begin_job` extracts one `Job` for execution outside the guard's serialization.
+`Job::step` flushes the retained opened identity, compares full content, handles
+deletion or missing-shadow cases, requests history when needed, and publishes
+through atomic replacement. It preserves complete failures as `.~pend` or the
+fallback shadow. On an I/O error retain the same Job and wait before retrying;
+do not drop it, restart it, or spin on the window owner thread.
+
+`Step::History` requires a direct call to the port's history implementation,
+then `history_finished`. The original void-hook behavior remains: a history
+failure is reported but does not silently prevent the title save publishing.
+`Step::Complete` carries an owned `Finished`; read its history/durability warning
+fields, pass it once to `SaveGuard::finish`, and run returned obsolete-file
+cleanup on the worker. A completed job cannot execute again. A pending rename
+that returned -6 is already visible: its new pending path is recorded, and
+`preservation_durable` is false. It must not retry the consumed shadow name.
+
+The source check stages the exact `files.rs`, `state.rs` and `adapter.rs` modules
+before injecting bindings. Test includes, scripts and the C oracle are maintainer
+tools and never enter game source. The C oracle validates transition policy;
+the real-service tests use temporary files and synthetic failure injection,
+not actual power loss or Windows sharing violations.
+
 Run from the repository root against the current app library:
 
 ```sh
@@ -99,8 +131,8 @@ scanned before binding injection, optimized and object-audited for Linux64,
 Linux32, Windows64 and Windows32; closure/macro/alias/filesystem attacks must
 remain rejected. Python and the harness are maintainer tools, not player inputs.
 
-Still required: connect these transitions to the actual disk adapter and reviewed
-worker task; port the startup sweep/history and direct title-hook dispatch;
+Still required: connect a reviewed worker task; port the startup sweep/history
+and direct title-hook dispatch;
 connect bounded shutdown waits, then integrate the engine and test real
 interruption/recovery behavior. Source kit, recipe and profile admission remain
 unchanged. These tests do not establish actual Burnout saves, gameplay, Windows

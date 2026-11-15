@@ -409,6 +409,39 @@ fn newly_failed_saves_join_the_existing_close_triggered_retry_batch() {
 }
 
 #[test]
+fn missing_shadow_does_not_discard_an_older_complete_pending_save() {
+    let mut guard = Guard::new();
+    guard.recovered_pending("save", "save.~pend", -3).unwrap();
+    open(&mut guard, "save", 10);
+    assert!(guard.owns_handle(10));
+    guard.closed(10, Some(11)).unwrap();
+    assert!(!guard.owns_handle(10));
+    let job = work(&mut guard);
+    guard.complete(job.token, Completion::Abandoned {}).unwrap();
+    assert_eq!(guard.pending_count(), 1);
+    assert_eq!(guard.read_path("save").unwrap(), "save.~pend");
+    guard.pending_missing("save").unwrap();
+    assert_eq!(guard.pending_count(), 0);
+    assert!(guard.problem().is_none());
+}
+
+#[test]
+fn confirmed_missing_pending_cannot_shift_an_active_retry_to_another_record() {
+    let mut guard = Guard::new();
+    guard.recovered_pending("first", "first.~pend", -3).unwrap();
+    guard
+        .recovered_pending("second", "second.~pend", -3)
+        .unwrap();
+    guard.exit_retry();
+    let job = work(&mut guard);
+    assert_eq!(guard.pending_missing("second"), Err(-2));
+    assert_eq!(guard.pending_missing("first"), Err(-2));
+    published(&mut guard, job);
+    guard.pending_missing("second").unwrap();
+    assert_eq!(guard.pending_count(), 0);
+}
+
+#[test]
 fn pending_policy_matches_unchanged_pinned_c_across_deterministic_event_traces() {
     use std::io::Write;
     use std::process::{Command, Stdio};

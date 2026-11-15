@@ -20,11 +20,40 @@ fn main() {
     ] {
         fs::copy(app.join("examples/minimal").join(name), source.join(name)).unwrap();
     }
-    fs::copy(here.join("state.rs"), source.join("source/src/state.rs")).unwrap();
-    let mut game = String::from("mod state;\n");
-    game.push_str(&fs::read_to_string(here.join("files.rs")).unwrap());
-    game.push_str("\npub fn game_main(){let _=copy_shadow(1,\"save\");let _=same(1,\"save\",\"save.~new\");let _=modified(1,\"save\");let _=sync_close(1);let _=retain_for_flush(1);let _=publish(1,\"save.~new\",\"save\");}\n");
-    game = game.replace("pub fn game_main(){", "pub fn game_main(){let mut guard=state::Guard::new();guard.set_history(true);if let Ok(plan)=guard.prepare_write(\"save\"){let _=guard.opened(&plan.ticket,Some(1));let _=guard.wrote(1,1);let _=guard.closed(1,Some(2));}if let Ok(Some(job))=guard.next_work(){let _=guard.complete(job.token,state::Completion::Published{durable:true});}");
+    for module in ["files.rs", "state.rs", "adapter.rs"] {
+        fs::copy(here.join(module), source.join("source/src").join(module)).unwrap();
+    }
+    let game = String::from(
+        r#"
+mod files;
+mod state;
+mod adapter;
+fn accept_finished(guard:&mut adapter::SaveGuard, completed:adapter::Finished){
+    if let Ok(cleanup)=guard.finish(completed){let _=adapter::clean_obsolete(1,cleanup);}
+}
+pub fn game_main(){
+    let _=gamepkg::directory_list(1,"");
+    let mut guard=adapter::SaveGuard::new(1);
+    guard.set_history(true);
+    if let Ok(handle)=guard.open_write("save") {
+        let _=guard.resize(handle,1);
+        let _=guard.write_at(handle,0,b"x");
+        let _=guard.close(handle);
+    }
+    if let Ok(Some(mut job))=guard.begin_job(){
+        match job.step(){
+            Ok(adapter::Step::History{real})=>{
+                let _=real;
+                let _=job.history_finished(Ok(()));
+                if let Ok(adapter::Step::Complete{finished})=job.step(){accept_finished(&mut guard,finished);}
+            },
+            Ok(adapter::Step::Complete{finished})=>accept_finished(&mut guard,finished),
+            Err(_)=>{},
+        }
+    }
+}
+"#,
+    );
     fs::write(source.join("source/src/lib.rs"), &game).unwrap();
     let archive = scratch.join("save.gamepkg");
     gamepkg::pack::pack(&source, &archive, &[173; 32]).unwrap();

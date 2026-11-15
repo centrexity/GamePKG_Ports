@@ -40,6 +40,9 @@ pub enum Completion {
     Unchanged {},
     Deleted {},
     Missing {},
+    // Title moved/removed its shadow without delete-on-close. Leave any older
+    // pending save alone, matching the original missing-shadow commit branch.
+    Abandoned {},
     // I/O failed before the operation could reach a complete publication or
     // preserved-pending outcome. Keep this entry queued; caller applies a wait.
     RetryLater {
@@ -383,6 +386,25 @@ impl Guard {
         entry.bytes = entry.bytes.saturating_add(bytes);
         Ok(())
     }
+    pub fn owns_handle(&self, handle: u64) -> bool {
+        self.locate_handle(handle).is_some()
+    }
+    // Call only after the shared file service confirmed actual absence.
+    pub fn pending_missing(&mut self, real: &str) -> Result<(), i32> {
+        if let Some(active) = &self.active {
+            if active.kind == RETRY {
+                return Err(-2);
+            }
+        }
+        if let Some(index) = self.pending_path(real) {
+            let _ = remove_stable(&mut self.pending, index)?;
+            if let Some(index) = self.entry_path(real) {
+                self.entries[index].preserve_shadow = false;
+            }
+            self.refresh_problem();
+        }
+        Ok(())
+    }
     pub fn delete_on_close(&mut self, handle: u64) -> Result<(), i32> {
         let (index, _) = self.locate_handle(handle).ok_or(-4)?;
         self.entries[index].deleted = true;
@@ -592,11 +614,12 @@ impl Guard {
             Completion::Missing {} => 4,
             Completion::Failed { .. } => 5,
             Completion::RetryLater { .. } => 6,
+            Completion::Abandoned {} => 7,
         };
         if kind == COMMIT && disposition == 4 {
             return Err(-1);
         }
-        if kind == RETRY && (disposition == 2 || disposition == 3) {
+        if kind == RETRY && (disposition == 2 || disposition == 3 || disposition == 7) {
             return Err(-1);
         }
         if let Completion::RetryLater { code } = &result {
@@ -609,7 +632,9 @@ impl Guard {
             if disposition == 3 && !deleted {
                 return Err(-1);
             }
-            if deleted && (disposition == 1 || disposition == 2 || disposition == 5) {
+            if deleted
+                && (disposition == 1 || disposition == 2 || disposition == 5 || disposition == 7)
+            {
                 return Err(-1);
             }
         }
@@ -664,6 +689,7 @@ impl Guard {
             Completion::Missing {} => {
                 let _ = remove_stable(&mut self.pending, slot)?;
             }
+            Completion::Abandoned {} => {}
             Completion::RetryLater { code } => {
                 self.entries[slot].phase = QUEUED;
                 self.entries[slot].flush = None;

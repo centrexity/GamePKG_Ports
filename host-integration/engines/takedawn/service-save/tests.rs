@@ -1,6 +1,13 @@
-// Maintainer harness. Only files.rs belongs to game source.
+// Maintainer harness. Production modules are separately source/object audited.
+extern crate gamepkg;
+#[allow(dead_code)]
+#[path = "adapter.rs"]
+mod adapter;
 #[path = "files.rs"]
-mod production;
+mod files;
+#[allow(dead_code)]
+#[path = "state.rs"]
+mod state;
 use host::port_host::{Backend, Frame, Result, Session, WindowCommand};
 use std::io::{Read, Write};
 use std::os::fd::{FromRawFd, IntoRawFd};
@@ -28,6 +35,16 @@ impl Backend for Output {
 struct Harness {
     thread: Option<std::thread::JoinHandle<()>>,
     publications: Arc<AtomicUsize>,
+    fail_real: Arc<AtomicUsize>,
+    fail_pending: Arc<AtomicUsize>,
+    fail_probe: Arc<AtomicUsize>,
+    fail_sync: Arc<AtomicUsize>,
+    published_uncertain: Arc<AtomicUsize>,
+}
+fn inject(counter: &AtomicUsize) -> bool {
+    counter
+        .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1))
+        .is_ok()
 }
 impl Drop for Harness {
     fn drop(&mut self) {
@@ -60,6 +77,18 @@ fn connect(
     gamepkg::connect(input, output).unwrap();
     let publications = Arc::new(AtomicUsize::new(0));
     let count = publications.clone();
+    let fail_real = Arc::new(AtomicUsize::new(0));
+    let fail_pending = Arc::new(AtomicUsize::new(0));
+    let fail_probe = Arc::new(AtomicUsize::new(0));
+    let fail_sync = Arc::new(AtomicUsize::new(0));
+    let published_uncertain = Arc::new(AtomicUsize::new(0));
+    let failures = [
+        fail_real.clone(),
+        fail_pending.clone(),
+        fail_probe.clone(),
+        fail_sync.clone(),
+        published_uncertain.clone(),
+    ];
     let thread = std::thread::spawn(move || loop {
         let mut header = [0; 16];
         match server.read_exact(&mut header) {
@@ -82,10 +111,28 @@ fn connect(
         }
         // Synthetic post-publication status injection; no actual durability
         // failure is caused, and this mode is not proof of a published file.
+        let pending_destination = if op == 14 {
+            let length = u32::from_le_bytes(request[12..16].try_into().unwrap()) as usize;
+            std::str::from_utf8(&request[16 + length..])
+                .unwrap()
+                .ends_with(".~pend")
+        } else {
+            false
+        };
+        let failed = (op == 17 && inject(&failures[2]))
+            || (op == 12 && inject(&failures[3]))
+            || (op == 14 && inject(&failures[usize::from(pending_destination)]));
         let result = if uncertain && op == 14 {
             Err(host::port_host::Error::CommittedNotDurable)
+        } else if failed {
+            Err(host::port_host::Error::Failed)
         } else {
-            session.call(op, &request, cap)
+            let result = session.call(op, &request, cap);
+            if result.is_ok() && op == 14 && inject(&failures[4]) {
+                Err(host::port_host::Error::CommittedNotDurable)
+            } else {
+                result
+            }
         };
         let (status, reply) = match result {
             Ok(reply) => (0i32, reply),
@@ -102,6 +149,11 @@ fn connect(
         Harness {
             thread: Some(thread),
             publications,
+            fail_real,
+            fail_pending,
+            fail_probe,
+            fail_sync,
+            published_uncertain,
         },
     )
 }
@@ -112,33 +164,27 @@ fn whole_copy_short_reads_comparison_flush_and_atomic_publish_use_real_services(
     let bytes: Vec<_> = (0..131_089).map(|n| (n % 251) as u8).collect();
     std::fs::write(root.path().join("profile"), &bytes).unwrap();
     let (grant, harness) = connect(root.path(), 1024 * 1024, true, false);
-    assert_eq!(
-        production::copy_shadow(grant, "profile"),
-        Ok(bytes.len() as u64)
-    );
+    assert_eq!(files::copy_shadow(grant, "profile"), Ok(bytes.len() as u64));
     assert_eq!(
         std::fs::read(root.path().join("profile.~new")).unwrap(),
         bytes
     );
-    assert_eq!(production::same(grant, "profile", "profile.~new"), Ok(true));
+    assert_eq!(files::same(grant, "profile", "profile.~new"), Ok(true));
     let writer = gamepkg::file_open(grant, true, "profile.~new").unwrap();
-    let retained = production::retain_for_flush(writer).unwrap();
+    let retained = files::retain_for_flush(writer).unwrap();
     gamepkg::file_close(writer).unwrap();
     gamepkg::file_write(retained, 70_000, b"changed").unwrap();
-    production::sync_close(retained).unwrap();
+    files::sync_close(retained).unwrap();
     assert_eq!(gamepkg::file_size(retained), Err(-4));
-    assert_eq!(
-        production::same(grant, "profile", "profile.~new"),
-        Ok(false)
-    );
+    assert_eq!(files::same(grant, "profile", "profile.~new"), Ok(false));
     for _ in 0..140 {
-        assert_eq!(production::same(grant, "profile", "profile"), Ok(true));
+        assert_eq!(files::same(grant, "profile", "profile"), Ok(true));
     }
-    let modified = production::modified(grant, "profile").unwrap();
+    let modified = files::modified(grant, "profile").unwrap();
     assert!(modified.1 < 1_000_000_000);
     assert!(matches!(
-        production::publish(grant, "profile.~new", "profile"),
-        Ok(production::Publication::Durable {})
+        files::publish(grant, "profile.~new", "profile"),
+        Ok(files::Publication::Durable {})
     ));
     assert!(!root.path().join("profile.~new").exists());
     assert_eq!(
@@ -146,9 +192,9 @@ fn whole_copy_short_reads_comparison_flush_and_atomic_publish_use_real_services(
         b"changed"
     );
     assert_eq!(harness.publications.load(Ordering::SeqCst), 1);
-    assert!(production::copy_shadow(grant, "../outside").is_err());
-    assert!(production::modified(grant, "missing").is_err());
-    assert!(production::same(grant, "profile", "missing").is_err());
+    assert!(files::copy_shadow(grant, "../outside").is_err());
+    assert!(files::modified(grant, "missing").is_err());
+    assert!(files::same(grant, "profile", "missing").is_err());
 }
 
 #[test]
@@ -158,7 +204,7 @@ fn failed_copy_removes_only_partial_shadow_and_preserves_the_real_save() {
     std::fs::write(root.path().join("profile"), &bytes).unwrap();
     let (grant, _harness) = connect(root.path(), 210_000, false, false);
     for _ in 0..140 {
-        assert_eq!(production::copy_shadow(grant, "profile"), Err(-2));
+        assert_eq!(files::copy_shadow(grant, "profile"), Err(-2));
         assert!(!root.path().join("profile.~new").exists());
         assert_eq!(std::fs::read(root.path().join("profile")).unwrap(), bytes);
     }
@@ -169,8 +215,10 @@ fn published_without_durability_is_explicit_and_never_blindly_retried() {
     let root = tempfile::tempdir().unwrap();
     let (grant, harness) = connect(root.path(), 1024, false, true);
     assert!(matches!(
-        production::publish(grant, "profile.~new", "profile"),
-        Ok(production::Publication::CommittedNotDurable {})
+        files::publish(grant, "profile.~new", "profile"),
+        Ok(files::Publication::CommittedNotDurable {})
     ));
     assert_eq!(harness.publications.load(Ordering::SeqCst), 1);
 }
+
+include!("adapter_cases.inc.rs");

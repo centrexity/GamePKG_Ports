@@ -9,15 +9,19 @@ App `75d180311f5e29765ad4778f265908daaa0afb31` adds scoped metadata and duplicat
 file handles. The save helper source passes all four target object audits and
 three real-service helper tests; the complete recovery/worker guard is pending.
 `service-save/state.rs` now supplies bounded open/close and worker/pending
-transitions, with fifteen transition tests and 4,096 synthetic events compared
+transitions, with seventeen transition tests and 4,096 synthetic events compared
 against the unchanged pinned C pending policy. Combined production source passes
-all four native target audits. Actual worker/disk integration, startup/history
-and interruption recovery remain pending.
+all four native target audits. `service-save/adapter.rs` now connects real disk
+operations, with twelve actual file/service tests and explicit synthetic I/O
+fault injection. App `e118ba7995cb8cb4e352040de90609ae0600d6da` adds presence,
+typed directory helpers and reviewed local text validation. Spawned worker,
+startup/history and interruption recovery remain pending.
 
 The current application contract is GamePKG commit
-`7d350e10572cf61e451f623324d78858fd327784`:
+`e118ba7995cb8cb4e352040de90609ae0600d6da`:
 
 - `docs/PORT_SERVICES.md`: exact wire/API, resource, permission and error contracts.
+- `docs/FILE_RECOVERY_SERVICE_HANDOFF.md`: presence, directory and local text contracts.
 - `docs/TAKEDAWN_SERVICE_HANDOFF.md`: builder, launcher, rendering and remaining work.
 - `docs/NVI1.md`: verified program representation and reserved-value checks.
 - `docs/TAKEDAWN_SERVICE_VALIDATION.md`: infrastructure test scope and limitations.

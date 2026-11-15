@@ -1,5 +1,6 @@
 // Port-owned saveguard I/O. Only the host-supplied GamePKG client touches files.
 // Caller serializes each title path and runs blocking work on its worker task.
+use crate::gamepkg;
 
 pub enum Publication {
     Durable {},
@@ -70,9 +71,18 @@ fn copy_open(input: u64, output: u64) -> Result<u64, i32> {
 // file. On any copy/close failure, remove the partial shadow and retain real.
 // The caller must have settled prior queued writes/recovery for this path.
 pub fn copy_shadow(grant: u64, real: &str) -> Result<u64, i32> {
-    let input = gamepkg::file_open(grant, false, real)?;
+    copy_seed(grant, real, real)
+}
+
+// Pending data may be the seed for a subsequent partial write. Destination is
+// always real.~new, never the real file or an arbitrary caller-selected path.
+pub fn copy_seed(grant: u64, source: &str, real: &str) -> Result<u64, i32> {
     let mut shadow = real.to_owned();
     shadow.push_str(".~new");
+    if source == shadow {
+        return Err(-1);
+    }
+    let input = gamepkg::file_open(grant, false, source)?;
     let output = match gamepkg::file_open(grant, true, &shadow) {
         Ok(handle) => handle,
         Err(error) => {
