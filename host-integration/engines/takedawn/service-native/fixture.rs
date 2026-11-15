@@ -173,11 +173,11 @@ fn fixture_execute() -> Result<(), i32> {
     let mut offset = 0u64;
     let mut header = [0u8; 8];
     fixture_read(handle, &mut offset, &mut header)?;
-    if header[..4] != [84, 75, 78, 55] {
+    if header[..4] != [84, 75, 78, 56] {
         return Err(-1);
     }
-    let cases = u32::from_le_bytes([header[4], header[5], header[6], header[7]]);
-    if cases > 4096 {
+    let batches = u32::from_le_bytes([header[4], header[5], header[6], header[7]]);
+    if batches == 0 || batches > 16 {
         return Err(-1);
     }
     let mut windows = [0u8; 16];
@@ -199,64 +199,72 @@ fn fixture_execute() -> Result<(), i32> {
     let mut ram = memory::Memory::new()?;
     ram.attach(0, 67108864, window, 0, true)?;
     let mut context = registers::Registers::new();
-    for _ in 0..cases {
-        let mut address_bytes = [0u8; 4];
-        fixture_read(handle, &mut offset, &mut address_bytes)?;
-        let address = u32::from_le_bytes(address_bytes);
-        let mut state_bytes = [0u8; 240];
-        fixture_read(handle, &mut offset, &mut state_bytes)?;
-        context.decode(&state_bytes)?;
-        let mut bounds = [0u8; 8];
-        fixture_read(handle, &mut offset, &mut bounds)?;
-        ram.call_bounds(fixture_word(&bounds, 0), fixture_word(&bounds, 4))?;
-        for (guest, count) in [
-            (65536u32, 1024usize),
-            (69632, 1024),
-            (130560, 1024),
-            (3872384, 64),
-            (4856896, 64),
-            (4602624, 64),
-            (3814560, 64),
-        ] {
-            let mut bytes = std::vec::Vec::new();
-            bytes.resize(count, 0u8);
-            fixture_read(handle, &mut offset, &mut bytes)?;
-            ram.write_bytes(guest, &bytes)?;
+    for _ in 0..batches {
+        let mut count = [0u8; 4];
+        fixture_read(handle, &mut offset, &mut count)?;
+        let cases = u32::from_le_bytes(count);
+        if cases > 4096 {
+            return Err(-1);
         }
-        dispatch::invoke(&mut context, &mut ram, address)?;
-        fixture_read(handle, &mut offset, &mut state_bytes)?;
-        if context.encode() != state_bytes {
-            return Err(-3);
-        }
-        for (guest, count) in [
-            (65536u32, 1024usize),
-            (69632, 1024),
-            (130560, 1024),
-            (3872384, 64),
-            (4856896, 64),
-            (4602624, 64),
-            (3814560, 64),
-        ] {
-            let mut expected = std::vec::Vec::new();
-            expected.resize(count, 0u8);
-            fixture_read(handle, &mut offset, &mut expected)?;
-            let mut actual = std::vec::Vec::new();
-            actual.resize(count, 0u8);
-            ram.read_bytes(guest, &mut actual)?;
-            if actual != expected {
+        for _ in 0..cases {
+            let mut address_bytes = [0u8; 4];
+            fixture_read(handle, &mut offset, &mut address_bytes)?;
+            let address = u32::from_le_bytes(address_bytes);
+            let mut state_bytes = [0u8; 244];
+            fixture_read(handle, &mut offset, &mut state_bytes)?;
+            context.decode(&state_bytes)?;
+            let mut bounds = [0u8; 8];
+            fixture_read(handle, &mut offset, &mut bounds)?;
+            ram.call_bounds(fixture_word(&bounds, 0), fixture_word(&bounds, 4))?;
+            for (guest, count) in [
+                (65536u32, 1024usize),
+                (69632, 1024),
+                (130560, 1024),
+                (3872384, 64),
+                (4856896, 64),
+                (4602624, 64),
+                (3814560, 64),
+            ] {
+                let mut bytes = std::vec::Vec::new();
+                bytes.resize(count, 0u8);
+                fixture_read(handle, &mut offset, &mut bytes)?;
+                ram.write_bytes(guest, &bytes)?;
+            }
+            dispatch::invoke(&mut context, &mut ram, address)?;
+            fixture_read(handle, &mut offset, &mut state_bytes)?;
+            if context.encode() != state_bytes {
                 return Err(-3);
             }
-        }
-        let mut calls = [0u8; 76];
-        fixture_read(handle, &mut offset, &mut calls)?;
-        let (trace, index, total) = ram.call_snapshot()?;
-        for item in 0..16 {
-            if trace[item] != fixture_word(&calls, item * 4) {
+            for (guest, count) in [
+                (65536u32, 1024usize),
+                (69632, 1024),
+                (130560, 1024),
+                (3872384, 64),
+                (4856896, 64),
+                (4602624, 64),
+                (3814560, 64),
+            ] {
+                let mut expected = std::vec::Vec::new();
+                expected.resize(count, 0u8);
+                fixture_read(handle, &mut offset, &mut expected)?;
+                let mut actual = std::vec::Vec::new();
+                actual.resize(count, 0u8);
+                ram.read_bytes(guest, &mut actual)?;
+                if actual != expected {
+                    return Err(-3);
+                }
+            }
+            let mut calls = [0u8; 76];
+            fixture_read(handle, &mut offset, &mut calls)?;
+            let (trace, index, total) = ram.call_snapshot()?;
+            for item in 0..16 {
+                if trace[item] != fixture_word(&calls, item * 4) {
+                    return Err(-3);
+                }
+            }
+            if index != fixture_word(&calls, 64) || total != fixture_wide(&calls, 68) {
                 return Err(-3);
             }
-        }
-        if index != fixture_word(&calls, 64) || total != fixture_wide(&calls, 68) {
-            return Err(-3);
         }
     }
     fixture_scalar_round(handle, &mut offset)?;

@@ -18,6 +18,7 @@ def validate(report, here, output, expected):
     assert report['source_kit_sha256'] == KIT and report['production_ready'] is False
     for field, path in [
         ('converter_main_sha256', here/'maintainer/src/main.rs'),
+        ('registers_source_sha256',here/'registers.rs'),
         ('converter_batch_sha256', here/'maintainer/src/batch.rs'),
         ('converter_icall_sha256',here/'maintainer/src/icall.rs'),
         ('converter_icall_pattern_sha256',here/'maintainer/src/icall_template.inc'),

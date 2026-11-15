@@ -15,6 +15,7 @@ fn reference_case_count(address: u32) -> u32 {
         0x1fbae0 => 512,
         0x243450 => 256,
         0x15570 => 128,
+        0x2447bf => 128,
         0x13d10 | 0x13e50 => 128,
         _ => 32,
     }
@@ -106,9 +107,19 @@ fn compare_case(
         r.fp_stack[r.fp_top as usize] = f64::from_bits(bits);
         r.fp_control_word = 0x037f | ((iteration / 40 % 4) as u16) << 10;
     }
-    if address==0x15570 {r.ecx=0x11000;}
-    if address==0x243450 {r.eax=0x10000+(iteration/16%6)*4;}
-    let bounds = if address==0x243450 {if iteration%2==0 {(0,0)}else{(0x10000,0x20000)}} else if address == 0x1fbae0 || address==0x15570 {
+    if address == 0x15570 {
+        r.ecx = 0x11000;
+    }
+    if address == 0x243450 {
+        r.eax = 0x10000 + (iteration / 16 % 6) * 4;
+    }
+    let bounds = if address == 0x243450 {
+        if iteration % 2 == 0 {
+            (0, 0)
+        } else {
+            (0x10000, 0x20000)
+        }
+    } else if address == 0x1fbae0 || address == 0x15570 {
         match iteration / 4 % 4 {
             0 => (0, 0),
             1 => (0x10000, 0x20000),
@@ -121,6 +132,10 @@ fn compare_case(
     ram.call_bounds(bounds.0, bounds.1).unwrap();
     unsafe {
         oracle::call_bounds(bounds.0, bounds.1);
+    }
+    if address == 0x2447bf {
+        r.seh_ebp = 0x20100 + (iteration & 3);
+        r.fs_base = [0x10000u32, 0x11000, 0x1ff40][iteration as usize % 3] + (iteration % 16);
     }
     let input_state = r.encode();
     let mut initial = Vec::new();
@@ -154,10 +169,12 @@ fn compare_case(
                     .to_le_bytes(),
             );
         }
-        if base==0x1fe00 && address==0x243450 {
-            let at=(r.esp-base) as usize;
-            let target=[0x15590u32,0x155a0,0x155e0,0x15600][iteration as usize%4];
-            for (offset,value) in [(4,0x10000u32),(8,4),(12,target)] {bytes[at+offset..at+offset+4].copy_from_slice(&value.to_le_bytes());}
+        if base == 0x1fe00 && address == 0x243450 {
+            let at = (r.esp - base) as usize;
+            let target = [0x15590u32, 0x155a0, 0x155e0, 0x15600][iteration as usize % 4];
+            for (offset, value) in [(4, 0x10000u32), (8, 4), (12, target)] {
+                bytes[at + offset..at + offset + 4].copy_from_slice(&value.to_le_bytes());
+            }
         }
         if base == 0x1fe00 && matches!(address, 0x13bd0 | 0x13ca0) {
             let at = (r.esp - base) as usize;
@@ -207,13 +224,24 @@ fn compare_case(
                 bytes[at + 8..at + 12].fill(0);
             }
         }
-        if address==0x15570 {
-            if base==0x10000 {
+        if address == 0x15570 {
+            if base == 0x10000 {
                 bytes[..4].copy_from_slice(&0x10100u32.to_le_bytes());
-                let target=match iteration%8 {0|1=>0x155a0u32,2=>0x15590,3=>0x155e0,4=>0x15600,5|6=>0x8000+(iteration%24)*4,_=>0};
+                let target = match iteration % 8 {
+                    0 | 1 => 0x155a0u32,
+                    2 => 0x15590,
+                    3 => 0x155e0,
+                    4 => 0x15600,
+                    5 | 6 => 0x8000 + (iteration % 24) * 4,
+                    _ => 0,
+                };
                 bytes[256..260].copy_from_slice(&target.to_le_bytes());
             }
-            if base==0x11000 {bytes[4..8].copy_from_slice(&(if iteration%9==0 {0u32}else{0x10000u32}).to_le_bytes());}
+            if base == 0x11000 {
+                bytes[4..8].copy_from_slice(
+                    &(if iteration % 9 == 0 { 0u32 } else { 0x10000u32 }).to_le_bytes(),
+                );
+            }
         }
         ram.write_bytes(base, &bytes).unwrap();
         reference[base as usize..base as usize + count].copy_from_slice(&bytes);
@@ -305,8 +333,20 @@ fn memory_boundaries(ram: &mut memory::Memory, window: u64) {
     assert_eq!(dispatch::invoke(&mut context, ram, u32::MAX), Err(-5));
     context.fp_top = -1;
     assert_eq!(dispatch::invoke(&mut context, ram, 0x155a0), Err(-1));
+    if ADDRESSES.contains(&0x2447bf) {
+        context.fp_top = 0;
+        crate::fs_checks::thread_memory_verify(ram, window).unwrap();
+    }
     local::shutdown();
     assert_eq!(ram.read_u8(0), Err(-4));
+    if ADDRESSES.contains(&0x2447bf) {
+        context.fp_top = 0;
+        context.seh_ebp = 0x20100;
+        context.fs_base = 0x10000;
+        let before = context.encode();
+        assert_eq!(dispatch::invoke(&mut context, ram, 0x2447bf), Err(-4));
+        assert_eq!(context.encode(), before);
+    }
 }
 fn compare_vector_helpers() {
     let edges = [
@@ -664,14 +704,28 @@ fn main() {
         .map(|address| reference_case_count(*address))
         .sum();
     if let Some(file) = &mut output {
-        file.write_all(b"TKN7").unwrap();
-        file.write_all(&count.to_le_bytes()).unwrap();
+        file.write_all(b"TKN8").unwrap();
+        let batches = count.div_ceil(4096);
+        assert!((1..=16).contains(&batches));
+        file.write_all(&batches.to_le_bytes()).unwrap();
     }
+    let mut emitted = 0u32;
     let mut reference = vec![0u8; 8 * 1024 * 1024];
     let mut seed = 0x1234_5678_9abc_def0;
     for &address in &ADDRESSES {
         let count = reference_case_count(address);
         for iteration in 0..count {
+            if emitted % 4096 == 0 {
+                if let Some(file) = &mut output {
+                    let remaining = ADDRESSES
+                        .iter()
+                        .map(|a| reference_case_count(*a))
+                        .sum::<u32>()
+                        - emitted;
+                    file.write_all(&remaining.min(4096).to_le_bytes()).unwrap();
+                }
+            }
+            emitted += 1;
             compare_case(
                 address,
                 iteration,

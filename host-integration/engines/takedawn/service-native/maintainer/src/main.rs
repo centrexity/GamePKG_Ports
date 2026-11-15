@@ -266,6 +266,7 @@ impl Lower {
             "ebp",
             "esp",
             "seh_ebp",
+            "fs_base",
             "df",
             "fp_stack",
             "fp_top",
@@ -296,6 +297,7 @@ impl Lower {
                 .is_some_and(|n| {
                     [
                         "eax", "ebx", "ecx", "edx", "esi", "edi", "ebp", "esp", "seh_ebp",
+                        "fs_base",
                     ]
                     .contains(&n.as_str())
                 }),
@@ -1403,7 +1405,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         return Err("generated Rust formatting failed".into());
     }
-    let provenance = serde_json::json!({"schema":1,"register_record_version":3,"register_record_bytes":240,"float_arithmetic_nan_policy":"quiet-first-NaN-preserve-sign-and-payload","generator_source_sha256":format!("{:x}",Sha256::digest(include_bytes!("main.rs"))),"generator_batch_sha256":format!("{:x}",Sha256::digest(include_bytes!("batch.rs"))),"generator_icall_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall.rs"))),"generator_icall_compacted_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_compacted.rs"))),"generator_icall_compacted_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_compacted_template.inc"))),"generator_icall_guarded_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_guarded_template.inc"))),"generator_icall_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_template.inc"))),"generator_inventory_sha256":format!("{:x}",Sha256::digest(include_bytes!("../reviewed_units.tsv"))),"generator_lock_sha256":format!("{:x}",Sha256::digest(include_bytes!("../Cargo.lock"))),"formatter_version":String::from_utf8(formatter.stdout)?.trim(),"game_sha256":format!("{:x}",Sha256::digest(fs::read(output.join("game.rs"))?)),"dispatch_sha256":format!("{:x}",Sha256::digest(fs::read(output.join("dispatch.rs"))?)),"input_sha256":source_hash,"source_kit_sha256":"6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4","runtime_call_functions":runtime_call_functions,"converted":accepted.keys().collect::<Vec<_>>(),"rejected":rejected,"production_ready":false});
+    let provenance = serde_json::json!({"schema":1,"register_record_version":4,"register_record_bytes":244,"registers_source_sha256":format!("{:x}",Sha256::digest(include_bytes!("../../registers.rs"))),"float_arithmetic_nan_policy":"quiet-first-NaN-preserve-sign-and-payload","generator_source_sha256":format!("{:x}",Sha256::digest(include_bytes!("main.rs"))),"generator_batch_sha256":format!("{:x}",Sha256::digest(include_bytes!("batch.rs"))),"generator_icall_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall.rs"))),"generator_icall_compacted_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_compacted.rs"))),"generator_icall_compacted_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_compacted_template.inc"))),"generator_icall_guarded_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_guarded_template.inc"))),"generator_icall_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_template.inc"))),"generator_inventory_sha256":format!("{:x}",Sha256::digest(include_bytes!("../reviewed_units.tsv"))),"generator_lock_sha256":format!("{:x}",Sha256::digest(include_bytes!("../Cargo.lock"))),"formatter_version":String::from_utf8(formatter.stdout)?.trim(),"game_sha256":format!("{:x}",Sha256::digest(fs::read(output.join("game.rs"))?)),"dispatch_sha256":format!("{:x}",Sha256::digest(fs::read(output.join("dispatch.rs"))?)),"input_sha256":source_hash,"source_kit_sha256":"6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4","runtime_call_functions":runtime_call_functions,"converted":accepted.keys().collect::<Vec<_>>(),"rejected":rejected,"production_ready":false});
     fs::write(
         output.join("provenance.json"),
         serde_json::to_vec_pretty(&provenance)?,
@@ -1442,6 +1444,28 @@ mod tests {
                 .replace("g_xbox_mem_offset as uintptr_t", "1 as uintptr_t")
         )
         .is_err());
+    }
+    #[test]
+    fn guest_fs_base_is_only_a_proven_u32_context_field_used_through_checked_ram() {
+        let input="let __gamepkg_tls_g_fs_base=unsafe{gamepkg_tls_g_fs_base()};let mut address:uint32_t=(*__gamepkg_tls_g_fs_base).wrapping_add(4 as uint32_t);let word:uint32_t=::core::ptr::read_volatile::<uint32_t>(::core::ptr::with_exposed_provenance_mut::<uint32_t>((address as uintptr_t).wrapping_add(g_xbox_mem_offset as uintptr_t) as usize));";
+        let (function, deps) = lowered(input).unwrap();
+        assert!(deps.is_empty());
+        let text = function.to_token_stream().to_string();
+        assert!(text.contains("native_state . fs_base"));
+        assert!(text.contains("guest_ram . read_u32"));
+        for forbidden in ["gamepkg_tls", "ptr ::", "uintptr_t", "unsafe", "extern"] {
+            assert!(!text.contains(forbidden), "{text}");
+        }
+        for changed in [
+            input.replace("address:uint32_t", "address:uint64_t"),
+            input.replace("gamepkg_tls_g_fs_base()", "gamepkg_tls_g_host_fs_base()"),
+            input.replace(
+                "(address as uintptr_t).wrapping_add(g_xbox_mem_offset as uintptr_t)",
+                "(address as uintptr_t)",
+            ),
+        ] {
+            assert!(lowered(&changed).is_err());
+        }
     }
     #[test]
     fn native_pointer_paths_unknown_tls_and_aliases_are_not_converted() {

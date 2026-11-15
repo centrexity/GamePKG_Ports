@@ -53,6 +53,7 @@ def main():
             extra_original=""
             icall_original=""
             split_original=""
+            fs_original=""
             helper_units=[('prepared/src/recomp_0000_000.rs',['XMM_SUB','XMM_XOR']),
                           ('prepared/src/recomp_0002_018.rs',['recomp_fp_round24']),
                           ('prepared/src/recomp_0004_010.rs',['recomp_parity8']),
@@ -82,6 +83,8 @@ def main():
                     while depth:
                         depth+=(extra_unit[end]=='{')-(extra_unit[end]=='}');end+=1
                     extra_helpers.append(extra_unit[start:end])
+                if args.prepared and unit_name=="prepared/src/recomp_0007_000.rs":
+                    fs_original=pinned_function(extra_unit,'pub unsafe extern "C" fn sub_002447BF(')
                 if args.prepared and unit_name=="prepared/src/recomp_0007_001.rs":
                     extra_original=pinned_function(extra_unit,'pub unsafe extern "C" fn sub_00244DF0(')
         if hashlib.sha256(original).hexdigest()!=UNIT_HASH:raise RuntimeError('Changed original unit')
@@ -114,7 +117,7 @@ def main():
         game_file=generated/'game.rs';dispatch_file=generated/'dispatch.rs'
         if args.prepared:
             report=json.loads((args.prepared/'inventory.json').read_text());selected={}
-            wanted={'sub_00244DF0':'recomp_0007_001.rs','sub_001FBAE0':'recomp_0005_013.rs','sub_00243450':'recomp_0006_019.rs'}
+            wanted={'sub_00244DF0':'recomp_0007_001.rs','sub_001FBAE0':'recomp_0005_013.rs','sub_00243450':'recomp_0006_019.rs','sub_002447BF':'recomp_0007_000.rs'}
             for name,unit_name in wanted.items():
                 entry=report['closed_graph'][name];assert entry['unit']==unit_name and entry['dependencies']==[]
             for filename,expected in report['emitted_files'].items():
@@ -124,20 +127,20 @@ def main():
                 for name in wanted:
                     if 'pub fn '+name+'(' in text:
                         assert name not in selected;selected[name]=pinned_function(text,'pub fn '+name+'(')
-            assert set(selected)==set(wanted) and extra_original and icall_original and split_original
+            assert set(selected)==set(wanted) and extra_original and icall_original and split_original and fs_original
             game_file=scratch/'combined_game.rs';game_file.write_text((generated/'game.rs').read_text()+'\n'+'\n'.join(selected.values()))
             dispatch_file=scratch/'combined_dispatch.rs'
             branches=''.join('0x'+name[4:]+'=>crate::game::'+name+'(native_state,guest_ram),' for name in selected)
             dispatch_file.write_text('pub fn invoke(native_state:&mut crate::registers::Registers,guest_ram:&mut crate::memory::Memory,address:u32)->Result<(),i32>{if !native_state.valid(){return Err(-1);}match address{'+branches+'_=>crate::base_dispatch::invoke(native_state,guest_ram,address)}}')
             names+=list(selected)
-        oracle=here.joinpath('oracle_prefix.inc.rs').read_text()+'\n'+generated.joinpath('oracle_helpers.rs').read_text()+'\n'+'\n'.join(extra_helpers)+'\n'+generated.joinpath('oracle.rs').read_text()+'\n'+extra_original+'\n'+icall_original+'\n'+split_original
+        oracle=here.joinpath('oracle_prefix.inc.rs').read_text()+'\n'+generated.joinpath('oracle_helpers.rs').read_text()+'\n'+'\n'.join(extra_helpers)+'\n'+generated.joinpath('oracle.rs').read_text()+'\n'+extra_original+'\n'+icall_original+'\n'+split_original+'\n'+fs_original
         oracle+='\npub unsafe fn invoke(address:u32){match address{'+''.join(f'0x{n[4:]}=>{n}(),' for n in names)+'_=>panic!("unknown reference function")}}\n'
         oracle+='\npub unsafe fn helper(operation:u32,first:[u32;4],second:[u32;4],immediate:u32)->[u32;4]{let a=RecompXmm{u:first};let b=RecompXmm{u:second};let result=match operation{0=>XMM_ADD(a,b),1=>XMM_SUB(a,b),2=>XMM_MUL(a,b),3=>XMM_XOR(a,b),4=>XMM_SHUFFLE(a,b,immediate),5=>XMM_SCALAR(f32::from_bits(first[0])),6=>XMM_ZERO(),_=>panic!("unknown helper")};result.u}\n'
         oracle+='\npub unsafe fn scalar_round24(value:f64)->f64{recomp_fp_round24(value)}pub unsafe fn scalar_parity8(value:u32)->i32{recomp_parity8(value)}pub unsafe fn scalar_rotate(value:u32,count:u32,carry:&mut i32,width:u32,left:bool)->u32{RC_ROT(value,count,carry,width,i32::from(left))}\n'
         oracle+='\npub unsafe fn scalar_round_integer(value:f64,control:u16)->f64{recomp_frndint(value,control)}pub unsafe fn scalar_integer_store(value:f64,control:u16,width:u32)->i64{recomp_fist(value,control,width)}\n'
         oracle_file=scratch/'reference.rs';oracle_file.write_text(oracle)
         wrapper='#![allow(non_camel_case_types,non_snake_case,non_upper_case_globals,unused_assignments,unused_variables,unused_mut,unused_parens,dead_code,unreachable_code)]\n'
-        for module,path in [('client',app/'engines/native-services/client.rs'),('local',app/'engines/native-services/local_bindings.rs'),('memory',here/'memory.rs'),('call_state',here/'call_state.rs'),('copy_checks',here/'copy_checks.rs'),('vector',here/'vector.rs'),('scalar',here/'scalar.rs'),('registers',here/'registers.rs'),('game',game_file),('base_dispatch',generated/'dispatch.rs'),('dispatch',dispatch_file),('oracle',oracle_file)]:
+        for module,path in [('client',app/'engines/native-services/client.rs'),('local',app/'engines/native-services/local_bindings.rs'),('memory',here/'memory.rs'),('call_state',here/'call_state.rs'),('copy_checks',here/'copy_checks.rs'),('fs_checks',here/'fs_checks.rs'),('vector',here/'vector.rs'),('scalar',here/'scalar.rs'),('registers',here/'registers.rs'),('game',game_file),('base_dispatch',generated/'dispatch.rs'),('dispatch',dispatch_file),('oracle',oracle_file)]:
             wrapper+=f'#[path={json.dumps(str(path))}]mod {module};\n'
         wrapper+=here.joinpath('reference_call_events.rs').read_text()+'\n'
         if args.call_targets:
@@ -165,6 +168,12 @@ def main():
                 subprocess.run([str(state_exe),'--test-threads=1'],check=True)
             elif args.wine:
                 subprocess.run(['wine',str(state_exe),'--test-threads=1'],check=True,env=dict(os.environ,WINEDEBUG='-all',WINEPREFIX='/tmp/gamepkg-port-replace-wine'),timeout=60)
+            registers_exe=scratch/('registers-'+triple+('.exe' if 'windows' in triple else ''))
+            registers_command=['rustc','--edition=2021','-D','warnings','--test','-O','--target',triple,str(here/'registers_tests.rs'),'-o',str(registers_exe)]
+            if triple=='i686-unknown-linux-gnu':registers_command+=['-C','linker=/usr/bin/gcc-11']
+            subprocess.run(registers_command,check=True)
+            if 'windows' not in triple:subprocess.run([str(registers_exe),'--test-threads=1'],check=True)
+            elif args.wine:subprocess.run(['wine',str(registers_exe),'--test-threads=1'],check=True,env=dict(os.environ,WINEDEBUG='-all',WINEPREFIX='/tmp/gamepkg-port-replace-wine'),timeout=60)
             reference_object=scratch/('icall-reference-'+triple+'.o')
             compiler={'x86_64-unknown-linux-gnu':['gcc'],'i686-unknown-linux-gnu':['/usr/bin/gcc-11','-m32'],'x86_64-pc-windows-gnu':['x86_64-w64-mingw32-gcc'],'i686-pc-windows-gnu':['i686-w64-mingw32-gcc']}[triple]
             subprocess.run(compiler+['-std=c11','-Wall','-Wextra','-Werror','-O2','-c',str(here/'icall_reference.c'),'-o',str(reference_object)],check=True)

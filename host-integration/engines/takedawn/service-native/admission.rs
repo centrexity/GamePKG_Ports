@@ -56,6 +56,70 @@ fn read_events(path: &Path) -> Vec<(u32, u32, Vec<u64>)> {
     assert_eq!(offset, bytes.len());
     events
 }
+fn reject_bad_vectors(artifact: &preparation::Artifact) {
+    let mut cases = Vec::new();
+    for (magic, batches, count, error) in [
+        (b"TKN7", 1u32, None, -1i16),
+        (b"TKN8", 0, None, -1),
+        (b"TKN8", 17, None, -1),
+        (b"TKN8", 1, Some(4097), -1),
+        (b"TKN8", 1, Some(1), -3),
+    ] {
+        let mut bytes = magic.to_vec();
+        bytes.extend(batches.to_le_bytes());
+        if let Some(count) = count {
+            bytes.extend(u32::to_le_bytes(count));
+        }
+        cases.push((bytes, error));
+    }
+    let mut later = b"TKN8".to_vec();
+    for value in [2u32, 0, 4097] {
+        later.extend(value.to_le_bytes());
+    }
+    cases.push((later, -1));
+    for (index, (bytes, error)) in cases.into_iter().enumerate() {
+        let assets = tempfile::tempdir().unwrap();
+        fs::write(assets.path().join("vectors"), bytes).unwrap();
+        let samples = Arc::new(Mutex::new(Vec::new()));
+        let mut owner = Owner::start(
+            artifact,
+            Silent(samples.clone()),
+            Grants {
+                assets: Some(
+                    cap_std::fs::Dir::open_ambient_dir(assets.path(), cap_std::ambient_authority())
+                        .unwrap(),
+                ),
+                ..Default::default()
+            },
+            256 * 1024 * 1024,
+            || {},
+        )
+        .unwrap();
+        let end = Instant::now() + Duration::from_secs(15);
+        loop {
+            owner.dispatch(32);
+            if let Some(code) = owner.poll().unwrap() {
+                assert_eq!(code, 0, "{}", owner.diagnostics());
+                break;
+            }
+            assert!(
+                Instant::now() < end,
+                "bad vector case {index} timed out: {}",
+                owner.diagnostics()
+            );
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert_eq!(
+            *samples.lock().unwrap(),
+            [error],
+            "bad vector case {index}: {}",
+            owner.diagnostics()
+        );
+        let (events, lost) = owner.host.take_diagnostics();
+        assert!(events.is_empty() && lost == 0);
+        owner.stop().unwrap();
+    }
+}
 fn main() {
     let args: Vec<_> = std::env::args().collect();
     assert!([4, 5, 6].contains(&args.len()));
@@ -147,6 +211,26 @@ fn main() {
             original.replace(
                 marker,
                 &format!("{marker}crate::target_checks::target_verify()?;"),
+            ),
+        )
+        .unwrap();
+    }
+    if prepared.is_some() {
+        fs::copy(
+            here.join("fs_checks.rs"),
+            source.join("source/src/fs_checks.rs"),
+        )
+        .unwrap();
+        library.push_str("mod fs_checks;\n");
+        let fixture = source.join("source/src/fixture.rs");
+        let text = fs::read_to_string(&fixture).unwrap();
+        let marker = "crate::call_checks::call_memory_verify()?;";
+        assert_eq!(text.matches(marker).count(), 1);
+        fs::write(
+            fixture,
+            text.replace(
+                marker,
+                &format!("{marker}crate::fs_checks::thread_memory_verify(&mut ram,window)?;"),
             ),
         )
         .unwrap();
@@ -304,6 +388,8 @@ fn main() {
             );
         }
         owner.stop().unwrap();
+        reject_bad_vectors(&artifact);
+        println!("PASS {target:?}: malformed/old vector formats, batch counts and truncated records rejected by the same audited confined child");
         println!("PASS {target:?}: actual confined native execution of every generated reference vector through host-owned RAM services; in-memory output only");
         if call_targets.is_some() {
             println!("PASS {target:?}: admitted original-target lookup vectors and exact session-private diagnostic records; no handler execution");

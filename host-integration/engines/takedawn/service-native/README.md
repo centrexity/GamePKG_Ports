@@ -23,7 +23,7 @@ they are never included in admitted game objects.
   output hashes, coverage and excluded definitions. `production_ready` is false.
 - `vector.rs`: checked word/float lane access, arithmetic, scalar values,
   shuffles and RAM transfers. Ordinary native math, with explicit NaN policy.
-- `registers.rs`: explicit integer/floating values and fixed 240-byte version-3 LE test
+- `registers.rs`: explicit integer/floating values and fixed 244-byte version-4 LE test
   record. No TLS globals, native struct layout, pointers or aliases.
 - `memory.rs`: up to 32 explicit, nonoverlapping guest spans referencing existing
   opaque GamePKG RAM windows. Mirrors can share backing offsets. No native
@@ -91,15 +91,15 @@ callers are rejected, including identical definitions.
 The current inventory covers **24,015 distinct `sub_XXXXXXXX` definitions**,
 including recovered/unresolved sources. Named entrypoints and `_gen` variants
 need separate inclusion; this count is not the entire runnable title. Existing lowering
-rules recognize 22,486 locally; removing missing dependencies transitively leaves
-**18,264 candidates closed over literal direct dependencies**, with 2,962 direct edges, including 1,954 across units.
-Runtime routes remain partial: 506 retained functions contain rewritten runtime
+rules recognize 22,513 locally; removing missing dependencies transitively leaves
+**18,556 candidates closed over literal direct dependencies**, with 3,513 direct edges, including 2,380 across units.
+Runtime routes remain partial: 594 retained functions contain rewritten runtime
 calls, and known unmigrated destinations fail Unsupported. This is not a fully
-closed runtime graph. The other **5,751** definitions remain explicitly
+closed runtime graph. The other **5,459** definitions remain explicitly
 unconverted. There are no
 substitute bodies, dynamic native function pointers or unknown-target fallbacks.
 
-Prepared candidates use 2,306 Rust files (90,110,192 bytes). At most eight native
+Prepared candidates use 2,344 Rust files (95,672,829 bytes). At most eight native
 functions per module plus byte/token-aware splitting bound source size. An AST pass rewrites only direct function
 paths to their owning modules; literals are untouched. Binary selection routes
 call statically compiled functions directly, with at most logarithmic selection
@@ -129,14 +129,14 @@ python3 host-integration/engines/takedawn/service-native/check.py \
 
 The whole graph passes source admission and separate optimized object auditing/
 trusted linking for Linux64/Linux32/Windows64/Windows32. Confined native Linux
-children execute 4,096 vectors with the complete graph linked, including 1,024
+children execute 4,224 vectors with the complete graph linked, including 1,024
 cases for original `sub_00244DF0` and 512 cases for original `sub_001FBAE0`.
-**Semantic differential coverage is 35 functions**; compiling/auditing
-18,264 functions does not establish the other functions' behavior. Windows
+**Semantic differential coverage is 36 functions**; compiling/auditing
+18,556 functions does not establish the other functions' behavior. Windows
 reference comparisons execute under Wine; the prepared service executables
 are build evidence, not physical Windows gameplay. The full engine, ISO loader,
 kernel/media bridges, verified renderer, saves, input/audio, pacing and the
-remaining 5,751 functions still require migration/qualification before enablement.
+remaining 5,459 functions still require migration/qualification before enablement.
 
 ## Compacted control-flow contract
 
@@ -159,8 +159,8 @@ An additional explicitly invoked native test compares three original/converted
 CFG variants on 4,096 inputs each for every target (49,152 comparisons), covering
 ordinal values, first/final trap ordering, guarded effects and fault propagation.
 Windows executions use Wine. The 32-function kit reference suite has 2,304
-vectors per target. Private TKN7 vectors add signed extrema around the actual
-`0x463b14` load; register records remain 240 bytes, now version 3. Test files are not a
+vectors per target. Private TKN8 vectors add signed extrema around the actual
+`0x463b14` load; register records remain 244 bytes, now version 4. Test files are not a
 public SDK/save ABI. No physical game/device/pacing evidence is implied.
 
 The whole-kit admission fixture uses
@@ -195,9 +195,9 @@ literal constants. Aliases, fields, indirect calls, unproven widths, immutable
 or wider carry values and malformed helper signatures remain rejected.
 
 `fp_control_word` is an explicit u16 register value. Version-3 test records use
-bytes 46..48, previously reserved, keeping the total 240 bytes. No native layout
+bytes 46..48 in the unchanged 240-byte prefix; v4 appends the guest FS word. No native layout
 or host FP state is shared. All 65,536 control words round-trip as data; this is
-not qualification of their rounding/exception behavior. TKN7 private vector
+not qualification of their rounding/exception behavior. TKN8 private vector
 files include bounded, batched scalar conformance records after function cases;
 old test containers fail their magic check. No public SDK/save ABI changed.
 
@@ -253,7 +253,7 @@ resulting Rust source and GamePKG compiler, with no Python or converter setup.
 
 Executed checks:
 
-- Twenty-five regular converter/emitter tests cover pointer/TLS/alias/macro/platform/indirect-call
+- Twenty-six regular converter/emitter tests cover pointer/TLS/alias/macro/platform/indirect-call
   rejection, address-width proof, mismatched memory widths, direct dependency
   recording, signatures and attributes. Maintainer strict clippy passes.
 - Every converted function matches its unchanged pinned reference in 2,304
@@ -312,8 +312,8 @@ actual mapped range. Counts negative on 32-bit hosts and overflow fail.
 The original matrix/copy routines `sub_00013D10` and `sub_00013E50` now have
 128 finite bounded input vectors each, covering both direction modes; all
 register bits and the whole committed 8 MiB remain exact comparisons. This
-does not qualify arbitrary matrix NaN propagation. Private TKN7 vectors add a
-seventh synthetic constant span; register records remain version 3.
+does not qualify arbitrary matrix NaN propagation. Private TKN8 vectors add a
+seventh synthetic constant span; register records remain version 4.
 `copy_checks.rs` is itself source checked, separately optimized/object audited
 and run in confined Linux children: 1,048,593-byte copy with every byte checked,
 overlapping mirror/readonly/unmapped/overflow rejection and guest-address edges.
@@ -350,8 +350,8 @@ rounding-bit cases and 836,808 signed integer-store cases match the unchanged
 `recomp_0007_001.rs`. Cases cover all exponent classes and all 65,536 control
 words, signed zero, subnormals, quiet/signaling NaNs, infinities, ties and
 neighbors of all three signed range limits. Invalid store widths reject.
-Private TKN7 vector trailers carry these results in bounded batches to actual
-confined Linux32/Linux64 children; register records remain version 3/240 bytes.
+Private TKN8 vector trailers carry these results in bounded batches to actual
+confined Linux32/Linux64 children; register records remain version 4/244 bytes.
 This qualifies these helpers' returned values, not x87 exception flags or the
 entire game's floating environment and behavior.
 
@@ -369,7 +369,7 @@ integer-range edges, signed zeros, subnormals, infinities and NaNs. Register bit
 and all committed 8 MiB RAM compare exactly; its 1,024 records also run in
 confined Linux32/Linux64 children linked with the complete candidate graph.
 The single-unit golden remains 32 functions/2,304 vectors; prepared runs cover
-35 functions/4,096 vectors, without treating other compiled functions as
+36 functions/4,224 vectors, without treating other compiled functions as
 semantically qualified. `sub_00244DF0` has no native function dependencies; its
 reference is extracted only from its exact hash-pinned unit, and its prepared
 body from an inventoried/hash-checked source file. No extra body is admitted
@@ -484,7 +484,7 @@ fields/order against the unchanged pinned routine. Selected original generated
 callee, true table absence, non-code guards, zero/high ranges and fallback
 stack cleanup are exercised. Separate guard checks cover known unmigrated
 categories and revocation; they do not implement those handlers. Private
-vectors use TKN7 with code bounds and expected trace values. The named
+vectors use TKN8 with code bounds and expected trace values. The named
 entrypoint and five `_gen` bodies also require inclusion in the function pipeline:
 
 | Symbol | Pinned source unit |
@@ -575,7 +575,7 @@ separate from original-function semantic qualification. The single-unit golden
 now retains original `sub_00015570`, checked in 128 register/whole-RAM/trace/log
 cases with null/non-null objects, original registered callees, absent/non-code
 targets and code-range guards. Prepared runs cover 35 original functions and
-4,096 vectors; the fixture's existing 4,096-case ceiling is unchanged.
+4,224 vectors in bounded batches, as documented below.
 
 The single-unit component now contains runtime calls too, so `check.py` always
 requires `--call-targets` from the hash-verified classifier tool. A sparse fake
@@ -583,3 +583,42 @@ target table is not an alternative. All game sources still pass checks before
 bindings, and every optimized game object is audited before trusted linking.
 The guarded template hash is recorded in golden and inventory provenance.
 The installed app SDK/API is unchanged by these maintainer/port changes.
+
+## Guest thread-local memory and private context v4
+
+`Registers::fs_base: u32` is an ordinary guest TIB/PCR address. The reviewed
+`gamepkg_tls_g_fs_base` accessor lowers to that field; the existing proven-u32
+address rule and exact relocation pattern still route every access through
+`Memory` and GamePKG-owned RAM IDs. No host FS register, native thread pointer,
+new opcode, permission or SDK bypass is exposed. Record decoding accepts guest
+address bits, not memory authority; page/span rights are checked on each access.
+
+The private register record is v4, 244 bytes LE: the old 240-byte prefix is
+unchanged, followed by `fs_base` at 240..244. FP control remains at 46..48.
+Wrong record lengths and invalid FP stack positions reject before mutation.
+Four-target tests round-trip 65,536 FS patterns, including high address bits.
+The registers source hash is bound into golden provenance and whole-kit reports.
+This is not a public save format or a service-protocol ABI change.
+
+Prepared comparisons add 128 unchanged original `sub_002447BF` epilogue cases,
+including unaligned guest TIB addresses and aliases within the checked test RAM.
+Source-checked game-side cases exercise that actual migrated function with
+wrapping/out-of-range addresses and a read-only view; denied writes preserve
+bytes. Native references additionally verify revocation leaves context intact.
+These data checks do not initialize the real title's thread structures or prove
+startup, physical input, audio, graphics or frame pacing.
+
+Private vectors now use TKN8: magic, LE u32 batch count (1..16), then for each
+batch a LE u32 case count (0..4096) and its existing records using 244-byte
+contexts. Scalar trailers follow all batches; the reader requires exact EOF.
+RAM, registers and the trace ledger persist across batches. Prepared runs now
+execute 4,224 cases in two batches, preserving all earlier coverage and the
+4,096-case limit per batch. No production resource limit was changed. The same
+audited Linux child rejects old magic, zero/oversized batch counts, oversized
+later batches and truncated records, with bounded waits and dummy output.
+
+Both direct startup helpers `sub_001D18B0` and `sub_001D19FD` are now retained.
+The entrypoint itself still needs inclusion, and `sub_001D2E6F` remains blocked
+by `sub_001CFF88`. Complete the remaining functions and service/renderer/loader
+integration before enabling a title; retained literal-call closure is not full
+runtime routing or gameplay qualification.

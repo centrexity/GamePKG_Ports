@@ -3,30 +3,26 @@
   "production_ready": false,
   "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
   "inventory_sha256": "7d7ab7a7cfd00067396a84a82c055a588e308bc8cdc0a94451232cf0f8f12169",
-  "converter_main_sha256": "c20dc03b2076f42cbcea822729b667ef9a487be21cdbfe899892b29518f770bc",
-  "converter_batch_sha256": "9ce3381e5b928bea1087a2544c75f164f86bf5aa40f3e7f361e0dfdc9f1afc7f",
+  "converter_main_sha256": "b9765ebf6b09bf53c87c07a2f7f29c3884c1648301eb7ab8646692031a9f31a1",
+  "converter_batch_sha256": "a80185907d8d91fe6b15711f79b8343d7e38c808300aa79a40e5e3633e897d95",
   "converter_lock_sha256": "6d55a2c76709a6c1825c3fc3c9ac08e03d6e140635858336762f4ac2595a5259",
   "definitions": 24015,
   "unique_definitions": 24015,
-  "locally_convertible_definitions": 22486,
-  "closed_definitions": 18264,
+  "locally_convertible_definitions": 22513,
+  "closed_definitions": 18556,
   "source_units": 485,
-  "candidate_source_files": 2306,
-  "candidate_source_bytes": 90110192,
-  "direct_closed_edges": 2962,
-  "cross_unit_closed_edges": 1954,
+  "candidate_source_files": 2344,
+  "candidate_source_bytes": 95672829,
+  "direct_closed_edges": 3513,
+  "cross_unit_closed_edges": 2380,
   "duplicate_symbols": 0,
-  "unconverted_unique_definitions": 5751,
-  "closed_graph_sha256": "8026ab0957489f35f99091d347dd23068a7df43676cb55973e20f50b15ef58aa",
-  "emitted_inventory_sha256": "e591ec8b7686f5f2549281c96827c431aed8f528872810bac3e2456ce0e7adb5",
+  "unconverted_unique_definitions": 5459,
+  "closed_graph_sha256": "c5948a05e92c95804e3a0b9a4c887a5d7add9daac04405f0e08a05b3e03afa8b",
+  "emitted_inventory_sha256": "aaf15549c55dae7dd11aa2914c42f6974f792458f1df5bb4121f3156c979b5b6",
   "most_blocking_dependencies": [
     [
       "sub_00141010",
-      80
-    ],
-    [
-      "sub_002447BF",
-      63
+      81
     ],
     [
       "sub_001B2C60",
@@ -34,10 +30,6 @@
     ],
     [
       "sub_001C69C0",
-      60
-    ],
-    [
-      "sub_002F4175",
       60
     ],
     [
@@ -53,33 +45,41 @@
       54
     ],
     [
-      "sub_001D192B",
-      52
-    ],
-    [
-      "sub_001D1953",
-      52
-    ],
-    [
       "sub_003518E0",
       50
     ],
     [
       "sub_001CD8D0",
       39
+    ],
+    [
+      "sub_000D0890",
+      37
+    ],
+    [
+      "sub_001C19A0",
+      33
+    ],
+    [
+      "sub_001AEDB0",
+      30
+    ],
+    [
+      "sub_000F68E0",
+      28
     ]
   ],
-  "semantic_reference_functions": 35,
-  "semantic_reference_vectors_per_target": 4096,
+  "semantic_reference_functions": 36,
+  "semantic_reference_vectors_per_target": 4224,
   "synthetic_control_flow_comparisons_per_target": 12288,
   "synthetic_control_flow_variants": 3,
   "round24_reference_cases_per_target": 114688,
   "parity_reference_cases_per_target": 65536,
   "rotate_carry_reference_cases_per_target": 261120,
   "control_word_records_per_target": 65536,
-  "register_record_version": 3,
-  "register_record_bytes": 240,
-  "vector_container": "TKN7",
+  "register_record_version": 4,
+  "register_record_bytes": 244,
+  "vector_container": "TKN8",
   "compiler_memory_bytes": 12884901888,
   "qualification": "Candidate inventory/source facts; see README for actual build checks. Scalar FP value checks use the default host FP environment; no exception-flag, nondefault rounding, full-game, device or pacing qualification.",
   "copy_conformance_bytes_per_target": 1048593,
@@ -94,7 +94,7 @@
   "converter_icall_sha256": "ac0439f07eb4cd71e9e3766346103b5fe3b00522d7c4385fd09b5edce1a59a65",
   "converter_icall_pattern_sha256": "2610d0cf8e13c604631cefb56deed07262ac63fde336dd2c39711a21d0319405",
   "closed_graph_scope": "literal direct dependencies only; runtime native routes remain partial and must fault on known but unmigrated targets",
-  "runtime_call_functions": 506,
+  "runtime_call_functions": 594,
   "runtime_call_function_reference_cases_per_target": 512,
   "converter_icall_compacted_sha256": "92eb1fbc3d53a469fecac8fe257d7cc3d0efec61ad1e7e797258a4da057eefb0",
   "converter_icall_compacted_pattern_sha256": "8fd80ad1c27069b724a061b241a59c443a6955bffbface366da9057cb0d91f21",
@@ -103,5 +103,11 @@
   "converter_icall_guarded_pattern_sha256": "ac8c81b731bbe352c3ab9c492e6eeccfb79ffe9e3109ecce434e3e3372253165",
   "guarded_call_graph_reference_cases_per_target": 7680,
   "tail_call_graph_reference_cases_per_target": 7680,
-  "tail_wrapper_function_reference_cases_per_target": 128
+  "tail_wrapper_function_reference_cases_per_target": 128,
+  "registers_source_sha256": "e4077951e2d77ccb86dd967712acaa2eb28b41548ef6aac5545bb2330030366b",
+  "fs_epilogue_function_reference_cases_per_target": 128,
+  "private_vector_batches": 2,
+  "private_vector_max_batches": 16,
+  "private_vector_cases_per_batch": 4096,
+  "guest_fs_record_cases_per_target": 65536
 }

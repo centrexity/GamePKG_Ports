@@ -23,6 +23,8 @@ pub struct Registers {
     pub xmm5: [u32; 4],
     pub xmm6: [u32; 4],
     pub xmm7: [u32; 4],
+    // Guest TIB/PCR address only. Never a native thread FS register or pointer.
+    pub fs_base: u32,
 }
 fn register_word(bytes: &[u8], offset: usize) -> u32 {
     u32::from_le_bytes([
@@ -57,6 +59,7 @@ impl Registers {
             xmm5: [0; 4],
             xmm6: [0; 4],
             xmm7: [0; 4],
+            fs_base: 0,
         }
     }
     pub fn valid(&self) -> bool {
@@ -91,10 +94,11 @@ impl Registers {
                 bytes.extend(u32::to_le_bytes(value));
             }
         }
+        bytes.extend(u32::to_le_bytes(self.fs_base));
         bytes
     }
     pub fn decode(&mut self, bytes: &[u8]) -> Result<(), i32> {
-        if bytes.len() != 240 {
+        if bytes.len() != 244 {
             return Err(-1);
         }
         let top = register_word(bytes, 40) as i32;
@@ -151,6 +155,7 @@ impl Registers {
         for lane in 0..4 {
             self.xmm7[lane] = register_word(bytes, 224 + lane * 4);
         }
+        self.fs_base = register_word(bytes, 240);
         Ok(())
     }
 }

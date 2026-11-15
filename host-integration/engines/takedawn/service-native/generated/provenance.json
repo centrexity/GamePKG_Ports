@@ -37,7 +37,7 @@
   "float_arithmetic_nan_policy": "quiet-first-NaN-preserve-sign-and-payload",
   "formatter_version": "rustfmt 1.8.0-stable (29483883ee 2025-08-04)",
   "game_sha256": "37274d241e9433e497ddd0c1141128dab2dde216d5f434c5ec817a955001613d",
-  "generator_batch_sha256": "9ce3381e5b928bea1087a2544c75f164f86bf5aa40f3e7f361e0dfdc9f1afc7f",
+  "generator_batch_sha256": "a80185907d8d91fe6b15711f79b8343d7e38c808300aa79a40e5e3633e897d95",
   "generator_icall_compacted_pattern_sha256": "8fd80ad1c27069b724a061b241a59c443a6955bffbface366da9057cb0d91f21",
   "generator_icall_compacted_sha256": "92eb1fbc3d53a469fecac8fe257d7cc3d0efec61ad1e7e797258a4da057eefb0",
   "generator_icall_guarded_pattern_sha256": "ac8c81b731bbe352c3ab9c492e6eeccfb79ffe9e3109ecce434e3e3372253165",
@@ -45,11 +45,12 @@
   "generator_icall_sha256": "ac0439f07eb4cd71e9e3766346103b5fe3b00522d7c4385fd09b5edce1a59a65",
   "generator_inventory_sha256": "7d7ab7a7cfd00067396a84a82c055a588e308bc8cdc0a94451232cf0f8f12169",
   "generator_lock_sha256": "6d55a2c76709a6c1825c3fc3c9ac08e03d6e140635858336762f4ac2595a5259",
-  "generator_source_sha256": "c20dc03b2076f42cbcea822729b667ef9a487be21cdbfe899892b29518f770bc",
+  "generator_source_sha256": "b9765ebf6b09bf53c87c07a2f7f29c3884c1648301eb7ab8646692031a9f31a1",
   "input_sha256": "442f7812516f3c5157ee74e15aede23d0ac423105acb7d973733bbe9f01ad94d",
   "production_ready": false,
-  "register_record_bytes": 240,
-  "register_record_version": 3,
+  "register_record_bytes": 244,
+  "register_record_version": 4,
+  "registers_source_sha256": "e4077951e2d77ccb86dd967712acaa2eb28b41548ef6aac5545bb2330030366b",
   "rejected": {
     "sub_00013EB0": [
       "unconverted dependencies: sub_00116080"
