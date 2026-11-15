@@ -128,3 +128,8 @@ of those gameplay claims.
 The reused memory adapter now also requires app commit `c775eca` for its
 explicit cross-span fallback (shared service identity `86521a787ece4bd0`).
 The CPU startup APIs and original reference semantics above are unchanged.
+
+The [checked heap data component](../service-heap/README.md) now preserves
+allocation/reuse/coalescing/query and zero-fill semantics against the original
+helpers. Shared-task ownership, public kernel wrappers and diagnostics still
+require integration before the allocator is usable by all title threads.

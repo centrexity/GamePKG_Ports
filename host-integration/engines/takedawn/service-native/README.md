@@ -902,3 +902,8 @@ pass Linux32/64 and Windows32/64 under Wine. Windows confined service execution
 and actual gameplay remain unqualified. The checked XBE loader and CPU startup
 matrices were rerun successfully against this adapter, including the private
 ISO in place and every RAM hash; their image/startup behavior is unchanged.
+
+The [checked heap data component](../service-heap/README.md) now supplies the
+next owned data component after stack/TLS initialization. Its state and whole
+RAM match the pinned original helpers; shared-task serialization and public
+kernel-wrapper integration remain required before entrypoint admission.

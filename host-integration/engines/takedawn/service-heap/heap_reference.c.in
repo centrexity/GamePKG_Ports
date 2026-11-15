@@ -1,0 +1,38 @@
+/* Maintainer-only RAM/value oracle. No OS/device/game execution. */
+#include <stdint.h>
+#include <stddef.h>
+#include <string.h>
+#include <stdarg.h>
+static int silent_fprintf(void *stream, const char *format, ...) {(void)stream;(void)format;return 0;}
+static int silent_error(const char *format, ...) {(void)format;return 0;}
+static int silent_flush(void *stream) {(void)stream;return 0;}
+#define fprintf silent_fprintf
+#define fflush silent_flush
+#define stderr ((void *)0)
+#define XR_ERROR(...) silent_error(__VA_ARGS__)
+#define XBOX_HEAP_MAX_BLOCKS 65536
+#define XBOX_HEAP_BASE heap_base
+#define XBOX_HEAP_TOP heap_top
+static uint32_t heap_base,heap_top,g_heap_next;
+static int g_heap_alloc_count,g_heap_block_count;
+static uintptr_t g_memory_offset;
+static struct { uint32_t addr; uint32_t size; uint8_t free; } g_heap_blocks[XBOX_HEAP_MAX_BLOCKS];
+static void xbox_heap_reset_base(void){g_heap_next=XBOX_HEAP_BASE;}
+/* GAMEPKG_PINNED_ALLOCATE */
+/* GAMEPKG_PINNED_SIZE */
+/* GAMEPKG_PINNED_FREE */
+void gamepkg_heap_reset(uint8_t *ram,uint32_t base,uint32_t top){
+    heap_base=base;heap_top=top;g_memory_offset=(uintptr_t)ram;g_heap_next=base;
+    g_heap_alloc_count=0;g_heap_block_count=0;memset(g_heap_blocks,0,sizeof(g_heap_blocks));
+}
+uint32_t gamepkg_heap_operation(uint32_t op,uint32_t first,uint32_t second){
+    if(op==0)return heap_alloc_unlocked(first,second);
+    if(op==1){heap_free_unlocked(first);return 0;}
+    if(op==2)return heap_block_size_unlocked(first);
+    return 0;
+}
+void gamepkg_heap_stats(uint32_t *out){out[0]=g_heap_next;out[1]=(uint32_t)g_heap_block_count;out[2]=(uint32_t)g_heap_alloc_count;}
+int gamepkg_heap_record(uint32_t index,uint32_t *out){
+    if(index>=(uint32_t)g_heap_block_count)return 0;
+    out[0]=g_heap_blocks[index].addr;out[1]=g_heap_blocks[index].size;out[2]=g_heap_blocks[index].free;return 1;
+}

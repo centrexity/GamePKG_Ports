@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "production_ready": false,
+  "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+  "member": "toolkit/src/kernel/xbox_memory_layout.c",
+  "source_sha256": "c83cb0a4586ef3298911f4639e79ec1f904b4133b8469676ff0fa461b63f82f4",
+  "functions": {
+    "allocate": {
+      "start": 203555,
+      "end": 207696,
+      "sha256": "87e9c65b321eb776e417439b6a8800f0fb067b17d660ddc9dc51c5cfb5a84fa2"
+    },
+    "size": {
+      "start": 208451,
+      "end": 208881,
+      "sha256": "2020dd2782881da213daa8a8a0488078fb205de6a6c7b7a0606b4b158a6c7924"
+    },
+    "free": {
+      "start": 208883,
+      "end": 210491,
+      "sha256": "2ad7a1e64af6df6d72f570389bd214e05528187cef5528c6bfb9b098ebf8f177"
+    }
+  }
+}
