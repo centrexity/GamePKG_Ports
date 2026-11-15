@@ -42,8 +42,23 @@ private keys are included. Reference data is synthetic and generated locally.
 
 ## Contracts
 
-Requires app commit `62f3a61f002cd89707952ef415d772feafca8dc8` or a compatible
+Requires app commit `cf2dca17930a4e3000c7a076e51a311fe9fc7e2b` or a compatible
 later service SDK; stale executable receipts must be rebuilt.
+
+The admission fixture requests `Plan::with_codegen_units(4)` and requires two
+to four retained, independently optimized game objects on each target. Every
+object is audited before trusted linking; cross-unit calls resolve only against
+those exact definitions. Receipts bind both original compiler hashes and exact
+audited hashes, the reviewed partition count, source kit, target/compiler and
+SDK. MinGW symbol-hiding metadata is normalized only by the app's closed
+`RustMingwSymbolExclusionsV1` validator; arbitrary directives and direct platform
+imports remain rejected. The fixed-width SDK decoders need no error-formatting
+imports, and no runtime vocabulary was expanded for this migration.
+
+The four-target reference checks and confined Linux32/Linux64 execution pass
+with this multi-object path. Windows comparisons execute under Wine; Windows
+service artifacts are compiled/audited/linked here, not physically played. This
+is synthetic component evidence, not full game, device, audio or pacing evidence.
 
 The app's host-controlled `LocalLayout::TakedawnRam` supplies one 64 MiB physical
 RAM backing window (initially inaccessible, non-executable). It is separate from

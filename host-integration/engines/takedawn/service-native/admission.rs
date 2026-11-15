@@ -100,14 +100,38 @@ fn main() {
         Target::Windows64,
         Target::Windows32,
     ] {
-        let plan = Plan::new(target, "game_main", vec![], LocalLayout::TakedawnRam, true).unwrap();
+        let plan = Plan::new(target, "game_main", vec![], LocalLayout::TakedawnRam, true)
+            .unwrap()
+            .with_codegen_units(4)
+            .unwrap();
         let artifact = preparation::build(project.path(), &checked, &plan, vec![], vec![]).unwrap();
         artifact.executable().unwrap();
+        assert!((2..=4).contains(&artifact.receipt().game.objects.len()));
+        assert_eq!(
+            artifact.receipt().raw_objects.len(),
+            artifact.receipt().game.objects.len()
+        );
+        assert!(artifact
+            .receipt()
+            .arguments
+            .iter()
+            .any(|arg| arg == "codegen-units=4"));
+        for (raw, audited) in artifact
+            .receipt()
+            .raw_objects
+            .iter()
+            .zip(&artifact.receipt().game.objects)
+        {
+            assert_eq!(raw.name, audited.name);
+            assert_eq!(raw.sha256.len(), 64);
+            assert_eq!(audited.sha256.len(), 64);
+        }
+
         assert_eq!(
             artifact.receipt().game.sdk,
             gamepkg::port_host::build_identity()
         );
-        println!("PASS {target:?}: exact converted source checked before bindings, separately optimized and audited before trusted runtime linking");
+        println!("PASS {target:?}: exact converted source checked before bindings, multiple independently optimized game objects, all audited before trusted runtime linking");
         if matches!(target, Target::Windows64 | Target::Windows32) {
             continue;
         }
