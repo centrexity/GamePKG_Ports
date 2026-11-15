@@ -1,11 +1,13 @@
-# Checked pool kernel bridges
+# Checked allocator kernel bridges
 
-This component connects four original pool operations to the existing
+This component connects nine original allocator operations to the existing
 [shared heap task](../service-heap/SERVICE.md) through the actual finite native
 call/jump router. Game functions remain compiled Rust functions; no instruction
 fetch/decode loop, native handler pointer, OS heap or system call is exposed.
-No app SDK extension is needed beyond implementation `38a84d4` (shared-service
-identity `0db7bde13239a9ee...`, composite native recipe `dd1e2928b1a6fb54`).
+The contiguous paths use `LocalLayout::TakedawnMemory`, available in app
+implementation `f4bdfea`: shared-service identity
+`c36219e59748d51107cbc5be62593dbcc119cd58b4d9763a09c3d959b3bb73e8`,
+composite native recipe `e5624d54d141c27b`. No new host API or quota is added.
 
 The original dispatch table, not its stale comments, establishes these ordinals:
 
@@ -15,16 +17,32 @@ The original dispatch table, not its stale comments, establishes these ordinals:
 | 15 | ExAllocatePoolWithTag | size, tag u32 |
 | 17 | ExFreePool | address u32 |
 | 23 | ExQueryPoolBlockSize | address u32 |
+| 165 | MmAllocateContiguousMemory | size u32 |
+| 166 | MmAllocateContiguousMemoryEx | size, low, high, alignment, protection u32 |
+| 168 | MmClaimGpuInstanceMemory | bytes, padding-address u32 |
+| 171 | MmFreeContiguousMemory | address u32 |
+| 180 | MmQueryAllocationSize | address u32 |
 
 Both allocation calls use the original 16-byte alignment. The tagged call reads
 both arguments even when logging is disabled. Free returns EAX zero; query
 returns remaining bytes in a live block, preserving interior-pointer behavior.
 Ordinary allocation exhaustion returns EAX zero with normal stack cleanup.
 
-`MmQueryAllocationSize` (180) also asks the separate contiguous arena first.
-It remains Unsupported until that allocator exists; answering from only this
-heap would be a downgrade. Kernel data exports are not callable pool bridges.
-No other ordinal is replaced by a successful stub.
+Ordinal 165 allocates with alignment 4096 and the full physical range. Ordinal
+166 reads all five arguments, including the otherwise unused protection word.
+Its fixed-range branch preserves the original u32 wrapping test and address
+calculation, then performs the shared owner's exact clear-and-claim operation.
+Other ranges use the original contiguous allocator with alignment at least 4096;
+reversed bounds return zero. Invalid fixed ranges fail through checked RAM rather
+than falling back to arbitrary addresses. Ordinal 168 writes zero to a nonzero
+padding address and computes `0x84000000 - bytes` with u32 wrapping; MAX bytes
+means 128 KiB. The original wrapper does not allocate or claim that range.
+Ordinal 171 frees Contiguous first and otherwise Heap, returning EAX zero.
+Ordinal 180 queries Contiguous first and falls back to Heap only for zero.
+
+Any table containing these five ordinals requires a configured shared Contiguous
+owner before publication. Kernel data exports and all other ordinals still fail
+Unsupported. No other import is replaced by a successful stub.
 
 ## Context and ownership
 
@@ -74,7 +92,7 @@ import range from the reviewed authenticated image; it must not truncate a real
 title's table to conceal unsupported imports.
 
 At this checkpoint **the entire supplied table must contain only zero slots or
-unresolved markers for those four pool ordinals**. Unsupported function/data
+unresolved markers for those nine allocator ordinals**. Unsupported function/data
 imports fail Unsupported (-5) before writes; non-marker values and invalid
 bounds fail Invalid (-1). Already resolved markers are not silently re-resolved.
 This is not a complete Burnout kernel resolver or a title-admission mechanism.
@@ -89,13 +107,26 @@ before publication. Failed publication releases its new record. A later failure
 (such as root-record revocation during setup) still requires abort before entry;
 this is not a transaction across independent runtime calls.
 
-The private KPL1 map is LE: magic u32 `0x314C504B`, count u32, root call-record ID
-u64, table u32, reserved-zero u32, then exactly count ordinal u32 values. Maximum
-size is 1,536 bytes within the unchanged 4 KiB/64-record limits. It exposes no
-host code address. `kernel_ordinal(&Memory, slot)` checks its live record, exact
-length/magic/count/range/reserved word and root association on every use. Only
-the supported ordinals can reach a handler; zero/out-of-range/unmigrated slots
-remain explicit Unsupported. Bad metadata is Invalid and revoked records deny.
+The private KPL2 map is LE: magic u32 `0x324C504B`, count u32, root call-record ID
+u64, table u32, reserved-zero u32, exactly count ordinal u32 values, then a shared
+u32 refusal counter. Length is `28 + 4 * count`, at most 1,540 bytes inside the
+unchanged 4 KiB/64-record limits. The counter must be 0..8. Live metadata,
+length/magic/count/range/reserved word and root association are checked on every
+invocation. Only supported ordinals reach a handler; empty/out-of-range/unmigrated
+slots remain Unsupported. Invalid metadata is Invalid; revoked records deny.
+No host code address is stored. `Memory::with_context` accepts this new bound;
+the four opaque context IDs and CPU/call-state layouts do not change.
+
+The original ordinal-166 refusal path reads 35 additional stack words for the
+first eight allocation failures even when ordinary kernel logging is disabled.
+A bounded whole-record CAS grants those eight tickets across all callers; the
+counter saturates at eight. A ticket is consumed before the extra guest reads,
+matching the original increment order. Failure to read those bytes propagates
+without changing EAX/ESP; no allocator mutation is replayed. After eight tickets,
+the extra range is never read. Numeric diagnostic `0x544B0A00` carries caller,
+size, low, high, clamped alignment and protection; byte diagnostic `0x544B0A01`
+carries exactly 140 little-endian stack bytes. Output errors are best effort,
+as the original ignores console errors. No console or filesystem access is added.
 
 `calls_runtime` routes classified kernel targets to
 `kernel_invoke(&mut Registers, &mut Memory, slot)` only with a configured map.
@@ -116,14 +147,13 @@ an indeterminate accepted heap mutation must cause abort, never replay.
 
 ## Validation
 
-`reference_inputs.json` pins the source kit, complete `kernel_bridge.c`, four
+`reference_inputs.json` pins the source kit, complete `kernel_bridge.c`, nine
 exact bridge bodies, complete original argument-size function, lookup body and
-original main import-patch loop. The C oracle reuses the pinned original heap
-helpers from `service-heap`. It runs only supported pool tables in bounded
+original main import-patch loop. The C oracle reuses the pinned original Heap and Contiguous helpers. It runs only supported pool tables in bounded
 synthetic RAM, with inert logging/no OS services. Native C handler pointers exist
 only in this maintainer oracle, never admitted or trusted runtime objects.
 The original interrupt/profiling/watch/diagnostic wrapper is not claimed by these
-four bridge comparisons; it remains separate migration work.
+component comparisons; it remains separate migration work.
 
 Linux32/64 and Windows32/64-under-Wine each passed 2,944 original bridge calls
 across five cases: normal/reused/random allocations, tight/empty heaps, maximum
@@ -145,46 +175,56 @@ malformed map fields, empty slots and incomplete handler routes. A temporary
 name collision caught by the conservative source scanner was removed without
 changing that scanner or accepting indirect calls.
 
-The full native matrix passed complete-source admission and every-object audits
-on Linux32/64 and Windows32/64, with actual confined Linux32/64 vector/routing
-runs and malformed-vector controls. The focused fixture separately passed the
-same four build targets and both confined Linux runs. Existing heap data,
-shared-task lifecycle, image loading and CPU-startup regressions also passed,
-including authorized private ISO reads in place for the latter two components.
-The title's native entry was never run by these tests.
+The extended `--memory` fixture separately compares 2,115 original calls on
+Linux32/64 and Windows32/64 under Wine. Each call compares all 244 CPU bytes,
+caller, stack arguments and both allocator counter sets. Final comparison covers
+both complete 64 MiB banks and every page record. Zero/unaligned stacks, range
+and alignment edges, fixed claims, combined fallback, GPU padding and all eight
+original refusal dumps are included. This is a synthetic RAM oracle, not a title.
 
-The native matrix retains all earlier 38-function / 4,864 reference cases per
-target. Its full generated candidate, helper/context code and reviewed task
-entries go through complete source admission before bindings, separate game-unit
-optimization, every-object audit and trusted linking. Actual confined Linux
-execution is checked separately from Windows build audits/Wine references.
-No source/import rule, resource threshold, compiler-only budget, confinement or
-legacy game-profile gate is relaxed. `service-native/check.py` is authoritative
-for those full-source/confinement results; `check.py` here runs the original bridge references; adding `--app-lib` and
-`--call-targets` also builds the focused checked-source/audited-object fixture
-on all four targets and executes it under actual Linux32/64 confinement.
-That focused fixture is additional evidence, not a substitute for the full
-generated-candidate matrix.
+Its ordinary `memory_checks.rs` fixture runs actual finite kernel call/jump
+routing with four independently registered callers: 512 iterations hold 1,536
+Heap/Contiguous lifetimes, with exactly 1,024 contiguous allocation/free pairs.
+Negative controls cover unconfigured backing before table writes, inaccessible
+fifth arguments, u64 stack bounds, late read-only padding/clear pages, invalid
+fixed ranges and corrupt metadata. One denied extra-stack read consumes the
+first refusal ticket; concurrent callers consume the remaining seven exactly.
+After saturation an inaccessible extra-stack range is correctly ignored.
+Exclusive held data, tiled aliases, exact post-join counts, client restoration
+on errors and explicit cleanup are checked. This focused source passes admission
+and every-object audits for all four targets and executes under actual confined
+Linux32/64. Windows results here are cross-build audits and Wine oracle runs,
+not Windows AppContainer execution.
+
+The full partial generated-candidate native matrix retains its 38 original
+functions / 4,864 register-and-whole-RAM vectors per target, complete-source
+admission before bindings, separate optimized objects and collective audits
+before trusted linking. Its routing fixture exercises the four original pool
+ordinals; the additional five wrappers are exercised by the focused extended
+fixture above. The full matrix is not evidence of executing all nine through
+the title. Existing Heap/shared-owner/image/bootstrap regressions remain required.
+No source/import rule, budget, confinement or legacy game-profile gate is relaxed.
 
 ```sh
 python3 host-integration/engines/takedawn/service-kernel-pool/check.py \
-  --app /path/to/GamePKG/app --wine
+  --app /path/to/GamePKG/app --wine --memory \
+  --app-lib /path/to/libgamepkg.rlib --call-targets /path/to/verified-targets
 ```
 
-Run the existing native matrix with its reviewed full candidate and verified
-call-target inputs for admission/routing/confinement qualification. Python/C are
-maintainer-only; users receive Rust/native tools. These pool fixtures use no ROM,
-window, physical input, real audio or game assets. The prior image/CPU-startup
-regressions independently read the authorized ISO in place.
+Omit `--memory` for the original four-pool reference/control suite. Supply the
+reviewed full candidate and target report to `service-native/check.py` for its
+separate full-source build/admission/confinement matrix. Python/C are maintainer
+only; users receive Rust/native tools. These tests use no ROM, window, physical
+input, real audio or game assets. Image/startup regressions independently read
+the authorized ISO in place.
 
 ## Remaining work
 
 Complete original kernel data initialization, all other function exports,
-contiguous allocation, import count/remap/lookbehind semantics, IRQ safe points,
-scheduling/profiling/watch and bounded allocation/OOM/trace diagnostics. Connect
-authenticated image/bootstrap to the complete resolver and guest thread/TIB
-startup; this pool-only setup must not be passed off as a complete resolver.
-Finish generated/manual/media and renderer paths before native entry/title
-admission. These tests establish neither actual gameplay nor physical controls,
-audible audio, rendering fidelity or measured frame pacing. The legacy title
-build/play/cache/export gate remains enforced.
+import count/remap/lookbehind semantics, IRQ safe points, scheduling/profiling/
+watch and other bounded allocation/trace diagnostics. Connect authenticated
+image/bootstrap to the complete resolver and guest-thread/TIB startup; this
+allocator-only setup is not a complete resolver. Finish generated/manual/media
+and renderer paths before native entry/title admission. These tests establish
+neither gameplay nor physical controls, audible audio, rendering fidelity or
+measured frame pacing. The legacy title build/play/cache/export gate stays closed.

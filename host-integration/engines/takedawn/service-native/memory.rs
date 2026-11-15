@@ -140,7 +140,7 @@ impl Memory {
             return Err(-1);
         }
         if context[1] != 0 {
-            let _ = gamepkg::local_record_snapshot(context[1], 1536)?;
+            let _ = gamepkg::local_record_snapshot(context[1], 1540)?;
         }
         if context[3] != 0 && gamepkg::local_task_finished(context[3])? {
             return Err(-4);

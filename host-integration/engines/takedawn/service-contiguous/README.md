@@ -5,7 +5,7 @@ page allocator's data behavior using GamePKG-owned RAM access. It exposes no
 OS allocation, native pointer, raw page-map reference, device access, Cargo
 dependency or successful unmapped-memory fallback. It now connects to the existing
 [shared allocator owner](../service-heap/SERVICE.md#contiguous-extension-private-protocol-version-2).
-**Kernel wrappers, guest-thread startup and native entry remain incomplete**.
+**The complete kernel resolver, guest-thread startup and native entry remain incomplete**.
 
 Requires the app's reviewed three-bank `LocalLayout::TakedawnMemory` preset,
 implementation [`f4bdfea`](https://github.com/centrexity/GamePKG/commit/f4bdfea).
@@ -158,9 +158,11 @@ All dependent image/bootstrap/heap/native fixtures now stage Contiguous as norma
 checked game source before host-generated bindings. No dependency, source,
 object-import, budget, confinement or legacy admission rule is exempted.
 
-Next wire reviewed original contiguous kernel ordinals, fixed-range/instance
-claims, free fallback and the contiguous-first size query through these methods.
-Ordinal 180 remains Unsupported until its complete kernel wrapper is qualified.
+The [checked allocator bridges](../service-kernel-pool/README.md) now connect
+ordinals 165/166/168/171/180 in addition to the four pool operations. The extended
+fixture qualifies the original fixed-range branch, instance calculation/padding,
+Contiguous-first fallback and first eight refusal dumps: 2,115 original calls
+per target, all four build audits and actual confined Linux32/64 controls.
 Preserve original reporting, bounded OOM/allocation diagnostics and device
 page-map use. Guest mirrors/tiled views, full device semantics, kernel/data
 imports, thread/TIB/IRQ startup, remaining generated/manual/media/renderer paths

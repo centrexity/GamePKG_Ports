@@ -1,10 +1,17 @@
 /* Maintainer-only wrapper following the exact heap oracle. No OS services. */
 typedef uint32_t ULONG;
 #define KERNEL_LOG_ON() 0
+#define KERNEL_LOG_ON_HALF() 0
+#define XBOX_PHYSICAL_MIRROR_BASE 0x80000000u
 #define KERNEL_VA_BASE 0xfe000000u
-#define BRIDGE_MEM32(address) (*(volatile uint32_t *)(g_memory_offset+(uint32_t)(address)))
-#define STACK_ARG(n) BRIDGE_MEM32(g_esp+(n)*4)
+static volatile uint32_t *gamepkg_memory_pointer(uint32_t address){uintptr_t base=address>=0x80000000u&&address<0x84000000u?contig_offset:g_memory_offset;return(volatile uint32_t *)(base+address);}
+#define BRIDGE_MEM32(address) (*gamepkg_memory_pointer((uint32_t)(address)))
+static uint32_t g_arg_trace[40],g_arg_count;
+static uint32_t g_xbox_kernel_caller;
+static uintptr_t g_xbox_mem_offset;
 static uint32_t g_eax,g_esp;
+static uint32_t gamepkg_stack_read(uint32_t index){uint32_t value=BRIDGE_MEM32(g_esp+index*4);if(g_arg_count<40)g_arg_trace[g_arg_count]=value;g_arg_count++;return value;}
+#define STACK_ARG(n) gamepkg_stack_read(n)
 static uint32_t xbox_HeapAlloc(uint32_t bytes,uint32_t alignment){return heap_alloc_unlocked(bytes,alignment);}
 static void xbox_HeapFree(uint32_t address){heap_free_unlocked(address);}
 static uint32_t xbox_HeapBlockSize(uint32_t address){return heap_block_size_unlocked(address);}
@@ -12,10 +19,16 @@ static uint32_t xbox_HeapBlockSize(uint32_t address){return heap_block_size_unlo
 /* GAMEPKG_PINNED_BRIDGE_EXALLOCATEPOOLWITHTAG */
 /* GAMEPKG_PINNED_BRIDGE_EXFREEPOOL */
 /* GAMEPKG_PINNED_BRIDGE_EXQUERYPOOLBLOCKSIZE */
+
+/* GAMEPKG_PINNED_BRIDGE_MMALLOCATECONTIGUOUSMEMORY */
+/* GAMEPKG_PINNED_BRIDGE_MMALLOCATECONTIGUOUSMEMORYEX */
+/* GAMEPKG_PINNED_BRIDGE_MMCLAIMGPUINSTANCEMEMORY */
+/* GAMEPKG_PINNED_BRIDGE_MMFREECONTIGUOUSMEMORY */
+/* GAMEPKG_PINNED_BRIDGE_MMQUERYALLOCATIONSIZE */
 /* GAMEPKG_PINNED_STDCALL_ARGS_FOR_ORDINAL */
 typedef void (*bridge_func_t)(void);
 static bridge_func_t bridge_for_ordinal(ULONG ordinal){
-    switch(ordinal){case 14:return bridge_ExAllocatePool;case 15:return bridge_ExAllocatePoolWithTag;case 17:return bridge_ExFreePool;case 23:return bridge_ExQueryPoolBlockSize;default:return NULL;}
+    switch(ordinal){case 14:return bridge_ExAllocatePool;case 15:return bridge_ExAllocatePoolWithTag;case 17:return bridge_ExFreePool;case 23:return bridge_ExQueryPoolBlockSize;case 165:return bridge_MmAllocateContiguousMemory;case 166:return bridge_MmAllocateContiguousMemoryEx;case 168:return bridge_MmClaimGpuInstanceMemory;case 171:return bridge_MmFreeContiguousMemory;case 180:return bridge_MmQueryAllocationSize;default:return NULL;}
 }
 static uint32_t kernel_data_va_for_ordinal(ULONG ordinal){(void)ordinal;return 0;}
 static const unsigned short *g_ordinal_remap=NULL;
@@ -32,8 +45,11 @@ uint32_t gamepkg_pool_init(uint32_t table,uint32_t count){
 }
 uint32_t gamepkg_pool_call(uint32_t slot,uint32_t *cpu){
     uint32_t caller;g_eax=cpu[0];g_esp=cpu[7];
-    caller=g_esp?BRIDGE_MEM32(g_esp):0;g_esp+=4;
+    g_arg_count=0;caller=g_esp?BRIDGE_MEM32(g_esp):0;g_xbox_kernel_caller=caller;g_esp+=4;
     if(slot>=378 || !g_slot_bridges[slot])return 0xffffffffu;
     g_slot_bridges[slot]();g_esp+=(uint32_t)g_slot_arg_bytes[slot];
     cpu[0]=g_eax;cpu[7]=g_esp;return caller;
 }
+
+void gamepkg_memory_reset(uint8_t *main_ram,uint8_t *contig_ram,uint32_t base,uint32_t top){gamepkg_heap_reset(main_ram,base,top);gamepkg_contig_reset(contig_ram);g_xbox_mem_offset=contig_offset;}
+uint32_t gamepkg_stack_trace(uint32_t *out){uint32_t count=g_arg_count<40?g_arg_count:40;memcpy(out,g_arg_trace,count*4);return g_arg_count;}

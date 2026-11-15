@@ -910,7 +910,7 @@ pool kernel bridges are qualified separately below; complete public kernel
 wrappers and title startup remain required before entrypoint admission.
 
 The [checked pool kernel bridge integration](../service-kernel-pool/README.md)
-now routes four configured ordinals through the actual finite native call/jump
+now routes nine configured allocator ordinals through the actual finite native call/jump
 path and shared per-caller heap clients. Other imports remain explicit required
 migration work; installing that bounded map does not enable the title.
 
@@ -942,5 +942,10 @@ preserves the original page/range/reserve/claim/free/query behavior over the
 reviewed second RAM bank, with original-code and confined replay qualification.
 It now joins Heap in the existing shared owner through the explicit private
 version-2 protocol; constructing independent allocators per guest thread is
-incorrect. This does not yet enable contiguous kernel ordinals or their size-query
-wrappers, guest memory/device views or native entry.
+incorrect. The allocator bridge now connects five contiguous/combined wrappers
+in addition to four pool wrappers, including all required stack reads, fixed-range
+clears, instance padding and the first eight refusal dumps. Its focused fixture
+compares 2,115 pinned-original calls per target, audits every game object on four
+targets and runs concurrent/error controls in confined Linux32/64. The full native
+candidate matrix retains its four-pool routing fixture and 38-function/4,864-vector
+regressions. Neither establishes complete guest memory/device views or native entry.

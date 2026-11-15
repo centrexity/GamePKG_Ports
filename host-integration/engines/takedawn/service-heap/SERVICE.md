@@ -240,3 +240,12 @@ the client and prevents another request. Cancellation after a v2 allocation is
 consumed also poisons and closes the client; the mutation is never replayed.
 Unregister/stop remain v1 lifecycle operations permitted after root revocation.
 No legacy builtin/native profile or kernel ordinal is enabled by this extension.
+
+
+The [allocator kernel bridge](../service-kernel-pool/README.md) now connects this
+owner to nine exact original wrappers, including contiguous allocation, fixed
+clear/claim, instance padding, combined free and ordinal-180 size queries.
+KPL2 carries a shared eight-ticket refusal counter; it does not change this
+owner's v1/v2 messages or quotas. The extended wrapper fixture independently
+qualifies source/object admission and confined Linux32/64 routing. Other kernel
+imports, guest-thread startup and native title entry remain required and gated.

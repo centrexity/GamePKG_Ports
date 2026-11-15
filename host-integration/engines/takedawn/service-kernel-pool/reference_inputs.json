@@ -29,6 +29,31 @@
       "start": 370039,
       "end": 392581,
       "sha256": "9296186dab3e4cf69665559022afb261930e0efa09eea4b88f72ea723da76542"
+    },
+    "bridge_MmAllocateContiguousMemory": {
+      "start": 47670,
+      "end": 48309,
+      "sha256": "ac0b3637ccdb8904195fa923f858cd8c55b929823fc0b7f70d0df57dc61e05b2"
+    },
+    "bridge_MmAllocateContiguousMemoryEx": {
+      "start": 50312,
+      "end": 53139,
+      "sha256": "053e967888b259fc19b757a55098f45335bce274ba538c2be16efe26f8d06ef7"
+    },
+    "bridge_MmClaimGpuInstanceMemory": {
+      "start": 141424,
+      "end": 141762,
+      "sha256": "2875120d6ea4a4cac463b5ccaf2acf0d18990d2fa5a83f1ccffba959c6a8c244"
+    },
+    "bridge_MmFreeContiguousMemory": {
+      "start": 53294,
+      "end": 53755,
+      "sha256": "01b96b86c83b78c557dbced53fceed4a8cf02c4d0d65c828e04ea61b1832a958"
+    },
+    "bridge_MmQueryAllocationSize": {
+      "start": 229134,
+      "end": 229379,
+      "sha256": "505076dff3768f675105a5ada40ea15e67d08c4092fbbe06efb1b35b29eba982"
     }
   },
   "lookup": {
@@ -45,6 +70,11 @@
     "14": "bridge_ExAllocatePool",
     "15": "bridge_ExAllocatePoolWithTag",
     "17": "bridge_ExFreePool",
-    "23": "bridge_ExQueryPoolBlockSize"
+    "23": "bridge_ExQueryPoolBlockSize",
+    "165": "bridge_MmAllocateContiguousMemory",
+    "166": "bridge_MmAllocateContiguousMemoryEx",
+    "168": "bridge_MmClaimGpuInstanceMemory",
+    "171": "bridge_MmFreeContiguousMemory",
+    "180": "bridge_MmQueryAllocationSize"
   }
 }

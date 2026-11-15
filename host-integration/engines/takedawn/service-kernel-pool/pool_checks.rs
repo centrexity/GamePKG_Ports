@@ -81,7 +81,7 @@ fn pool_plans(ram: &mut memory::Memory, window: u64) -> Result<(), i32> {
     }
     for (thunk_word, code) in [
         (0x80000010u32, -5i32),
-        (0x800000b4, -5),
+        (0x800000b5, -5),
         (0x8000017a, -5),
         (0x80000000, -5),
         (0xfe000000, -5),
@@ -340,9 +340,9 @@ fn pool_bad_records(ram: &mut memory::Memory) -> Result<(), i32> {
         (8, 0, -1),
         (16, 1, -1),
         (20, 1, -1),
-        (24, 180, -5),
+        (24, 181, -5),
     ] {
-        let (version, original) = gamepkg::local_record_snapshot(id, 1536)?;
+        let (version, original) = gamepkg::local_record_snapshot(id, 1540)?;
         let mut changed = std::vec::Vec::new();
         changed.extend(&original);
         changed[at..at + 4].copy_from_slice(&u32::to_le_bytes(value));
