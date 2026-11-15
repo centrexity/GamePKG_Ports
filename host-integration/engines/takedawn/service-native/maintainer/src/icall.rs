@@ -237,6 +237,94 @@ pub(super) fn rewrite_leaving(statements: &[Stmt], pass: &Lower) -> Option<Vec<S
     let call = rewrite_tail(&statements[..9], pass, &label)?;
     Some(vec![call, statements[9].clone()])
 }
+// Separate original lookup contract: no trace or code-range check, and one
+// wrapping guest stack pop on absence. Never route this through invoke_call.
+pub(super) fn rewrite_jump(statements: &[Stmt], pass: &Lower) -> Option<Stmt> {
+    let outer = block(statements.first()?)?;
+    if outer.block.stmts.len() != 5 {
+        return None;
+    }
+    let Stmt::Local(binding) = &outer.block.stmts[0] else {
+        return None;
+    };
+    let syn::Pat::Type(ty) = &binding.pat else {
+        return None;
+    };
+    let syn::Pat::Ident(function) = &*ty.pat else {
+        return None;
+    };
+    let Expr::Call(lookup) = plain(&binding.init.as_ref()?.expr) else {
+        return None;
+    };
+    let target = lookup.args.first()?;
+    let va = path(target)?;
+    if !temporary(&va, "_va") || !pass.guest_u32(target) {
+        return None;
+    }
+    let pointer = function.ident.to_string();
+    if !temporary(&pointer, "_fn") {
+        return None;
+    }
+    let native = block(&outer.block.stmts[1])?;
+    let kernel = block(&outer.block.stmts[2])?;
+    let missing = block(&outer.block.stmts[3])?;
+    if missing.block.stmts.len() != 5 {
+        return None;
+    }
+    let esp = tls_lhs(&assignment(&missing.block.stmts[2])?.left)?;
+    let eax = tls_lhs(&assignment(&missing.block.stmts[3])?.left)?;
+    if pass.tls.get(&esp).map(String::as_str) != Some("esp")
+        || pass.tls.get(&eax).map(String::as_str) != Some("eax")
+    {
+        return None;
+    }
+    for name in [
+        "recomp_lookup_manual",
+        "recomp_lookup",
+        "recomp_lookup_kernel",
+        "recomp_icall_fail_log",
+    ] {
+        if pass.locals.contains_key(name) || pass.tls.contains_key(name) {
+            return None;
+        }
+    }
+    let labels = [outer, native, kernel, missing]
+        .into_iter()
+        .map(|b| b.label.as_ref().map(|l| l.name.ident.to_string()))
+        .collect::<Option<Vec<_>>>()?;
+    if labels.iter().collect::<BTreeSet<_>>().len() != 4 {
+        return None;
+    }
+    let mut normalize = Normalize {
+        names: BTreeMap::from([
+            (va.clone(), "_va".into()),
+            (pointer, "_fn".into()),
+            (esp, "__gamepkg_tls_g_esp".into()),
+            (eax, "__gamepkg_tls_g_eax".into()),
+        ]),
+        labels: labels
+            .into_iter()
+            .zip(["s_jump_0", "s_jump_1", "s_jump_2", "s_jump_3"].map(String::from))
+            .collect(),
+    };
+    if normalize.names.len() != 4 {
+        return None;
+    }
+    let mut actual: syn::Block = parse_quote!({#outer});
+    if !capture_safe(&mut actual, &normalize.names, &normalize.labels) {
+        return None;
+    }
+    normalize.visit_block_mut(&mut actual);
+    let mut expected: syn::Block =
+        syn::parse_str(&format!("{{{}}}", include_str!("icall_jump_template.inc"))).ok()?;
+    generic_punctuation(&mut actual);
+    generic_punctuation(&mut expected);
+    if actual.to_token_stream().to_string() != expected.to_token_stream().to_string() {
+        return None;
+    }
+    let va = format_ident!("{va}");
+    Some(parse_quote!(crate::calls_runtime::invoke_jump(native_state,guest_ram,#va)?;))
+}
 pub(super) fn label_used(block: &mut syn::Block, name: &str) -> bool {
     struct Used<'a> {
         name: &'a str,
@@ -261,7 +349,10 @@ pub(super) fn count(function: &mut ItemFn) -> u32 {
     struct Counter(u32);
     impl VisitMut for Counter {
         fn visit_expr_call_mut(&mut self, call: &mut syn::ExprCall) {
-            if path(&call.func).as_deref() == Some("crate::calls_runtime::invoke_call") {
+            if matches!(
+                path(&call.func).as_deref(),
+                Some("crate::calls_runtime::invoke_call" | "crate::calls_runtime::invoke_jump")
+            ) {
                 self.0 += 1;
             }
             visit_mut::visit_expr_call_mut(self, call);
@@ -427,6 +518,39 @@ mod tests {
                 assert!(candidate(&alteration, "").is_err());
             }
         }
+    }
+    #[test]
+    fn untraced_lookup_requires_the_entire_distinct_lookup_and_stack_contract() {
+        let template = include_str!("icall_jump_template.inc");
+        let (mut function, deps) = candidate(template, "").unwrap();
+        assert!(deps.is_empty());
+        assert_eq!(count(&mut function), 1);
+        let text = function.to_token_stream().to_string();
+        assert!(text.contains("calls_runtime :: invoke_jump"));
+        assert!(!text.contains("invoke_call"));
+        for (old, new) in [
+            ("recomp_lookup_manual(_va)", "recomp_lookup(_va)"),
+            ("wrapping_add(4 as uint32_t)", "wrapping_add(8 as uint32_t)"),
+            ("if _fn.is_some()", "if _fn.is_none()"),
+            ("0 as uint32_t", "1 as uint32_t"),
+            ("break 's_jump_0", "break 'elsewhere"),
+            ("non-null function pointer", "different marker"),
+        ] {
+            assert!(template.contains(old));
+            assert!(candidate(&template.replace(old, new), "").is_err(), "{old}");
+        }
+        for prefix in [
+            "let _va:uint64_t=1;",
+            "let recomp_lookup_manual:uint32_t=1;",
+            "let recomp_icall_fail_log:uint32_t=1;",
+        ] {
+            assert!(candidate(template, prefix).is_err(), "{prefix}");
+        }
+        let changed = template
+            .replace("_va", "_va_7")
+            .replace("_fn", "_fn_2")
+            .replace("'s_jump_", "'renamed_");
+        assert!(candidate(&changed, "let _va_7:uint32_t=1;").is_ok());
     }
     fn leaving_pattern(body: &str) -> String {
         format!(

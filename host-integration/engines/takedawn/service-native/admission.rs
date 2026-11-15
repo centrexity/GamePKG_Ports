@@ -201,7 +201,12 @@ fn main() {
             source.join("source/src/calls_runtime.rs"),
         )
         .unwrap();
-        library.push_str("mod targets;mod target_checks;mod calls_runtime;\n");
+        fs::copy(
+            here.join("jump_checks.rs"),
+            source.join("source/src/jump_checks.rs"),
+        )
+        .unwrap();
+        library.push_str("mod targets;mod target_checks;mod calls_runtime;mod jump_checks;\n");
         let fixture = source.join("source/src/fixture.rs");
         let original = fs::read_to_string(&fixture).unwrap();
         let marker = "crate::call_checks::call_verify()?;";
@@ -211,6 +216,18 @@ fn main() {
             original.replace(
                 marker,
                 &format!("{marker}crate::target_checks::target_verify()?;"),
+            ),
+        )
+        .unwrap();
+        let fixture = source.join("source/src/fixture.rs");
+        let original = fs::read_to_string(&fixture).unwrap();
+        let marker = "crate::call_checks::call_memory_verify()?;";
+        assert_eq!(original.matches(marker).count(), 1);
+        fs::write(
+            fixture,
+            original.replace(
+                marker,
+                &format!("{marker}crate::jump_checks::jump_verify()?;"),
             ),
         )
         .unwrap();
@@ -379,6 +396,11 @@ fn main() {
             ],
         ));
         expected_events.push((2, 0x544b0001, vec![0, 1, 1]));
+        if call_targets.is_some() {
+            let mut values = vec![0x8000, 0, 0];
+            values.resize(19, 0);
+            expected_events.push((2, 0x544b0002, values));
+        }
         assert_eq!(observed.len(), expected_events.len());
         for (index, (event, expected)) in observed.iter().zip(&expected_events).enumerate() {
             assert_eq!(event.sequence, index as u64 + 1);
@@ -392,7 +414,7 @@ fn main() {
         println!("PASS {target:?}: malformed/old vector formats, batch counts and truncated records rejected by the same audited confined child");
         println!("PASS {target:?}: actual confined native execution of every generated reference vector through host-owned RAM services; in-memory output only");
         if call_targets.is_some() {
-            println!("PASS {target:?}: admitted original-target lookup vectors and exact session-private diagnostic records; no handler execution");
+            println!("PASS {target:?}: original-target lookup vectors, exact diagnostics and untraced-jump conformance; no kernel/manual handler implementations");
         }
     }
     println!("Unsafe/OS reference source remains rejected; no source, import or legacy-profile exemption");

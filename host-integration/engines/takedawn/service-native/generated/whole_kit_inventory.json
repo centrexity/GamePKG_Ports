@@ -3,62 +3,62 @@
   "production_ready": false,
   "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
   "inventory_sha256": "7d7ab7a7cfd00067396a84a82c055a588e308bc8cdc0a94451232cf0f8f12169",
-  "converter_main_sha256": "611f4f0b63a2ee8c62e77a8c7cb5567a5d00e21e02c780a899a851a0812a0754",
-  "converter_batch_sha256": "a80185907d8d91fe6b15711f79b8343d7e38c808300aa79a40e5e3633e897d95",
+  "converter_main_sha256": "dd9bb40d4cbfc9c7d12e8fb4b7f7a5409cd5836cfdec826d3f746464d0817d1b",
+  "converter_batch_sha256": "bb719c5c79966f5381f7df558286d6d610aeddd80e6576a32ab42141aef7ee0e",
   "converter_lock_sha256": "6d55a2c76709a6c1825c3fc3c9ac08e03d6e140635858336762f4ac2595a5259",
   "definitions": 24015,
   "unique_definitions": 24015,
-  "locally_convertible_definitions": 22551,
-  "closed_definitions": 18651,
+  "locally_convertible_definitions": 22924,
+  "closed_definitions": 18858,
   "source_units": 485,
-  "candidate_source_files": 2356,
-  "candidate_source_bytes": 97078371,
-  "direct_closed_edges": 3661,
-  "cross_unit_closed_edges": 2476,
+  "candidate_source_files": 2381,
+  "candidate_source_bytes": 108375993,
+  "direct_closed_edges": 4173,
+  "cross_unit_closed_edges": 2847,
   "duplicate_symbols": 0,
-  "unconverted_unique_definitions": 5364,
-  "closed_graph_sha256": "01044a849b2d652ba5bfc226a5b2605ed869a22602d726a30cd2c4169529dea9",
-  "emitted_inventory_sha256": "98001009625898c733e4aa13ac4d2013acea6d14cb81d4bfec08744bee284507",
+  "unconverted_unique_definitions": 5157,
+  "closed_graph_sha256": "579b6ffb574a869e74eb7834df110510a2b2eca1e386d9eb5907661014b325ef",
+  "emitted_inventory_sha256": "2f57aadf3dbe0d6fe7045c862f9e8f289a5ccf1a26e6ca7f0ca320bfccd6dec8",
   "most_blocking_dependencies": [
     [
       "sub_00141010",
-      81
+      98
     ],
     [
-      "sub_001B2C60",
-      60
+      "sub_000B9620",
+      63
     ],
     [
       "sub_001C69C0",
-      60
+      61
     ],
     [
       "sub_001FEDC0",
       59
     ],
     [
-      "sub_000B9620",
-      58
+      "sub_000D0890",
+      54
     ],
     [
       "sub_003518E0",
-      50
+      51
     ],
     [
       "sub_001CD8D0",
-      39
-    ],
-    [
-      "sub_000D0890",
-      37
-    ],
-    [
-      "sub_003651A1",
-      35
+      46
     ],
     [
       "sub_001C19A0",
-      33
+      39
+    ],
+    [
+      "sub_003651A1",
+      36
+    ],
+    [
+      "sub_000EF600",
+      34
     ],
     [
       "sub_001AEDB0",
@@ -66,7 +66,7 @@
     ],
     [
       "sub_000F68E0",
-      28
+      30
     ]
   ],
   "semantic_reference_functions": 36,
@@ -91,12 +91,12 @@
   "integer_store_function_reference_cases_per_target": 1024,
   "compiler_codegen_units": 4,
   "definition_scope": "sub_XXXXXXXX only; named entrypoint and five _gen bodies still require inclusion",
-  "converter_icall_sha256": "7f1e28fa4ac5aefc0d035630ccc499cb0e42ccc107dcecd7f55f7c70fa4ad0d5",
+  "converter_icall_sha256": "d03df741ce6dc31f8966f4b4cd190ae636f2751d37b8168c235ff1aa93cbf649",
   "converter_icall_pattern_sha256": "2610d0cf8e13c604631cefb56deed07262ac63fde336dd2c39711a21d0319405",
   "closed_graph_scope": "literal direct dependencies only; runtime native routes remain partial and must fault on known but unmigrated targets",
-  "runtime_call_functions": 630,
+  "runtime_call_functions": 730,
   "runtime_call_function_reference_cases_per_target": 512,
-  "converter_icall_compacted_sha256": "92eb1fbc3d53a469fecac8fe257d7cc3d0efec61ad1e7e797258a4da057eefb0",
+  "converter_icall_compacted_sha256": "283c6cdf386a3235dc5c5c3731403e53daa7f50a5b59ed0c14a46b2c32831821",
   "converter_icall_compacted_pattern_sha256": "8fd80ad1c27069b724a061b241a59c443a6955bffbface366da9057cb0d91f21",
   "compacted_call_graph_reference_cases_per_target": 7680,
   "compacted_call_function_reference_cases_per_target": 256,
@@ -110,5 +110,10 @@
   "private_vector_max_batches": 16,
   "private_vector_cases_per_batch": 4096,
   "guest_fs_record_cases_per_target": 65536,
-  "common_exit_call_graph_reference_cases_per_target": 7680
+  "common_exit_call_graph_reference_cases_per_target": 7680,
+  "untraced_jump_graph_reference_cases_per_target": 7680,
+  "untraced_jump_generated_stack_cases_per_target": 5,
+  "untraced_jump_revocation_cases_per_target": 3,
+  "converter_icall_jump_pattern_sha256": "4a8081a832d096af9fa4c31d3e5d83188ad6d0167199a015fe3a28feaa64040b",
+  "converter_icall_jump_compacted_pattern_sha256": "1227390f2070dda5ede7f4b5fa35a44f33eb0958cf1b4240085fe44031b6e344"
 }

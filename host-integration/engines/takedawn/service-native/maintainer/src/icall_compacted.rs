@@ -233,6 +233,7 @@ struct Region {
     common: String,
     selector: String,
     pointer: String,
+    untraced: bool,
 }
 fn region(
     function: &ItemFn,
@@ -382,6 +383,147 @@ fn region(
         common,
         selector,
         pointer,
+        untraced: false,
+    })
+}
+
+// Exact second contract from the formatter: manual/generated/kernel lookup
+// without trace/range logic, then a one-word stack pop only on true absence.
+fn untraced_region(
+    function: &ItemFn,
+    references: &BTreeMap<String, usize>,
+    selectors: &mut BTreeMap<(String, String), bool>,
+    m: &syn::ExprMatch,
+    entry: usize,
+) -> Option<Region> {
+    if !m.attrs.is_empty() {
+        return None;
+    }
+    let selector = bare(&m.expr)?;
+    let syn::Pat::Path(p) = &m.arms[entry].pat else {
+        return None;
+    };
+    let enumeration = p.path.segments.first()?.ident.to_string();
+    let entry_body = body(&m.arms[entry].body)?;
+    let tail = entry_body.stmts.len().checked_sub(2)?;
+    let fragments = entry_body.stmts[tail..].to_vec();
+    let manual = assignment(statement_body(&fragments[0])?.stmts.first()?)?;
+    let Expr::Call(lookup) = &*manual.right else {
+        return None;
+    };
+    if path(&lookup.func).as_deref() != Some("recomp_lookup_manual") {
+        return None;
+    }
+    let pointer = bare(&manual.left)?;
+    let va = bare(lookup.args.first()?)?;
+    if !icall::temporary(&va, "_va")
+        || !icall::temporary(&pointer, "_fn")
+        || !selector.starts_with("c2rust_current_block_")
+        || !enumeration.starts_with("C2Rust_Block_")
+        || !*selectors
+            .entry((selector.clone(), enumeration.clone()))
+            .or_insert_with(|| private_selector(function, &selector, &enumeration))
+    {
+        return None;
+    }
+    let mut indices = BTreeMap::new();
+    for (index, arm) in m.arms.iter().enumerate() {
+        if let Some(tag) = tag(arm, &enumeration) {
+            if indices.insert(tag, index).is_some() {
+                return None;
+            }
+        } else if !arm.attrs.is_empty()
+            || arm.guard.is_some()
+            || !compacted_trap_body(&arm.body)
+            || !matches!(&arm.pat,syn::Pat::Or(p) if p.attrs.is_empty() && p.cases.iter().all(|case|matches!(case,syn::Pat::Path(p) if p.attrs.is_empty() && p.qself.is_none() && variant(&p.path,&enumeration).is_some())))
+        {
+            return None;
+        }
+    }
+    let get = |s: &String| indices.get(s).copied();
+    let (generated, kernel_guard) = branch(
+        statement_body(&fragments[1])?.stmts.first()?,
+        &selector,
+        &enumeration,
+    )?;
+    let ge = get(&generated)?;
+    let kg = get(&kernel_guard)?;
+    let (kernel, result_guard) = branch(
+        body(&m.arms[kg].body)?.stmts.first()?,
+        &selector,
+        &enumeration,
+    )?;
+    let ke = get(&kernel)?;
+    let rg = get(&result_guard)?;
+    let (invoke, missing) = branch(
+        body(&m.arms[rg].body)?.stmts.first()?,
+        &selector,
+        &enumeration,
+    )?;
+    let iv = get(&invoke)?;
+    let mi = get(&missing)?;
+    let missing_body = body(&m.arms[mi].body)?;
+    let esp = icall::tls_lhs(
+        &assignment(statement_body(missing_body.stmts.get(1)?)?.stmts.first()?)?.left,
+    )?;
+    let eax = icall::tls_lhs(
+        &assignment(statement_body(missing_body.stmts.get(2)?)?.stmts.first()?)?.left,
+    )?;
+    let common = destination(
+        body(&m.arms[iv].body)?.stmts.last()?,
+        &selector,
+        &enumeration,
+    )?;
+    let removed = BTreeSet::from([ge, kg, ke, rg, iv, mi]);
+    if removed.len() != 6 || removed.contains(&entry) || removed.contains(&get(&common)?) {
+        return None;
+    }
+    let mut fragment = m.clone();
+    fragment.arms.clear();
+    let mut head = m.arms[entry].clone();
+    head.body = Box::new(parse_quote!({#(#fragments)*}));
+    fragment.arms.push(head);
+    for index in [ge, kg, ke, rg, iv, mi] {
+        fragment.arms.push(m.arms[index].clone());
+    }
+    let names = BTreeMap::from([
+        (selector.clone(), "c2rust_current_block_30".into()),
+        (enumeration.clone(), "C2Rust_Block_30".into()),
+        (va, "_va".into()),
+        (pointer.clone(), "_fn".into()),
+        (esp, "__gamepkg_tls_g_esp".into()),
+        (eax, "__gamepkg_tls_g_eax".into()),
+    ]);
+    if names.len() != 6 {
+        return None;
+    }
+    let expected: syn::ExprMatch =
+        syn::parse_str(include_str!("icall_jump_compacted_template.inc")).ok()?;
+    if normalized(fragment.clone(), &names, &enumeration)?
+        != normalized(expected, &BTreeMap::new(), "C2Rust_Block_30")?
+    {
+        return None;
+    }
+    let inside = paths(&mut fragment);
+    let entry_tag = tag(&m.arms[entry], &enumeration)?;
+    for (qualified, count) in &inside {
+        if let Ok(p) = syn::parse_str::<syn::Path>(qualified) {
+            if let Some(name) = variant(&p, &enumeration) {
+                if name != entry_tag && name != common && references.get(qualified) != Some(count) {
+                    return None;
+                }
+            }
+        }
+    }
+    Some(Region {
+        entry,
+        removed,
+        tail,
+        names,
+        common,
+        selector,
+        pointer,
+        untraced: true,
     })
 }
 
@@ -405,6 +547,15 @@ pub(super) fn rewrite(function: &mut ItemFn) {
                         m,
                         entry,
                     )
+                    .or_else(|| {
+                        untraced_region(
+                            &self.original,
+                            &self.references,
+                            &mut self.selectors,
+                            m,
+                            entry,
+                        )
+                    })
                 });
                 let Some(r) = candidate else {
                     break;
@@ -416,8 +567,12 @@ pub(super) fn rewrite(function: &mut ItemFn) {
                         break name;
                     }
                 };
-                let mut canonical: syn::Block =
-                    syn::parse_str(&format!("{{{}}}", include_str!("icall_template.inc"))).unwrap();
+                let template = if r.untraced {
+                    include_str!("icall_jump_template.inc")
+                } else {
+                    include_str!("icall_template.inc")
+                };
+                let mut canonical: syn::Block = syn::parse_str(&format!("{{{template}}}")).unwrap();
                 let mut names = r
                     .names
                     .iter()
@@ -436,7 +591,12 @@ pub(super) fn rewrite(function: &mut ItemFn) {
                     "{}",
                     r.names
                         .iter()
-                        .find(|(_, n)| n.as_str() == "C2Rust_Block_54")
+                        .find(|(_, n)| n.as_str()
+                            == if r.untraced {
+                                "C2Rust_Block_30"
+                            } else {
+                                "C2Rust_Block_54"
+                            })
                         .unwrap()
                         .0
                 );
@@ -476,7 +636,7 @@ pub(super) fn rewrite(function: &mut ItemFn) {
     }
     let mut counts = BTreeMap::new();
     identifiers(function.to_token_stream(), &mut counts);
-    if !counts.contains_key("g_icall_trace") {
+    if !counts.contains_key("recomp_lookup_manual") {
         return;
     }
     let references = paths(function);
@@ -519,6 +679,86 @@ pub(super) fn rewrite(function: &mut ItemFn) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn original_untraced() -> ItemFn {
+        let mut m: syn::ExprMatch =
+            syn::parse_str(include_str!("icall_jump_compacted_template.inc")).unwrap();
+        let mut variants = paths(&mut m)
+            .keys()
+            .filter_map(|s| {
+                syn::parse_str::<syn::Path>(s)
+                    .ok()
+                    .and_then(|p| variant(&p, "C2Rust_Block_30"))
+            })
+            .collect::<BTreeSet<_>>();
+        variants.insert("S_350".into());
+        let tags = variants
+            .iter()
+            .map(|s| format_ident!("{s}"))
+            .collect::<Vec<_>>();
+        let dispatched = m
+            .arms
+            .iter()
+            .filter_map(|a| tag(a, "C2Rust_Block_30"))
+            .collect::<BTreeSet<_>>();
+        let traps = variants
+            .iter()
+            .filter(|s| !dispatched.contains(*s) && s.as_str() != "S_399")
+            .map(|s| format_ident!("{s}"))
+            .collect::<Vec<_>>();
+        m.arms.push(parse_quote!(C2Rust_Block_30::S_399=>{*__gamepkg_tls_g_eax=(*__gamepkg_tls_g_eax).wrapping_add(0x123 as uint32_t);return;}));
+        m.arms.push(parse_quote!(#(C2Rust_Block_30::#traps)|* =>{unreachable!("GamePKG compacted dispatch state reached")}));
+        parse_quote! {pub unsafe extern "C" fn sub_100(){
+            let __gamepkg_tls_g_esp=unsafe{gamepkg_tls_g_esp()};
+            let __gamepkg_tls_g_eax=unsafe{gamepkg_tls_g_eax()};
+            let mut _va:uint32_t=(*__gamepkg_tls_g_eax);
+            let mut _fn:recomp_func_t=None;
+            enum C2Rust_Block_30{#(#tags),*}
+            let mut c2rust_current_block_30:C2Rust_Block_30=C2Rust_Block_30::S_350;
+            loop{#m}
+        }}
+    }
+    #[test]
+    fn untraced_region_preserves_the_common_exit_and_never_injects_trace_logic() {
+        let (mut lowered, deps) = lower(original_untraced()).unwrap();
+        assert!(deps.is_empty());
+        assert_eq!(icall::count(&mut lowered), 1);
+        let text = spelling(&lowered);
+        assert!(text.contains("calls_runtime :: invoke_jump"));
+        assert!(text.contains("wrapping_add (0x123"));
+        for forbidden in [
+            "invoke_call",
+            "recomp_func_t",
+            "recomp_lookup",
+            "g_icall_",
+            "expect",
+        ] {
+            assert!(!text.contains(forbidden), "{text}");
+        }
+        let source = spelling(&original_untraced());
+        for (old, new) in [
+            (
+                "wrapping_add (4 as uint32_t)",
+                "wrapping_add (8 as uint32_t)",
+            ),
+            ("recomp_lookup_manual", "recomp_lookup_kernel"),
+            ("_fn . is_some ()", "_fn . is_none ()"),
+            ("S_360", "S_366"),
+            ("let mut _va : uint32_t", "let mut _va : uint64_t"),
+            ("loop {", "let observer=c2rust_current_block_30;loop {"),
+            ("loop {", "let observer=&mut _fn;loop {"),
+            ("loop {", "let recomp_lookup_manual:uint32_t=1;loop {"),
+            (
+                "S_399 => {",
+                "S_399 => {c2rust_current_block_30=C2Rust_Block_30::S_362;",
+            ),
+        ] {
+            assert!(source.contains(old), "{old}");
+            assert!(
+                lower(syn::parse_str(&source.replace(old, new)).unwrap()).is_err(),
+                "{old}"
+            );
+        }
+    }
     fn original() -> ItemFn {
         let mut m: syn::ExprMatch =
             syn::parse_str(include_str!("icall_compacted_template.inc")).unwrap();
@@ -635,6 +875,13 @@ mod tests {
         assert!(spelling(&reconstructed).contains("'s_200"));
         assert!(lower(original.clone()).is_ok());
         crate::call_reference::compare(&source, &reconstructed, "compacted");
+        let original = original_untraced();
+        let source = spelling(&original);
+        let mut reconstructed = original.clone();
+        rewrite(&mut reconstructed);
+        assert!(spelling(&reconstructed).contains("'s_jump_0"));
+        assert!(lower(original).is_ok());
+        crate::call_reference::compare(&source, &reconstructed, "untraced");
     }
     #[test]
     fn altered_effects_guards_transitions_aliases_incoming_edges_or_observed_state_remain_rejected()

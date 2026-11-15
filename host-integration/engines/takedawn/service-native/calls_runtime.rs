@@ -22,6 +22,32 @@ pub fn invoke_call(
         state.eax = 0;
         return Ok(());
     }
+    invoke_registered(state, ram, target, tag)
+}
+// The reviewed computed-jump path has neither a trace increment nor a code-
+// range guard. Original table absence logs and pops one guest stack word.
+// The private ledger still has to be live before any callee/fallback runs.
+pub fn invoke_jump(
+    state: &mut registers::Registers,
+    ram: &mut memory::Memory,
+    target: u32,
+) -> Result<(), i32> {
+    ram.call_snapshot()?;
+    let tag = targets::original_target(target);
+    if tag == 0 {
+        ram.call_absent(target)?;
+        state.esp = state.esp.wrapping_add(4);
+        state.eax = 0;
+        return Ok(());
+    }
+    invoke_registered(state, ram, target, tag)
+}
+fn invoke_registered(
+    state: &mut registers::Registers,
+    ram: &mut memory::Memory,
+    target: u32,
+    tag: u32,
+) -> Result<(), i32> {
     // Only generated functions currently have a checked direct invoker. A
     // manual/kernel/entrypoint target remains an explicit required migration
     // fault, never an "unknown original address" or a successful no-op body.

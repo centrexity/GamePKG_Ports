@@ -91,15 +91,15 @@ callers are rejected, including identical definitions.
 The current inventory covers **24,015 distinct `sub_XXXXXXXX` definitions**,
 including recovered/unresolved sources. Named entrypoints and `_gen` variants
 need separate inclusion; this count is not the entire runnable title. Existing lowering
-rules recognize 22,551 locally; removing missing dependencies transitively leaves
-**18,651 candidates closed over literal direct dependencies**, with 3,661 direct edges, including 2,476 across units.
-Runtime routes remain partial: 630 retained functions contain rewritten runtime
+rules recognize 22,924 locally; removing missing dependencies transitively leaves
+**18,858 candidates closed over literal direct dependencies**, with 4,173 direct edges, including 2,847 across units.
+Runtime routes remain partial: 730 retained functions contain rewritten runtime
 calls, and known unmigrated destinations fail Unsupported. This is not a fully
-closed runtime graph. The other **5,364** definitions remain explicitly
+closed runtime graph. The other **5,157** definitions remain explicitly
 unconverted. There are no
 substitute bodies, dynamic native function pointers or unknown-target fallbacks.
 
-Prepared candidates use 2,356 Rust files (97,078,371 bytes). At most eight native
+Prepared candidates use 2,381 Rust files (108,375,993 bytes). At most eight native
 functions per module plus byte/token-aware splitting bound source size. An AST pass rewrites only direct function
 paths to their owning modules; literals are untouched. Binary selection routes
 call statically compiled functions directly, with at most logarithmic selection
@@ -132,11 +132,11 @@ trusted linking for Linux64/Linux32/Windows64/Windows32. Confined native Linux
 children execute 4,224 vectors with the complete graph linked, including 1,024
 cases for original `sub_00244DF0` and 512 cases for original `sub_001FBAE0`.
 **Semantic differential coverage is 36 functions**; compiling/auditing
-18,651 functions does not establish the other functions' behavior. Windows
+18,858 functions does not establish the other functions' behavior. Windows
 reference comparisons execute under Wine; the prepared service executables
 are build evidence, not physical Windows gameplay. The full engine, ISO loader,
 kernel/media bridges, verified renderer, saves, input/audio, pacing and the
-remaining 5,364 functions still require migration/qualification before enablement.
+remaining 5,157 functions still require migration/qualification before enablement.
 
 ## Compacted control-flow contract
 
@@ -620,8 +620,10 @@ later batches and truncated records, with bounded waits and dummy output.
 Both direct startup helpers `sub_001D18B0` and `sub_001D19FD` are now retained.
 The entrypoint itself still needs inclusion, and `sub_001D2E6F` remains blocked
 by `sub_001CFF88`. That routine now lowers locally, but its default branch needs
-`sub_001D3970 -> sub_00243816 -> sub_00246622`; the final formatting routine
-still contains unmigrated callback/tail-call regions. None of those bodies are
+`sub_001D3970 -> sub_00243816 -> sub_0024647B`, whose dependency chain reaches
+`sub_0024490A`'s remaining loop-tail callbacks. The formatter `sub_00246622` now
+lowers locally too; its missing dependencies reach that same callback helper
+and `sub_001D5707`'s native memset. None of those bodies are
 replaced by stubs. Complete the remaining functions and service/renderer/loader
 integration before enabling a title; retained literal-call closure is not full
 runtime routing or gameplay qualification.
@@ -652,3 +654,42 @@ The final inventory retains 95 additional functions. All 18,556 previously
 retained function/dependency records, including their lowered-body hashes, are
 unchanged. This does not expand original-function semantic qualification beyond
 the 36 functions/4,224 vectors recorded above.
+
+## Untraced computed jumps
+
+`calls_runtime::invoke_jump(&mut Registers, &mut Memory, target: u32) ->
+Result<(), i32>` is a separate port-private contract. It checks the live private
+ledger without recording a trace entry or applying ordinary call code bounds.
+Original table absence emits the existing missing-target diagnostic, adds four
+to guest ESP with u32 wrapping and clears EAX. Logging/ledger failures propagate
+before that fallback mutates registers. Registered generated targets use the
+finite direct router; known unmigrated manual/kernel/entry/soundtrack targets
+remain Unsupported rather than becoming absence. No pointer or instruction
+interpreter is introduced, and the GamePKG service ABI/SDK is unchanged.
+
+The maintainer pass pins the formatter's entry tail and six lookup/fallback arms
+as one complete AST region. It verifies typed private selector ownership, exact
+transitions and that no outside edge enters removed states. Caller effects
+before the region and the common continuation remain in place. Reconstruction
+uses a separate full lookup template, then the normal u32 operand, register-
+alias, name-capture and unshadowed-function checks. Only the exact now-unused
+function-pointer declaration can be removed. Altered lookup order, stack pops,
+branches, aliases, incoming edges, observer/borrow uses and changed markers
+remain rejected. Both new template hashes participate in provenance.
+
+Controlled native comparisons exercise 7,680 original/reconstructed untraced
+cases per target, including manual precedence, generated/kernel handlers,
+absence, wraparound and unchanged seeded traces across code-bound settings.
+These handlers are maintainer fixtures, not migrated kernel implementations.
+The source-checked `jump_checks.rs` additionally invokes real generated
+`sub_00015590` at five stack boundaries outside ordinary call bounds, checks
+absence diagnostics/stack wrapping and verifies revocation before any callee or
+fallback runs. That fixture receives no source/object exemption and runs in the
+admitted Linux children. This is component evidence, not startup, ISO loading,
+full formatting behavior, physical devices, audible audio or frame pacing.
+
+This step adds 207 retained functions. All 18,651 previous function/dependency
+records and lowered-body hashes remain unchanged. Literal-call closure now
+contains 18,858 functions; semantic reference qualification remains 36 functions
+and 4,224 vectors. The named entrypoint and five `_gen` helpers still require
+explicit inclusion; known missing runtime handlers still fail Unsupported.

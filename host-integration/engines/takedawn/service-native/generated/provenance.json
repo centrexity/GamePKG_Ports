@@ -37,15 +37,17 @@
   "float_arithmetic_nan_policy": "quiet-first-NaN-preserve-sign-and-payload",
   "formatter_version": "rustfmt 1.8.0-stable (29483883ee 2025-08-04)",
   "game_sha256": "37274d241e9433e497ddd0c1141128dab2dde216d5f434c5ec817a955001613d",
-  "generator_batch_sha256": "a80185907d8d91fe6b15711f79b8343d7e38c808300aa79a40e5e3633e897d95",
+  "generator_batch_sha256": "bb719c5c79966f5381f7df558286d6d610aeddd80e6576a32ab42141aef7ee0e",
   "generator_icall_compacted_pattern_sha256": "8fd80ad1c27069b724a061b241a59c443a6955bffbface366da9057cb0d91f21",
-  "generator_icall_compacted_sha256": "92eb1fbc3d53a469fecac8fe257d7cc3d0efec61ad1e7e797258a4da057eefb0",
+  "generator_icall_compacted_sha256": "283c6cdf386a3235dc5c5c3731403e53daa7f50a5b59ed0c14a46b2c32831821",
   "generator_icall_guarded_pattern_sha256": "ac8c81b731bbe352c3ab9c492e6eeccfb79ffe9e3109ecce434e3e3372253165",
+  "generator_icall_jump_compacted_pattern_sha256": "1227390f2070dda5ede7f4b5fa35a44f33eb0958cf1b4240085fe44031b6e344",
+  "generator_icall_jump_pattern_sha256": "4a8081a832d096af9fa4c31d3e5d83188ad6d0167199a015fe3a28feaa64040b",
   "generator_icall_pattern_sha256": "2610d0cf8e13c604631cefb56deed07262ac63fde336dd2c39711a21d0319405",
-  "generator_icall_sha256": "7f1e28fa4ac5aefc0d035630ccc499cb0e42ccc107dcecd7f55f7c70fa4ad0d5",
+  "generator_icall_sha256": "d03df741ce6dc31f8966f4b4cd190ae636f2751d37b8168c235ff1aa93cbf649",
   "generator_inventory_sha256": "7d7ab7a7cfd00067396a84a82c055a588e308bc8cdc0a94451232cf0f8f12169",
   "generator_lock_sha256": "6d55a2c76709a6c1825c3fc3c9ac08e03d6e140635858336762f4ac2595a5259",
-  "generator_source_sha256": "611f4f0b63a2ee8c62e77a8c7cb5567a5d00e21e02c780a899a851a0812a0754",
+  "generator_source_sha256": "dd9bb40d4cbfc9c7d12e8fb4b7f7a5409cd5836cfdec826d3f746464d0817d1b",
   "input_sha256": "442f7812516f3c5157ee74e15aede23d0ac423105acb7d973733bbe9f01ad94d",
   "production_ready": false,
   "register_record_bytes": 244,
@@ -80,33 +82,17 @@
       "unconverted dependencies: sub_0005E6C0,sub_00061B20,sub_001AEE20"
     ],
     "sub_00014860": [
-      "indirect call",
       "raw/function pointer type",
-      "unreviewed call recomp_icall_fail_log",
-      "unreviewed call recomp_lookup",
-      "unreviewed call recomp_lookup_kernel",
-      "unreviewed call recomp_lookup_manual",
-      "unreviewed call recomp_patch_mark",
-      "unreviewed type recomp_func_t"
+      "unreviewed call recomp_patch_mark"
     ],
     "sub_00014C80": [
-      "indirect call",
-      "unreviewed call recomp_icall_fail_log",
-      "unreviewed call recomp_lookup",
-      "unreviewed call recomp_lookup_kernel",
-      "unreviewed call recomp_lookup_manual",
-      "unreviewed type recomp_func_t"
+      "unconverted dependencies: sub_001C93D0,sub_001CBA10,sub_001CE9F0"
     ],
     "sub_00014D20": [
       "unconverted dependencies: sub_001AE6F0,sub_0034C2E0"
     ],
     "sub_00014D80": [
-      "indirect call",
-      "unreviewed call recomp_icall_fail_log",
-      "unreviewed call recomp_lookup",
-      "unreviewed call recomp_lookup_kernel",
-      "unreviewed call recomp_lookup_manual",
-      "unreviewed type recomp_func_t"
+      "unconverted dependencies: sub_00061BF0,sub_00153230,sub_00153A20,sub_00153A40,sub_001552E0,sub_00155330,sub_00155420,sub_00188CF0,sub_0019B110,sub_001B9740,sub_001C9600"
     ],
     "sub_00014FB0": [
       "unconverted dependencies: sub_001CB6C0,sub_001CBF30,sub_001CE140,sub_001CE6A0"
@@ -119,12 +105,7 @@
       "unreviewed type uintptr_t"
     ],
     "sub_000152E0": [
-      "indirect call",
-      "unreviewed call recomp_icall_fail_log",
-      "unreviewed call recomp_lookup",
-      "unreviewed call recomp_lookup_kernel",
-      "unreviewed call recomp_lookup_manual",
-      "unreviewed type recomp_func_t"
+      "unconverted dependencies: sub_00153230,sub_00153A20,sub_00153A40,sub_001552E0,sub_00155330,sub_00155420,sub_001CB900,sub_001CC010,sub_001CE180,sub_001CE920,sub_001F93C0"
     ],
     "sub_000154A0": [
       "unconverted dependencies: sub_001C93D0,sub_001C9480,sub_001C9600,sub_002CC951"
