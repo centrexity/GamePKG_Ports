@@ -3,6 +3,10 @@
 Current startup/export contracts and native interruption results:
 [STARTUP.md](STARTUP.md).
 
+The app now supplies bounded child-local mailboxes for the remaining reviewed
+worker connection. See [WORKER.md](WORKER.md) for the exact API, sequencing and
+remaining port obligations; the actual Burnout save worker is not connected yet.
+
 `files.rs` ports the pinned saveguard's file helpers to the host-supplied
 dependency-free GamePKG client. `state.rs` implements its bounded open/close,
 worker and pending-save transitions without I/O or callbacks. `adapter.rs` now
