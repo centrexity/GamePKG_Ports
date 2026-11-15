@@ -24,6 +24,7 @@ def main():
     parser.add_argument('--app',type=Path,required=True)
     parser.add_argument('--app-lib',type=Path,required=True)
     parser.add_argument('--prepared',type=Path,help='whole-kit candidate directory to source-check and compile in place of the single unit')
+    parser.add_argument('--call-targets',type=Path,help='verified original-target classifier and lookup vectors to admit alongside game source')
     parser.add_argument('--wine',action='store_true',help='also execute Windows comparison binaries under Wine')
     args=parser.parse_args()
     here=Path(__file__).resolve().parent;app=args.app.resolve(strict=True);library=args.app_lib.resolve(strict=True)
@@ -83,10 +84,13 @@ def main():
             command+=['--extern',f'{name}={helpers.dependency(library,name)}']
         subprocess.run(command,check=True)
         prepared=[str(args.prepared.resolve(strict=True))] if args.prepared else []
+        if args.call_targets:
+            prepared=prepared or ['-']
+            prepared.append(str(args.call_targets.resolve(strict=True)))
         # The complete harness below repeats source admission and unused-reference
         # rejection before binding injection. Avoid a duplicate whole-kit walk;
         # keep the small early diagnostic for the default single-unit fixture.
-        if not prepared:
+        if not args.prepared and not args.call_targets:
             subprocess.run([str(probe),str(app),str(here),"--source-only"],check=True)
         names=list(record['converted'])
         game_file=generated/'game.rs';dispatch_file=generated/'dispatch.rs'
@@ -125,6 +129,14 @@ def main():
             exe=scratch/('compare-'+triple+('.exe' if 'windows' in triple else ''))
             command=['rustc','--edition=2021','-D','warnings','-O','--target',triple,str(main_rs),'-o',str(exe)]
             if triple=='i686-unknown-linux-gnu':command+=['-C','linker=/usr/bin/gcc-11']
+            state_exe=scratch/('call-state-'+triple+('.exe' if 'windows' in triple else ''))
+            state_command=['rustc','--edition=2021','-D','warnings','--test','-O','--target',triple,str(here/'call_state_tests.rs'),'-o',str(state_exe)]
+            if triple=='i686-unknown-linux-gnu':state_command+=['-C','linker=/usr/bin/gcc-11']
+            subprocess.run(state_command,check=True)
+            if 'windows' not in triple:
+                subprocess.run([str(state_exe),'--test-threads=1'],check=True)
+            elif args.wine:
+                subprocess.run(['wine',str(state_exe),'--test-threads=1'],check=True,env=dict(os.environ,WINEDEBUG='-all',WINEPREFIX='/tmp/gamepkg-port-replace-wine'),timeout=60)
             subprocess.run(command,check=True)
             if 'windows' not in triple:
                 subprocess.run([str(exe)]+([str(vectors)] if triple.startswith('x86_64') else []),check=True,timeout=180)

@@ -89,5 +89,6 @@
   "single_unit_reference_functions": 31,
   "single_unit_reference_vectors_per_target": 2176,
   "integer_store_function_reference_cases_per_target": 1024,
-  "compiler_codegen_units": 4
+  "compiler_codegen_units": 4,
+  "definition_scope": "sub_XXXXXXXX only; named entrypoint and five _gen bodies still require inclusion"
 }

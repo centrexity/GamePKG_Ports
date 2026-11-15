@@ -254,6 +254,7 @@ fn fixture_execute() -> Result<(), i32> {
     }
     gamepkg::file_close(handle)?;
     crate::copy_checks::verify(&mut ram, window)?;
+    crate::call_checks::call_verify()?;
     // Unknown native call targets and unmapped data are hard failures.
     if dispatch::invoke(&mut context, &mut ram, 0xffffffff) != Err(-5) {
         return Err(-3);

@@ -30,7 +30,9 @@ impl Backend for Silent {
 }
 fn main() {
     let args: Vec<_> = std::env::args().collect();
-    assert!([4, 5].contains(&args.len()));
+    assert!([4, 5, 6].contains(&args.len()));
+    let prepared = args.get(4).filter(|p| p.as_str() != "-");
+    let call_targets = args.get(5);
     let app = Path::new(&args[1]);
     let here = Path::new(&args[2]);
     let vectors = Path::new(&args[3]);
@@ -55,11 +57,13 @@ fn main() {
         "vector.rs",
         "scalar.rs",
         "copy_checks.rs",
+        "call_state.rs",
+        "call_checks.rs",
     ] {
         fs::copy(here.join(name), source.join("source/src").join(name)).unwrap();
     }
-    if args.len() == 5 {
-        let prepared = Path::new(&args[4]);
+    if let Some(prepared) = prepared {
+        let prepared = Path::new(prepared);
         let report: serde_json::Value =
             serde_json::from_slice(&fs::read(prepared.join("inventory.json")).unwrap()).unwrap();
         assert_eq!(report["production_ready"], false);
@@ -80,7 +84,41 @@ fn main() {
             .unwrap();
         }
     }
-    fs::write(source.join("source/src/lib.rs"),"mod memory;mod copy_checks;mod vector;mod scalar;mod registers;mod game;mod dispatch;mod fixture;pub fn game_main(){fixture::game_main();}\n").unwrap();
+    let mut library="mod memory;mod call_state;mod call_checks;mod copy_checks;mod vector;mod scalar;mod registers;mod game;mod dispatch;mod fixture;pub fn game_main(){fixture::game_main();}\n".to_owned();
+    if let Some(directory) = call_targets {
+        let directory = Path::new(directory);
+        let report: serde_json::Value =
+            serde_json::from_slice(&fs::read(directory.join("call_targets.json")).unwrap())
+                .unwrap();
+        assert_eq!(report["production_ready"], false);
+        for (name, hash) in report["emitted_files"].as_object().unwrap() {
+            assert!(gamepkg::archive::valid_path(name) && name.ends_with(".rs"));
+            let data = fs::read(directory.join(name)).unwrap();
+            assert_eq!(gamepkg::verify::digest(&data), hash.as_str().unwrap());
+            let destination = source.join("source/src").join(name);
+            fs::create_dir_all(destination.parent().unwrap()).unwrap();
+            fs::write(destination, data).unwrap();
+        }
+        fs::copy(
+            here.join("target_checks.rs"),
+            source.join("source/src/target_checks.rs"),
+        )
+        .unwrap();
+        library.push_str("mod targets;mod target_checks;\n");
+        let fixture = source.join("source/src/fixture.rs");
+        let original = fs::read_to_string(&fixture).unwrap();
+        let marker = "crate::call_checks::call_verify()?;";
+        assert_eq!(original.matches(marker).count(), 1);
+        fs::write(
+            fixture,
+            original.replace(
+                marker,
+                &format!("{marker}crate::target_checks::target_verify()?;"),
+            ),
+        )
+        .unwrap();
+    }
+    fs::write(source.join("source/src/lib.rs"), library).unwrap();
     // Preserve the source's attribution in the temporary signed test package.
     let mut licenses = fs::read(source.join("LICENSE")).unwrap();
     licenses.extend(b"\n\nUpstream Takedawn / XboxRecomp notices:\n");
@@ -116,6 +154,13 @@ fn main() {
     }
     let assets = tempfile::tempdir().unwrap();
     fs::copy(vectors, assets.path().join("vectors")).unwrap();
+    if let Some(directory) = call_targets {
+        fs::copy(
+            Path::new(directory).join("lookup-vectors"),
+            assets.path().join("target-vectors"),
+        )
+        .unwrap();
+    }
     for target in [
         Target::Linux64,
         Target::Linux32,
@@ -127,7 +172,7 @@ fn main() {
             .unwrap()
             .with_codegen_units(codegen_units)
             .unwrap();
-        if args.len() == 5 {
+        if prepared.is_some() {
             plan = plan
                 .with_compiler_memory_bytes(12 * 1024 * 1024 * 1024)
                 .unwrap();
@@ -135,7 +180,7 @@ fn main() {
         let artifact = preparation::build(project.path(), &checked, &plan, vec![], vec![]).unwrap();
         artifact.executable().unwrap();
         assert_eq!(artifact.receipt().plan.identity(), plan.identity());
-        if args.len() == 5 {
+        if prepared.is_some() {
             assert_eq!(
                 serde_json::to_value(&artifact.receipt().plan).unwrap()["compiler_memory_bytes"],
                 12u64 * 1024 * 1024 * 1024
@@ -200,8 +245,28 @@ fn main() {
             std::thread::sleep(Duration::from_millis(1));
         }
         assert_eq!(*samples.lock().unwrap(), [1234], "{}", owner.diagnostics());
+        let (events, dropped) = owner.host.take_diagnostics();
+        assert_eq!(dropped, 0);
+        assert_eq!(events.len(), 2);
+        assert_eq!(
+            (events[0].sequence, events[0].level, events[0].code),
+            (1, 2, 0x544b0002)
+        );
+        assert_eq!(&events[0].values[..3], &[0x12345678, 10023, 10023]);
+        assert_eq!(
+            &events[0].values[3..],
+            &[9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8]
+        );
+        assert_eq!(
+            (events[1].sequence, events[1].level, events[1].code),
+            (2, 2, 0x544b0001)
+        );
+        assert_eq!(events[1].values, [0, 1, 1]);
         owner.stop().unwrap();
         println!("PASS {target:?}: actual confined native execution of every generated reference vector through host-owned RAM services; in-memory output only");
+        if call_targets.is_some() {
+            println!("PASS {target:?}: admitted original-target lookup vectors and exact session-private diagnostic records; no handler execution");
+        }
     }
     println!("Unsafe/OS reference source remains rejected; no source, import or legacy-profile exemption");
 }

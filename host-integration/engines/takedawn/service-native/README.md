@@ -42,7 +42,7 @@ private keys are included. Reference data is synthetic and generated locally.
 
 ## Contracts
 
-Requires app commit `9952b70f520f5fd7060bbf76adbd3496d64f56b5` or a compatible
+Requires app commit `af2c8b0f6e127325a292c390ee949d7dadcbe13c` or a compatible
 later service SDK; stale executable receipts must be rebuilt.
 
 The admission fixture requests `Plan::with_codegen_units(4)` and requires two
@@ -88,7 +88,9 @@ Symlinks, changed inputs and existing output directories fail. Duplicated native
 symbols are never selected by archive order: all owners and their dependent
 callers are rejected, including identical definitions.
 
-The pinned kit contains **24,015 unique native definitions**. Existing lowering
+The current inventory covers **24,015 distinct `sub_XXXXXXXX` definitions**,
+including recovered/unresolved sources. Named entrypoints and `_gen` variants
+need separate inclusion; this count is not the entire runnable title. Existing lowering
 rules recognize 21,218 locally; removing missing dependencies transitively leaves
 **17,343 closed candidates**, with 1,864 direct edges, including 1,218 across units.
 The other **6,672** definitions remain explicitly unconverted. There are no
@@ -396,3 +398,81 @@ requirements for its future safe translation:
 
 No resolver implementation, title enablement or physical gameplay qualification
 is included in this checkpoint.
+
+## Resolver data and host diagnostic boundary
+
+`call_state.rs` now owns the original 16-target ring, wrapping u32 ring index,
+wrapping u64 total, and 16-offender hit table. `call_record` writes/advances
+before checking the original code predicate (kernel threshold, zero-high bypass,
+and half-open code range). `call_noncode_values` reproduces the original logger's
+first-16-distinct-target policy and powers-of-ten throttle, including wrapping
+hit counts. `call_missing_values` retains the raw ring and its index so the
+original chronological nonzero trace can be recovered without losing zeroes.
+Malformed nonzero code ranges reject; all numbers remain guest values.
+
+`call_emit_noncode` and `call_emit_missing` use GamePKG's new `diagnostic` API
+(op 63), not native console I/O. Codes are `0x544B0001` for non-code and
+`0x544B0002` for lookup absence. Their payloads are respectively
+`[target, hits, total]` and `[target, total, ring_index, 16 raw ring values]`.
+Service failures propagate; there is no stdout/stderr fallback. The host bounds
+each session to 128 records with at most 32 numeric values, tracks evictions,
+and includes an escaped-by-construction numeric summary in existing owner error
+reporting. These are diagnostics only, with no filesystem/network/device grant.
+
+The separately pinned `takedawn_call_targets` maintainer binary parses the exact
+Rust dispatch AST, validates its array length, sorted unique addresses/symbols,
+explicit widths and direct zero-argument function casts, and checks all input
+hashes before output. It emits dependency-free numeric classification code,
+never callback pointers. The original table has 24,001 entries: 24,000 numeric
+`sub_` labels plus `xbe_entry_point` at `0x001D2807`. Five labels name manual
+wrappers. None of the 13 unresolved source stubs belongs to this lookup table;
+a source definition must not be exposed merely because its name has an address.
+
+The generated `targets::original_target(u32) -> u32` returns zero for original
+absence. The high byte tags generated/manual-wrapper/entrypoint/soundtrack/
+kernel/unresolved identities as 1/2/3/4/5/6; low 24 bits are the exact table row
+or reserved-method slot. Classification preserves original lookup precedence.
+Soundtrack methods occupy 10 aligned four-byte slots at `0xFE7F5700`; kernel
+lookup has 378 slots from `0xFE000000` and deliberately accepts byte addresses
+within each slot, matching the pinned bridge. These tags are port-owned values,
+not native callable objects or a public SDK ABI. No handler executes here.
+
+```sh
+python3 host-integration/engines/takedawn/service-native/check_call_targets.py \
+  --target-dir /path/to/target --output /path/to/new-private-targets --wine
+python3 host-integration/engines/takedawn/service-native/check.py \
+  --app /path/to/GamePKG/app --app-lib /path/to/target/debug/deps/libgamepkg-HASH.rlib \
+  --prepared /path/to/prepared-native-graph --call-targets /path/to/new-private-targets --wine
+```
+
+The target tool validates 106,272 original-table, neighbor/miss, random and
+reserved-range/alignment cases on each reference target. The admitted fixture
+checks those vectors through read-only private file grants in real Linux32/64
+children and verifies the host received the exact two synthetic diagnostic
+records. Source checks run before host bindings; all target-classifier and
+call-state objects participate in the same strict audits as generated functions.
+Call-state tests on all four targets cover range edges, ring/counter wraparound,
+16-offender saturation, power-of-ten output and diagnostic error propagation.
+Windows reference execution is under Wine. There are no physical controls,
+audible audio, visible rendering, FPS or actual title-handler results here.
+
+The classifier/state are not yet substituted for the rejected original ICALL
+sequence. Remaining work is an exact template rewrite, shared per-title/thread
+state ownership, original fallback/stack behavior, and direct checked routing
+to migrated generated, manual and kernel bodies. Known-but-unmigrated entries
+must fault explicitly rather than becoming original lookup absence. The named
+entrypoint and five `_gen` bodies also require inclusion in the function pipeline:
+
+| Symbol | Pinned source unit |
+| --- | --- |
+| `xbe_entry_point` | `recomp_0004_013.rs` |
+| `sub_001537C0_gen` | `recomp_0003_002.rs` |
+| `sub_001D0554_gen` | `recomp_0004_012.rs` |
+| `sub_001F65A0_gen` | `recomp_0005_009.rs` |
+| `sub_002FAAEF_gen` | `recomp_0022_001.rs` |
+| `sub_0030211F_gen` | `recomp_0022_004.rs` |
+
+`generated/call_targets_summary.json` is compact source/classification evidence,
+not an executable, admission receipt or title enablement. Full classifier source
+and vectors remain private verification outputs; players need no maintainer
+converter or Python. Source-kit/catalog pins and legacy gates remain unchanged.
