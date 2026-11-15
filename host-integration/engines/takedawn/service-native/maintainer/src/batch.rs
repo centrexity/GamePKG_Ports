@@ -413,8 +413,14 @@ mod tests {
     }
     #[test]
     fn named_entrypoint_uses_numeric_order_across_partitions_and_preserves_direct_calls() {
-        let root =
-            std::env::temp_dir().join(format!("gamepkg-entry-emission-{}", std::process::id()));
+        let root = std::env::temp_dir().join(format!(
+            "gamepkg-entry-emission-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
         fs::create_dir(&root).unwrap();
         let output = root.join("source");
         let mut candidates = BTreeMap::new();

@@ -405,6 +405,8 @@ fn memory_boundaries(ram: &mut memory::Memory, window: u64) {
     }
     local::shutdown();
     assert_eq!(ram.read_u8(0), Err(-4));
+    assert_eq!(ram.fill(0, 1, 1), Err(-4));
+    assert_eq!(ram.fill(0xffffffff, 1, 0), Ok(()));
     if ADDRESSES.contains(&0x2447bf) {
         context.fp_top = 0;
         context.seh_ebp = 0x20100;
@@ -808,6 +810,7 @@ fn main() {
     compare_runtime_guards();
     compare_scalar_helpers(&mut output);
     copy_checks::verify(&mut ram, window).unwrap();
+    fill_checks::verify(&mut ram, window).unwrap();
     memory_boundaries(&mut ram, window);
     println!("PASS: {} original native functions / {count} differential register and whole-RAM vectors; aliases, unaligned LE accesses, overflow, read-only/protected/uncommitted memory and revocation; no instruction interpreter",ADDRESSES.len());
 }

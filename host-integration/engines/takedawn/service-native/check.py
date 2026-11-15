@@ -155,7 +155,7 @@ def main():
         oracle+='\npub unsafe fn scalar_round_integer(value:f64,control:u16)->f64{recomp_frndint(value,control)}pub unsafe fn scalar_integer_store(value:f64,control:u16,width:u32)->i64{recomp_fist(value,control,width)}\n'
         oracle_file=scratch/'reference.rs';oracle_file.write_text(oracle)
         wrapper='#![allow(non_camel_case_types,non_snake_case,non_upper_case_globals,unused_assignments,unused_variables,unused_mut,unused_parens,dead_code,unreachable_code)]\n'
-        for module,path in [('client',app/'engines/native-services/client.rs'),('local',app/'engines/native-services/local_bindings.rs'),('memory',here/'memory.rs'),('call_state',here/'call_state.rs'),('copy_checks',here/'copy_checks.rs'),('fs_checks',here/'fs_checks.rs'),('jump_checks',here/'jump_checks.rs'),('vector',here/'vector.rs'),('scalar',here/'scalar.rs'),('registers',here/'registers.rs'),('game',game_file),('base_dispatch',generated/'dispatch.rs'),('dispatch',dispatch_file),('oracle',oracle_file)]:
+        for module,path in [('client',app/'engines/native-services/client.rs'),('local',app/'engines/native-services/local_bindings.rs'),('memory',here/'memory.rs'),('call_state',here/'call_state.rs'),('copy_checks',here/'copy_checks.rs'),('fill_checks',here/'fill_checks.rs'),('fs_checks',here/'fs_checks.rs'),('jump_checks',here/'jump_checks.rs'),('vector',here/'vector.rs'),('scalar',here/'scalar.rs'),('registers',here/'registers.rs'),('game',game_file),('base_dispatch',generated/'dispatch.rs'),('dispatch',dispatch_file),('oracle',oracle_file)]:
             wrapper+=f'#[path={json.dumps(str(path))}]mod {module};\n'
         wrapper+=here.joinpath('reference_call_events.rs').read_text()+'\n'
         if args.call_targets:

@@ -42,8 +42,10 @@ private keys are included. Reference data is synthetic and generated locally.
 
 ## Contracts
 
-Requires app commit `efffad16cc4d49d82083bf7fe3e06be1954c5b7e` or a compatible
-later service SDK; stale executable receipts must be rebuilt.
+Requires app commit `89ce271eeeb53cc115a74de521abb25e261fe127` with
+`local_memory_fill` / local op 8 (currently
+`native_sdk=2ad400cf620d973a`) or a compatible later implementation. Older SDKs
+without fill are insufficient; stale executable receipts must be rebuilt.
 
 The admission fixture requests `Plan::with_codegen_units(4)` and requires two
 to four retained, independently optimized game objects on each target. Every
@@ -92,15 +94,15 @@ The current inventory covers **24,016 definitions**: 24,015 distinct
 `sub_XXXXXXXX` bodies, including recovered/unresolved sources, and the exact
 unit-bound `xbe_entry_point`. Five `_gen` variants still need inclusion; this
 count is not the entire runnable title. Existing lowering
-rules recognize 22,930 locally; removing missing dependencies transitively leaves
-**18,864 candidates closed over literal direct dependencies**, with 4,181 direct edges, including 2,853 across units.
-Runtime routes remain partial: 734 retained functions contain rewritten runtime
+rules recognize 23,007 locally; removing missing dependencies transitively leaves
+**19,080 candidates closed over literal direct dependencies**, with 4,726 direct edges, including 3,179 across units.
+Runtime routes remain partial: 803 retained functions contain rewritten runtime
 calls, and known unmigrated destinations fail Unsupported. This is not a fully
-closed runtime graph. The other **5,152** definitions remain explicitly
+closed runtime graph. The other **4,936** definitions remain explicitly
 unconverted. There are no
 substitute bodies, dynamic native function pointers or unknown-target fallbacks.
 
-Prepared candidates use 2,382 Rust files (108,430,710 bytes). At most eight native
+Prepared candidates use 2,409 Rust files (113,979,673 bytes). At most eight native
 functions per module plus byte/token-aware splitting bound source size. An AST pass rewrites only direct function
 paths to their owning modules; literals are untouched. Binary selection routes
 call statically compiled functions directly, with at most logarithmic selection
@@ -133,11 +135,11 @@ trusted linking for Linux64/Linux32/Windows64/Windows32. Confined native Linux
 children execute 4,736 vectors with the complete graph linked, including 1,024
 cases for original `sub_00244DF0` and 512 cases for original `sub_001FBAE0`.
 **Semantic differential coverage is 37 functions**; compiling/auditing
-18,864 functions does not establish the other functions' behavior. Windows
+19,080 functions does not establish the other functions' behavior. Windows
 reference comparisons execute under Wine; the prepared service executables
 are build evidence, not physical Windows gameplay. The full engine, ISO loader,
 kernel/media bridges, verified renderer, saves, input/audio, pacing and the
-remaining 5,152 functions still require migration/qualification before enablement.
+remaining 4,936 functions still require migration/qualification before enablement.
 
 ## Compacted control-flow contract
 
@@ -623,9 +625,10 @@ Both direct startup helpers `sub_001D18B0` and `sub_001D19FD` are now retained.
 The entrypoint is now explicitly inventoried, and `sub_001D2E6F` remains blocked
 by `sub_001CFF88`. That routine now lowers locally, but its default branch needs
 `sub_001D3970 -> sub_00243816 -> sub_00246622`. The loop callback helper
-`sub_0024490A` is now retained. The formatter's remaining dependency chain goes
-through `sub_0024419D -> sub_00244171 -> sub_0024414A` to `sub_001D5707`'s
-native memset. None of those bodies are
+`sub_0024490A` and the memory-fill helper `sub_001D5707` are now retained. The
+formatter's remaining dependency chain goes through `sub_002440A5`,
+`sub_002486AE`, `sub_00246EE4` and `sub_0024B275` to `sub_001D2955`'s
+unmigrated `recomp_debug_service`. None of those bodies are
 replaced by stubs. Complete the remaining functions and service/renderer/loader
 integration before enabling a title; retained literal-call closure is not full
 runtime routing or gameplay qualification.
@@ -692,7 +695,7 @@ full formatting behavior, physical devices, audible audio or frame pacing.
 
 The untraced-jump checkpoint added 207 retained functions with all 18,651 prior
 function/dependency records and lowered-body hashes unchanged. The current
-literal-call closure contains 18,864 functions; semantic reference qualification
+literal-call closure contains 19,080 functions; semantic reference qualification
 is 37 functions and 4,736 vectors. The named entrypoint is now inventoried but
 blocked by dependencies; five `_gen` helpers still need inclusion. Known missing
 runtime handlers still fail Unsupported.
@@ -733,8 +736,45 @@ owner units are rejected; duplicate numerical route addresses fail before
 emission. Numeric partition order and static direct routing are tested with a
 named entry between ordinary address ranges and a call across partitions.
 `dispatch::entry_available()` describes literal closed-graph presence only; it
-is false for the current kit because the remaining dependency reaches native
-memset in `sub_001D5707`. Existing runtime entrypoint migration faults and the
+is false for the current kit because the remaining dependency reaches
+`recomp_debug_service` in `sub_001D2955`. Existing runtime entrypoint migration faults and the
 legacy profile gate remain in force. The five `_gen` helpers still need review
 and inclusion. All 18,858 previous lowered-body/dependency records are unchanged;
-this step retains six additional functions without enabling Burnout.
+the loop-entry checkpoint retained six additional functions without enabling Burnout.
+
+## Host-owned memory fill
+
+`Memory::fill(address: u32, value: u8, length: u32) -> Result<(), i32>` lowers
+only the reviewed, unused-result native memset shape. The destination must be
+an exact mutable c_void guest relocation with a proven u32 guest address. Value
+must have the original u8-to-c_int casts; the size_t argument must contain a
+proven u32 count. Changed pointer types/relocation, wider values/counts, result
+uses, shadowed memset/relocation names and nested attributes reject conversion.
+The surrounding native branch, register increments and reverse-direction loop
+remain intact. No general pointer, libc-call or system-import exception is added.
+
+A nonempty fill resolves the full logical writable span, then calls the host's
+`local_memory_fill(window, offset, bytes, value)` (local op 8). That exact 32-byte
+LE request carries four u64 words; value must be 0..255, length at most 64 MiB,
+and the reply is empty. The trusted child runtime validates every committed
+writable page before changing anything under the same lock as protect/decommit/
+destruction. No pointer escapes and no payload-sized temporary is allocated.
+Ordinary transfer limits and reserved-memory charges are unchanged. Port-level
+zero length is an inert success, matching existing empty byte/copy adapters;
+nonempty invalid, unmapped, read-only and revoked access fails explicitly.
+
+`fill_checks.rs` is ordinary checked game source, including twenty value/length
+combinations, low-byte truncation, unaligned and >1 MiB fills, logical read-only
+views, complete-page validation, overflow, caps and unchanged bytes on failure.
+Native references also check post-shutdown denial. The app additionally tests
+malformed wire requests/values, maximum-size fills, scoped IDs, revocation and
+concurrent page-protection races on Linux32/64 and Windows32/64 under Wine.
+The actual admitted Linux children run the same game-side checks; this is not
+physical gameplay, graphics, audible audio or measured pacing evidence.
+
+`sub_001D5707` now lowers and is retained with its actual dependencies. This
+step adds 216 retained functions while preserving all 18,864 previous lowered
+function/dependency records. The named entrypoint remains dependency-blocked by
+`recomp_debug_service` in `sub_001D2955`; all other native/runtime/media gates
+remain unchanged. Completing a fill adapter does not qualify the full original
+startup helper, debugger contract, renderer or title.

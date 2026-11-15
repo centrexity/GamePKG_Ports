@@ -185,6 +185,16 @@ impl Memory {
         }
         gamepkg::local_memory_copy(from_window, from, to_window, to, bytes)
     }
+    pub fn fill(&mut self, address: u32, value: u8, length: u32) -> Result<(), i32> {
+        if length == 0 {
+            return Ok(());
+        }
+        if length > 64 * 1024 * 1024 {
+            return Err(-1);
+        }
+        let (window, offset) = self.resolve(address, u64::from(length), true)?;
+        gamepkg::local_memory_fill(window, offset, u64::from(length), value)
+    }
     pub fn read_bytes(&self, address: u32, output: &mut [u8]) -> Result<(), i32> {
         if output.len() > 1048576 {
             return Err(-1);

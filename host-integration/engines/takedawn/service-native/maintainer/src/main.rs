@@ -595,6 +595,78 @@ impl Lower {
         let name = format_ident!("{name}");
         Some(parse_quote!(crate::memory::guest_offset(#name,#length)?))
     }
+    fn fill_call(&mut self, call: &syn::ExprCall) -> Option<Expr> {
+        struct Attributes(bool);
+        impl VisitMut for Attributes {
+            fn visit_attribute_mut(&mut self, _: &mut syn::Attribute) {
+                self.0 = true;
+            }
+        }
+        let mut attributes = Attributes(false);
+        attributes.visit_expr_call_mut(&mut call.clone());
+        if attributes.0 {
+            return None;
+        }
+        if !plain_callee(call)
+            || !call.attrs.is_empty()
+            || call.args.len() != 3
+            || self.locals.contains_key("memset")
+            || self.tls.contains_key("memset")
+            || self.locals.contains_key("g_xbox_mem_offset")
+            || self.tls.contains_key("g_xbox_mem_offset")
+        {
+            return None;
+        }
+        let Expr::Call(pointer) = plain(&call.args[0]) else {
+            return None;
+        };
+        if path(&pointer.func).as_deref() != Some("core::ptr::with_exposed_provenance_mut")
+            || !pointer.attrs.is_empty()
+        {
+            return None;
+        }
+        let Expr::Path(function) = plain(&pointer.func) else {
+            return None;
+        };
+        let syn::PathArguments::AngleBracketed(arguments) =
+            &function.path.segments.last()?.arguments
+        else {
+            return None;
+        };
+        if arguments.args.len() != 1
+            || !matches!(arguments.args.first(),Some(syn::GenericArgument::Type(ty)) if ty.to_token_stream().to_string().replace(' ',"")=="::core::ffi::c_void")
+        {
+            return None;
+        }
+        let mut destination = address(&call.args[0])?;
+        if !self.guest_u32(&destination) {
+            return None;
+        }
+        let Expr::Cast(integer) = plain(&call.args[1]) else {
+            return None;
+        };
+        let Expr::Cast(byte) = plain(&integer.expr) else {
+            return None;
+        };
+        if primitive(&integer.ty) != Some("i32")
+            || primitive(&byte.ty) != Some("u8")
+            || !self.guest_u32(&byte.expr)
+        {
+            return None;
+        }
+        let Expr::Cast(length) = plain(&call.args[2]) else {
+            return None;
+        };
+        if length.ty.to_token_stream().to_string() != "size_t" || !self.guest_u32(&length.expr) {
+            return None;
+        }
+        let mut length = *length.expr.clone();
+        let mut value = *byte.expr.clone();
+        self.visit_expr_mut(&mut destination);
+        self.visit_expr_mut(&mut length);
+        self.visit_expr_mut(&mut value);
+        Some(parse_quote!(guest_ram.fill(#destination,(#value) as u8,#length)?))
+    }
     fn copy_call(&mut self, call: &syn::ExprCall) -> Option<Expr> {
         if !plain_callee(call)
             || !call.attrs.is_empty()
@@ -715,6 +787,14 @@ impl Lower {
 impl VisitMut for Lower {
     fn visit_stmt_mut(&mut self, statement: &mut Stmt) {
         if let Stmt::Expr(Expr::Call(call), Some(_)) = statement {
+            if path(&call.func).as_deref() == Some("memset") {
+                if let Some(value) = self.fill_call(call) {
+                    *statement = Stmt::Expr(value, Some(Default::default()));
+                } else {
+                    self.reject("unreviewed guest memset arguments");
+                }
+                return;
+            }
             if path(&call.func).as_deref() == Some("memcpy") {
                 if let Some(value) = self.copy_call(call) {
                     *statement = Stmt::Expr(value, Some(Default::default()));
@@ -1463,6 +1543,44 @@ mod tests {
     }
     fn load(address: &str, width: &str) -> String {
         format!("::core::ptr::read_volatile::<{width}>(::core::ptr::with_exposed_provenance_mut::<uint32_t>((({address}) as uintptr_t).wrapping_add(g_xbox_mem_offset as uintptr_t) as usize));")
+    }
+    #[test]
+    fn guest_memset_requires_exact_mutable_relocation_byte_cast_and_proven_u32_length() {
+        let body="let destination:uint32_t=0x10000;let value:uint32_t=0xabcdef12;let length:uint32_t=17;memset(::core::ptr::with_exposed_provenance_mut::<::core::ffi::c_void>((destination as uintptr_t).wrapping_add(g_xbox_mem_offset as uintptr_t) as usize),value as uint8_t as ::core::ffi::c_int,length as size_t);";
+        let (function, deps) = lowered(body).unwrap();
+        assert!(deps.is_empty());
+        let text = function.to_token_stream().to_string();
+        assert!(text.contains("guest_ram . fill"));
+        for forbidden in ["memset", "core :: ptr", "uintptr_t", "size_t"] {
+            assert!(!text.contains(forbidden), "{text}");
+        }
+        for (old, new) in [
+            ("destination:uint32_t", "destination:uint64_t"),
+            ("length:uint32_t", "length:uint64_t"),
+            ("value:uint32_t", "value:uint64_t"),
+            ("with_exposed_provenance_mut", "with_exposed_provenance"),
+            ("::<::core::ffi::c_void>", "::<uint32_t>"),
+            (
+                "wrapping_add(g_xbox_mem_offset as uintptr_t)",
+                "wrapping_sub(g_xbox_mem_offset as uintptr_t)",
+            ),
+            (
+                "as uint8_t as ::core::ffi::c_int",
+                "as uint16_t as ::core::ffi::c_int",
+            ),
+            ("length as size_t", "length as uintptr_t"),
+            ("memset(", "let result=memset("),
+            ("value as uint8_t", "#[allow(unused)] value as uint8_t"),
+        ] {
+            assert!(body.contains(old));
+            assert!(lowered(&body.replace(old, new)).is_err(), "{old}");
+        }
+        for prefix in [
+            "let memset:uint32_t=0;",
+            "let g_xbox_mem_offset:uint32_t=0;",
+        ] {
+            assert!(lowered(&format!("{prefix}{body}")).is_err(), "{prefix}");
+        }
     }
     #[test]
     fn guest_addresses_require_proven_fixed_u32_width_and_exact_relocation_shape() {
