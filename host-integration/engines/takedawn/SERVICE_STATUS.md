@@ -4,6 +4,11 @@ This is tested integration work, **not a playable Burnout release**. The legacy
 profile remains blocked. No source pin, signature, cached executable or engine
 exception may bypass that block. The source kit and catalog URLs are unchanged.
 
+Incremental save migration: [service-save/README.md](service-save/README.md).
+App `75d180311f5e29765ad4778f265908daaa0afb31` adds scoped metadata and duplicate
+file handles. The save helper source passes all four target object audits and
+three real-service helper tests; the complete recovery/worker guard is pending.
+
 The current application contract is GamePKG commit
 `7d350e10572cf61e451f623324d78858fd327784`:
 
