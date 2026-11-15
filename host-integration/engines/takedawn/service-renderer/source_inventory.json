@@ -1,0 +1,163 @@
+{
+  "archive_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+  "archive_sources_sha256": {
+    "toolkit/src/d3d/d3d8_combiners_glsl.c": "96a93895cd57f170060c9d9df1bafa228af0e48363ae5db9fe49578d6e2d6a19",
+    "toolkit/src/d3d/d3d8_combiners_parse.c": "7212b8d260df6ebc89837ddb00613a3525ed31c31e6dce55e91d97773a4acf98",
+    "toolkit/src/d3d/d3d8_combiners_parse.h": "2deb80a0e0cb5a3ec055fbb4a2145b455e67c49e7a3923485fa000467dd3986a",
+    "toolkit/src/d3d/d3d8_glsl.h": "ed07b7d677fe20edf958b4a7d01b3d008f780a0f76984246827a0f14f4ab4076",
+    "toolkit/src/d3d/d3d8_vsh_glsl.c": "6d19b9a389f3889770005c90388eb1cb71857d8ed154e75f9f82fb8cb3aa29ce",
+    "toolkit/src/d3d/d3d8_vsh_parse.c": "2d85b9b5149469902fcf3724b34193d6a74650c555d1e10aac1cca5120147136",
+    "toolkit/src/d3d/d3d8_vsh_parse.h": "d19b7658696a861ce1cc305458f189e0e2ea87199138f859d003a185303f66ac",
+    "toolkit/src/d3d/nv2a_pb_vulkan.c": "574e5ef47bf1aaa9f197821f2cd725e5b38dc6d86e271c036a36e56b3f01998d",
+    "toolkit/src/d3d/nv2a_vk_core.c": "6a2f83bc7f35e9014a3a3839183b699bfec8cb2819c0e20582d2dc900ec746d4",
+    "toolkit/src/kernel/nv2a_backend_common.c": "599e4afa22886d1a088054251b5e795dff6cd94290cf3f4b0ac67f2c26b0ec29",
+    "toolkit/src/kernel/nv2a_backend_common.h": "e302cacbd77a0b44a53d5fb994b47943f3316153c9df254c8aa7f4871857897d",
+    "toolkit/src/kernel/nv2a_combiner.c": "fe602927ddc5a81bd300cef6572e487d550caafb248997b11743b48924ddb919",
+    "toolkit/src/kernel/nv2a_vsh_fields.h": "7abbc9516ce3dabe8a8b49a213327ef7b6be169b6410d13f2813763c4fdb0b44",
+    "toolkit/src/video/fb_present_vulkan.c": "93050531e7eafe673c07393b82ebb4030cc593a639408574ccb17f04374027f4",
+    "toolkit/src/video/post_shaders.h": "83fedd00de4da24637e8db78edc59b34528b3a0d5817e153382051b180f1af0e",
+    "toolkit/src/video/smaa.c": "dd23bd8517353e16da2a7748109cc68aa63a783971a322a2d23360bf3cb4a22f",
+    "toolkit/src/video/smaa.h": "e4d7c19cccd27b000b5a3e2a9619676547ff642e5d643d350ed580d876f8aded"
+  },
+  "declared_enums": {
+    "NV2ACombinerRegister": {
+      "NV2A_REG_C0": 1,
+      "NV2A_REG_C1": 2,
+      "NV2A_REG_COUNT": 16,
+      "NV2A_REG_EF_PROD": 15,
+      "NV2A_REG_FOG": 3,
+      "NV2A_REG_R0": 12,
+      "NV2A_REG_R1": 13,
+      "NV2A_REG_T0": 8,
+      "NV2A_REG_T1": 9,
+      "NV2A_REG_T2": 10,
+      "NV2A_REG_T3": 11,
+      "NV2A_REG_V0": 4,
+      "NV2A_REG_V1": 5,
+      "NV2A_REG_V1R0_SUM": 14,
+      "NV2A_REG_ZERO": 0
+    },
+    "NV2AInputMapping": {
+      "NV2A_MAP_COUNT": 8,
+      "NV2A_MAP_EXPAND_NEGATE": 3,
+      "NV2A_MAP_EXPAND_NORMAL": 2,
+      "NV2A_MAP_HALFBIAS_NEGATE": 5,
+      "NV2A_MAP_HALFBIAS_NORMAL": 4,
+      "NV2A_MAP_SIGNED_IDENTITY": 6,
+      "NV2A_MAP_SIGNED_NEGATE": 7,
+      "NV2A_MAP_UNSIGNED_IDENTITY": 0,
+      "NV2A_MAP_UNSIGNED_INVERT": 1
+    },
+    "NV2AOutputMapping": {
+      "NV2A_OUT_BIAS": 1,
+      "NV2A_OUT_COUNT": 7,
+      "NV2A_OUT_IDENTITY": 0,
+      "NV2A_OUT_SHIFTLEFT_1": 2,
+      "NV2A_OUT_SHIFTLEFT_1_BIAS": 3,
+      "NV2A_OUT_SHIFTLEFT_2": 4,
+      "NV2A_OUT_SHIFTRIGHT_1": 6
+    },
+    "NV2ATextureMode": {
+      "NV2A_TEXMODE_2D": 1,
+      "NV2A_TEXMODE_3D": 2,
+      "NV2A_TEXMODE_BUMPENVMAP": 6,
+      "NV2A_TEXMODE_BUMPENVMAP_LUM": 7,
+      "NV2A_TEXMODE_CLIPPLANE": 5,
+      "NV2A_TEXMODE_CUBEMAP": 3,
+      "NV2A_TEXMODE_NONE": 0,
+      "NV2A_TEXMODE_PASSTHRU": 4
+    },
+    "NV2AVshIluOp": {
+      "NV2A_VSH_ILU_COUNT": 8,
+      "NV2A_VSH_ILU_EXP": 5,
+      "NV2A_VSH_ILU_LIT": 7,
+      "NV2A_VSH_ILU_LOG": 6,
+      "NV2A_VSH_ILU_MOV": 1,
+      "NV2A_VSH_ILU_NOP": 0,
+      "NV2A_VSH_ILU_RCC": 3,
+      "NV2A_VSH_ILU_RCP": 2,
+      "NV2A_VSH_ILU_RSQ": 4
+    },
+    "NV2AVshMacOp": {
+      "NV2A_VSH_MAC_ADD": 3,
+      "NV2A_VSH_MAC_ARL": 13,
+      "NV2A_VSH_MAC_COUNT": 14,
+      "NV2A_VSH_MAC_DP3": 5,
+      "NV2A_VSH_MAC_DP4": 7,
+      "NV2A_VSH_MAC_DPH": 6,
+      "NV2A_VSH_MAC_DST": 8,
+      "NV2A_VSH_MAC_MAD": 4,
+      "NV2A_VSH_MAC_MAX": 10,
+      "NV2A_VSH_MAC_MIN": 9,
+      "NV2A_VSH_MAC_MOV": 1,
+      "NV2A_VSH_MAC_MUL": 2,
+      "NV2A_VSH_MAC_NOP": 0,
+      "NV2A_VSH_MAC_SGE": 12,
+      "NV2A_VSH_MAC_SLT": 11
+    },
+    "NV2AVshOutputReg": {
+      "NV2A_VSH_OUT_B0": 7,
+      "NV2A_VSH_OUT_B1": 8,
+      "NV2A_VSH_OUT_D0": 3,
+      "NV2A_VSH_OUT_D1": 4,
+      "NV2A_VSH_OUT_FOG": 5,
+      "NV2A_VSH_OUT_NONE": 255,
+      "NV2A_VSH_OUT_POS": 0,
+      "NV2A_VSH_OUT_PTS": 6,
+      "NV2A_VSH_OUT_T0": 9,
+      "NV2A_VSH_OUT_T1": 10,
+      "NV2A_VSH_OUT_T2": 11,
+      "NV2A_VSH_OUT_T3": 12
+    },
+    "NV2AVshRegType": {
+      "NV2A_VSH_REG_CONST": 2,
+      "NV2A_VSH_REG_COUNT": 3,
+      "NV2A_VSH_REG_INPUT": 1,
+      "NV2A_VSH_REG_TEMP": 0
+    },
+    "nv2a_blend": {
+      "NV2A_BF_CONST_ALPHA": 13,
+      "NV2A_BF_CONST_COLOR": 11,
+      "NV2A_BF_DST_ALPHA": 6,
+      "NV2A_BF_DST_COLOR": 8,
+      "NV2A_BF_INV_CONST_ALPHA": 14,
+      "NV2A_BF_INV_CONST_COLOR": 12,
+      "NV2A_BF_INV_DST_ALPHA": 7,
+      "NV2A_BF_INV_DST_COLOR": 9,
+      "NV2A_BF_INV_SRC_ALPHA": 5,
+      "NV2A_BF_INV_SRC_COLOR": 3,
+      "NV2A_BF_ONE": 1,
+      "NV2A_BF_SRC_ALPHA": 4,
+      "NV2A_BF_SRC_ALPHA_SAT": 10,
+      "NV2A_BF_SRC_COLOR": 2,
+      "NV2A_BF_UNKNOWN": 15,
+      "NV2A_BF_ZERO": 0
+    },
+    "nv2a_stencil_op": {
+      "NV2A_SOP_DECR": 7,
+      "NV2A_SOP_DECR_SAT": 4,
+      "NV2A_SOP_INCR": 6,
+      "NV2A_SOP_INCR_SAT": 3,
+      "NV2A_SOP_INVERT": 5,
+      "NV2A_SOP_KEEP": 0,
+      "NV2A_SOP_REPLACE": 2,
+      "NV2A_SOP_ZERO": 1
+    },
+    "nv2a_topology": {
+      "NV2A_TOPO_LINES": 2,
+      "NV2A_TOPO_NONE": 0,
+      "NV2A_TOPO_POINTS": 1,
+      "NV2A_TOPO_TRIANGLES": 3
+    }
+  },
+  "ports_sources_sha256": {
+    "media-bridge/adapt_vertex_perspective.cmake": "00515d691b0252f64c98ff1b2208b9e2d3066cfe0d09471963edea3a3eea3210",
+    "media-bridge/attach.cmake": "d3e63c1a7419e3a8006479b72df6595f326b7ce2499d714935b018e835d74554",
+    "media-bridge/native_cubemap.h": "6278c0d4532d00d1d1c919cf96298618156c02c8a6c4b8842e998a9e29291cf2",
+    "media-bridge/native_d3d11.c": "fb6ec31f0e734c7629693c1d452372d1dba1b2b9278cfc485857f3d9485cf375",
+    "media-bridge/presentation_policy.cmake": "4325ec3d111915ace8b06e4e1f0e050d39f729d6662be5c9969eaddc238372ec",
+    "media-bridge/private_edge_mask.h": "34d37dac95da76a9ca20c15cb31aa547c36759c53550c32b94f7e061d6f49ea1",
+    "media-bridge/windows_attach.cmake": "e09d2544a755cd0a99fd4e4ee6e6afdddd1d454353e947d9db204174d118169b"
+  },
+  "scope": "Static translator declarations only; no observed gameplay program/state coverage"
+}
