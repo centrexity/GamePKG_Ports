@@ -30,7 +30,7 @@ impl Backend for Silent {
 }
 fn main() {
     let args: Vec<_> = std::env::args().collect();
-    assert_eq!(args.len(), 4);
+    assert!([4, 5].contains(&args.len()));
     let app = Path::new(&args[1]);
     let here = Path::new(&args[2]);
     let vectors = Path::new(&args[3]);
@@ -51,12 +51,27 @@ fn main() {
     for name in ["memory.rs", "registers.rs", "fixture.rs", "vector.rs"] {
         fs::copy(here.join(name), source.join("source/src").join(name)).unwrap();
     }
-    for name in ["game.rs", "dispatch.rs"] {
-        fs::copy(
-            here.join("generated").join(name),
-            source.join("source/src").join(name),
-        )
-        .unwrap();
+    if args.len() == 5 {
+        let prepared = Path::new(&args[4]);
+        let report: serde_json::Value =
+            serde_json::from_slice(&fs::read(prepared.join("inventory.json")).unwrap()).unwrap();
+        assert_eq!(report["production_ready"], false);
+        for (name, hash) in report["emitted_files"].as_object().unwrap() {
+            assert!(gamepkg::archive::valid_path(name) && name.ends_with(".rs"));
+            let data = fs::read(prepared.join(name)).unwrap();
+            assert_eq!(gamepkg::verify::digest(&data), hash.as_str().unwrap());
+            let destination = source.join("source/src").join(name);
+            fs::create_dir_all(destination.parent().unwrap()).unwrap();
+            fs::write(destination, data).unwrap();
+        }
+    } else {
+        for name in ["game.rs", "dispatch.rs"] {
+            fs::copy(
+                here.join("generated").join(name),
+                source.join("source/src").join(name),
+            )
+            .unwrap();
+        }
     }
     fs::write(source.join("source/src/lib.rs"),"mod memory;mod vector;mod registers;mod game;mod dispatch;mod fixture;pub fn game_main(){fixture::game_main();}\n").unwrap();
     // Preserve the source's attribution in the temporary signed test package.

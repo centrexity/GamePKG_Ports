@@ -12,6 +12,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--app',type=Path,required=True)
     parser.add_argument('--app-lib',type=Path,required=True)
+    parser.add_argument('--prepared',type=Path,help='whole-kit candidate directory to source-check and compile in place of the single unit')
     parser.add_argument('--wine',action='store_true',help='also execute Windows comparison binaries under Wine')
     args=parser.parse_args()
     here=Path(__file__).resolve().parent;app=args.app.resolve(strict=True);library=args.app_lib.resolve(strict=True)
@@ -53,10 +54,11 @@ def main():
         assert denied.returncode!=0 and not (scratch/'must-not-exist').exists()
         probe=scratch/'admission'
         command=['rustc','--edition=2021','-D','warnings',str(here/'admission.rs'),'--extern',f'gamepkg={library}','-L',f'dependency={library.parent}','-o',str(probe)]
-        for name in ['cap_std','tempfile','toml']:
+        for name in ['cap_std','tempfile','toml','serde_json']:
             command+=['--extern',f'{name}={helpers.dependency(library,name)}']
         subprocess.run(command,check=True)
-        subprocess.run([str(probe),str(app),str(here),"--source-only"],check=True)
+        prepared=[str(args.prepared.resolve(strict=True))] if args.prepared else []
+        subprocess.run([str(probe),str(app),str(here),"--source-only",*prepared],check=True)
         names=record['converted']
         oracle=here.joinpath('oracle_prefix.inc.rs').read_text()+'\n'+generated.joinpath('oracle_helpers.rs').read_text()+'\n'+'\n'.join(extra_helpers)+'\n'+generated.joinpath('oracle.rs').read_text()
         oracle+='\npub unsafe fn invoke(address:u32){match address{'+''.join(f'0x{n[4:]}=>{n}(),' for n in names)+'_=>panic!("unknown reference function")}}\n'
@@ -79,6 +81,6 @@ def main():
             elif args.wine:
                 subprocess.run(['wine',str(exe)],check=True,env=dict(os.environ,WINEDEBUG='-all',WINEPREFIX='/tmp/gamepkg-port-replace-wine'))
             else:print(f'PASS {triple}: compilation only; runtime not exercised',flush=True)
-        subprocess.run([str(probe),str(app),str(here),str(vectors)],check=True)
+        subprocess.run([str(probe),str(app),str(here),str(vectors),*prepared],check=True)
     print('Component evidence only: no complete generated game, ISO load, graphics, physical devices, audible audio or frame pacing.')
 if __name__=='__main__':main()

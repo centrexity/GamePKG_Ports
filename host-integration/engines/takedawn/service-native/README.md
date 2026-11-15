@@ -77,6 +77,60 @@ enter the output. Unknown entry labels and memory faults propagate; the engine
 must stop/report a native fault rather than treat an error as success. Earlier
 register/RAM changes in a faulting function are not rolled back.
 
+## Whole-kit preparation
+
+The original single-unit fixture remains 28 differentially checked functions.
+The new maintainer `--inventory` and `--prepare-closed` modes inspect all **485**
+kit-pinned generated units. `maintainer/reviewed_units.tsv` binds every input
+hash; a full preflight completes before parsing or creating output. Each file
+is rechecked before parsing, limited to 16 MiB, and parsed independently.
+Symlinks, changed inputs and existing output directories fail. Duplicated native
+symbols are never selected by archive order: all owners and their dependent
+callers are rejected, including identical definitions.
+
+The pinned kit contains **24,015 unique native definitions**. Existing lowering
+rules recognize 18,048 locally; removing missing dependencies transitively leaves
+**15,777 closed candidates**, with 376 direct edges, including 266 across units.
+The other **8,238** definitions remain explicitly unconverted. There are no
+substitute bodies, dynamic native function pointers or unknown-target fallbacks.
+
+Prepared candidates use 1,991 Rust files (16,331,059 bytes). Eight native
+functions per module bound source size. An AST pass rewrites only direct function
+paths to their owning modules; literals are untouched. Binary selection routes
+call statically compiled functions directly, with at most logarithmic selection
+depth; unknown entries return Unsupported before any function executes. Invalid
+register state returns Invalid. Routing does not fetch/decode instructions.
+The emitter does not add game dependencies, aliases, macros, unsafe blocks or
+OS/library calls. Input/tool/lock and every emitted-file hash are recorded in a
+separate maintainer inventory. `generated/whole_kit_inventory.json` is its compact
+reproducible summary, **not an executable or admission receipt**.
+
+All candidates must subsequently pass the normal GamePKG source, dependency,
+portability and object checks. The `admission.rs` harness optionally accepts a
+prepared directory as its fifth argument, verifies each emitted source hash,
+and stages those complete sources before bindings. Its fixture uses synthetic
+RAM/vector data and no user ISO, window, physical controls or audible audio.
+
+```sh
+python3 host-integration/engines/takedawn/service-native/check_inventory.py \
+  --target-dir /path/to/target \
+  --output /path/to/new-private-candidate-directory
+python3 host-integration/engines/takedawn/service-native/check.py \
+  --app /path/to/GamePKG/app \
+  --app-lib /path/to/target/debug/deps/libgamepkg-HASH.rlib --wine \
+  --prepared /path/to/new-private-candidate-directory
+```
+
+The whole graph passes source admission and separate optimized object auditing/
+trusted linking for Linux64/Linux32/Windows64/Windows32. Confined native Linux
+children execute the existing 1,888 vectors with the complete graph linked.
+**Semantic differential coverage remains 28 functions**; compiling/auditing
+15,777 functions does not establish the other functions' behavior. Windows
+reference comparisons execute under Wine; the prepared service executables
+are build evidence, not physical Windows gameplay. The full engine, ISO loader,
+kernel/media bridges, verified renderer, saves, input/audio, pacing and the
+remaining 8,238 functions still require migration/qualification before enablement.
+
 ## Floating-point portability
 
 The original Rust helper's choice between two NaN operands differs between
@@ -120,7 +174,7 @@ resulting Rust source and GamePKG compiler, with no Python or converter setup.
 
 Executed checks:
 
-- Six converter tests cover pointer/TLS/alias/macro/platform/indirect-call
+- Ten converter tests cover pointer/TLS/alias/macro/platform/indirect-call
   rejection, address-width proof, mismatched memory widths, direct dependency
   recording, signatures and attributes. Maintainer strict clippy passes.
 - Every converted function matches its unchanged pinned reference in 1,888
