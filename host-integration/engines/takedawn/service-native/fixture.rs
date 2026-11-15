@@ -27,7 +27,7 @@ fn fixture_execute() -> Result<(), i32> {
     let mut offset = 0u64;
     let mut header = [0u8; 8];
     fixture_read(handle, &mut offset, &mut header)?;
-    if header[..4] != [84, 75, 78, 50] {
+    if header[..4] != [84, 75, 78, 51] {
         return Err(-1);
     }
     let cases = u32::from_le_bytes([header[4], header[5], header[6], header[7]]);
@@ -66,6 +66,7 @@ fn fixture_execute() -> Result<(), i32> {
             (130560, 1024),
             (3872384, 64),
             (4856896, 64),
+            (4602624, 64),
         ] {
             let mut bytes = std::vec::Vec::new();
             bytes.resize(count, 0u8);
@@ -83,6 +84,7 @@ fn fixture_execute() -> Result<(), i32> {
             (130560, 1024),
             (3872384, 64),
             (4856896, 64),
+            (4602624, 64),
         ] {
             let mut expected = std::vec::Vec::new();
             expected.resize(count, 0u8);

@@ -773,6 +773,44 @@ pub fn sub_00015640(
     (native_state.esp) = (native_state.esp).wrapping_add(4 as u32);
     Ok(())
 }
+pub fn sub_00015650(
+    native_state: &mut crate::registers::Registers,
+    guest_ram: &mut crate::memory::Memory,
+) -> Result<(), i32> {
+    let mut _flags: i32 = 0 as i32;
+    let mut _fa: u32 = 0 as u32;
+    let mut _fb: u32 = 0 as u32;
+    let mut _fas: i32 = 0 as i32;
+    let mut _fbs: i32 = 0 as i32;
+    (native_state.ecx) = guest_ram.read_u32((0x463b14 as i32 as u32) as u32)?;
+    (native_state.eax) = 0 as u32;
+    _fa = (native_state.eax) & 0xffffffff as u32;
+    _fas = _fa as i32;
+    _fa = (native_state.ecx) & 0xffffffff as u32;
+    _fb = 1 as i32 as u32 & 0xffffffff as u32;
+    _fas = _fa as i32;
+    _fbs = _fb as i32;
+    (native_state.eax) = (native_state.eax) & 0xffffff00 as u32
+        | (if if if 4usize < 4usize { 4usize } else { 4usize } == 1usize {
+            _fas as u32 as u8 as i8 as i32
+        } else if if 4usize < 4usize { 4usize } else { 4usize } == 2usize {
+            _fas as u32 as u16 as i16 as i32
+        } else {
+            _fas as u32 as i32
+        } > if if 4usize < 4usize { 4usize } else { 4usize } == 1usize {
+            _fbs as u32 as u8 as i8 as i32
+        } else if if 4usize < 4usize { 4usize } else { 4usize } == 2usize {
+            _fbs as u32 as u16 as i16 as i32
+        } else {
+            _fbs as u32 as i32
+        } {
+            1 as i32
+        } else {
+            0 as i32
+        }) as u8 as u32;
+    (native_state.esp) = (native_state.esp).wrapping_add(4 as u32);
+    Ok(())
+}
 pub fn sub_00015660(
     native_state: &mut crate::registers::Registers,
     guest_ram: &mut crate::memory::Memory,

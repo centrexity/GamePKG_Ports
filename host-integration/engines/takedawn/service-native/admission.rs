@@ -95,14 +95,14 @@ fn main() {
         CheckedSources::verify(&mut gamepkg::archive::Package::open(&package).unwrap()).unwrap();
     // An accidentally packaged reference/oracle never receives a source exception.
     fs::write(
-        source.join("source/src/unreviewed_reference.rs"),
+        source.join("source/src/AAA_unreviewed_reference.rs"),
         "pub unsafe extern \"C\" fn reference(){std::fs::read(\"secret\");}",
     )
     .unwrap();
     let denied = gamepkg::pack::pack(&source, &project.path().join("denied.gamepkg"), &[173; 32])
         .unwrap_err();
     assert!(denied.to_string().contains("forbidden"), "{denied:#}");
-    fs::remove_file(source.join("source/src/unreviewed_reference.rs")).unwrap();
+    fs::remove_file(source.join("source/src/AAA_unreviewed_reference.rs")).unwrap();
     if args[3] == "--source-only" {
         println!("PASS: complete converted component scanned before bindings; unused unsafe reference rejected");
         return;
@@ -115,10 +115,15 @@ fn main() {
         Target::Windows64,
         Target::Windows32,
     ] {
-        let plan = Plan::new(target, "game_main", vec![], LocalLayout::TakedawnRam, true)
+        let mut plan = Plan::new(target, "game_main", vec![], LocalLayout::TakedawnRam, true)
             .unwrap()
             .with_codegen_units(4)
             .unwrap();
+        if args.len() == 5 {
+            plan = plan
+                .with_compiler_memory_bytes(8 * 1024 * 1024 * 1024)
+                .unwrap();
+        }
         let artifact = preparation::build(project.path(), &checked, &plan, vec![], vec![]).unwrap();
         artifact.executable().unwrap();
         assert!((2..=4).contains(&artifact.receipt().game.objects.len()));

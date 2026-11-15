@@ -7,6 +7,7 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
     path::Path,
+    sync::Arc,
 };
 use syn::{
     parse_quote,
@@ -115,12 +116,62 @@ fn pointer_primitive(expr: &Expr) -> Option<&'static str> {
 struct Lower {
     tls: BTreeMap<String, String>,
     locals: BTreeMap<String, String>,
+    enums: BTreeMap<String, Arc<BTreeMap<String, u32>>>,
     dependencies: BTreeSet<String>,
     errors: BTreeSet<String>,
 }
 impl Lower {
     fn reject(&mut self, message: impl Into<String>) {
         self.errors.insert(message.into());
+    }
+    fn enum_local(&mut self, statement: &Stmt) -> bool {
+        let Stmt::Item(Item::Enum(item)) = statement else {
+            return false;
+        };
+        let name = item.ident.to_string();
+        let decimal = |text: &str| !text.is_empty() && text.bytes().all(|b| b.is_ascii_digit());
+        if !name.strip_prefix("C2Rust_Block_").is_some_and(decimal)
+            || !item.attrs.is_empty()
+            || !matches!(item.vis, syn::Visibility::Inherited)
+            || !item.generics.params.is_empty()
+            || item.generics.where_clause.is_some()
+            || item.variants.is_empty()
+            || item.variants.len() > 65536
+        {
+            self.reject("unreviewed control-flow enum");
+            return false;
+        }
+        let mut variants = BTreeMap::new();
+        for (ordinal, variant) in item.variants.iter().enumerate() {
+            let id = variant.ident.to_string();
+            if !id.strip_prefix("S_").is_some_and(decimal)
+                || !variant.attrs.is_empty()
+                || !matches!(variant.fields, syn::Fields::Unit)
+                || variant.discriminant.is_some()
+                || variants.insert(id, ordinal as u32).is_some()
+            {
+                self.reject("unreviewed control-flow variant");
+                return false;
+            }
+        }
+        self.enums.insert(name, Arc::new(variants));
+        true
+    }
+    fn enum_variant(&self, expression: &syn::Path) -> Option<u32> {
+        if expression.leading_colon.is_some()
+            || expression.segments.len() != 2
+            || expression
+                .segments
+                .iter()
+                .any(|s| !matches!(s.arguments, syn::PathArguments::None))
+        {
+            return None;
+        }
+        let owner = expression.segments[0].ident.to_string();
+        self.enums
+            .get(&owner)?
+            .get(&expression.segments[1].ident.to_string())
+            .copied()
     }
     fn tls_local(&mut self, statement: &Stmt) -> bool {
         let Stmt::Local(local) = statement else {
@@ -342,6 +393,15 @@ impl Lower {
     }
 }
 impl VisitMut for Lower {
+    fn visit_stmt_mut(&mut self, statement: &mut Stmt) {
+        if let Stmt::Macro(m) = statement {
+            if m.attrs.is_empty() && compacted_trap(&m.mac) {
+                *statement = Stmt::Expr(parse_quote!(return Err(-1)), Some(Default::default()));
+                return;
+            }
+        }
+        visit_mut::visit_stmt_mut(self, statement);
+    }
     fn visit_macro_mut(&mut self, _: &mut syn::Macro) {
         self.reject("macro");
     }
@@ -389,9 +449,10 @@ impl VisitMut for Lower {
     fn visit_block_mut(&mut self, block: &mut syn::Block) {
         let outer_locals = self.locals.clone();
         let outer_tls = self.tls.clone();
+        let outer_enums = self.enums.clone();
         let mut statements = Vec::new();
         for mut statement in std::mem::take(&mut block.stmts) {
-            if self.tls_local(&statement) {
+            if self.tls_local(&statement) || self.enum_local(&statement) {
                 continue;
             }
             self.visit_stmt_mut(&mut statement);
@@ -400,8 +461,22 @@ impl VisitMut for Lower {
         block.stmts = statements;
         self.locals = outer_locals;
         self.tls = outer_tls;
+        self.enums = outer_enums;
     }
     fn visit_type_mut(&mut self, ty: &mut Type) {
+        if let Type::Path(p) = ty {
+            if p.qself.is_none()
+                && p.path.leading_colon.is_none()
+                && p.path.segments.len() == 1
+                && matches!(p.path.segments[0].arguments, syn::PathArguments::None)
+                && self
+                    .enums
+                    .contains_key(&p.path.segments[0].ident.to_string())
+            {
+                *ty = parse_quote!(u32);
+                return;
+            }
+        }
         if let Some(name) = primitive(ty) {
             *ty = syn::parse_str(name).unwrap();
             return;
@@ -426,7 +501,70 @@ impl VisitMut for Lower {
         }
         visit_mut::visit_type_mut(self, ty);
     }
+    fn visit_pat_mut(&mut self, pattern: &mut syn::Pat) {
+        if let syn::Pat::Path(p) = pattern {
+            if p.qself.is_none() && p.attrs.is_empty() {
+                if let Some(value) = self.enum_variant(&p.path) {
+                    let literal = syn::LitInt::new(&format!("{value}u32"), Span::call_site());
+                    *pattern = parse_quote!(#literal);
+                    return;
+                }
+            }
+        }
+        visit_mut::visit_pat_mut(self, pattern);
+    }
     fn visit_expr_mut(&mut self, expr: &mut Expr) {
+        let mut enum_fallback = false;
+        let compacted_loop = if let Expr::Loop(node) = expr {
+            if node.body.stmts.len() == 1 {
+                if let Stmt::Expr(Expr::Match(m), _) = &node.body.stmts[0] {
+                    matches!(plain(&m.expr),Expr::Path(p) if p.qself.is_none() && p.attrs.is_empty() && p.path.segments.len()==1 && p.path.segments[0].ident.to_string().starts_with("c2rust_current_block_"))
+                        && m.arms.iter().any(|arm| enum_pattern(&arm.pat, self))
+                        && m.arms.iter().all(|arm| arm.guard.is_none())
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+        if let Expr::Path(p) = expr {
+            if p.qself.is_none() && p.attrs.is_empty() {
+                if let Some(value) = self.enum_variant(&p.path) {
+                    let literal = syn::LitInt::new(&format!("{value}u32"), Span::call_site());
+                    *expr = parse_quote!(#literal);
+                    return;
+                }
+            }
+        }
+        if let Expr::Match(m) = expr {
+            let enum_match = m.arms.iter().any(|arm| enum_pattern(&arm.pat, self));
+            let last = m.arms.len().saturating_sub(1);
+            for (index, arm) in m.arms.iter_mut().enumerate() {
+                if index == last
+                    && arm.guard.is_none()
+                    && compacted_trap_body(&arm.body)
+                    && enum_pattern(&arm.pat, self)
+                {
+                    // Every listed original impossible tag faults. Integer tags
+                    // outside the original enum are impossible too, never success.
+                    arm.pat = parse_quote!(_);
+                }
+            }
+            enum_fallback = enum_match
+                && !m
+                    .arms
+                    .iter()
+                    .any(|arm| arm.guard.is_none() && matches!(arm.pat, syn::Pat::Wild(_)));
+        }
+        if let Expr::Macro(m) = expr {
+            if m.attrs.is_empty() && compacted_trap(&m.mac) {
+                *expr = parse_quote!(return Err(-1));
+                return;
+            }
+        }
         if let Expr::Binary(binary) = expr {
             if self.float32(&binary.left) && self.float32(&binary.right) {
                 let helper = match binary.op {
@@ -522,6 +660,35 @@ impl VisitMut for Lower {
                 self.reject("indirect call");
                 return;
             };
+            if name == "core::mem::size_of" && call.args.is_empty() {
+                if let Expr::Path(p) = plain(&call.func) {
+                    if let syn::PathArguments::AngleBracketed(arguments) =
+                        &p.path.segments.last().unwrap().arguments
+                    {
+                        if arguments.args.len() == 1 {
+                            if let Some(syn::GenericArgument::Type(ty)) = arguments.args.first() {
+                                let bytes = match primitive(ty) {
+                                    Some("u8" | "i8") => Some(1),
+                                    Some("u16" | "i16") => Some(2),
+                                    Some("u32" | "i32" | "f32") => Some(4),
+                                    Some("u64" | "i64" | "f64") => Some(8),
+                                    _ => None,
+                                };
+                                if let Some(bytes) = bytes {
+                                    let literal = syn::LitInt::new(
+                                        &format!("{bytes}usize"),
+                                        Span::call_site(),
+                                    );
+                                    *expr = parse_quote!(#literal);
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                }
+                self.reject("size_of requires a reviewed fixed-width primitive");
+                return;
+            }
             if name.starts_with("XMM_") {
                 if let Some(value) = self.vector_call(call, &name) {
                     *expr = value;
@@ -584,6 +751,72 @@ impl VisitMut for Lower {
             _ => {}
         }
         visit_mut::visit_expr_mut(self, expr);
+        if enum_fallback {
+            if let Expr::Match(m) = expr {
+                // Insert after recursive lowering so this error is not mistaken
+                // for an original void return and discarded as success.
+                m.arms.push(parse_quote!(_ => return Err(-1)));
+            }
+        }
+        if compacted_loop {
+            if let Expr::Loop(node) = expr {
+                if let Stmt::Expr(Expr::Match(m), _) = &node.body.stmts[0] {
+                    let selector = m.expr.clone();
+                    let mut statements = Vec::new();
+                    for arm in &m.arms {
+                        let mut arm = arm.clone();
+                        let body = arm.body;
+                        arm.body = Box::new(parse_quote!({#body;continue;}));
+                        let wildcard = arm.guard.is_none() && matches!(arm.pat, syn::Pat::Wild(_));
+                        let mut group: syn::ExprMatch = parse_quote!(match #selector {#arm});
+                        if !wildcard {
+                            group.arms.push(parse_quote!(_=>{}));
+                        }
+                        statements.push(Stmt::Expr(Expr::Match(group), Some(Default::default())));
+                    }
+                    // Each successful original arm finishes this iteration,
+                    // even if it changed the selector. Nonmatching guards and
+                    // patterns retain their order and have no extra effects.
+                    statements.push(Stmt::Expr(
+                        parse_quote!(return Err(-1)),
+                        Some(Default::default()),
+                    ));
+                    node.body.stmts = statements;
+                }
+            }
+        }
+    }
+}
+fn compacted_trap(mac: &syn::Macro) -> bool {
+    mac.path.is_ident("unreachable")
+        && matches!(mac.delimiter, syn::MacroDelimiter::Paren(_))
+        && syn::parse2::<syn::LitStr>(mac.tokens.clone())
+            .is_ok_and(|text| text.value() == "GamePKG compacted dispatch state reached")
+}
+fn compacted_trap_body(expr: &Expr) -> bool {
+    match plain(expr) {
+        Expr::Macro(m) => m.attrs.is_empty() && compacted_trap(&m.mac),
+        Expr::Block(b) if b.attrs.is_empty() && b.label.is_none() && b.block.stmts.len() == 1 => {
+            match &b.block.stmts[0] {
+                Stmt::Expr(e, _) => compacted_trap_body(e),
+                Stmt::Macro(m) => m.attrs.is_empty() && compacted_trap(&m.mac),
+                _ => false,
+            }
+        }
+        _ => false,
+    }
+}
+fn enum_pattern(pattern: &syn::Pat, lower: &Lower) -> bool {
+    match pattern {
+        syn::Pat::Path(p) => {
+            p.qself.is_none() && p.attrs.is_empty() && lower.enum_variant(&p.path).is_some()
+        }
+        syn::Pat::Or(p) => {
+            p.attrs.is_empty()
+                && !p.cases.is_empty()
+                && p.cases.iter().all(|p| enum_pattern(p, lower))
+        }
+        _ => false,
     }
 }
 fn lower(mut function: ItemFn) -> Result<(ItemFn, BTreeSet<String>), BTreeSet<String>> {
@@ -854,6 +1087,150 @@ mod tests {
         assert!(lowered("XMM_MEM(0x100001234u64);").is_err());
         assert!(lowered("XMM_ZERO(1u32);").is_err());
         assert!(lowered("let a:RecompXmm=XMM_ZERO();let lane=a.u[0usize];").is_ok());
+    }
+    #[test]
+    fn control_flow_enums_preserve_ordinal_values_and_lexical_scope() {
+        let source="enum C2Rust_Block_1{S_100,S_5}let outer:C2Rust_Block_1=C2Rust_Block_1::S_5;{enum C2Rust_Block_1{S_5,S_100}let inner:C2Rust_Block_1=C2Rust_Block_1::S_5;}let again:C2Rust_Block_1=C2Rust_Block_1::S_5;";
+        let (function, _) = lowered(source).unwrap();
+        let text = function.to_token_stream().to_string();
+        assert!(!text.contains("C2Rust_Block"));
+        assert!(text.contains("outer : u32 = 1u32"));
+        assert!(text.contains("inner : u32 = 0u32"));
+        assert!(text.contains("again : u32 = 1u32"));
+        assert!(!text.contains("enum "));
+    }
+    #[test]
+    fn unreviewed_enums_and_macros_remain_rejected() {
+        for source in [
+            "#[repr(C)]enum C2Rust_Block_1{S_0}",
+            "enum C2Rust_Block_1{S_0(u32)}",
+            "enum C2Rust_Block_1{S_0=7}",
+            "enum C2Rust_Block_1<T>{S_0}",
+            "enum C2Rust_Block_1{Other}",
+            "enum Other{S_0}",
+            "enum C2Rust_Block_1{S_0,S_0}",
+            "enum C2Rust_Block_1{#[cfg(windows)]S_0}",
+            "enum C2Rust_Block_1{}",
+            "unreachable!(\"other\");",
+            "std::unreachable!(\"GamePKG compacted dispatch state reached\");",
+            "unreachable!(\"GamePKG compacted dispatch state reached\",system());",
+            "unreachable!(concat!(\"GamePKG compacted dispatch state reached\"));",
+            "type C2Rust_Block_1=u32;",
+        ] {
+            assert!(lowered(source).is_err(), "{source}");
+        }
+        for source in [
+            "unreachable!(\"GamePKG compacted dispatch state reached\")",
+            "unreachable!(\"GamePKG compacted dispatch state reached\");",
+        ] {
+            let (function, _) = lowered(source).unwrap();
+            let text = function.to_token_stream().to_string();
+            assert!(text.contains("return Err (- 1)"), "{text}");
+            assert!(!text.contains("unreachable"));
+            assert!(!text.contains("return {"));
+        }
+    }
+    #[test]
+    fn sizes_are_folded_only_for_reviewed_fixed_width_primitives() {
+        for (ty, size) in [
+            ("uint8_t", 1),
+            ("int16_t", 2),
+            ("int32_t", 4),
+            ("uint64_t", 8),
+            ("f32", 4),
+            ("f64", 8),
+        ] {
+            let (function, _) =
+                lowered(&format!("let width=::core::mem::size_of::<{ty}>();")).unwrap();
+            let text = function.to_token_stream().to_string();
+            assert!(text.contains(&format!("{size}usize")));
+            assert!(!text.contains("size_of"));
+        }
+        for ty in [
+            "usize",
+            "isize",
+            "uintptr_t",
+            "size_t",
+            "*mut u32",
+            "[u8;4]",
+            "Unknown",
+        ] {
+            assert!(
+                lowered(&format!("let width=::core::mem::size_of::<{ty}>();")).is_err(),
+                "{ty}"
+            );
+        }
+    }
+    #[test]
+    #[ignore = "compiles/runs four-target native CFG reference harness including Wine"]
+    fn native_control_flow_matches_reference_on_all_four_targets() {
+        let body = r#"let __gamepkg_tls_g_eax=unsafe{gamepkg_tls_g_eax()};
+enum C2Rust_Block_1{S_100,S_5,S_9,S_10,S_20}
+let mut c2rust_current_block_1:C2Rust_Block_1=C2Rust_Block_1::S_100;
+loop{match c2rust_current_block_1{
+C2Rust_Block_1::S_10=>{unreachable!("GamePKG compacted dispatch state reached")}
+C2Rust_Block_1::S_100=>{if *__gamepkg_tls_g_eax==0xffffffffu32{c2rust_current_block_1=C2Rust_Block_1::S_10;}else if *__gamepkg_tls_g_eax&1==0{c2rust_current_block_1=C2Rust_Block_1::S_5;}else{c2rust_current_block_1=C2Rust_Block_1::S_9;}}
+C2Rust_Block_1::S_5=>{*__gamepkg_tls_g_eax=(*__gamepkg_tls_g_eax).wrapping_mul(3);c2rust_current_block_1=C2Rust_Block_1::S_20;}
+C2Rust_Block_1::S_9=>{*__gamepkg_tls_g_eax=(*__gamepkg_tls_g_eax).wrapping_sub(7);c2rust_current_block_1=C2Rust_Block_1::S_20;}
+C2Rust_Block_1::S_20=>{return;}
+}}"#;
+        let mut bodies = vec![body.to_owned()];
+        bodies.push(body.replace("C2Rust_Block_1::S_10=>{unreachable!(\"GamePKG compacted dispatch state reached\")}\n","").replace("C2Rust_Block_1::S_20=>{return;}","C2Rust_Block_1::S_20=>{return;} C2Rust_Block_1::S_10=>{unreachable!(\"GamePKG compacted dispatch state reached\")}"));
+        bodies.push(body.replace("match c2rust_current_block_1{", "match c2rust_current_block_1{ C2Rust_Block_1::S_100 if {*__gamepkg_tls_g_eax=(*__gamepkg_tls_g_eax).wrapping_add(2);false}=>{return;},"));
+        let root = std::env::temp_dir().join(format!("gamepkg-cfg-native-{}", std::process::id()));
+        fs::create_dir(&root).unwrap();
+        for (case, body) in bodies.iter().enumerate() {
+            let (function, _) = lowered(body).unwrap();
+            let converted = function.to_token_stream().to_string();
+            assert!(!converted.contains("C2Rust_Block"));
+            assert!(!converted.contains("unreachable"));
+            let source = format!(
+                r#"#![allow(dead_code,non_snake_case,non_camel_case_types,unused_assignments,unused_variables,unreachable_code)]
+mod registers{{pub struct Registers{{pub eax:u32}}}}mod memory{{pub struct Memory;}}
+mod game{{{converted}}}
+mod reference{{static mut VALUE:u32=0;unsafe fn gamepkg_tls_g_eax()->*mut u32{{&raw mut VALUE}}pub unsafe fn run(input:u32)->u32{{VALUE=input;original();VALUE}}unsafe fn original(){{{body}}}}}
+fn main(){{let mut ram=memory::Memory;for input in 0..4096u32{{let expected=unsafe{{reference::run(input)}};let mut state=registers::Registers{{eax:input}};assert_eq!(game::sub_100(&mut state,&mut ram),Ok(()));assert_eq!(state.eax,expected);}}let mut state=registers::Registers{{eax:u32::MAX-({case}==2) as u32*2}};assert_eq!(game::sub_100(&mut state,&mut ram),Err(-1));assert_eq!(state.eax,u32::MAX);}}
+"#
+            );
+            let main = root.join("main.rs");
+            fs::write(&main, source).unwrap();
+            for triple in [
+                "x86_64-unknown-linux-gnu",
+                "i686-unknown-linux-gnu",
+                "x86_64-pc-windows-gnu",
+                "i686-pc-windows-gnu",
+            ] {
+                let executable = root.join(format!(
+                    "case-{case}-{triple}{}",
+                    if triple.contains("windows") {
+                        ".exe"
+                    } else {
+                        ""
+                    }
+                ));
+                let mut command = std::process::Command::new("rustc");
+                command
+                    .args(["--edition=2021", "-D", "warnings", "-O", "--target", triple])
+                    .arg(&main)
+                    .arg("-o")
+                    .arg(&executable);
+                if triple == "i686-unknown-linux-gnu" {
+                    command.args(["-C", "linker=/usr/bin/gcc-11"]);
+                }
+                assert!(command.status().unwrap().success());
+                let mut run = if triple.contains("windows") {
+                    let mut wine = std::process::Command::new("wine");
+                    wine.env("WINEDEBUG", "-all")
+                        .env("WINEPREFIX", "/tmp/gamepkg-port-replace-wine")
+                        .arg(&executable);
+                    wine
+                } else {
+                    std::process::Command::new(&executable)
+                };
+                assert!(run.status().unwrap().success());
+            }
+        }
+        fs::remove_dir_all(root).unwrap();
     }
     #[test]
     fn only_original_zero_argument_signatures_and_known_attributes_are_candidates() {

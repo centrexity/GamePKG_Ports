@@ -1,8 +1,8 @@
 # Checked native generated-function migration
 
 This is the first **incomplete** source component, not a playable source kit.
-It converts 28 of the 50 native function definitions in pinned unit
-`prepared/src/recomp_0000_001.rs`. All 22 remaining definitions are explicitly
+It converts 29 of the 50 native function definitions in pinned unit
+`prepared/src/recomp_0000_001.rs`. All 21 remaining definitions are explicitly
 listed in `generated/provenance.json` with reasons. There are no replacement
 stubs, unsafe fallback links or exemptions. The game's legacy build/cache gate
 and source-kit/catalog pins remain unchanged.
@@ -42,7 +42,7 @@ private keys are included. Reference data is synthetic and generated locally.
 
 ## Contracts
 
-Requires app commit `cf2dca17930a4e3000c7a076e51a311fe9fc7e2b` or a compatible
+Requires app commit `28e7f027fbea02d11f5922e5a5253ae8d728ba54` or a compatible
 later service SDK; stale executable receipts must be rebuilt.
 
 The admission fixture requests `Plan::with_codegen_units(4)` and requires two
@@ -79,7 +79,7 @@ register/RAM changes in a faulting function are not rolled back.
 
 ## Whole-kit preparation
 
-The original single-unit fixture remains 28 differentially checked functions.
+The original single-unit fixture now contains 29 differentially checked functions.
 The new maintainer `--inventory` and `--prepare-closed` modes inspect all **485**
 kit-pinned generated units. `maintainer/reviewed_units.tsv` binds every input
 hash; a full preflight completes before parsing or creating output. Each file
@@ -89,12 +89,12 @@ symbols are never selected by archive order: all owners and their dependent
 callers are rejected, including identical definitions.
 
 The pinned kit contains **24,015 unique native definitions**. Existing lowering
-rules recognize 18,048 locally; removing missing dependencies transitively leaves
-**15,777 closed candidates**, with 376 direct edges, including 266 across units.
-The other **8,238** definitions remain explicitly unconverted. There are no
+rules recognize 20,636 locally; removing missing dependencies transitively leaves
+**16,880 closed candidates**, with 1,249 direct edges, including 823 across units.
+The other **7,135** definitions remain explicitly unconverted. There are no
 substitute bodies, dynamic native function pointers or unknown-target fallbacks.
 
-Prepared candidates use 1,991 Rust files (16,331,059 bytes). Eight native
+Prepared candidates use 2,129 Rust files (51,202,788 bytes). Eight native
 functions per module bound source size. An AST pass rewrites only direct function
 paths to their owning modules; literals are untouched. Binary selection routes
 call statically compiled functions directly, with at most logarithmic selection
@@ -123,13 +123,45 @@ python3 host-integration/engines/takedawn/service-native/check.py \
 
 The whole graph passes source admission and separate optimized object auditing/
 trusted linking for Linux64/Linux32/Windows64/Windows32. Confined native Linux
-children execute the existing 1,888 vectors with the complete graph linked.
-**Semantic differential coverage remains 28 functions**; compiling/auditing
-15,777 functions does not establish the other functions' behavior. Windows
+children execute the existing 1,920 vectors with the complete graph linked.
+**Semantic differential coverage is 29 functions**; compiling/auditing
+16,880 functions does not establish the other functions' behavior. Windows
 reference comparisons execute under Wine; the prepared service executables
 are build evidence, not physical Windows gameplay. The full engine, ISO loader,
 kernel/media bridges, verified renderer, saves, input/audio, pacing and the
-remaining 8,238 functions still require migration/qualification before enablement.
+remaining 7,135 functions still require migration/qualification before enablement.
+
+## Compacted control-flow contract
+
+Private `C2Rust_Block_N` enums with unique data-free `S_N` variants lower to
+lexically scoped u32 ordinal values. Payloads, explicit discriminants, generics,
+attributes and aliases remain rejected. Label suffixes are not discriminants.
+A loop consisting only of an unguarded match on its local state is partitioned
+into ordered native match statements; a matched arm finishes that iteration
+before another tag is tested. Guarded matches keep their original shape.
+This bounds source expression size without decoding any CPU instructions.
+
+Only `unreachable!("GamePKG compacted dispatch state reached")` is recognized
+as the pinned generator's fault marker. It becomes propagated Invalid, never
+success. An impossible-state pattern becomes a wildcard only in the final arm;
+all other macro forms still fail. Original enum-unrepresentable integer values
+also fault. Primitive fixed-width `size_of` folds to literal bytes; pointer,
+platform-sized, unknown/alias and layout-dependent sizes stay unsupported.
+
+An additional explicitly invoked native test compares three original/converted
+CFG variants on 4,096 inputs each for every target (49,152 comparisons), covering
+ordinal values, first/final trap ordering, guarded effects and fault propagation.
+Windows executions use Wine. The 29-function kit reference suite has 1,920
+vectors per target. Private TKN3 vectors add signed extrema around the actual
+`0x463b14` load; register records remain 240-byte version 2. Test files are not a
+public SDK/save ABI. No physical game/device/pacing evidence is implied.
+
+The whole-kit admission fixture uses
+`Plan::with_compiler_memory_bytes(8 * 1024 * 1024 * 1024)` on a 64-bit compiler
+host after proving the 4 GiB cap exhausted memory. This budget is validated,
+OS-enforced and bound in Plan/receipt identity, separate from game memory. The
+app's source checks, exact object audit, import vocabulary and confinement stay
+mandatory; no creator flag can grant a larger compiler budget or exempt code.
 
 ## Floating-point portability
 
@@ -174,10 +206,10 @@ resulting Rust source and GamePKG compiler, with no Python or converter setup.
 
 Executed checks:
 
-- Ten converter tests cover pointer/TLS/alias/macro/platform/indirect-call
+- Thirteen regular converter/emitter tests cover pointer/TLS/alias/macro/platform/indirect-call
   rejection, address-width proof, mismatched memory widths, direct dependency
   recording, signatures and attributes. Maintainer strict clippy passes.
-- Every converted function matches its unchanged pinned reference in 1,888
+- Every converted function matches its unchanged pinned reference in 1,920
   register-bit/whole-8-MiB-RAM vectors per target. A branch-heavy routine covers
   1,024 combinations of flags/output bytes; 27 functions cover 32 vectors each.
 - 1,575 vector-helper edge cases and all 256 shuffle selectors pass, with the
@@ -208,4 +240,4 @@ input/audio and verified surface/NVI1/postprocessing integration. Supply the
 complete checked source kit, shader/pipeline descriptors and reviewed entry/task
 table to both builders/launchers, preserving all object audits and confinement.
 Only real game/save/graphics/controls/audio/pacing qualification can satisfy the
-release gate; these 28 functions do not enable the title.
+release gate; these 29 functions do not enable the title.

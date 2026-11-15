@@ -1,11 +1,12 @@
 // Maintainer harness only. Module paths are supplied by check.py in the wrapper.
 use std::{fs::File, io::Write, path::Path};
-const SPANS: [(u32, usize); 5] = [
+const SPANS: [(u32, usize); 6] = [
     (0x10000, 1024),
     (0x11000, 1024),
     (0x1fe00, 1024),
     (0x3b1680, 64),
     (0x4a1c40, 64),
+    (0x463b00, 64),
 ];
 fn next_random(seed: &mut u64) -> u64 {
     *seed ^= *seed << 13;
@@ -91,6 +92,12 @@ fn compare_case(
             let at = (r.esp - base) as usize;
             bytes[at + 4..at + 8].copy_from_slice(&0x11080u32.to_le_bytes());
             bytes[at + 8..at + 12].copy_from_slice(&0x110c0u32.to_le_bytes());
+        }
+        if base == 0x463b00 {
+            bytes[20..24].copy_from_slice(
+                &[0u32, 1, 2, 3, u32::MAX, 0x80000000, 0x7fffffff][iteration as usize % 7]
+                    .to_le_bytes(),
+            );
         }
         ram.write_bytes(base, &bytes).unwrap();
         reference[base as usize..base as usize + count].copy_from_slice(&bytes);
@@ -267,7 +274,7 @@ fn main() {
     };
     let count = 1024 + (ADDRESSES.len() as u32 - 1) * 32;
     if let Some(file) = &mut output {
-        file.write_all(b"TKN2").unwrap();
+        file.write_all(b"TKN3").unwrap();
         file.write_all(&count.to_le_bytes()).unwrap();
     }
     let mut reference = vec![0u8; 8 * 1024 * 1024];

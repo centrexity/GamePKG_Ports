@@ -23,6 +23,8 @@ def main():
     env=dict(os.environ,CARGO_TARGET_DIR=str(target))
     manifest=here/'maintainer/Cargo.toml'
     subprocess.run(['cargo','test','--locked','--offline','--manifest-path',str(manifest)],env=env,check=True)
+    if args.wine:
+        subprocess.run(['cargo','test','--locked','--offline','--manifest-path',str(manifest),'native_control_flow_matches','--','--ignored','--test-threads=1'],env=env,check=True)
     subprocess.run(['cargo','build','--locked','--offline','--manifest-path',str(manifest)],env=env,check=True)
     tool=target/'debug/takedawn-safe-source-preparation'
     kit=here.parents[3]/'takedawn/assets/takedawn-source-kit.tar.gz'
@@ -48,7 +50,7 @@ def main():
             if (generated/filename).read_bytes()!=(here/'generated'/filename).read_bytes():
                 raise RuntimeError(f'Checked-in generated {filename} is stale')
         record=json.loads((generated/'provenance.json').read_text())
-        if len(record['converted'])!=28 or len(record['rejected'])!=22:raise RuntimeError('Unexpected conversion coverage')
+        if len(record['converted'])!=29 or len(record['rejected'])!=21:raise RuntimeError('Unexpected conversion coverage')
         changed=scratch/'changed.rs';changed.write_bytes(original+b'\n')
         denied=subprocess.run([str(tool),str(changed),str(scratch/'must-not-exist')],capture_output=True)
         assert denied.returncode!=0 and not (scratch/'must-not-exist').exists()
@@ -58,7 +60,11 @@ def main():
             command+=['--extern',f'{name}={helpers.dependency(library,name)}']
         subprocess.run(command,check=True)
         prepared=[str(args.prepared.resolve(strict=True))] if args.prepared else []
-        subprocess.run([str(probe),str(app),str(here),"--source-only",*prepared],check=True)
+        # The complete harness below repeats source admission and unused-reference
+        # rejection before binding injection. Avoid a duplicate whole-kit walk;
+        # keep the small early diagnostic for the default single-unit fixture.
+        if not prepared:
+            subprocess.run([str(probe),str(app),str(here),"--source-only"],check=True)
         names=record['converted']
         oracle=here.joinpath('oracle_prefix.inc.rs').read_text()+'\n'+generated.joinpath('oracle_helpers.rs').read_text()+'\n'+'\n'.join(extra_helpers)+'\n'+generated.joinpath('oracle.rs').read_text()
         oracle+='\npub unsafe fn invoke(address:u32){match address{'+''.join(f'0x{n[4:]}=>{n}(),' for n in names)+'_=>panic!("unknown reference function")}}\n'
@@ -77,9 +83,9 @@ def main():
             if triple=='i686-unknown-linux-gnu':command+=['-C','linker=/usr/bin/gcc-11']
             subprocess.run(command,check=True)
             if 'windows' not in triple:
-                subprocess.run([str(exe)]+([str(vectors)] if triple.startswith('x86_64') else []),check=True)
+                subprocess.run([str(exe)]+([str(vectors)] if triple.startswith('x86_64') else []),check=True,timeout=180)
             elif args.wine:
-                subprocess.run(['wine',str(exe)],check=True,env=dict(os.environ,WINEDEBUG='-all',WINEPREFIX='/tmp/gamepkg-port-replace-wine'))
+                subprocess.run(['wine',str(exe)],check=True,env=dict(os.environ,WINEDEBUG='-all',WINEPREFIX='/tmp/gamepkg-port-replace-wine'),timeout=180)
             else:print(f'PASS {triple}: compilation only; runtime not exercised',flush=True)
         subprocess.run([str(probe),str(app),str(here),str(vectors),*prepared],check=True)
     print('Component evidence only: no complete generated game, ISO load, graphics, physical devices, audible audio or frame pacing.')

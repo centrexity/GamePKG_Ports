@@ -19,6 +19,7 @@
     "sub_00015610",
     "sub_00015630",
     "sub_00015640",
+    "sub_00015650",
     "sub_00015660",
     "sub_00015670",
     "sub_00015680",
@@ -29,14 +30,14 @@
     "sub_000156D0",
     "sub_000156E0"
   ],
-  "dispatch_sha256": "647c7cfdc81a41c30ba0f3a2bfd73254d642ab1337bcf52a0611353a1814ec6a",
+  "dispatch_sha256": "9050cf43ec61508e719a9fa97b8c0c661c1a72faba447891345375d729f1a58b",
   "float_arithmetic_nan_policy": "quiet-first-NaN-preserve-sign-and-payload",
   "formatter_version": "rustfmt 1.8.0-stable (29483883ee 2025-08-04)",
-  "game_sha256": "9a547465f692cb1c5497551dbe6a2133a1918697592d3d53680d8f24cbd5231c",
+  "game_sha256": "c65b04a912d947d275e26ac2a8aa49489cf474d50a678034d4c3c1387d61ffba",
   "generator_batch_sha256": "09cadcf977e2f6a00f48e53eb0c90ffa4c9c530095ee78a55aef7f3a00cd2f76",
   "generator_inventory_sha256": "7d7ab7a7cfd00067396a84a82c055a588e308bc8cdc0a94451232cf0f8f12169",
   "generator_lock_sha256": "6d55a2c76709a6c1825c3fc3c9ac08e03d6e140635858336762f4ac2595a5259",
-  "generator_source_sha256": "c880d4c741ea2c86662e4c8052a514033a38637c6d73f78696affab80a35da39",
+  "generator_source_sha256": "b8b81f34773b982f13dba91410fc6a68f3c0808c456d56b79585577e117124f4",
   "input_sha256": "442f7812516f3c5157ee74e15aede23d0ac423105acb7d973733bbe9f01ad94d",
   "production_ready": false,
   "register_record_bytes": 240,
@@ -62,31 +63,19 @@
       "unconverted dependencies: sub_00116080"
     ],
     "sub_00013FB0": [
-      "macro",
-      "nested item or alias",
-      "raw address or macro",
-      "unreviewed call core::mem::size_of"
+      "unconverted dependencies: sub_0002C140,sub_0002C640,sub_00043920,sub_00043B80,sub_00043BF0,sub_00116270,sub_00116310,sub_00116CB0,sub_00116E30,sub_001170B0,sub_001D7D50,sub_0034F8F0"
     ],
     "sub_00014090": [
-      "macro",
-      "nested item or alias",
-      "raw address or macro",
-      "unreviewed call core::mem::size_of"
+      "unconverted dependencies: sub_00011F10,sub_00043920,sub_00043B80,sub_00043BF0,sub_001D7D50,sub_0034F8F0"
     ],
     "sub_00014170": [
       "unconverted dependencies: sub_001B2C60,sub_001C1250"
     ],
     "sub_000141D0": [
-      "macro",
-      "nested item or alias",
-      "raw address or macro",
-      "unreviewed call core::mem::size_of"
+      "unconverted dependencies: sub_00014090"
     ],
     "sub_00014470": [
-      "macro",
-      "nested item or alias",
-      "raw address or macro",
-      "unreviewed call core::mem::size_of"
+      "unconverted dependencies: sub_00013B80,sub_001B2C60,sub_001C1250,sub_00243215"
     ],
     "sub_000146E0": [
       "indirect call",
@@ -100,16 +89,13 @@
       "unreviewed guest pointer"
     ],
     "sub_00014730": [
-      "unreviewed call core::mem::size_of"
+      "unconverted dependencies: sub_001BEEF0,sub_001C8E20"
     ],
     "sub_00014760": [
       "unconverted dependencies: sub_0005E6C0,sub_00061B20,sub_001AEE20"
     ],
     "sub_00014860": [
       "indirect call",
-      "macro",
-      "nested item or alias",
-      "raw address or macro",
       "raw/function pointer type",
       "unreviewed call recomp_icall_fail_log",
       "unreviewed call recomp_lookup",
@@ -119,9 +105,6 @@
     ],
     "sub_00014C80": [
       "indirect call",
-      "macro",
-      "nested item or alias",
-      "raw address or macro",
       "unreviewed call recomp_icall_fail_log",
       "unreviewed call recomp_icall_not_code_log",
       "unreviewed call recomp_lookup",
@@ -136,9 +119,6 @@
     ],
     "sub_00014D80": [
       "indirect call",
-      "macro",
-      "nested item or alias",
-      "raw address or macro",
       "unreviewed call recomp_icall_fail_log",
       "unreviewed call recomp_icall_not_code_log",
       "unreviewed call recomp_lookup",
@@ -149,15 +129,9 @@
       "unreviewed guest pointer"
     ],
     "sub_00014FB0": [
-      "macro",
-      "nested item or alias",
-      "raw address or macro"
+      "unconverted dependencies: sub_001CB6C0,sub_001CBF30,sub_001CE140,sub_001CE6A0"
     ],
     "sub_000151D0": [
-      "macro",
-      "nested item or alias",
-      "raw address or macro",
-      "unreviewed call core::mem::size_of",
       "unreviewed call core::ptr::with_exposed_provenance_mut",
       "unreviewed call memset",
       "unreviewed global g_xbox_mem_offset",
@@ -166,9 +140,6 @@
     ],
     "sub_000152E0": [
       "indirect call",
-      "macro",
-      "nested item or alias",
-      "raw address or macro",
       "unreviewed call recomp_icall_fail_log",
       "unreviewed call recomp_lookup",
       "unreviewed call recomp_lookup_kernel",
@@ -190,9 +161,6 @@
       "unreviewed global g_xbox_code_hi",
       "unreviewed global g_xbox_code_lo",
       "unreviewed guest pointer"
-    ],
-    "sub_00015650": [
-      "unreviewed call core::mem::size_of"
     ]
   },
   "schema": 1,
