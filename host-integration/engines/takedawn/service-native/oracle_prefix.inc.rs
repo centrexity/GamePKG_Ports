@@ -91,3 +91,8 @@ unsafe fn recomp_lookup(address:u32)->recomp_func_t {
 }
 pub unsafe fn call_bounds(low:u32,high:u32) {g_xbox_code_lo=low;g_xbox_code_hi=high;}
 pub unsafe fn call_snapshot()->([u32;16],u32,u64) {(g_icall_trace,g_icall_trace_idx,g_icall_count)}
+
+// Reference-only pinned C debug helper. No console output and no game binding.
+unsafe fn recomp_debug_service(service:u32,argument:u32) {
+    crate::gamepkg_debug_service_ref(service,argument,g_xbox_mem_offset as usize);
+}

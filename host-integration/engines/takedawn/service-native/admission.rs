@@ -56,6 +56,30 @@ fn read_events(path: &Path) -> Vec<(u32, u32, Vec<u64>)> {
     assert_eq!(offset, bytes.len());
     events
 }
+fn read_byte_events(path: &Path) -> Vec<(u32, u32, Vec<u8>)> {
+    let bytes = fs::read(path).unwrap();
+    assert_eq!(&bytes[..4], b"GPB1");
+    let mut offset = 4usize;
+    let word = |offset: &mut usize| {
+        let value = u32::from_le_bytes(bytes[*offset..*offset + 4].try_into().unwrap());
+        *offset += 4;
+        value
+    };
+    let count = word(&mut offset);
+    assert!(count <= 128);
+    let mut events = Vec::new();
+    for _ in 0..count {
+        let level = word(&mut offset);
+        let code = word(&mut offset);
+        let length = word(&mut offset) as usize;
+        assert!(level <= 3 && length <= 128 * 1024);
+        let end = offset.checked_add(length).unwrap();
+        events.push((level, code, bytes[offset..end].to_vec()));
+        offset = end;
+    }
+    assert_eq!(offset, bytes.len());
+    events
+}
 fn reject_bad_vectors(artifact: &preparation::Artifact) {
     let mut cases = Vec::new();
     for (magic, batches, count, error) in [
@@ -151,6 +175,8 @@ fn main() {
         "scalar.rs",
         "copy_checks.rs",
         "fill_checks.rs",
+        "debug.rs",
+        "debug_checks.rs",
         "call_state.rs",
         "call_checks.rs",
     ] {
@@ -161,6 +187,16 @@ fn main() {
         let report: serde_json::Value =
             serde_json::from_slice(&fs::read(prepared.join("inventory.json")).unwrap()).unwrap();
         assert_eq!(report["production_ready"], false);
+        assert_eq!(
+            report["debug_adapter_sha256"],
+            gamepkg::verify::digest(&fs::read(here.join("debug.rs")).unwrap())
+        );
+        assert_eq!(
+            report["debug_review_sha256"],
+            gamepkg::verify::digest(
+                &fs::read(here.join("maintainer/reviewed_debug_service.json")).unwrap()
+            )
+        );
         for (name, hash) in report["emitted_files"].as_object().unwrap() {
             assert!(gamepkg::archive::valid_path(name) && name.ends_with(".rs"));
             let data = fs::read(prepared.join(name)).unwrap();
@@ -178,7 +214,7 @@ fn main() {
             .unwrap();
         }
     }
-    let mut library="mod memory;mod call_state;mod call_checks;mod copy_checks;mod fill_checks;mod vector;mod scalar;mod registers;mod game;mod dispatch;mod fixture;pub fn game_main(){fixture::game_main();}\n".to_owned();
+    let mut library="mod memory;mod call_state;mod call_checks;mod copy_checks;mod fill_checks;mod debug;mod debug_checks;mod vector;mod scalar;mod registers;mod game;mod dispatch;mod fixture;pub fn game_main(){fixture::game_main();}\n".to_owned();
     if let Some(directory) = call_targets {
         let directory = Path::new(directory);
         let report: serde_json::Value =
@@ -403,9 +439,27 @@ fn main() {
             values.resize(19, 0);
             expected_events.push((2, 0x544b0002, values));
         }
+        let byte_events: Vec<_> = observed
+            .iter()
+            .filter(|event| event.bytes.is_some())
+            .collect();
+        let expected_bytes = read_byte_events(&vectors.with_file_name("debug-diagnostics"));
+        assert_eq!(byte_events.len(), expected_bytes.len());
+        for (event, expected) in byte_events.iter().zip(&expected_bytes) {
+            assert_eq!((event.level, event.code), (expected.0, expected.1));
+            assert!(event.values.is_empty());
+            assert_eq!(event.bytes.as_ref().unwrap(), &expected.2);
+        }
+        for (index, event) in observed.iter().enumerate() {
+            assert_eq!(event.sequence, index as u64 + 1);
+        }
+        let observed: Vec<_> = observed
+            .iter()
+            .filter(|event| event.bytes.is_none())
+            .collect();
         assert_eq!(observed.len(), expected_events.len());
         for (index, (event, expected)) in observed.iter().zip(&expected_events).enumerate() {
-            assert_eq!(event.sequence, index as u64 + 1);
+            let _ = index;
             assert_eq!(
                 (event.level, event.code, &event.values),
                 (expected.0, expected.1, &expected.2)

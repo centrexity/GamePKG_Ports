@@ -1,5 +1,11 @@
 # Checked native generated-function migration
 
+Latest bounded-debug checkpoint: 19,295 literal-dependency-closed candidates;
+38 original functions / 4,864 native reference cases per target. The named
+entrypoint's literal chain now closes. Runtime routes, bootstrap, graphics and
+media remain incomplete, so Burnout is not enabled. Earlier checkpoint sections
+below preserve their narrower coverage and are superseded by the final section.
+
 This is the first **incomplete** source component, not a playable source kit.
 It converts 32 of the 50 native function definitions in pinned unit
 `prepared/src/recomp_0000_001.rs`. All 18 remaining definitions are explicitly
@@ -42,10 +48,10 @@ private keys are included. Reference data is synthetic and generated locally.
 
 ## Contracts
 
-Requires app commit `89ce271eeeb53cc115a74de521abb25e261fe127` with
-`local_memory_fill` / local op 8 (currently
-`native_sdk=2ad400cf620d973a`) or a compatible later implementation. Older SDKs
-without fill are insufficient; stale executable receipts must be rebuilt.
+Requires app commit `7f6b19cdbf38b594a244326951abd309da595471` with
+`local_memory_fill` / local op 8 and `diagnostic_bytes` / service op 64
+(`native_sdk=f9b87d0fde634662`) or a compatible later implementation. Older SDKs
+without these operations are insufficient; stale executable receipts must be rebuilt.
 
 The admission fixture requests `Plan::with_codegen_units(4)` and requires two
 to four retained, independently optimized game objects on each target. Every
@@ -94,15 +100,15 @@ The current inventory covers **24,016 definitions**: 24,015 distinct
 `sub_XXXXXXXX` bodies, including recovered/unresolved sources, and the exact
 unit-bound `xbe_entry_point`. Five `_gen` variants still need inclusion; this
 count is not the entire runnable title. Existing lowering
-rules recognize 23,007 locally; removing missing dependencies transitively leaves
-**19,080 candidates closed over literal direct dependencies**, with 4,726 direct edges, including 3,179 across units.
-Runtime routes remain partial: 803 retained functions contain rewritten runtime
+rules recognize 23,008 locally; removing missing dependencies transitively leaves
+**19,295 candidates closed over literal direct dependencies**, with 5,456 direct edges, including 3,692 across units.
+Runtime routes remain partial: 843 retained functions contain rewritten runtime
 calls, and known unmigrated destinations fail Unsupported. This is not a fully
-closed runtime graph. The other **4,936** definitions remain explicitly
+closed runtime graph. The other **4,721** definitions remain explicitly
 unconverted. There are no
 substitute bodies, dynamic native function pointers or unknown-target fallbacks.
 
-Prepared candidates use 2,409 Rust files (113,979,673 bytes). At most eight native
+Prepared candidates use 2,437 Rust files (121,975,559 bytes). At most eight native
 functions per module plus byte/token-aware splitting bound source size. An AST pass rewrites only direct function
 paths to their owning modules; literals are untouched. Binary selection routes
 call statically compiled functions directly, with at most logarithmic selection
@@ -132,14 +138,14 @@ python3 host-integration/engines/takedawn/service-native/check.py \
 
 The whole graph passes source admission and separate optimized object auditing/
 trusted linking for Linux64/Linux32/Windows64/Windows32. Confined native Linux
-children execute 4,736 vectors with the complete graph linked, including 1,024
+children execute 4,864 vectors with the complete graph linked, including 1,024
 cases for original `sub_00244DF0` and 512 cases for original `sub_001FBAE0`.
-**Semantic differential coverage is 37 functions**; compiling/auditing
-19,080 functions does not establish the other functions' behavior. Windows
+**Semantic differential coverage is 38 functions**; compiling/auditing
+19,295 functions does not establish the other functions' behavior. Windows
 reference comparisons execute under Wine; the prepared service executables
 are build evidence, not physical Windows gameplay. The full engine, ISO loader,
 kernel/media bridges, verified renderer, saves, input/audio, pacing and the
-remaining 4,936 functions still require migration/qualification before enablement.
+remaining 4,721 functions still require migration/qualification before enablement.
 
 ## Compacted control-flow contract
 
@@ -695,7 +701,7 @@ full formatting behavior, physical devices, audible audio or frame pacing.
 
 The untraced-jump checkpoint added 207 retained functions with all 18,651 prior
 function/dependency records and lowered-body hashes unchanged. The current
-literal-call closure contains 19,080 functions; semantic reference qualification
+literal-call closure contains 19,295 functions; semantic reference qualification
 is 37 functions and 4,736 vectors. The named entrypoint is now inventoried but
 blocked by dependencies; five `_gen` helpers still need inclusion. Known missing
 runtime handlers still fail Unsupported.
@@ -778,3 +784,52 @@ function/dependency records. The named entrypoint remains dependency-blocked by
 `recomp_debug_service` in `sub_001D2955`; all other native/runtime/media gates
 remain unchanged. Completing a fill adapter does not qualify the full original
 startup helper, debugger contract, renderer or title.
+
+## Bounded debug-service migration
+
+The original `recomp_debug_service(service, argument)` behavior stays in
+ordinary checked Rust `debug.rs`; the generic host stores bounded diagnostic
+bytes. Only unused-result calls with two proven u32 arguments, an exact plain
+callee, no shadowed names and no nested attributes lower. Wrong widths, generic
+arguments, altered arity and returned-result use reject conversion.
+
+Service 1 reads the original counted ANSI descriptor through checked RAM.
+MaximumLength is ignored, as in the pinned implementation. Output stops at the
+first NUL or Length, but newline insertion independently examines the last
+counted byte. Null descriptors, null buffers and zero lengths preserve their
+defined quiet behavior. Unknown service numbers preserve the original unsigned
+decimal/uppercase-hex ignored notice and read no RAM. Required read failures
+propagate before any partial message is recorded. The adapter exposes no host
+pointer, format string or native console; its fixed-length 65,544-byte buffer
+needs no growable per-byte allocation helper or expanded object-import rule.
+
+GamePKG op 64 takes LE level/code/byte-count u32 fields followed by at most
+128 KiB exact bytes; the reply is an 8-byte sequence. Byte and numeric events
+share 128 records and a 1 MiB payload ring. Human summaries escape controls and
+non-UTF-8 bytes and display at most 256 input bytes per record. Host drains retain
+exact complete payloads; eviction is explicit. The player charges a separate
+2 MiB diagnostic reservation. Unsupported, denial and transport failures
+propagate; direct stdout/stderr is never a fallback.
+
+The maintainer reference verifies both the whole pinned C file and the exact
+helper body hashes before inserting that unchanged body into an inert stdio
+capture template. This C is oracle-only and never admitted or linked into game
+or trusted runtime objects. Seven adapter requests cover ignored services, NUL
+precision, independent newline decisions, raw non-UTF-8/control bytes and the
+maximum counted string. Quiet, bounded-view, read-only and denied-tail cases
+also execute as ordinary checked source in the confined Linux children. Private
+GPB1 diagnostic fixtures have bounded fields and require exact EOF.
+
+Prepared native comparisons now add 128 unchanged original `sub_001D2955` cases,
+including empty/unaligned strings, literal percent characters, non-UTF-8 and
+newline endings. Total reference coverage is 38 original functions and 4,864
+vectors per target, preserving all earlier case inputs and the TKN9/v4 record
+format. Linux32/64 and Windows32/64-under-Wine compare registers, full 8 MiB RAM,
+trace data and exact diagnostic bytes. The source/object admission and runtime
+checks are separate from these reference comparisons. None establishes physical
+controls, audible output, gameplay, ISO boot or frame pacing.
+
+The bounded-debug checkpoint retains 215 additional functions, including the
+named entrypoint, with all 19,080 prior body/dependency records unchanged.
+Literal closure now contains 19,295 functions. Runtime entry/manual/kernel/
+soundtrack migration faults and the legacy admission gate remain enforced.

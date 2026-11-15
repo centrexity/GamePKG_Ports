@@ -1,0 +1,9 @@
+{
+  "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+  "member": "toolkit/src/kernel/recomp_trace.c",
+  "source_sha256": "a09b78b82f51d06ea5de016dbf4bfbfde00f44da127a34147a8f0a5d8f293d39",
+  "function_start": 9632,
+  "function_end": 10462,
+  "function_sha256": "bf772a2f4b21eccd069118b756b32775e4078a859446810eb3a2608069c3984d",
+  "contract": "service 1 counted ANSI print; other unsigned services print ignored notice; no register/RAM writes; stdio retained only in maintainer reference"
+}

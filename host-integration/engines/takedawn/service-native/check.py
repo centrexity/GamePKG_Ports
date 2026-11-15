@@ -21,6 +21,21 @@ def pinned_function(text, prefix):
     assert not any(marker in outside for marker in ['//','/*',"'{'","'}'"])
     return body
 
+def prepare_debug_reference(here,kit,scratch):
+    pin=json.loads((here/'maintainer/reviewed_debug_service.json').read_text())
+    assert pin['source_kit_sha256']==KIT
+    with tarfile.open(kit) as archive:
+        data=archive.extractfile(pin['member']).read()
+    assert hashlib.sha256(data).hexdigest()==pin['source_sha256']
+    body=data[pin['function_start']:pin['function_end']]
+    assert hashlib.sha256(body).hexdigest()==pin['function_sha256']
+    assert body.startswith(b'void recomp_debug_service(uint32_t service, uint32_t arg_va)')
+    template=(here/'debug_reference.c.in').read_text()
+    assert template.count('/* GAMEPKG_PINNED_ORIGINAL_BODY */')==1
+    output=scratch/'debug_reference.c'
+    output.write_text(template.replace('/* GAMEPKG_PINNED_ORIGINAL_BODY */',body.decode()))
+    return output
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--app',type=Path,required=True)
@@ -56,6 +71,7 @@ def main():
             fs_original=""
             loop_original=""
             loop_support=""
+            debug_original=""
             helper_units=[('prepared/src/recomp_0000_000.rs',['XMM_SUB','XMM_XOR']),
                           ('prepared/src/recomp_0002_018.rs',['recomp_fp_round24']),
                           ('prepared/src/recomp_0004_010.rs',['recomp_parity8']),
@@ -67,6 +83,9 @@ def main():
             for helper in ['recomp_icall_not_code_log','recomp_icall_fail_log']:
                 extra_helpers.append(pinned_function(manual_data.decode(),'pub unsafe extern "C" fn '+helper+'('))
             if args.prepared:
+                debug_data=archive.extractfile('prepared/src/recomp_0004_014.rs').read()
+                assert hashlib.sha256(debug_data).hexdigest()==pins['recomp_0004_014.rs']
+                debug_original=pinned_function(debug_data.decode(),'pub unsafe extern "C" fn sub_001D2955(')
                 icall_data=archive.extractfile('prepared/src/recomp_0005_013.rs').read()
                 assert hashlib.sha256(icall_data).hexdigest()==pins['recomp_0005_013.rs']
                 icall_original=pinned_function(icall_data.decode(),'pub unsafe extern "C" fn sub_001FBAE0(')
@@ -91,6 +110,7 @@ def main():
                     loop_support=pinned_function(extra_unit,'pub unsafe extern "C" fn sub_0024499E(')
                 if args.prepared and unit_name=="prepared/src/recomp_0007_001.rs":
                     extra_original=pinned_function(extra_unit,'pub unsafe extern "C" fn sub_00244DF0(')
+        debug_source=prepare_debug_reference(here,kit,scratch)
         if hashlib.sha256(original).hexdigest()!=UNIT_HASH:raise RuntimeError('Changed original unit')
         unit=scratch/'original.rs';unit.write_bytes(original)
         generated=scratch/'generated'
@@ -115,13 +135,13 @@ def main():
         # The complete harness below repeats source admission and unused-reference
         # rejection before binding injection. Avoid a duplicate whole-kit walk;
         # keep the small early diagnostic for the default single-unit fixture.
-        if not args.prepared and not args.call_targets:
-            subprocess.run([str(probe),str(app),str(here),"--source-only"],check=True)
+        if not args.prepared:
+            subprocess.run([str(probe),str(app),str(here),"--source-only",*prepared],check=True)
         names=list(record['converted'])
         game_file=generated/'game.rs';dispatch_file=generated/'dispatch.rs'
         if args.prepared:
             report=json.loads((args.prepared/'inventory.json').read_text());selected={};locations={}
-            wanted={'sub_00244DF0':'recomp_0007_001.rs','sub_001FBAE0':'recomp_0005_013.rs','sub_00243450':'recomp_0006_019.rs','sub_002447BF':'recomp_0007_000.rs','sub_0024490A':'recomp_0007_000.rs','sub_0024499E':'recomp_0007_000.rs'}
+            wanted={'sub_00244DF0':'recomp_0007_001.rs','sub_001FBAE0':'recomp_0005_013.rs','sub_00243450':'recomp_0006_019.rs','sub_002447BF':'recomp_0007_000.rs','sub_0024490A':'recomp_0007_000.rs','sub_0024499E':'recomp_0007_000.rs','sub_001D2955':'recomp_0004_014.rs'}
             for name,unit_name in wanted.items():
                 entry=report['closed_graph'][name];assert entry['unit']==unit_name and entry['dependencies']==(['sub_0024499E'] if name=='sub_0024490A' else [])
             for filename,expected in report['emitted_files'].items():
@@ -146,16 +166,16 @@ def main():
             dispatch_file=scratch/'combined_dispatch.rs'
             branches=''.join('0x'+name[4:]+'=>crate::game::'+name+'(native_state,guest_ram),' for name in selected)
             dispatch_file.write_text('pub fn invoke(native_state:&mut crate::registers::Registers,guest_ram:&mut crate::memory::Memory,address:u32)->Result<(),i32>{if !native_state.valid(){return Err(-1);}match address{'+branches+'_=>crate::base_dispatch::invoke(native_state,guest_ram,address)}}')
-            names+=[n for n in selected if n not in ['sub_0024490A','sub_0024499E']]
-            names.append('sub_0024490A')
-        oracle=here.joinpath('oracle_prefix.inc.rs').read_text()+'\n'+generated.joinpath('oracle_helpers.rs').read_text()+'\n'+'\n'.join(extra_helpers)+'\n'+generated.joinpath('oracle.rs').read_text()+'\n'+extra_original+'\n'+icall_original+'\n'+split_original+'\n'+fs_original+'\n'+loop_original+'\n'+loop_support
+            names+=[n for n in selected if n not in ['sub_0024490A','sub_0024499E','sub_001D2955']]
+            names+=['sub_0024490A','sub_001D2955']
+        oracle=here.joinpath('oracle_prefix.inc.rs').read_text()+'\n'+generated.joinpath('oracle_helpers.rs').read_text()+'\n'+'\n'.join(extra_helpers)+'\n'+generated.joinpath('oracle.rs').read_text()+'\n'+extra_original+'\n'+icall_original+'\n'+split_original+'\n'+fs_original+'\n'+loop_original+'\n'+loop_support+'\n'+debug_original
         oracle+='\npub unsafe fn invoke(address:u32){match address{'+''.join(f'0x{n[4:]}=>{n}(),' for n in names)+'_=>panic!("unknown reference function")}}\n'
         oracle+='\npub unsafe fn helper(operation:u32,first:[u32;4],second:[u32;4],immediate:u32)->[u32;4]{let a=RecompXmm{u:first};let b=RecompXmm{u:second};let result=match operation{0=>XMM_ADD(a,b),1=>XMM_SUB(a,b),2=>XMM_MUL(a,b),3=>XMM_XOR(a,b),4=>XMM_SHUFFLE(a,b,immediate),5=>XMM_SCALAR(f32::from_bits(first[0])),6=>XMM_ZERO(),_=>panic!("unknown helper")};result.u}\n'
         oracle+='\npub unsafe fn scalar_round24(value:f64)->f64{recomp_fp_round24(value)}pub unsafe fn scalar_parity8(value:u32)->i32{recomp_parity8(value)}pub unsafe fn scalar_rotate(value:u32,count:u32,carry:&mut i32,width:u32,left:bool)->u32{RC_ROT(value,count,carry,width,i32::from(left))}\n'
         oracle+='\npub unsafe fn scalar_round_integer(value:f64,control:u16)->f64{recomp_frndint(value,control)}pub unsafe fn scalar_integer_store(value:f64,control:u16,width:u32)->i64{recomp_fist(value,control,width)}\n'
         oracle_file=scratch/'reference.rs';oracle_file.write_text(oracle)
         wrapper='#![allow(non_camel_case_types,non_snake_case,non_upper_case_globals,unused_assignments,unused_variables,unused_mut,unused_parens,dead_code,unreachable_code)]\n'
-        for module,path in [('client',app/'engines/native-services/client.rs'),('local',app/'engines/native-services/local_bindings.rs'),('memory',here/'memory.rs'),('call_state',here/'call_state.rs'),('copy_checks',here/'copy_checks.rs'),('fill_checks',here/'fill_checks.rs'),('fs_checks',here/'fs_checks.rs'),('jump_checks',here/'jump_checks.rs'),('vector',here/'vector.rs'),('scalar',here/'scalar.rs'),('registers',here/'registers.rs'),('game',game_file),('base_dispatch',generated/'dispatch.rs'),('dispatch',dispatch_file),('oracle',oracle_file)]:
+        for module,path in [('client',app/'engines/native-services/client.rs'),('local',app/'engines/native-services/local_bindings.rs'),('memory',here/'memory.rs'),('call_state',here/'call_state.rs'),('copy_checks',here/'copy_checks.rs'),('fill_checks',here/'fill_checks.rs'),('debug',here/'debug.rs'),('debug_checks',here/'debug_checks.rs'),('fs_checks',here/'fs_checks.rs'),('jump_checks',here/'jump_checks.rs'),('vector',here/'vector.rs'),('scalar',here/'scalar.rs'),('registers',here/'registers.rs'),('game',game_file),('base_dispatch',generated/'dispatch.rs'),('dispatch',dispatch_file),('oracle',oracle_file)]:
             wrapper+=f'#[path={json.dumps(str(path))}]mod {module};\n'
         wrapper+=here.joinpath('reference_call_events.rs').read_text()+'\n'
         if args.call_targets:
@@ -168,6 +188,7 @@ def main():
             raise RuntimeError('Runtime call qualification requires --call-targets')
         wrapper+=(here/'runtime_guard_checks.rs').read_text() if args.call_targets else 'fn compare_runtime_guards() {}\n'
         wrapper+=f'const ADDRESSES:[u32;{len(names)}]=['+','.join('0x'+n[4:] for n in names)+'];\n'
+        wrapper+=here.joinpath('debug_reference.inc.rs').read_text()+'\n'
         wrapper+=here.joinpath('comparison.rs').read_text()
         main_rs=scratch/'main.rs';main_rs.write_text(wrapper)
         vectors=scratch/'vectors'
@@ -193,6 +214,10 @@ def main():
             compiler={'x86_64-unknown-linux-gnu':['gcc'],'i686-unknown-linux-gnu':['/usr/bin/gcc-11','-m32'],'x86_64-pc-windows-gnu':['x86_64-w64-mingw32-gcc'],'i686-pc-windows-gnu':['i686-w64-mingw32-gcc']}[triple]
             subprocess.run(compiler+['-std=c11','-Wall','-Wextra','-Werror','-O2','-c',str(here/'icall_reference.c'),'-o',str(reference_object)],check=True)
             command+=['-C','link-arg='+str(reference_object)]
+            debug_object=scratch/('debug-reference-'+triple+'.o')
+            subprocess.run(compiler+['-std=c11','-Wall','-Wextra','-Werror','-O2','-c',str(debug_source),'-o',str(debug_object)],check=True)
+            command+=['-C','link-arg='+str(debug_object)]
+            if 'windows' in triple:command+=['-C','link-arg=-Wl,--start-group','-C','link-arg=-lmingwex','-C','link-arg=-lmsvcrt','-C','link-arg=-lkernel32','-C','link-arg=-Wl,--end-group'] # reference-only C stdio implementation, after its object
             subprocess.run(command,check=True)
             if 'windows' not in triple:
                 subprocess.run([str(exe)]+([str(vectors)] if triple.startswith('x86_64') else []),check=True,timeout=180)

@@ -1,0 +1,41 @@
+/* Maintainer oracle only. Exact hash-bound original body is inserted below.
+ * Capture its stdio into an owned buffer, never console/device output. */
+#include <stdint.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdarg.h>
+static uintptr_t g_xbox_mem_offset;
+static unsigned char captured[131072];
+static size_t used;
+static uint32_t current_service;
+extern void gamepkg_reference_debug_bytes(uint32_t, uint32_t, const unsigned char *, size_t);
+static int capture_fprintf(FILE *stream, const char *format, ...) {
+    if (stream != stderr) abort();
+    va_list args; va_start(args,format);
+    int length=vsnprintf((char *)captured+used,sizeof(captured)-used,format,args);
+    va_end(args);
+    if (length<0 || (size_t)length>=sizeof(captured)-used) abort();
+    used+=(size_t)length; return length;
+}
+static int capture_fputc(int byte, FILE *stream) {
+    if (stream != stderr || used==sizeof(captured)) abort();
+    captured[used++]=(unsigned char)byte; return byte;
+}
+static int capture_fflush(FILE *stream) {
+    if (stream != stderr) abort();
+    gamepkg_reference_debug_bytes(current_service==1?1:2,
+        current_service==1?0x544b0004:0x544b0005,captured,used);
+    used=0; return 0;
+}
+#define fprintf capture_fprintf
+#define fputc capture_fputc
+#define fflush capture_fflush
+/* GAMEPKG_PINNED_ORIGINAL_BODY */
+#undef fprintf
+#undef fputc
+#undef fflush
+void gamepkg_debug_service_ref(uint32_t service,uint32_t argument,uintptr_t base) {
+    g_xbox_mem_offset=base; current_service=service; used=0;
+    recomp_debug_service(service,argument);
+}

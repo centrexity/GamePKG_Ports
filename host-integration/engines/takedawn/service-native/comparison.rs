@@ -16,7 +16,7 @@ fn reference_case_count(address: u32) -> u32 {
         0x1fbae0 => 512,
         0x243450 => 256,
         0x15570 => 128,
-        0x2447bf => 128,
+        0x2447bf | 0x1d2955 => 128,
         0x24490a => 512,
         0x13d10 | 0x13e50 => 128,
         _ => 32,
@@ -173,6 +173,24 @@ fn compare_case(
                 &[0u32, 1, 2, 3, 4, u32::MAX, 0x80000000][iteration as usize % 7].to_le_bytes(),
             );
             bytes[at + (iteration as usize % 9) * 2..at + (iteration as usize % 9) * 2 + 2].fill(0);
+        }
+        if address == 0x1d2955 {
+            let string = 0x11080u32 + (iteration & 3);
+            if base == 0x1fe00 {
+                let at = (r.esp - base) as usize;
+                bytes[at + 4..at + 8].copy_from_slice(&string.to_le_bytes());
+            }
+            if base == 0x11000 {
+                let length = [0usize, 1, 2, 3, 7, 31, 63, 127, 255, 511][iteration as usize % 10];
+                let at = (string - base) as usize;
+                for index in 0..length {
+                    bytes[at + index] = [b'A', b'%', 255, 27, b'z'][index % 5];
+                }
+                if length > 0 && iteration % 3 == 0 {
+                    bytes[at + length - 1] = b'\n';
+                }
+                bytes[at + length] = 0;
+            }
         }
         if base == 0x3b1680 {
             bytes[12..16].copy_from_slice(
@@ -406,6 +424,7 @@ fn memory_boundaries(ram: &mut memory::Memory, window: u64) {
     local::shutdown();
     assert_eq!(ram.read_u8(0), Err(-4));
     assert_eq!(ram.fill(0, 1, 1), Err(-4));
+    assert_eq!(debug::service(ram, 1, 0x12000), Err(-4));
     assert_eq!(ram.fill(0xffffffff, 1, 0), Ok(()));
     if ADDRESSES.contains(&0x2447bf) {
         context.fp_top = 0;
@@ -811,6 +830,12 @@ fn main() {
     compare_scalar_helpers(&mut output);
     copy_checks::verify(&mut ram, window).unwrap();
     fill_checks::verify(&mut ram, window).unwrap();
+    compare_debug_service(
+        &mut ram,
+        window,
+        args.get(1)
+            .map(|path| Path::new(path).with_file_name("debug-diagnostics")),
+    );
     memory_boundaries(&mut ram, window);
     println!("PASS: {} original native functions / {count} differential register and whole-RAM vectors; aliases, unaligned LE accesses, overflow, read-only/protected/uncommitted memory and revocation; no instruction interpreter",ADDRESSES.len());
 }

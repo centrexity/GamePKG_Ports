@@ -2,8 +2,13 @@
 use std::sync::Mutex;
 static ORIGINAL_EVENTS: Mutex<Vec<(u32,u32,Vec<u64>)>>=Mutex::new(Vec::new());
 static PORTED_EVENTS: Mutex<Vec<(u32,u32,Vec<u64>)>>=Mutex::new(Vec::new());
+static PORTED_BYTE_EVENTS: Mutex<Vec<(u32,u32,Vec<u8>)>>=Mutex::new(Vec::new());
 mod gamepkg {
     pub use crate::client::{local_call,local_memory_copy,local_memory_fill,local_record_create,local_record_snapshot,local_record_compare_exchange,local_record_release};
+    pub fn diagnostic_bytes(level:u32,code:u32,bytes:&[u8])->Result<u64,i32> {
+        assert!(level<=3 && bytes.len()<=128*1024);
+        let mut events=crate::PORTED_BYTE_EVENTS.lock().unwrap();events.push((level,code,bytes.to_vec()));Ok(events.len() as u64)
+    }
     pub fn diagnostic(level:u32,code:u32,values:&[u64])->Result<u64,i32> {
         assert!(level<=3 && values.len()<=32);
         let mut events=crate::PORTED_EVENTS.lock().unwrap();events.push((level,code,values.to_vec()));Ok(events.len() as u64)
