@@ -5,6 +5,11 @@ mod history;
 mod paths;
 mod recovery;
 mod state;
+mod worker;
+mod worker_fixture;
+pub fn save_worker(argument: u64) -> u64 {
+    worker::run(argument)
+}
 
 fn checkpoint(point: i16) {
     let _ = gamepkg::audio(&[point], 1);
@@ -38,6 +43,17 @@ pub fn game_main() {
         return;
     }
     if gamepkg::file_close(control) != Ok(()) {
+        return;
+    }
+    if byte[0] >= 10 {
+        match worker_fixture::exercise(save, byte[0]) {
+            Ok(()) => {
+                let _ = gamepkg::audio(&[200i16 + i16::from(byte[0])], 1);
+            }
+            Err(error) => {
+                let _ = gamepkg::audio(&[error as i16], 1);
+            }
+        }
         return;
     }
     let mut guard = adapter::SaveGuard::new(save);

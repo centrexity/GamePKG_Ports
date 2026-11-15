@@ -131,6 +131,8 @@ fn main() {
         "adapter.rs",
         "history.rs",
         "recovery.rs",
+        "worker.rs",
+        "worker_fixture.rs",
     ] {
         fs::copy(here.join(module), source.join("source/src").join(module)).unwrap();
     }
@@ -155,7 +157,14 @@ fn main() {
     let checked =
         CheckedSources::verify(&mut gamepkg::archive::Package::open(&archive).unwrap()).unwrap();
     for target in [Target::Linux64, Target::Linux32] {
-        let plan = Plan::new(target, "game_main", vec![], LocalLayout::None, true).unwrap();
+        let plan = Plan::new(
+            target,
+            "game_main",
+            vec!["save_worker".into()],
+            LocalLayout::None,
+            true,
+        )
+        .unwrap();
         let artifact = preparation::build(project.path(), &checked, &plan, vec![], vec![]).unwrap();
         for phase in 1..=5u8 {
             let data = tempfile::tempdir().unwrap();
@@ -190,6 +199,79 @@ fn main() {
             );
             assert!(!base.join("UDATA/12345678/profile.~new").exists());
         }
+        for phase in 10..=19u8 {
+            let data = tempfile::tempdir().unwrap();
+            let controls = tempfile::tempdir().unwrap();
+            fs::write(controls.path().join("phase"), [phase]).unwrap();
+            drop(save_grant(data.path(), checked.manifest()));
+            let base = save_directory(data.path(), checked.manifest());
+            fs::create_dir_all(base.join("UDATA/12345678")).unwrap();
+            fs::create_dir_all(base.join("TDATA/12345678")).unwrap();
+            let real = base.join("UDATA/12345678/profile");
+            fs::write(&real, b"old-save").unwrap();
+            fs::write(base.join("TDATA/12345678/settings"), b"settings").unwrap();
+            if phase == 15 || phase == 16 {
+                let pending = base.join("UDATA/12345678/profile.~pend");
+                fs::write(&pending, b"new-save").unwrap();
+                if phase == 16 {
+                    fs::File::options()
+                        .write(true)
+                        .open(pending)
+                        .unwrap()
+                        .set_modified(std::time::UNIX_EPOCH + Duration::from_secs(1))
+                        .unwrap();
+                }
+            }
+            execute(
+                &artifact,
+                data.path(),
+                controls.path(),
+                200 + i16::from(phase),
+                false,
+            );
+            drop(save_grant(data.path(), checked.manifest()));
+            if phase == 17 {
+                assert!(!real.exists());
+            } else {
+                assert_eq!(
+                    fs::read(&real).unwrap(),
+                    if phase == 10 || phase == 15 {
+                        b"new-save"
+                    } else {
+                        b"old-save"
+                    },
+                    "worker phase {phase}"
+                );
+            }
+            let snapshot = base.join("save-history/20261114-120000");
+            if phase == 10 || phase == 16 {
+                assert!(snapshot.join("save-export.txt").is_file());
+                assert_eq!(
+                    fs::read(snapshot.join("UDATA/12345678/profile")).unwrap(),
+                    if phase == 16 {
+                        b"new-save"
+                    } else {
+                        b"old-save"
+                    }
+                );
+                assert_eq!(
+                    fs::read(snapshot.join("TDATA/12345678/settings")).unwrap(),
+                    b"settings"
+                );
+            }
+            if phase == 11 || phase == 12 {
+                assert_eq!(
+                    fs::read(base.join("UDATA/12345678/profile.~new")).unwrap(),
+                    b"new-save"
+                );
+                fs::write(controls.path().join("phase"), [0]).unwrap();
+                execute(&artifact, data.path(), controls.path(), 100, false);
+                drop(save_grant(data.path(), checked.manifest()));
+                assert_eq!(fs::read(&real).unwrap(), b"old-save");
+                assert!(!base.join("UDATA/12345678/profile.~new").exists());
+            }
+        }
+        println!("PASS {target:?}: ten real reviewed-worker scenarios, including asynchronous saves/history, cancellation, unfinished shutdown, startup recovery, quota cleanup on failed spawn and malformed requests; dummy output only");
         println!("PASS {target:?}: five real process terminations and five confined startup recoveries; dummy output only");
     }
     println!("Actual native processes/temporary saves, not power-loss, real game saves, Windows runtime or gameplay qualification");

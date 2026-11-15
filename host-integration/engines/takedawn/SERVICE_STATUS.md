@@ -1,4 +1,4 @@
-# Shared-service migration status — 2026-11-14
+# Shared-service migration status — 2026-11-15
 
 This is tested integration work, **not a playable Burnout release**. The legacy
 profile remains blocked. No source pin, signature, cached executable or engine
@@ -7,7 +7,8 @@ exception may bypass that block. The source kit and catalog URLs are unchanged.
 Incremental save migration: [service-save/README.md](service-save/README.md).
 App `75d180311f5e29765ad4778f265908daaa0afb31` adds scoped metadata and duplicate
 file handles. The save helper source passes all four target object audits and
-three real-service helper tests; the complete recovery/worker guard is pending.
+three real-service helper tests at that stage; the later recovery/worker work is
+described below.
 `service-save/state.rs` now supplies bounded open/close and worker/pending
 transitions, with seventeen transition tests and 4,096 synthetic events compared
 against the unchanged pinned C pending policy. Combined production source passes
@@ -16,14 +17,18 @@ operations, with twelve actual file/service tests and explicit synthetic I/O
 fault injection. App `e118ba7995cb8cb4e352040de90609ae0600d6da` adds presence,
 typed directory helpers and reviewed local text validation. App
 `5bfdf4dd8d4ef9759549bb376757f65906f6a699` adds empty-directory cleanup.
-[Startup/export integration](service-save/STARTUP.md) now passes 21 real-file
-tests, 18 transition tests and ten actual native process terminations followed
-by ten confined recoveries across Linux64/Linux32. Timestamp/retention/UI and
-the reviewed worker connection remain pending; this is not actual game or
-Windows runtime qualification.
+[Startup/export integration](service-save/STARTUP.md) and the
+[reviewed save worker](service-save/WORKER.md) now pass 28 real-file/service tests,
+18 transition tests and exact four-target source/object admission. Linux64 and
+Linux32 each execute ten actual confined worker scenarios plus five process
+terminations and five subsequent startup recoveries. The worker owns guard
+state, recovery/history, correlated requests and bounded shutdown through
+GamePKG-owned mailboxes; the actual generated engine still needs to call it.
+Timestamp/retention/UI and original Windows rename retry timing remain pending.
+This is not actual game or Windows worker-runtime qualification.
 
 The current application contract is GamePKG commit
-`5bfdf4dd8d4ef9759549bb376757f65906f6a699`:
+`f1dd3fb8359f6524d7a5ca00f7a282b99a9f124b`:
 
 - `docs/PORT_SERVICES.md`: exact wire/API, resource, permission and error contracts.
 - `docs/FILE_RECOVERY_SERVICE_HANDOFF.md`: presence, directory and local text contracts.
@@ -51,11 +56,12 @@ python3 host-integration/engines/takedawn/service-input/check_source.py --app /p
 sh host-integration/engines/takedawn/service-renderer/check_nvi1.sh /path/to/app
 python3 host-integration/engines/takedawn/service-renderer/check_source.py --app /path/to/app --app-lib /path/to/debug/deps/libgamepkg-HASH.rlib --slang-root /path/to/slang
 python3 host-integration/engines/takedawn/service-renderer/check_shaders.py --app /path/to/app --deps /path/to/debug/deps --slang-root /path/to/slang --hardware
+python3 host-integration/engines/takedawn/service-save/check.py --app /path/to/app --app-lib /path/to/debug/deps/libgamepkg-HASH.rlib
 python3 tools/check_catalog.py
 python3 tools/check_current_app.py --cli /path/to/gamepkg
 ```
 
-Results against that app revision:
+Previously recorded input/renderer/catalog results (not rerun for the save-worker change):
 
 | Check | Result and scope |
 | --- | --- |

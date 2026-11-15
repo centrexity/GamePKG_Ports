@@ -27,6 +27,7 @@ fn main() {
         "adapter.rs",
         "history.rs",
         "recovery.rs",
+        "worker.rs",
     ] {
         fs::copy(here.join(module), source.join("source/src").join(module)).unwrap();
     }
@@ -38,10 +39,19 @@ mod state;
 mod adapter;
 mod history;
 mod recovery;
+mod worker;
+pub fn save_worker(argument:u64)->u64 { worker::run(argument) }
 fn accept_finished(guard:&mut adapter::SaveGuard, completed:adapter::Finished){
     if let Ok(cleanup)=guard.finish(completed){let _=adapter::clean_obsolete(1,cleanup);}
 }
 pub fn game_main(){
+    if let Ok(mut connection)=worker::Connection::launch(0,1,"12345678","20261114-120000") {
+        let _=connection.poll(0);
+        let _=connection.submit(worker::STATUS,&[]);
+        let _=connection.poll(0);
+        let _=connection.cancel();
+        let _=connection.finish();
+    }
     let _=gamepkg::directory_list(1,"");
     let mut guard=adapter::SaveGuard::new(1);
     if let Ok(mut startup)=recovery::Recovery::begin(&mut guard,1,"12345678"){
@@ -87,7 +97,14 @@ pub fn game_main(){
         Target::Windows64,
         Target::Windows32,
     ] {
-        let plan = Plan::new(target, "game_main", vec![], LocalLayout::None, true).unwrap();
+        let plan = Plan::new(
+            target,
+            "game_main",
+            vec!["save_worker".into()],
+            LocalLayout::None,
+            true,
+        )
+        .unwrap();
         let artifact = preparation::build(scratch, &sources, &plan, vec![], vec![]).unwrap();
         artifact.executable().unwrap();
         println!("PASS {target:?}: exact production save I/O and transition source, checked before host bindings, optimized and object-audited before trusted link");

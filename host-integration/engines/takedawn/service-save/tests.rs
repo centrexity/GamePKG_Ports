@@ -16,6 +16,9 @@ mod recovery;
 #[allow(dead_code)]
 #[path = "state.rs"]
 mod state;
+#[allow(dead_code)]
+#[path = "worker.rs"]
+mod worker;
 use host::port_host::{Backend, Frame, Result, Session, WindowCommand};
 use std::io::{Read, Write};
 use std::os::fd::{FromRawFd, IntoRawFd};
@@ -232,3 +235,5 @@ fn published_without_durability_is_explicit_and_never_blindly_retried() {
 include!("adapter_cases.inc.rs");
 
 include!("recovery_cases.inc.rs");
+
+include!("worker_cases.inc.rs");
