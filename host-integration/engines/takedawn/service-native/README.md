@@ -833,3 +833,10 @@ The bounded-debug checkpoint retains 215 additional functions, including the
 named entrypoint, with all 19,080 prior body/dependency records unchanged.
 Literal closure now contains 19,295 functions. Runtime entry/manual/kernel/
 soundtrack migration faults and the legacy admission gate remain enforced.
+
+The next data-path component is [the checked in-place ISO reader](../service-disc/README.md).
+It uses the same SDK without new host APIs or privileges. Actual confined
+Linux32/64 reads match all 716 files of the supplied image after independent
+pinned manifest authentication, and grant revocation denies subsequent reads.
+This supplies the reader for future XBE loading; it does not yet load the
+original sections, initialize the kernel or execute the startup entrypoint.

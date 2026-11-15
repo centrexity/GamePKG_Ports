@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "production_ready": false,
+  "minimum_app_commit": "7f6b19cdbf38b594a244326951abd309da595471",
+  "native_sdk": "f9b87d0fde634662",
+  "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+  "upstream_reader_member": "toolkit/src/install/xdvdfs.c",
+  "upstream_reader_sha256": "ab069ad87eb2d08401f180f777b8c6fc6bb465771ca05695fe3b7957febeb5e7",
+  "reference_reader": "src/xbox_disc.rs",
+  "reference_reader_sha256": "ab61ff79a10629f3d184546ee580e3c3a76a3c9b8c747868ded68eccadcaace5",
+  "qualification": "Read-only ISO component only; actual source/object/confinement checks remain mandatory; no game admission or executable-image loading"
+}
