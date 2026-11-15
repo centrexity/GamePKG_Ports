@@ -1,8 +1,8 @@
 # Checked native generated-function migration
 
 This is the first **incomplete** source component, not a playable source kit.
-It converts 31 of the 50 native function definitions in pinned unit
-`prepared/src/recomp_0000_001.rs`. All 19 remaining definitions are explicitly
+It converts 32 of the 50 native function definitions in pinned unit
+`prepared/src/recomp_0000_001.rs`. All 18 remaining definitions are explicitly
 listed in `generated/provenance.json` with reasons. There are no replacement
 stubs, unsafe fallback links or exemptions. The game's legacy build/cache gate
 and source-kit/catalog pins remain unchanged.
@@ -79,7 +79,7 @@ register/RAM changes in a faulting function are not rolled back.
 
 ## Whole-kit preparation
 
-The original single-unit fixture now contains 31 differentially checked functions.
+The original single-unit fixture now contains 32 differentially checked functions.
 The new maintainer `--inventory` and `--prepare-closed` modes inspect all **485**
 kit-pinned generated units. `maintainer/reviewed_units.tsv` binds every input
 hash; a full preflight completes before parsing or creating output. Each file
@@ -91,15 +91,15 @@ callers are rejected, including identical definitions.
 The current inventory covers **24,015 distinct `sub_XXXXXXXX` definitions**,
 including recovered/unresolved sources. Named entrypoints and `_gen` variants
 need separate inclusion; this count is not the entire runnable title. Existing lowering
-rules recognize 22,237 locally; removing missing dependencies transitively leaves
-**18,002 candidates closed over literal direct dependencies**, with 2,639 direct edges, including 1,749 across units.
-Runtime routes remain partial: 357 retained functions contain rewritten runtime
+rules recognize 22,486 locally; removing missing dependencies transitively leaves
+**18,264 candidates closed over literal direct dependencies**, with 2,962 direct edges, including 1,954 across units.
+Runtime routes remain partial: 506 retained functions contain rewritten runtime
 calls, and known unmigrated destinations fail Unsupported. This is not a fully
-closed runtime graph. The other **6,013** definitions remain explicitly
+closed runtime graph. The other **5,751** definitions remain explicitly
 unconverted. There are no
 substitute bodies, dynamic native function pointers or unknown-target fallbacks.
 
-Prepared candidates use 2,273 Rust files (87,013,871 bytes). At most eight native
+Prepared candidates use 2,306 Rust files (90,110,192 bytes). At most eight native
 functions per module plus byte/token-aware splitting bound source size. An AST pass rewrites only direct function
 paths to their owning modules; literals are untouched. Binary selection routes
 call statically compiled functions directly, with at most logarithmic selection
@@ -129,14 +129,14 @@ python3 host-integration/engines/takedawn/service-native/check.py \
 
 The whole graph passes source admission and separate optimized object auditing/
 trusted linking for Linux64/Linux32/Windows64/Windows32. Confined native Linux
-children execute 3,968 vectors with the complete graph linked, including 1,024
+children execute 4,096 vectors with the complete graph linked, including 1,024
 cases for original `sub_00244DF0` and 512 cases for original `sub_001FBAE0`.
-**Semantic differential coverage is 34 functions**; compiling/auditing
-18,002 functions does not establish the other functions' behavior. Windows
+**Semantic differential coverage is 35 functions**; compiling/auditing
+18,264 functions does not establish the other functions' behavior. Windows
 reference comparisons execute under Wine; the prepared service executables
 are build evidence, not physical Windows gameplay. The full engine, ISO loader,
 kernel/media bridges, verified renderer, saves, input/audio, pacing and the
-remaining 6,013 functions still require migration/qualification before enablement.
+remaining 5,751 functions still require migration/qualification before enablement.
 
 ## Compacted control-flow contract
 
@@ -158,7 +158,7 @@ platform-sized, unknown/alias and layout-dependent sizes stay unsupported.
 An additional explicitly invoked native test compares three original/converted
 CFG variants on 4,096 inputs each for every target (49,152 comparisons), covering
 ordinal values, first/final trap ordering, guarded effects and fault propagation.
-Windows executions use Wine. The 31-function kit reference suite has 2,176
+Windows executions use Wine. The 32-function kit reference suite has 2,304
 vectors per target. Private TKN7 vectors add signed extrema around the actual
 `0x463b14` load; register records remain 240 bytes, now version 3. Test files are not a
 public SDK/save ABI. No physical game/device/pacing evidence is implied.
@@ -237,7 +237,8 @@ Run with current app library and its offline dependencies available:
 ```sh
 python3 host-integration/engines/takedawn/service-native/check.py \
   --app /path/to/GamePKG/app \
-  --app-lib /path/to/target/debug/deps/libgamepkg-HASH.rlib --wine
+  --app-lib /path/to/target/debug/deps/libgamepkg-HASH.rlib --wine \
+  --call-targets /path/to/new-private-targets
 ```
 
 The checker verifies the entire kit SHA-256
@@ -252,10 +253,10 @@ resulting Rust source and GamePKG compiler, with no Python or converter setup.
 
 Executed checks:
 
-- Twenty-two regular converter/emitter tests cover pointer/TLS/alias/macro/platform/indirect-call
+- Twenty-five regular converter/emitter tests cover pointer/TLS/alias/macro/platform/indirect-call
   rejection, address-width proof, mismatched memory widths, direct dependency
   recording, signatures and attributes. Maintainer strict clippy passes.
-- Every converted function matches its unchanged pinned reference in 2,176
+- Every converted function matches its unchanged pinned reference in 2,304
   register-bit/whole-8-MiB-RAM vectors per target. A branch-heavy routine covers
   1,024 combinations of flags/output bytes; two matrix/copy functions cover
   128 finite bounded input vectors each; the other 28 cover 32 vectors each.
@@ -287,7 +288,7 @@ input/audio and verified surface/NVI1/postprocessing integration. Supply the
 complete checked source kit, shader/pipeline descriptors and reviewed entry/task
 table to both builders/launchers, preserving all object audits and confinement.
 Only real game/save/graphics/controls/audio/pacing qualification can satisfy the
-release gate; these 31 functions do not enable the title.
+release gate; these 32 functions do not enable the title.
 
 ## Checked guest-copy fast path
 
@@ -367,8 +368,8 @@ The prepared-graph comparison suite additionally executes the unchanged original
 integer-range edges, signed zeros, subnormals, infinities and NaNs. Register bits
 and all committed 8 MiB RAM compare exactly; its 1,024 records also run in
 confined Linux32/Linux64 children linked with the complete candidate graph.
-The single-unit golden remains 31 functions/2,176 vectors; prepared runs cover
-34 functions/3,968 vectors, without treating other compiled functions as
+The single-unit golden remains 32 functions/2,304 vectors; prepared runs cover
+35 functions/4,096 vectors, without treating other compiled functions as
 semantically qualified. `sub_00244DF0` has no native function dependencies; its
 reference is extracted only from its exact hash-pinned unit, and its prepared
 body from an inventoried/hash-checked source file. No extra body is admitted
@@ -543,7 +544,42 @@ maintainer `--reference-only` diagnostic explicitly omits those checks and
 cannot establish admission or production readiness. New module/template hashes
 are bound into both golden provenance and whole-kit inventory.
 
-Other lookup shapes remain rejected, including alternate contiguous guard
-layouts and shared/state graphs outside this exact proof. Complete remaining
+Other lookup shapes and shared/state graphs outside the reviewed proofs remain
+rejected. Complete remaining
 native functions, named entry/_gen bodies, manual/kernel services, loader and
 verified renderer integration before enabling Burnout or qualifying gameplay.
+
+## Alternate guards and calls at a block tail
+
+A second exact four-statement template pins the inverted guard layout in
+`recomp_0000_001.rs` / `sub_000146E0`. It has the same typed target/saved-stack,
+ESP/EAX alias, lookup-order and unshadowed-global requirements as the original.
+No general boolean, pointer-call or control-flow simplification is accepted.
+
+Nine statements at the exact tail of their current labeled block can reuse the
+original complete-region proof: three trace statements plus the six lookup/
+fallback statements are isolated under that same label for checking. A fallback
+break and normal fallthrough both leave that exact block. Ancestor targets,
+loop labels, unlabeled nested blocks and trailing effects reject the rule. Block
+labels are removed only when no break/continue references remain after lowering.
+
+Normalization now rejects every uncaptured label and any uncaptured identifier
+that already has a canonical replacement spelling. This prevents an unrelated
+jump or value from being mistaken for a captured name. The compacted-region
+proof uses the same capture check. Dedicated adversarial cases cover these
+collisions, scope changes, mutated conditions, ordering and fallback fields.
+
+Controlled native comparisons add 7,680 guarded-layout and 7,680 tail-layout
+cases per target, including observable effects after the block. They remain
+separate from original-function semantic qualification. The single-unit golden
+now retains original `sub_00015570`, checked in 128 register/whole-RAM/trace/log
+cases with null/non-null objects, original registered callees, absent/non-code
+targets and code-range guards. Prepared runs cover 35 original functions and
+4,096 vectors; the fixture's existing 4,096-case ceiling is unchanged.
+
+The single-unit component now contains runtime calls too, so `check.py` always
+requires `--call-targets` from the hash-verified classifier tool. A sparse fake
+target table is not an alternative. All game sources still pass checks before
+bindings, and every optimized game object is audited before trusted linking.
+The guarded template hash is recorded in golden and inventory provenance.
+The installed app SDK/API is unchanged by these maintainer/port changes.

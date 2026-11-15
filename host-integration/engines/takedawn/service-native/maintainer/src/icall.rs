@@ -44,6 +44,36 @@ impl VisitMut for Normalize {
         }
     }
 }
+// Normalization must be injective over the fragment's names. An uncaptured
+// canonical spelling cannot silently become a captured variable or label.
+pub(super) fn capture_safe(
+    block: &mut syn::Block,
+    names: &BTreeMap<String, String>,
+    labels: &BTreeMap<String, String>,
+) -> bool {
+    struct Check<'a> {
+        names: &'a BTreeMap<String, String>,
+        labels: &'a BTreeMap<String, String>,
+        bad: bool,
+    }
+    impl VisitMut for Check<'_> {
+        fn visit_ident_mut(&mut self, i: &mut syn::Ident) {
+            let name = i.to_string();
+            self.bad |= self.names.values().any(|v| v == &name) && !self.names.contains_key(&name);
+        }
+        fn visit_lifetime_mut(&mut self, l: &mut syn::Lifetime) {
+            self.bad |= !self.labels.contains_key(&l.ident.to_string());
+        }
+    }
+    let mut check = Check {
+        names,
+        labels,
+        bad: false,
+    };
+    check.visit_block_mut(block);
+    !check.bad
+}
+
 pub(super) fn rewrite(statements: &[Stmt], pass: &Lower) -> Option<Stmt> {
     if statements.len() < 4 {
         return None;
@@ -56,18 +86,29 @@ pub(super) fn rewrite(statements: &[Stmt], pass: &Lower) -> Option<Stmt> {
         return None;
     }
     let outer = block(&statements[3])?;
-    if outer.block.stmts.len() != 6 {
-        return None;
-    }
-    let guard = block(&outer.block.stmts[0])?;
-    let native = block(&outer.block.stmts[2])?;
-    let kernel = block(&outer.block.stmts[3])?;
-    let missing = block(&outer.block.stmts[4])?;
-    if guard.block.stmts.len() != 5 {
-        return None;
-    }
-    let esp = assignment(&guard.block.stmts[2])?;
-    let eax = assignment(&guard.block.stmts[3])?;
+    let guard = block(outer.block.stmts.first()?)?;
+    let (esp, eax, binding, native, kernel, missing, template) =
+        match (outer.block.stmts.len(), guard.block.stmts.len()) {
+            (6, 5) => (
+                assignment(&guard.block.stmts[2])?,
+                assignment(&guard.block.stmts[3])?,
+                &outer.block.stmts[1],
+                block(&outer.block.stmts[2])?,
+                block(&outer.block.stmts[3])?,
+                block(&outer.block.stmts[4])?,
+                include_str!("icall_template.inc"),
+            ),
+            (4, 7) => (
+                assignment(&outer.block.stmts[2])?,
+                assignment(&outer.block.stmts[3])?,
+                &guard.block.stmts[1],
+                block(&guard.block.stmts[2])?,
+                block(&guard.block.stmts[3])?,
+                block(&guard.block.stmts[4])?,
+                include_str!("icall_guarded_template.inc"),
+            ),
+            _ => return None,
+        };
     let saved = path(&esp.right)?;
     if !temporary(&saved, "_icall_esp") || !pass.guest_u32(&esp.right) {
         return None;
@@ -79,7 +120,7 @@ pub(super) fn rewrite(statements: &[Stmt], pass: &Lower) -> Option<Stmt> {
     {
         return None;
     }
-    let Stmt::Local(binding) = &outer.block.stmts[1] else {
+    let Stmt::Local(binding) = binding else {
         return None;
     };
     let syn::Pat::Type(ty) = &binding.pat else {
@@ -133,15 +174,51 @@ pub(super) fn rewrite(statements: &[Stmt], pass: &Lower) -> Option<Stmt> {
         brace_token: Default::default(),
         stmts: statements[..4].to_vec(),
     };
+    if !capture_safe(&mut actual, &normalize.names, &normalize.labels) {
+        return None;
+    }
     normalize.visit_block_mut(&mut actual);
-    let expected: syn::Block =
-        syn::parse_str(&format!("{{{}}}", include_str!("icall_template.inc"))).ok()?;
+    let expected: syn::Block = syn::parse_str(&format!("{{{template}}}")).ok()?;
     if actual.to_token_stream().to_string() != expected.to_token_stream().to_string() {
         return None;
     }
     let va = format_ident!("{va}");
     let saved = format_ident!("{saved}");
     Some(parse_quote!(crate::calls_runtime::invoke_call(native_state,guest_ram,#va,#saved)?;))
+}
+
+// At the exact tail of the current labeled block, a fallback break and normal
+// fallthrough both leave that block. Do not apply this to ancestor labels,
+// loop labels, unlabeled nested blocks or sequences with trailing effects.
+pub(super) fn rewrite_tail(statements: &[Stmt], pass: &Lower, label: &str) -> Option<Stmt> {
+    if statements.len() != 9 {
+        return None;
+    }
+    let lifetime = syn::Lifetime::new(&format!("'{label}"), Span::call_site());
+    let tail = &statements[3..];
+    let wrapper: Stmt = parse_quote!(#lifetime:{#(#tail)*});
+    let mut isolated = statements[..3].to_vec();
+    isolated.push(wrapper);
+    rewrite(&isolated, pass)
+}
+pub(super) fn label_used(block: &mut syn::Block, name: &str) -> bool {
+    struct Used<'a> {
+        name: &'a str,
+        found: bool,
+    }
+    impl VisitMut for Used<'_> {
+        fn visit_expr_break_mut(&mut self, b: &mut syn::ExprBreak) {
+            self.found |= b.label.as_ref().is_some_and(|l| l.ident == self.name);
+            visit_mut::visit_expr_break_mut(self, b);
+        }
+        fn visit_expr_continue_mut(&mut self, c: &mut syn::ExprContinue) {
+            self.found |= c.label.as_ref().is_some_and(|l| l.ident == self.name);
+            visit_mut::visit_expr_continue_mut(self, c);
+        }
+    }
+    let mut used = Used { name, found: false };
+    used.visit_block_mut(block);
+    used.found
 }
 
 pub(super) fn count(function: &mut ItemFn) -> u32 {
@@ -197,6 +274,118 @@ mod tests {
         )
         .is_ok());
         assert!(candidate(&format!("{{{template}}}{{{template}}}"), "").is_ok());
+    }
+    #[test]
+    fn guarded_layout_is_matched_in_full_with_the_same_width_tls_and_shadowing_proofs() {
+        let original = include_str!("icall_guarded_template.inc");
+        let (mut function, deps) = candidate(original, "").unwrap();
+        assert!(deps.is_empty());
+        assert_eq!(count(&mut function), 1);
+        for (from, to) in [
+            ("if !(_va >=", "if (_va >="),
+            ("wrapping_add(1)", "wrapping_add(2)"),
+            ("ICALL_TRACE_SIZE - 1", "ICALL_TRACE_SIZE - 2"),
+            ("recomp_lookup_manual(_va)", "recomp_lookup(_va)"),
+            (
+                "(*__gamepkg_tls_g_esp) = _icall_esp",
+                "(*__gamepkg_tls_g_eax) = _icall_esp",
+            ),
+            ("non-null function pointer", "changed marker"),
+        ] {
+            assert!(original.contains(from), "{from}");
+            assert!(
+                candidate(&original.replace(from, to), "").is_err(),
+                "{from}"
+            );
+        }
+        for prefix in [
+            "let _va:uint64_t=0;",
+            "let _icall_esp:uint64_t=0;",
+            "let recomp_lookup_manual:uint32_t=0;",
+            "let g_xbox_code_hi:uint32_t=0;",
+        ] {
+            assert!(candidate(original, prefix).is_err(), "{prefix}");
+        }
+        let numbered = original
+            .replace("_va", "_va_2")
+            .replace("_icall_esp", "_icall_esp_5")
+            .replace("_fn", "_fn_3")
+            .replace("'s_", "'renamed_");
+        assert!(candidate(
+            &numbered,
+            "let _va_2:uint32_t=1;let _icall_esp_5:uint32_t=2;"
+        )
+        .is_ok());
+    }
+    #[test]
+    fn normalization_rejects_uncaptured_canonical_variable_and_label_spellings() {
+        let original = include_str!("icall_template.inc");
+        let alien = original
+            .replace("_va", "_va_7")
+            .replacen("if _va_7 >=", "if _va >=", 1);
+        assert!(candidate(&alien, "let _va_7:uint32_t=0x155a0;").is_err());
+        let alien = original.replacen("'s_200:", "'foreign:", 1);
+        assert!(candidate(&alien, "").is_err());
+        let mut block: syn::Block = syn::parse_str("{let _va=1;}").unwrap();
+        assert!(!capture_safe(
+            &mut block,
+            &BTreeMap::from([("_va_7".into(), "_va".into())]),
+            &BTreeMap::new()
+        ));
+        let mut block: syn::Block = syn::parse_str("{'outer:{break 'foreign;}}").unwrap();
+        assert!(!capture_safe(
+            &mut block,
+            &BTreeMap::new(),
+            &BTreeMap::from([("outer".into(), "s_200".into())])
+        ));
+    }
+    fn tail_pattern() -> String {
+        let mut original: syn::Block =
+            syn::parse_str(&format!("{{{}}}", include_str!("icall_template.inc"))).unwrap();
+        let Stmt::Expr(Expr::Block(outer), None) = original.stmts.pop().unwrap() else {
+            panic!("pinned template shape");
+        };
+        original.stmts.extend(outer.block.stmts);
+        let statements = original.stmts;
+        quote!('s_200:{#(#statements)*}).to_string()
+    }
+    #[test]
+    fn tail_sequence_requires_the_current_block_label_and_no_trailing_effects() {
+        let pattern = tail_pattern();
+        let (mut function, deps) = candidate(&pattern, "").unwrap();
+        assert!(deps.is_empty());
+        assert_eq!(count(&mut function), 1);
+        let invalid = [
+            pattern.replacen("'s_200 : {", "'wrong : {", 1),
+            pattern.replacen("'s_200 : {", "'s_200 : loop {", 1),
+            pattern.replacen("'s_200 : {", "'s_200 : { {", 1).replacen(
+                "_fn . expect (\"non-null function pointer\") () ;",
+                "_fn . expect (\"non-null function pointer\") () ; } let trailing:u32=0;",
+                1,
+            ),
+        ];
+        for changed in invalid {
+            assert_ne!(changed, pattern);
+            assert!(candidate(&changed, "").is_err());
+        }
+        let mut block: syn::ExprBlock = syn::parse_str(&pattern).unwrap();
+        block.block.stmts.push(parse_quote!(let trailing:u32=0;));
+        assert!(candidate(&block.to_token_stream().to_string(), "").is_err());
+    }
+    #[test]
+    #[ignore = "compares both pinned guard layouts on Linux/Windows 32/64-bit with controlled handlers, including Wine"]
+    fn guarded_native_reference_matches_original_layout_on_four_targets() {
+        let source = |template: &str| {
+            format!("pub unsafe extern \"C\" fn sub_100(){{let __gamepkg_tls_g_esp=unsafe{{gamepkg_tls_g_esp()}};let __gamepkg_tls_g_eax=unsafe{{gamepkg_tls_g_eax()}};let mut _va:uint32_t=*__gamepkg_tls_g_eax;let mut _icall_esp:uint32_t=*__gamepkg_tls_g_esp;{template}let post=(*__gamepkg_tls_g_eax).wrapping_add(0x123);*__gamepkg_tls_g_eax=post;}}")
+        };
+        let guarded = source(include_str!("icall_guarded_template.inc"));
+        let canonical: ItemFn =
+            syn::parse_str(&source(include_str!("icall_template.inc"))).unwrap();
+        assert!(lower(syn::parse_str(&guarded).unwrap()).is_ok());
+        crate::call_reference::compare(&guarded, &canonical, "guarded");
+        let tail = source(&tail_pattern());
+        assert!(lower(syn::parse_str(&tail).unwrap()).is_ok());
+        crate::call_reference::compare(&tail, &canonical, "tail");
     }
     #[test]
     fn partial_altered_shadowed_wrong_width_or_wrong_register_sequences_remain_rejected() {

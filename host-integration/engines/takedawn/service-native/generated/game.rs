@@ -1091,6 +1091,51 @@ pub fn sub_00015530(
     (native_state.esp) = (native_state.esp).wrapping_add(4 as u32);
     Ok(())
 }
+pub fn sub_00015570(
+    native_state: &mut crate::registers::Registers,
+    guest_ram: &mut crate::memory::Memory,
+) -> Result<(), i32> {
+    let mut _flags: i32 = 0 as i32;
+    let mut _fa: u32 = 0 as u32;
+    let mut _fb: u32 = 0 as u32;
+    let mut _fas: i32 = 0 as i32;
+    let mut _fbs: i32 = 0 as i32;
+    (native_state.eax) = (native_state.ecx);
+    (native_state.ecx) = guest_ram.read_u32(((native_state.eax).wrapping_add(4 as u32)) as u32)?;
+    _fa = (native_state.ecx) & 0xffffffff as u32;
+    _fb = 0 as i32 as u32 & 0xffffffff as u32;
+    _fas = _fa as i32;
+    _fbs = _fb as i32;
+    's_195: {
+        if _fa == _fb {
+            break 's_195;
+        }
+        (native_state.eax) =
+            guest_ram.read_u32(((native_state.eax).wrapping_add(8 as u32)) as u32)?;
+        (native_state.edx) = guest_ram.read_u32((native_state.ecx) as u32)?;
+        let mut _icall_esp: u32 = (native_state.esp);
+        let mut _pv: u32 = 0 as i32 as u32;
+        (native_state.esp) = (native_state.esp).wrapping_sub(4 as u32);
+        guest_ram.write_u32((native_state.esp) as u32, _pv)?;
+        let mut _pv_0: u32 = 0 as i32 as u32;
+        (native_state.esp) = (native_state.esp).wrapping_sub(4 as u32);
+        guest_ram.write_u32((native_state.esp) as u32, _pv_0)?;
+        let mut _pv_1: u32 = (native_state.eax);
+        (native_state.esp) = (native_state.esp).wrapping_sub(4 as u32);
+        guest_ram.write_u32((native_state.esp) as u32, _pv_1)?;
+        let mut _pv_2: u32 = 4 as i32 as u32;
+        (native_state.esp) = (native_state.esp).wrapping_sub(4 as u32);
+        guest_ram.write_u32((native_state.esp) as u32, _pv_2)?;
+        let mut _icall_target: u32 = guest_ram.read_u32((native_state.edx) as u32)?;
+        let mut _pv_3: u32 = 0x15587 as u32 as u32;
+        (native_state.esp) = (native_state.esp).wrapping_sub(4 as u32);
+        guest_ram.write_u32((native_state.esp) as u32, _pv_3)?;
+        let mut _va: u32 = _icall_target;
+        crate::calls_runtime::invoke_call(native_state, guest_ram, _va, _icall_esp)?;
+    }
+    (native_state.esp) = (native_state.esp).wrapping_add(4 as u32);
+    Ok(())
+}
 pub fn sub_00015590(
     native_state: &mut crate::registers::Registers,
     guest_ram: &mut crate::memory::Memory,

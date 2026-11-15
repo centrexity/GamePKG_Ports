@@ -26,7 +26,7 @@ def main():
     parser.add_argument('--app',type=Path,required=True)
     parser.add_argument('--app-lib',type=Path,required=True)
     parser.add_argument('--prepared',type=Path,help='whole-kit candidate directory to source-check and compile in place of the single unit')
-    parser.add_argument('--call-targets',type=Path,help='verified original-target classifier and lookup vectors to admit alongside game source')
+    parser.add_argument('--call-targets',type=Path,required=True,help='verified original-target classifier and lookup vectors to admit alongside game source')
     parser.add_argument('--reference-only',action='store_true',help='maintainer diagnostics only: skip source/object admission, linking and confined execution; never production qualification')
     parser.add_argument('--wine',action='store_true',help='also execute Windows comparison binaries under Wine')
     args=parser.parse_args()
@@ -39,7 +39,7 @@ def main():
     manifest=here/'maintainer/Cargo.toml'
     subprocess.run(['cargo','test','--locked','--offline','--manifest-path',str(manifest)],env=env,check=True)
     if args.wine:
-        for test in ['native_control_flow_matches','compacted_native_reference']:
+        for test in ['native_control_flow_matches','compacted_native_reference','guarded_native_reference']:
             subprocess.run(['cargo','test','--locked','--offline','--manifest-path',str(manifest),test,'--','--ignored','--test-threads=1'],env=env,check=True)
     subprocess.run(['cargo','build','--locked','--offline','--manifest-path',str(manifest)],env=env,check=True)
     tool=target/'debug/takedawn-safe-source-preparation'
@@ -92,7 +92,7 @@ def main():
             if (generated/filename).read_bytes()!=(here/'generated'/filename).read_bytes():
                 raise RuntimeError(f'Checked-in generated {filename} is stale')
         record=json.loads((generated/'provenance.json').read_text())
-        if len(record['converted'])!=31 or len(record['rejected'])!=19:raise RuntimeError('Unexpected conversion coverage')
+        if len(record['converted'])!=32 or len(record['rejected'])!=18:raise RuntimeError('Unexpected conversion coverage')
         changed=scratch/'changed.rs';changed.write_bytes(original+b'\n')
         denied=subprocess.run([str(tool),str(changed),str(scratch/'must-not-exist')],capture_output=True)
         assert denied.returncode!=0 and not (scratch/'must-not-exist').exists()

@@ -10,6 +10,7 @@
     "sub_00015500",
     "sub_00015510",
     "sub_00015530",
+    "sub_00015570",
     "sub_00015590",
     "sub_000155A0",
     "sub_000155B0",
@@ -32,18 +33,19 @@
     "sub_000156D0",
     "sub_000156E0"
   ],
-  "dispatch_sha256": "2542fcd4675754c98487b91fea3aee9d1a219df414fea47cf507331061833586",
+  "dispatch_sha256": "aa6da5af18679a687e8f599d7bf51dfd410fe10f73fb332523b2b7123f109968",
   "float_arithmetic_nan_policy": "quiet-first-NaN-preserve-sign-and-payload",
   "formatter_version": "rustfmt 1.8.0-stable (29483883ee 2025-08-04)",
-  "game_sha256": "ab8ea5fd84031d600d882c376d694f864ffbf41755167eac33c23c938cdcd6ee",
-  "generator_batch_sha256": "bef7c8dacd9b5d93d8020e35cb0b84f8d45a159059318ca93a97b37bc9ae6a31",
+  "game_sha256": "37274d241e9433e497ddd0c1141128dab2dde216d5f434c5ec817a955001613d",
+  "generator_batch_sha256": "9ce3381e5b928bea1087a2544c75f164f86bf5aa40f3e7f361e0dfdc9f1afc7f",
   "generator_icall_compacted_pattern_sha256": "8fd80ad1c27069b724a061b241a59c443a6955bffbface366da9057cb0d91f21",
-  "generator_icall_compacted_sha256": "562330c1fbcb09ad7f4cab0bbcc563867685430968fb22e156f8e43e07f98857",
+  "generator_icall_compacted_sha256": "92eb1fbc3d53a469fecac8fe257d7cc3d0efec61ad1e7e797258a4da057eefb0",
+  "generator_icall_guarded_pattern_sha256": "ac8c81b731bbe352c3ab9c492e6eeccfb79ffe9e3109ecce434e3e3372253165",
   "generator_icall_pattern_sha256": "2610d0cf8e13c604631cefb56deed07262ac63fde336dd2c39711a21d0319405",
-  "generator_icall_sha256": "b4b8d101dd71e1beae9acf2507b757baf2c7ec382b5f3e9e8abab9e9e1e76318",
+  "generator_icall_sha256": "ac0439f07eb4cd71e9e3766346103b5fe3b00522d7c4385fd09b5edce1a59a65",
   "generator_inventory_sha256": "7d7ab7a7cfd00067396a84a82c055a588e308bc8cdc0a94451232cf0f8f12169",
   "generator_lock_sha256": "6d55a2c76709a6c1825c3fc3c9ac08e03d6e140635858336762f4ac2595a5259",
-  "generator_source_sha256": "0de41f7b8e065cadaad197ca0156fa350f331350f0b2d133af6d77e6dbbc3fda",
+  "generator_source_sha256": "c20dc03b2076f42cbcea822729b667ef9a487be21cdbfe899892b29518f770bc",
   "input_sha256": "442f7812516f3c5157ee74e15aede23d0ac423105acb7d973733bbe9f01ad94d",
   "production_ready": false,
   "register_record_bytes": 240,
@@ -68,16 +70,7 @@
       "unconverted dependencies: sub_00013B80,sub_001B2C60,sub_001C1250,sub_00243215"
     ],
     "sub_000146E0": [
-      "indirect call",
-      "unreviewed call recomp_icall_fail_log",
-      "unreviewed call recomp_icall_not_code_log",
-      "unreviewed call recomp_lookup",
-      "unreviewed call recomp_lookup_kernel",
-      "unreviewed call recomp_lookup_manual",
-      "unreviewed global g_xbox_code_hi",
-      "unreviewed global g_xbox_code_lo",
-      "unreviewed guest pointer",
-      "unreviewed type recomp_func_t"
+      "unconverted dependencies: sub_001B4260"
     ],
     "sub_00014730": [
       "unconverted dependencies: sub_001BEEF0,sub_001C8E20"
@@ -137,21 +130,11 @@
     ],
     "sub_00015560": [
       "unconverted dependencies: sub_001B4170"
-    ],
-    "sub_00015570": [
-      "indirect call",
-      "unreviewed call recomp_icall_fail_log",
-      "unreviewed call recomp_icall_not_code_log",
-      "unreviewed call recomp_lookup",
-      "unreviewed call recomp_lookup_kernel",
-      "unreviewed call recomp_lookup_manual",
-      "unreviewed global g_xbox_code_hi",
-      "unreviewed global g_xbox_code_lo",
-      "unreviewed guest pointer",
-      "unreviewed type recomp_func_t"
     ]
   },
-  "runtime_call_functions": {},
+  "runtime_call_functions": {
+    "sub_00015570": 1
+  },
   "schema": 1,
   "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4"
 }

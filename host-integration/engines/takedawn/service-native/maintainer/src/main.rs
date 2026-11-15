@@ -1,5 +1,7 @@
 //! Maintainer-only AST converter, not a runtime or game dependency.
 mod batch;
+#[cfg(test)]
+mod call_reference;
 mod icall;
 mod icall_compacted;
 use proc_macro2::Span;
@@ -136,6 +138,42 @@ struct Lower {
     errors: BTreeSet<String>,
 }
 impl Lower {
+    fn lower_block(&mut self, block: &mut syn::Block, label: Option<&str>) {
+        let outer_locals = self.locals.clone();
+        let outer_tls = self.tls.clone();
+        let outer_enums = self.enums.clone();
+        let mut statements = Vec::new();
+        let mut remaining = std::mem::take(&mut block.stmts).into_iter();
+        while !remaining.as_slice().is_empty() {
+            if let Some(label) = label {
+                if let Some(statement) = icall::rewrite_tail(remaining.as_slice(), self, label) {
+                    for _ in 0..9 {
+                        remaining.next();
+                    }
+                    statements.push(statement);
+                    continue;
+                }
+            }
+
+            if let Some(statement) = icall::rewrite(remaining.as_slice(), self) {
+                for _ in 0..4 {
+                    remaining.next();
+                }
+                statements.push(statement);
+                continue;
+            }
+            let mut statement = remaining.next().unwrap();
+            if self.tls_local(&statement) || self.enum_local(&statement) {
+                continue;
+            }
+            self.visit_stmt_mut(&mut statement);
+            statements.push(statement);
+        }
+        block.stmts = statements;
+        self.locals = outer_locals;
+        self.tls = outer_tls;
+        self.enums = outer_enums;
+    }
     fn reject(&mut self, message: impl Into<String>) {
         self.errors.insert(message.into());
     }
@@ -759,30 +797,7 @@ impl VisitMut for Lower {
         self.tls.remove(&name);
     }
     fn visit_block_mut(&mut self, block: &mut syn::Block) {
-        let outer_locals = self.locals.clone();
-        let outer_tls = self.tls.clone();
-        let outer_enums = self.enums.clone();
-        let mut statements = Vec::new();
-        let mut remaining = std::mem::take(&mut block.stmts).into_iter();
-        while !remaining.as_slice().is_empty() {
-            if let Some(statement) = icall::rewrite(remaining.as_slice(), self) {
-                for _ in 0..4 {
-                    remaining.next();
-                }
-                statements.push(statement);
-                continue;
-            }
-            let mut statement = remaining.next().unwrap();
-            if self.tls_local(&statement) || self.enum_local(&statement) {
-                continue;
-            }
-            self.visit_stmt_mut(&mut statement);
-            statements.push(statement);
-        }
-        block.stmts = statements;
-        self.locals = outer_locals;
-        self.tls = outer_tls;
-        self.enums = outer_enums;
+        self.lower_block(block, None);
     }
     fn visit_type_mut(&mut self, ty: &mut Type) {
         if let Type::Path(p) = ty {
@@ -840,6 +855,16 @@ impl VisitMut for Lower {
         visit_mut::visit_pat_mut(self, pattern);
     }
     fn visit_expr_mut(&mut self, expr: &mut Expr) {
+        if let Expr::Block(node) = expr {
+            if node.attrs.is_empty() && node.label.is_some() {
+                let name = node.label.as_ref().unwrap().name.ident.to_string();
+                self.lower_block(&mut node.block, Some(&name));
+                if !icall::label_used(&mut node.block, &name) {
+                    node.label = None;
+                }
+                return;
+            }
+        }
         let mut enum_fallback = false;
         let compacted_loop = if let Expr::Loop(node) = expr {
             if node.body.stmts.len() == 1 {
@@ -1378,7 +1403,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         return Err("generated Rust formatting failed".into());
     }
-    let provenance = serde_json::json!({"schema":1,"register_record_version":3,"register_record_bytes":240,"float_arithmetic_nan_policy":"quiet-first-NaN-preserve-sign-and-payload","generator_source_sha256":format!("{:x}",Sha256::digest(include_bytes!("main.rs"))),"generator_batch_sha256":format!("{:x}",Sha256::digest(include_bytes!("batch.rs"))),"generator_icall_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall.rs"))),"generator_icall_compacted_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_compacted.rs"))),"generator_icall_compacted_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_compacted_template.inc"))),"generator_icall_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_template.inc"))),"generator_inventory_sha256":format!("{:x}",Sha256::digest(include_bytes!("../reviewed_units.tsv"))),"generator_lock_sha256":format!("{:x}",Sha256::digest(include_bytes!("../Cargo.lock"))),"formatter_version":String::from_utf8(formatter.stdout)?.trim(),"game_sha256":format!("{:x}",Sha256::digest(fs::read(output.join("game.rs"))?)),"dispatch_sha256":format!("{:x}",Sha256::digest(fs::read(output.join("dispatch.rs"))?)),"input_sha256":source_hash,"source_kit_sha256":"6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4","runtime_call_functions":runtime_call_functions,"converted":accepted.keys().collect::<Vec<_>>(),"rejected":rejected,"production_ready":false});
+    let provenance = serde_json::json!({"schema":1,"register_record_version":3,"register_record_bytes":240,"float_arithmetic_nan_policy":"quiet-first-NaN-preserve-sign-and-payload","generator_source_sha256":format!("{:x}",Sha256::digest(include_bytes!("main.rs"))),"generator_batch_sha256":format!("{:x}",Sha256::digest(include_bytes!("batch.rs"))),"generator_icall_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall.rs"))),"generator_icall_compacted_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_compacted.rs"))),"generator_icall_compacted_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_compacted_template.inc"))),"generator_icall_guarded_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_guarded_template.inc"))),"generator_icall_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_template.inc"))),"generator_inventory_sha256":format!("{:x}",Sha256::digest(include_bytes!("../reviewed_units.tsv"))),"generator_lock_sha256":format!("{:x}",Sha256::digest(include_bytes!("../Cargo.lock"))),"formatter_version":String::from_utf8(formatter.stdout)?.trim(),"game_sha256":format!("{:x}",Sha256::digest(fs::read(output.join("game.rs"))?)),"dispatch_sha256":format!("{:x}",Sha256::digest(fs::read(output.join("dispatch.rs"))?)),"input_sha256":source_hash,"source_kit_sha256":"6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4","runtime_call_functions":runtime_call_functions,"converted":accepted.keys().collect::<Vec<_>>(),"rejected":rejected,"production_ready":false});
     fs::write(
         output.join("provenance.json"),
         serde_json::to_vec_pretty(&provenance)?,

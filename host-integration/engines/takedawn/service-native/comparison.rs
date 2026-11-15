@@ -14,6 +14,7 @@ fn reference_case_count(address: u32) -> u32 {
         0x13f10 | 0x244df0 => 1024,
         0x1fbae0 => 512,
         0x243450 => 256,
+        0x15570 => 128,
         0x13d10 | 0x13e50 => 128,
         _ => 32,
     }
@@ -105,8 +106,9 @@ fn compare_case(
         r.fp_stack[r.fp_top as usize] = f64::from_bits(bits);
         r.fp_control_word = 0x037f | ((iteration / 40 % 4) as u16) << 10;
     }
+    if address==0x15570 {r.ecx=0x11000;}
     if address==0x243450 {r.eax=0x10000+(iteration/16%6)*4;}
-    let bounds = if address==0x243450 {if iteration%2==0 {(0,0)}else{(0x10000,0x20000)}} else if address == 0x1fbae0 {
+    let bounds = if address==0x243450 {if iteration%2==0 {(0,0)}else{(0x10000,0x20000)}} else if address == 0x1fbae0 || address==0x15570 {
         match iteration / 4 % 4 {
             0 => (0, 0),
             1 => (0x10000, 0x20000),
@@ -204,6 +206,14 @@ fn compare_case(
                 bytes[at + 4..at + 8].copy_from_slice(&0x10000u32.to_le_bytes());
                 bytes[at + 8..at + 12].fill(0);
             }
+        }
+        if address==0x15570 {
+            if base==0x10000 {
+                bytes[..4].copy_from_slice(&0x10100u32.to_le_bytes());
+                let target=match iteration%8 {0|1=>0x155a0u32,2=>0x15590,3=>0x155e0,4=>0x15600,5|6=>0x8000+(iteration%24)*4,_=>0};
+                bytes[256..260].copy_from_slice(&target.to_le_bytes());
+            }
+            if base==0x11000 {bytes[4..8].copy_from_slice(&(if iteration%9==0 {0u32}else{0x10000u32}).to_le_bytes());}
         }
         ram.write_bytes(base, &bytes).unwrap();
         reference[base as usize..base as usize + count].copy_from_slice(&bytes);

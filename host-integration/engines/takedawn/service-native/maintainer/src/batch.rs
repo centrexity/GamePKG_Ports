@@ -335,7 +335,7 @@ pub(super) fn run(
         "converter_main_sha256":format!("{:x}",Sha256::digest(include_bytes!("main.rs"))),
         "converter_batch_sha256":format!("{:x}",Sha256::digest(include_bytes!("batch.rs"))),
         "converter_icall_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall.rs"))),
-        "converter_icall_compacted_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_compacted.rs"))),"converter_icall_compacted_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_compacted_template.inc"))),"converter_icall_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_template.inc"))),
+        "converter_icall_compacted_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_compacted.rs"))),"converter_icall_compacted_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_compacted_template.inc"))),"converter_icall_guarded_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_guarded_template.inc"))),"converter_icall_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_template.inc"))),
         "converter_lock_sha256":format!("{:x}",Sha256::digest(include_bytes!("../Cargo.lock"))),
         "units":units.iter().map(|(name,hash)|(*name,*hash)).collect::<BTreeMap<_,_>>(),
         "definitions":total,"unique_definitions":owners.len(),"locally_convertible_definitions":locally_convertible,

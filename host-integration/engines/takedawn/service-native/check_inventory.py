@@ -21,6 +21,7 @@ def validate(report, here, output, expected):
         ('converter_batch_sha256', here/'maintainer/src/batch.rs'),
         ('converter_icall_sha256',here/'maintainer/src/icall.rs'),
         ('converter_icall_pattern_sha256',here/'maintainer/src/icall_template.inc'),
+        ('converter_icall_guarded_pattern_sha256',here/'maintainer/src/icall_guarded_template.inc'),
         ('converter_icall_compacted_sha256',here/'maintainer/src/icall_compacted.rs'),
         ('converter_icall_compacted_pattern_sha256',here/'maintainer/src/icall_compacted_template.inc'),
         ('converter_lock_sha256', here/'maintainer/Cargo.lock'),
