@@ -137,8 +137,13 @@ struct Lower {
     dependencies: BTreeSet<String>,
     errors: BTreeSet<String>,
 }
+#[derive(Clone, Copy)]
+enum FlowLabel<'a> {
+    Block(&'a str),
+    Loop(&'a str),
+}
 impl Lower {
-    fn lower_block(&mut self, block: &mut syn::Block, label: Option<&str>) {
+    fn lower_block(&mut self, block: &mut syn::Block, label: Option<FlowLabel<'_>>) {
         let outer_locals = self.locals.clone();
         let outer_tls = self.tls.clone();
         let outer_enums = self.enums.clone();
@@ -158,7 +163,13 @@ impl Lower {
                 continue;
             }
             if let Some(label) = label {
-                if let Some(statement) = icall::rewrite_tail(remaining.as_slice(), self, label) {
+                let replacement = match label {
+                    FlowLabel::Block(name) => icall::rewrite_tail(remaining.as_slice(), self, name),
+                    FlowLabel::Loop(name) => {
+                        icall::rewrite_loop_tail(remaining.as_slice(), self, name)
+                    }
+                };
+                if let Some(statement) = replacement {
                     for _ in 0..9 {
                         remaining.next();
                     }
@@ -813,6 +824,20 @@ impl VisitMut for Lower {
     fn visit_block_mut(&mut self, block: &mut syn::Block) {
         self.lower_block(block, None);
     }
+    fn visit_expr_loop_mut(&mut self, node: &mut syn::ExprLoop) {
+        for attribute in &mut node.attrs {
+            self.visit_attribute_mut(attribute);
+        }
+        if let Some(label) = &node.label {
+            let name = label.name.ident.to_string();
+            self.lower_block(&mut node.body, Some(FlowLabel::Loop(&name)));
+            if !icall::label_used(&mut node.body, &name) {
+                node.label = None;
+            }
+        } else {
+            self.visit_block_mut(&mut node.body);
+        }
+    }
     fn visit_type_mut(&mut self, ty: &mut Type) {
         if let Type::Path(p) = ty {
             if p.qself.is_none()
@@ -872,7 +897,7 @@ impl VisitMut for Lower {
         if let Expr::Block(node) = expr {
             if node.attrs.is_empty() && node.label.is_some() {
                 let name = node.label.as_ref().unwrap().name.ident.to_string();
-                self.lower_block(&mut node.block, Some(&name));
+                self.lower_block(&mut node.block, Some(FlowLabel::Block(&name)));
                 if !icall::label_used(&mut node.block, &name) {
                     node.label = None;
                 }
@@ -1130,8 +1155,8 @@ impl VisitMut for Lower {
                 }
                 return;
             }
-            if name.starts_with("sub_")
-                && name[4..].bytes().all(|b| b.is_ascii_hexdigit())
+            if (name == "xbe_entry_point"
+                || name.starts_with("sub_") && name[4..].bytes().all(|b| b.is_ascii_hexdigit()))
                 && call.args.is_empty()
             {
                 self.dependencies.insert(name.clone());
@@ -1392,7 +1417,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let route_names = (0..routes.len())
         .map(|i| format_ident!("route_{i}"))
         .collect::<Vec<_>>();
-    let dispatch = quote!(#(#routes)* pub fn invoke(native_state:&mut crate::registers::Registers,guest_ram:&mut crate::memory::Memory,address:u32)->Result<(),i32>{if !native_state.valid(){return Err(-1);}#(match #route_names(native_state,guest_ram,address){Err(-5)=>{},result=>return result})*Err(-5)});
+    let dispatch = quote!(#(#routes)* pub fn entry_available()->bool{false} pub fn invoke(native_state:&mut crate::registers::Registers,guest_ram:&mut crate::memory::Memory,address:u32)->Result<(),i32>{if !native_state.valid(){return Err(-1);}#(match #route_names(native_state,guest_ram,address){Err(-5)=>{},result=>return result})*Err(-5)});
     fs::write(output.join("dispatch.rs"), dispatch.to_string())?;
     let functions = accepted.values().map(|(f, _)| f).collect::<Vec<_>>();
     fs::write(

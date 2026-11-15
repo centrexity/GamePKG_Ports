@@ -37,9 +37,13 @@ def validate(report, here, output, expected):
     assert len(closed) == report['closed_definitions']
     assert len(closed) + len(rejected) == report['unique_definitions']
     assert not set(closed) & set(report['duplicates'])
+    assert report['named_entrypoint'] == {'name':'xbe_entry_point','unit':'recomp_0004_013.rs','address':0x1d2807,'retained':'xbe_entry_point' in closed}
     for name, function in closed.items():
-        assert name.startswith('sub_') and len(name) == 12
-        int(name[4:], 16)
+        if name=='xbe_entry_point':
+            assert function['unit']=='recomp_0004_013.rs'
+        else:
+            assert name.startswith('sub_') and len(name) == 12
+            int(name[4:], 16)
         assert function['unit'] in expected
         assert all(dependency in closed for dependency in function['dependencies'])
     for name, expected_hash in report['emitted_files'].items():

@@ -3,6 +3,18 @@ use super::*;
 use std::io::Read;
 const INVENTORY: &str = include_str!("../reviewed_units.tsv");
 const MAX_UNIT: u64 = 16 * 1024 * 1024;
+const ENTRY: &str = "xbe_entry_point";
+const ENTRY_UNIT: &str = "recomp_0004_013.rs";
+const ENTRY_ADDRESS: u32 = 0x001d2807;
+fn route_address(name: &str) -> Option<u32> {
+    if name == ENTRY {
+        return Some(ENTRY_ADDRESS);
+    }
+    let hex = name.strip_prefix("sub_")?;
+    (hex.len() == 8 && hex.bytes().all(|b| b.is_ascii_hexdigit()))
+        .then(|| u32::from_str_radix(hex, 16).ok())
+        .flatten()
+}
 struct Candidate {
     unit: String,
     code: String,
@@ -12,12 +24,13 @@ struct Candidate {
 fn definitions(source: syn::File) -> impl Iterator<Item = ItemFn> {
     source.items.into_iter().filter_map(|item| match item {
         Item::Fn(function)
-            if function
-                .sig
-                .ident
-                .to_string()
-                .strip_prefix("sub_")
-                .is_some_and(|n| n.len() == 8 && n.bytes().all(|b| b.is_ascii_hexdigit())) =>
+            if function.sig.ident == ENTRY
+                || function
+                    .sig
+                    .ident
+                    .to_string()
+                    .strip_prefix("sub_")
+                    .is_some_and(|n| n.len() == 8 && n.bytes().all(|b| b.is_ascii_hexdigit())) =>
         {
             Some(function)
         }
@@ -146,9 +159,21 @@ fn source_partitions(
     let mut current = Vec::new();
     let mut bytes = 0;
     let mut tokens = 0;
+    // Named entrypoint spelling is not address order. Reject address aliases
+    // before emitting anything and partition every route in numeric order.
+    let mut ordered = BTreeMap::new();
+    for (name, candidate) in accepted {
+        if name == ENTRY && candidate.unit != ENTRY_UNIT {
+            return Err("named entrypoint has an unreviewed source unit".into());
+        }
+        let address = route_address(name).ok_or("unreviewed routable function name")?;
+        if ordered.insert(address, (name, candidate)).is_some() {
+            return Err("duplicate native route address".into());
+        }
+    }
     // Leave space for the direct route and path remapping below. The app's
     // independent source token/complexity limits are not changed or bypassed.
-    for (name, candidate) in accepted {
+    for (name, candidate) in ordered.into_values() {
         let weight = candidate.code.len() + candidate.dependencies.len() * 16;
         let count = token_count(candidate.code.parse()?) + candidate.dependencies.len() * 4;
         if weight > 1024 * 1024 - 4096 || count > 120000 {
@@ -187,7 +212,7 @@ fn emit_closed(
     let mut addresses = Vec::new();
     for (index, chunk) in partitions.iter().enumerate() {
         game.push_str(&format!("pub mod unit_{index:04};\n"));
-        addresses.push(u32::from_str_radix(&chunk[0][4..], 16)?);
+        addresses.push(route_address(chunk[0]).ok_or("unreviewed native route")?);
         let mut body = String::from(
             "// Maintainer candidate from the pinned Takedawn kit; not an admitted game.\n",
         );
@@ -197,7 +222,7 @@ fn emit_closed(
             Remap(&mapping).visit_item_fn_mut(&mut function);
             body.push_str(&function.to_token_stream().to_string());
             body.push('\n');
-            let address = u32::from_str_radix(&name[4..], 16)?;
+            let address = route_address(name).ok_or("unreviewed native route")?;
             arms.push_str(&format!("{address}u32=>{name}(native_state,guest_ram),"));
         }
         body.push_str(&format!("pub fn route(native_state:&mut crate::registers::Registers,guest_ram:&mut crate::memory::Memory,address:u32)->Result<(),i32>{{match address{{{arms}_=>Err(-5)}}}}"));
@@ -217,6 +242,10 @@ fn emit_closed(
         files.insert(format!("dispatch/nodes_{index:04}.rs"), chunk.join("\n"));
     }
     dispatch.push_str(&format!("pub fn invoke(native_state:&mut crate::registers::Registers,guest_ram:&mut crate::memory::Memory,address:u32)->Result<(),i32>{{if !native_state.valid(){{return Err(-1);}}{root}}}"));
+    dispatch.push_str(&format!(
+        "pub fn entry_available()->bool{{{}}}",
+        accepted.contains_key(ENTRY)
+    ));
     files.insert("dispatch.rs".into(), dispatch);
     if files.len() > 8192 || files.values().map(String::len).sum::<usize>() > 128 * 1024 * 1024 {
         return Err("candidate sources exceed reviewed preparation bounds".into());
@@ -290,6 +319,9 @@ pub(super) fn run(
         let ast = syn::parse_file(std::str::from_utf8(&bytes)?)?;
         for function in definitions(ast) {
             let id = function.sig.ident.to_string();
+            if id == ENTRY && *name != ENTRY_UNIT {
+                return Err("named entrypoint has an unreviewed source unit".into());
+            }
             owners
                 .entry(id.clone())
                 .or_default()
@@ -339,6 +371,8 @@ pub(super) fn run(
         "converter_lock_sha256":format!("{:x}",Sha256::digest(include_bytes!("../Cargo.lock"))),
         "units":units.iter().map(|(name,hash)|(*name,*hash)).collect::<BTreeMap<_,_>>(),
         "definitions":total,"unique_definitions":owners.len(),"locally_convertible_definitions":locally_convertible,
+        "definition_scope":"sub_XXXXXXXX plus the exact unit-bound xbe_entry_point; five _gen helpers still require inclusion",
+        "named_entrypoint":{"name":ENTRY,"unit":ENTRY_UNIT,"address":ENTRY_ADDRESS,"retained":accepted.contains_key(ENTRY)},
         "closed_definitions":accepted.len(),"duplicates":duplicates,"closed_graph":graph,"rejected":rejected,
         "emitted_files":emitted,
         "runtime_call_functions":accepted.iter().filter(|(_,c)|c.runtime_calls!=0).map(|(n,c)|(n,c.runtime_calls)).collect::<BTreeMap<_,_>>(),
@@ -355,6 +389,66 @@ pub(super) fn run(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn only_the_exact_named_root_is_included_and_address_aliases_fail_before_output() {
+        let names=definitions(syn::parse_file("fn sub_00000100(){}fn xbe_entry_point(){}fn xbe_entry_point_gen(){}fn sub_001537C0_gen(){}fn unrelated(){}").unwrap()).map(|f|f.sig.ident.to_string()).collect::<Vec<_>>();
+        assert_eq!(names, vec!["sub_00000100", "xbe_entry_point"]);
+        let mut root = candidate(&[]);
+        root.unit = ENTRY_UNIT.into();
+        root.code = "pub fn xbe_entry_point(){}".into();
+        let mut aliases = BTreeMap::from([(ENTRY.into(), root)]);
+        aliases.insert("sub_001D2807".into(), candidate(&[]));
+        assert!(source_partitions(&aliases)
+            .unwrap_err()
+            .to_string()
+            .contains("duplicate"));
+        aliases.remove("sub_001D2807");
+        aliases.get_mut(ENTRY).unwrap().unit = "recomp_manual.rs".into();
+        assert!(source_partitions(&aliases)
+            .unwrap_err()
+            .to_string()
+            .contains("source unit"));
+        assert_eq!(route_address("xbe_entry_point_gen"), None);
+        assert_eq!(route_address("sub_001537C0_gen"), None);
+    }
+    #[test]
+    fn named_entrypoint_uses_numeric_order_across_partitions_and_preserves_direct_calls() {
+        let root =
+            std::env::temp_dir().join(format!("gamepkg-entry-emission-{}", std::process::id()));
+        fs::create_dir(&root).unwrap();
+        let output = root.join("source");
+        let mut candidates = BTreeMap::new();
+        for base in [0x100u32, 0x00f00000] {
+            for offset in 0..8 {
+                let name = format!("sub_{:08X}", base + offset);
+                candidates.insert(name.clone(),Candidate{unit:"test.rs".into(),code:format!("pub fn {name}(native_state:&mut crate::registers::Registers,guest_ram:&mut crate::memory::Memory)->Result<(),i32>{{native_state.value+=1;Ok(())}}"),dependencies:BTreeSet::new(),runtime_calls:0});
+            }
+        }
+        candidates.insert(ENTRY.into(),Candidate{unit:ENTRY_UNIT.into(),code:"pub fn xbe_entry_point(native_state:&mut crate::registers::Registers,guest_ram:&mut crate::memory::Memory)->Result<(),i32>{crate::game::sub_00F00007(native_state,guest_ram)?;native_state.value+=77;Ok(())}".into(),dependencies:BTreeSet::from(["sub_00F00007".into()]),runtime_calls:0});
+        emit_closed(&candidates, &output).unwrap();
+        let harness = r#"#![allow(dead_code,unused_variables,non_snake_case)]
+mod game;mod dispatch;
+mod memory{pub struct Memory;}
+mod registers{pub struct Registers{pub value:u32}impl Registers{pub fn valid(&self)->bool{true}}}
+fn main(){let mut state=registers::Registers{value:0};let mut ram=memory::Memory;
+assert!(dispatch::entry_available());assert_eq!(dispatch::invoke(&mut state,&mut ram,0x1d2807),Ok(()));assert_eq!(state.value,78);
+assert_eq!(dispatch::invoke(&mut state,&mut ram,0x100),Ok(()));assert_eq!(state.value,79);
+assert_eq!(dispatch::invoke(&mut state,&mut ram,0x1d2806),Err(-5));assert_eq!(dispatch::invoke(&mut state,&mut ram,0x1d2808),Err(-5));assert_eq!(state.value,79);
+assert_eq!(dispatch::invoke(&mut state,&mut ram,0xf00007),Ok(()));assert_eq!(state.value,80);}
+"#;
+        fs::write(output.join("main.rs"), harness).unwrap();
+        let exe = root.join("entry-check");
+        assert!(std::process::Command::new("rustc")
+            .args(["--edition=2021", "-D", "warnings"])
+            .arg(output.join("main.rs"))
+            .arg("-o")
+            .arg(&exe)
+            .status()
+            .unwrap()
+            .success());
+        assert!(std::process::Command::new(&exe).status().unwrap().success());
+        fs::remove_dir_all(root).unwrap();
+    }
     fn candidate(deps: &[&str]) -> Candidate {
         Candidate {
             unit: "test.rs".into(),

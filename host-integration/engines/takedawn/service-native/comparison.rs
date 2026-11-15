@@ -1,6 +1,6 @@
 // Maintainer harness only. Module paths are supplied by check.py in the wrapper.
 use std::{fs::File, io::Write, path::Path};
-const SPANS: [(u32, usize); 7] = [
+const SPANS: [(u32, usize); 8] = [
     (0x10000, 1024),
     (0x11000, 1024),
     (0x1fe00, 1024),
@@ -8,6 +8,7 @@ const SPANS: [(u32, usize); 7] = [
     (0x4a1c40, 64),
     (0x463b00, 64),
     (0x3a34a0, 64),
+    (0x3c6100, 64),
 ];
 fn reference_case_count(address: u32) -> u32 {
     match address {
@@ -16,6 +17,7 @@ fn reference_case_count(address: u32) -> u32 {
         0x243450 => 256,
         0x15570 => 128,
         0x2447bf => 128,
+        0x24490a => 512,
         0x13d10 | 0x13e50 => 128,
         _ => 32,
     }
@@ -119,7 +121,7 @@ fn compare_case(
         } else {
             (0x10000, 0x20000)
         }
-    } else if address == 0x1fbae0 || address == 0x15570 {
+    } else if address == 0x1fbae0 || address == 0x15570 || address == 0x24490a {
         match iteration / 4 % 4 {
             0 => (0, 0),
             1 => (0x10000, 0x20000),
@@ -137,12 +139,23 @@ fn compare_case(
         r.seh_ebp = 0x20100 + (iteration & 3);
         r.fs_base = [0x10000u32, 0x11000, 0x1ff40][iteration as usize % 3] + (iteration % 16);
     }
+    if address == 0x24490a {
+        r.fs_base = 0x10210 + (iteration & 3);
+        r.seh_ebp = 0x10300 + (iteration & 3);
+    }
     let input_state = r.encode();
     let mut initial = Vec::new();
     for &(base, count) in &SPANS {
         let mut bytes = vec![0; count];
+        // The added history span uses a fork so existing case input RNG stays
+        // unchanged. Original cases remain before the appended loop cases.
+        let mut history_seed = *seed ^ u64::from(base);
         for b in &mut bytes {
-            *b = next_random(seed) as u8;
+            *b = if base == 0x3c6100 {
+                next_random(&mut history_seed)
+            } else {
+                next_random(seed)
+            } as u8;
         }
         if base == 0x4a1c40 {
             for n in 0..6 {
@@ -243,10 +256,52 @@ fn compare_case(
                 );
             }
         }
+        if address == 0x24490a {
+            let frame = 0x10080 + (iteration & 3);
+            let table = 0x11080 + (iteration & 3);
+            let entries = iteration / 4 % 6;
+            if base == 0x10000 {
+                let at = (frame - base) as usize;
+                bytes[at + 8..at + 12].copy_from_slice(&table.to_le_bytes());
+                let first = if entries == 0 { u32::MAX } else { entries - 1 };
+                bytes[at + 12..at + 16].copy_from_slice(&first.to_le_bytes());
+            }
+            if base == 0x11000 {
+                let at = (table - base) as usize;
+                for index in 0..entries as usize {
+                    let next = if index == 0 {
+                        u32::MAX
+                    } else {
+                        index as u32 - 1
+                    };
+                    let flags = (iteration >> (index + 3)) & 1;
+                    let target = match iteration % 4 {
+                        0 | 1 => 0x15590u32,
+                        2 => 0x8000 + index as u32 * 4,
+                        _ => 0,
+                    };
+                    for (slot, value) in [next, flags, target].into_iter().enumerate() {
+                        bytes[at + index * 12 + slot * 4..at + index * 12 + slot * 4 + 4]
+                            .copy_from_slice(&value.to_le_bytes());
+                    }
+                }
+            }
+            if base == 0x1fe00 {
+                let at = (r.esp - base) as usize;
+                bytes[at + 4..at + 8].copy_from_slice(&frame.to_le_bytes());
+                let stop = if entries != 0 && iteration % 8 == 0 {
+                    entries / 2
+                } else {
+                    u32::MAX
+                };
+                bytes[at + 8..at + 12].copy_from_slice(&stop.to_le_bytes());
+            }
+        }
         ram.write_bytes(base, &bytes).unwrap();
         reference[base as usize..base as usize + count].copy_from_slice(&bytes);
         initial.extend(bytes);
     }
+    let before_ram = reference.to_vec();
     unsafe {
         oracle::setup(&input_state, reference.as_mut_ptr());
         oracle::invoke(address);
@@ -265,6 +320,17 @@ fn compare_case(
         expected,
         "register mismatch at {address:08x}, vector {iteration}"
     );
+    // Prove that replaying the eight captured spans is sufficient: no other
+    // observable RAM byte may change in either original or converted code.
+    let mut spans = SPANS;
+    spans.sort_unstable_by_key(|s| s.0);
+    let mut previous = 0usize;
+    for (base, count) in spans {
+        let base = base as usize;
+        assert!(reference[previous..base]==before_ram[previous..base],"original write outside captured spans at {address:08x}, vector {iteration}, gap {previous:x}..{base:x}");
+        previous = base + count;
+    }
+    assert!(reference[previous..]==before_ram[previous..],"original write outside captured spans at {address:08x}, vector {iteration}, tail {previous:x}");
     // Compare the whole committed 8 MiB, including bytes outside the case spans.
     for (part, bytes) in reference.chunks(1048576).enumerate() {
         let mut actual = vec![0; bytes.len()];
@@ -704,7 +770,7 @@ fn main() {
         .map(|address| reference_case_count(*address))
         .sum();
     if let Some(file) = &mut output {
-        file.write_all(b"TKN8").unwrap();
+        file.write_all(b"TKN9").unwrap();
         let batches = count.div_ceil(4096);
         assert!((1..=16).contains(&batches));
         file.write_all(&batches.to_le_bytes()).unwrap();

@@ -60,10 +60,11 @@ fn reject_bad_vectors(artifact: &preparation::Artifact) {
     let mut cases = Vec::new();
     for (magic, batches, count, error) in [
         (b"TKN7", 1u32, None, -1i16),
-        (b"TKN8", 0, None, -1),
-        (b"TKN8", 17, None, -1),
-        (b"TKN8", 1, Some(4097), -1),
-        (b"TKN8", 1, Some(1), -3),
+        (b"TKN8", 1, None, -1),
+        (b"TKN9", 0, None, -1),
+        (b"TKN9", 17, None, -1),
+        (b"TKN9", 1, Some(4097), -1),
+        (b"TKN9", 1, Some(1), -3),
     ] {
         let mut bytes = magic.to_vec();
         bytes.extend(batches.to_le_bytes());
@@ -72,7 +73,7 @@ fn reject_bad_vectors(artifact: &preparation::Artifact) {
         }
         cases.push((bytes, error));
     }
-    let mut later = b"TKN8".to_vec();
+    let mut later = b"TKN9".to_vec();
     for value in [2u32, 0, 4097] {
         later.extend(value.to_le_bytes());
     }

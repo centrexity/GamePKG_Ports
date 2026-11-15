@@ -54,6 +54,8 @@ def main():
             icall_original=""
             split_original=""
             fs_original=""
+            loop_original=""
+            loop_support=""
             helper_units=[('prepared/src/recomp_0000_000.rs',['XMM_SUB','XMM_XOR']),
                           ('prepared/src/recomp_0002_018.rs',['recomp_fp_round24']),
                           ('prepared/src/recomp_0004_010.rs',['recomp_parity8']),
@@ -85,6 +87,8 @@ def main():
                     extra_helpers.append(extra_unit[start:end])
                 if args.prepared and unit_name=="prepared/src/recomp_0007_000.rs":
                     fs_original=pinned_function(extra_unit,'pub unsafe extern "C" fn sub_002447BF(')
+                    loop_original=pinned_function(extra_unit,'pub unsafe extern "C" fn sub_0024490A(')
+                    loop_support=pinned_function(extra_unit,'pub unsafe extern "C" fn sub_0024499E(')
                 if args.prepared and unit_name=="prepared/src/recomp_0007_001.rs":
                     extra_original=pinned_function(extra_unit,'pub unsafe extern "C" fn sub_00244DF0(')
         if hashlib.sha256(original).hexdigest()!=UNIT_HASH:raise RuntimeError('Changed original unit')
@@ -116,10 +120,10 @@ def main():
         names=list(record['converted'])
         game_file=generated/'game.rs';dispatch_file=generated/'dispatch.rs'
         if args.prepared:
-            report=json.loads((args.prepared/'inventory.json').read_text());selected={}
-            wanted={'sub_00244DF0':'recomp_0007_001.rs','sub_001FBAE0':'recomp_0005_013.rs','sub_00243450':'recomp_0006_019.rs','sub_002447BF':'recomp_0007_000.rs'}
+            report=json.loads((args.prepared/'inventory.json').read_text());selected={};locations={}
+            wanted={'sub_00244DF0':'recomp_0007_001.rs','sub_001FBAE0':'recomp_0005_013.rs','sub_00243450':'recomp_0006_019.rs','sub_002447BF':'recomp_0007_000.rs','sub_0024490A':'recomp_0007_000.rs','sub_0024499E':'recomp_0007_000.rs'}
             for name,unit_name in wanted.items():
-                entry=report['closed_graph'][name];assert entry['unit']==unit_name and entry['dependencies']==[]
+                entry=report['closed_graph'][name];assert entry['unit']==unit_name and entry['dependencies']==(['sub_0024499E'] if name=='sub_0024490A' else [])
             for filename,expected in report['emitted_files'].items():
                 if not re.fullmatch(r'game/unit_[0-9]+\.rs',filename):continue
                 data=(args.prepared/filename).read_bytes();assert hashlib.sha256(data).hexdigest()==expected
@@ -127,13 +131,24 @@ def main():
                 for name in wanted:
                     if 'pub fn '+name+'(' in text:
                         assert name not in selected;selected[name]=pinned_function(text,'pub fn '+name+'(')
-            assert set(selected)==set(wanted) and extra_original and icall_original and split_original and fs_original
+                        locations[name]=Path(filename).stem
+            assert set(selected)==set(wanted) and extra_original and icall_original and split_original and fs_original and loop_original and loop_support
+            # This small reference crate flattens only the selected, hash-checked
+            # literal dependency. The admitted full tree retains its original
+            # partition-qualified calls and every source/object check.
+            for name in selected:
+                for dependency in report['closed_graph'][name]['dependencies']:
+                    assert dependency in selected
+                    call=f'crate::game::{locations[dependency]}::{dependency}('
+                    assert selected[name].count(call)==1
+                    selected[name]=selected[name].replace(call,f'crate::game::{dependency}(')
             game_file=scratch/'combined_game.rs';game_file.write_text((generated/'game.rs').read_text()+'\n'+'\n'.join(selected.values()))
             dispatch_file=scratch/'combined_dispatch.rs'
             branches=''.join('0x'+name[4:]+'=>crate::game::'+name+'(native_state,guest_ram),' for name in selected)
             dispatch_file.write_text('pub fn invoke(native_state:&mut crate::registers::Registers,guest_ram:&mut crate::memory::Memory,address:u32)->Result<(),i32>{if !native_state.valid(){return Err(-1);}match address{'+branches+'_=>crate::base_dispatch::invoke(native_state,guest_ram,address)}}')
-            names+=list(selected)
-        oracle=here.joinpath('oracle_prefix.inc.rs').read_text()+'\n'+generated.joinpath('oracle_helpers.rs').read_text()+'\n'+'\n'.join(extra_helpers)+'\n'+generated.joinpath('oracle.rs').read_text()+'\n'+extra_original+'\n'+icall_original+'\n'+split_original+'\n'+fs_original
+            names+=[n for n in selected if n not in ['sub_0024490A','sub_0024499E']]
+            names.append('sub_0024490A')
+        oracle=here.joinpath('oracle_prefix.inc.rs').read_text()+'\n'+generated.joinpath('oracle_helpers.rs').read_text()+'\n'+'\n'.join(extra_helpers)+'\n'+generated.joinpath('oracle.rs').read_text()+'\n'+extra_original+'\n'+icall_original+'\n'+split_original+'\n'+fs_original+'\n'+loop_original+'\n'+loop_support
         oracle+='\npub unsafe fn invoke(address:u32){match address{'+''.join(f'0x{n[4:]}=>{n}(),' for n in names)+'_=>panic!("unknown reference function")}}\n'
         oracle+='\npub unsafe fn helper(operation:u32,first:[u32;4],second:[u32;4],immediate:u32)->[u32;4]{let a=RecompXmm{u:first};let b=RecompXmm{u:second};let result=match operation{0=>XMM_ADD(a,b),1=>XMM_SUB(a,b),2=>XMM_MUL(a,b),3=>XMM_XOR(a,b),4=>XMM_SHUFFLE(a,b,immediate),5=>XMM_SCALAR(f32::from_bits(first[0])),6=>XMM_ZERO(),_=>panic!("unknown helper")};result.u}\n'
         oracle+='\npub unsafe fn scalar_round24(value:f64)->f64{recomp_fp_round24(value)}pub unsafe fn scalar_parity8(value:u32)->i32{recomp_parity8(value)}pub unsafe fn scalar_rotate(value:u32,count:u32,carry:&mut i32,width:u32,left:bool)->u32{RC_ROT(value,count,carry,width,i32::from(left))}\n'

@@ -220,6 +220,43 @@ pub(super) fn rewrite_tail(statements: &[Stmt], pass: &Lower, label: &str) -> Op
     isolated.push(wrapper);
     rewrite(&isolated, pass)
 }
+// At the exact tail of this loop, both fallback continues and successful
+// fallthrough start its next iteration. On comparison copies only, express
+// those two continues as exits from an isolated block and reuse the full proof.
+pub(super) fn rewrite_loop_tail(statements: &[Stmt], pass: &Lower, label: &str) -> Option<Stmt> {
+    if statements.len() != 9 {
+        return None;
+    }
+    struct Continues<'a> {
+        label: &'a str,
+        count: u32,
+    }
+    impl VisitMut for Continues<'_> {
+        fn visit_expr_mut(&mut self, expr: &mut Expr) {
+            if let Expr::Continue(node) = expr {
+                if node.attrs.is_empty()
+                    && node.label.as_ref().is_some_and(|l| l.ident == self.label)
+                {
+                    let label = node.label.clone().unwrap();
+                    *expr = parse_quote!(break #label);
+                    self.count += 1;
+                    return;
+                }
+            }
+            visit_mut::visit_expr_mut(self, expr);
+        }
+    }
+    let mut isolated = syn::Block {
+        brace_token: Default::default(),
+        stmts: statements.to_vec(),
+    };
+    let mut continues = Continues { label, count: 0 };
+    continues.visit_block_mut(&mut isolated);
+    if continues.count != 2 {
+        return None;
+    }
+    rewrite_tail(&isolated.stmts, pass, label)
+}
 // A common ancestor exit is safe only when normal completion explicitly takes
 // that same exit. Keep the original break in its original lexical scope: the
 // checked helper replaces the call machinery, not the caller's control flow.
@@ -557,6 +594,41 @@ mod tests {
             "'s_200:{{'inner:{{if _va==0{{break 'inner;}}{body}}}*__gamepkg_tls_g_eax^=0x1111;}}"
         )
     }
+    fn loop_pattern(body: &str) -> String {
+        format!("let mut iteration:uint32_t=0;'s_200:loop{{iteration=iteration.wrapping_add(1);if iteration>3u32{{break;}}*__gamepkg_tls_g_eax^=iteration;{body}}}")
+    }
+    fn loop_tail() -> String {
+        let statements = tail_statements();
+        quote!(#(#statements)*)
+            .to_string()
+            .replace("break 's_200 ;", "continue 's_200 ;")
+    }
+    #[test]
+    fn loop_tail_requires_two_current_loop_continues_and_no_trailing_effects() {
+        let body = loop_tail();
+        let pattern = loop_pattern(&body);
+        let (mut function, deps) = candidate(&pattern, "").unwrap();
+        assert!(deps.is_empty());
+        assert_eq!(count(&mut function), 1);
+        let text = function.to_token_stream().to_string();
+        assert!(text.contains("loop {"));
+        assert!(text.contains("iteration"));
+        assert!(!text.contains("recomp_lookup"));
+        for changed in [
+            loop_pattern(&body.replacen("continue 's_200 ;", "break 's_200 ;", 1)),
+            loop_pattern(&body.replace("continue 's_200 ;", "break 's_200 ;")),
+            loop_pattern(&body.replacen("continue 's_200 ;", "continue 'ancestor ;", 1)),
+            loop_pattern(&format!("{{{body}}}")),
+            loop_pattern(&format!("{body}*__gamepkg_tls_g_eax^=123u32;")),
+            pattern.replace("'s_200:loop", "'different:loop"),
+            pattern.replace("'s_200:loop", "'s_200:while true"),
+            loop_pattern(&body.replace("wrapping_add (1)", "wrapping_add (2)")),
+        ] {
+            assert_ne!(changed, pattern);
+            assert!(candidate(&changed, "").is_err(), "{changed}");
+        }
+        assert!(candidate(&pattern, "let g_xbox_code_hi:uint32_t=0;").is_err());
+    }
     #[test]
     fn common_ancestor_exit_is_preserved_and_requires_an_exact_unconditional_jump() {
         let statements = tail_statements();
@@ -632,6 +704,12 @@ mod tests {
         .unwrap();
         assert!(lower(syn::parse_str(&leaving).unwrap()).is_ok());
         crate::call_reference::compare(&leaving, &canonical, "leaving");
+        let repeated = source(&loop_pattern(&loop_tail()));
+        let owned = loop_pattern(&include_str!("icall_template.inc").replace("'s_", "'owned_"))
+            .replace("'s_200:loop", "loop");
+        let canonical: ItemFn = syn::parse_str(&source(&owned)).unwrap();
+        assert!(lower(syn::parse_str(&repeated).unwrap()).is_ok());
+        crate::call_reference::compare(&repeated, &canonical, "loop-tail");
     }
     #[test]
     fn partial_altered_shadowed_wrong_width_or_wrong_register_sequences_remain_rejected() {

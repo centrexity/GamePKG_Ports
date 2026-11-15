@@ -57,6 +57,9 @@ fn route_2(
         _ => Err(-5),
     }
 }
+pub fn entry_available() -> bool {
+    false
+}
 pub fn invoke(
     native_state: &mut crate::registers::Registers,
     guest_ram: &mut crate::memory::Memory,

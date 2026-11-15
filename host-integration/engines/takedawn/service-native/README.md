@@ -88,18 +88,19 @@ Symlinks, changed inputs and existing output directories fail. Duplicated native
 symbols are never selected by archive order: all owners and their dependent
 callers are rejected, including identical definitions.
 
-The current inventory covers **24,015 distinct `sub_XXXXXXXX` definitions**,
-including recovered/unresolved sources. Named entrypoints and `_gen` variants
-need separate inclusion; this count is not the entire runnable title. Existing lowering
-rules recognize 22,924 locally; removing missing dependencies transitively leaves
-**18,858 candidates closed over literal direct dependencies**, with 4,173 direct edges, including 2,847 across units.
-Runtime routes remain partial: 730 retained functions contain rewritten runtime
+The current inventory covers **24,016 definitions**: 24,015 distinct
+`sub_XXXXXXXX` bodies, including recovered/unresolved sources, and the exact
+unit-bound `xbe_entry_point`. Five `_gen` variants still need inclusion; this
+count is not the entire runnable title. Existing lowering
+rules recognize 22,930 locally; removing missing dependencies transitively leaves
+**18,864 candidates closed over literal direct dependencies**, with 4,181 direct edges, including 2,853 across units.
+Runtime routes remain partial: 734 retained functions contain rewritten runtime
 calls, and known unmigrated destinations fail Unsupported. This is not a fully
-closed runtime graph. The other **5,157** definitions remain explicitly
+closed runtime graph. The other **5,152** definitions remain explicitly
 unconverted. There are no
 substitute bodies, dynamic native function pointers or unknown-target fallbacks.
 
-Prepared candidates use 2,381 Rust files (108,375,993 bytes). At most eight native
+Prepared candidates use 2,382 Rust files (108,430,710 bytes). At most eight native
 functions per module plus byte/token-aware splitting bound source size. An AST pass rewrites only direct function
 paths to their owning modules; literals are untouched. Binary selection routes
 call statically compiled functions directly, with at most logarithmic selection
@@ -129,14 +130,14 @@ python3 host-integration/engines/takedawn/service-native/check.py \
 
 The whole graph passes source admission and separate optimized object auditing/
 trusted linking for Linux64/Linux32/Windows64/Windows32. Confined native Linux
-children execute 4,224 vectors with the complete graph linked, including 1,024
+children execute 4,736 vectors with the complete graph linked, including 1,024
 cases for original `sub_00244DF0` and 512 cases for original `sub_001FBAE0`.
-**Semantic differential coverage is 36 functions**; compiling/auditing
-18,858 functions does not establish the other functions' behavior. Windows
+**Semantic differential coverage is 37 functions**; compiling/auditing
+18,864 functions does not establish the other functions' behavior. Windows
 reference comparisons execute under Wine; the prepared service executables
 are build evidence, not physical Windows gameplay. The full engine, ISO loader,
 kernel/media bridges, verified renderer, saves, input/audio, pacing and the
-remaining 5,157 functions still require migration/qualification before enablement.
+remaining 5,152 functions still require migration/qualification before enablement.
 
 ## Compacted control-flow contract
 
@@ -159,7 +160,7 @@ An additional explicitly invoked native test compares three original/converted
 CFG variants on 4,096 inputs each for every target (49,152 comparisons), covering
 ordinal values, first/final trap ordering, guarded effects and fault propagation.
 Windows executions use Wine. The 32-function kit reference suite has 2,304
-vectors per target. Private TKN8 vectors add signed extrema around the actual
+vectors per target. Private TKN9 vectors add signed extrema around the actual
 `0x463b14` load; register records remain 244 bytes, now version 4. Test files are not a
 public SDK/save ABI. No physical game/device/pacing evidence is implied.
 
@@ -197,7 +198,7 @@ or wider carry values and malformed helper signatures remain rejected.
 `fp_control_word` is an explicit u16 register value. Version-3 test records use
 bytes 46..48 in the unchanged 240-byte prefix; v4 appends the guest FS word. No native layout
 or host FP state is shared. All 65,536 control words round-trip as data; this is
-not qualification of their rounding/exception behavior. TKN8 private vector
+not qualification of their rounding/exception behavior. TKN9 private vector
 files include bounded, batched scalar conformance records after function cases;
 old test containers fail their magic check. No public SDK/save ABI changed.
 
@@ -312,7 +313,7 @@ actual mapped range. Counts negative on 32-bit hosts and overflow fail.
 The original matrix/copy routines `sub_00013D10` and `sub_00013E50` now have
 128 finite bounded input vectors each, covering both direction modes; all
 register bits and the whole committed 8 MiB remain exact comparisons. This
-does not qualify arbitrary matrix NaN propagation. Private TKN8 vectors add a
+does not qualify arbitrary matrix NaN propagation. Private TKN9 vectors add a
 seventh synthetic constant span; register records remain version 4.
 `copy_checks.rs` is itself source checked, separately optimized/object audited
 and run in confined Linux children: 1,048,593-byte copy with every byte checked,
@@ -350,7 +351,7 @@ rounding-bit cases and 836,808 signed integer-store cases match the unchanged
 `recomp_0007_001.rs`. Cases cover all exponent classes and all 65,536 control
 words, signed zero, subnormals, quiet/signaling NaNs, infinities, ties and
 neighbors of all three signed range limits. Invalid store widths reject.
-Private TKN8 vector trailers carry these results in bounded batches to actual
+Private TKN9 vector trailers carry these results in bounded batches to actual
 confined Linux32/Linux64 children; register records remain version 4/244 bytes.
 This qualifies these helpers' returned values, not x87 exception flags or the
 entire game's floating environment and behavior.
@@ -369,7 +370,7 @@ integer-range edges, signed zeros, subnormals, infinities and NaNs. Register bit
 and all committed 8 MiB RAM compare exactly; its 1,024 records also run in
 confined Linux32/Linux64 children linked with the complete candidate graph.
 The single-unit golden remains 32 functions/2,304 vectors; prepared runs cover
-36 functions/4,224 vectors, without treating other compiled functions as
+37 functions/4,736 vectors, without treating other compiled functions as
 semantically qualified. `sub_00244DF0` has no native function dependencies; its
 reference is extracted only from its exact hash-pinned unit, and its prepared
 body from an inventoried/hash-checked source file. No extra body is admitted
@@ -484,8 +485,9 @@ fields/order against the unchanged pinned routine. Selected original generated
 callee, true table absence, non-code guards, zero/high ranges and fallback
 stack cleanup are exercised. Separate guard checks cover known unmigrated
 categories and revocation; they do not implement those handlers. Private
-vectors use TKN8 with code bounds and expected trace values. The named
-entrypoint and five `_gen` bodies also require inclusion in the function pipeline:
+vectors use TKN9 with code bounds and expected trace values. The named roots
+below have explicit reviewed units: the entrypoint is now inventoried but not
+retained, while the five `_gen` bodies still require inclusion:
 
 | Symbol | Pinned source unit |
 | --- | --- |
@@ -546,7 +548,7 @@ are bound into both golden provenance and whole-kit inventory.
 
 Other lookup shapes and shared/state graphs outside the reviewed proofs remain
 rejected. Complete remaining
-native functions, named entry/_gen bodies, manual/kernel services, loader and
+native functions, named entry dependencies/_gen bodies, manual/kernel services, loader and
 verified renderer integration before enabling Burnout or qualifying gameplay.
 
 ## Alternate guards and calls at a block tail
@@ -574,8 +576,8 @@ cases per target, including observable effects after the block. They remain
 separate from original-function semantic qualification. The single-unit golden
 now retains original `sub_00015570`, checked in 128 register/whole-RAM/trace/log
 cases with null/non-null objects, original registered callees, absent/non-code
-targets and code-range guards. Prepared runs cover 36 original functions and
-4,224 vectors in bounded batches, as documented below.
+targets and code-range guards. Prepared runs cover 37 original functions and
+4,736 vectors in bounded batches, as documented below.
 
 The single-unit component now contains runtime calls too, so `check.py` always
 requires `--call-targets` from the hash-verified classifier tool. A sparse fake
@@ -608,22 +610,22 @@ bytes. Native references additionally verify revocation leaves context intact.
 These data checks do not initialize the real title's thread structures or prove
 startup, physical input, audio, graphics or frame pacing.
 
-Private vectors now use TKN8: magic, LE u32 batch count (1..16), then for each
+Private vectors now use TKN9: magic, LE u32 batch count (1..16), then for each
 batch a LE u32 case count (0..4096) and its existing records using 244-byte
 contexts. Scalar trailers follow all batches; the reader requires exact EOF.
 RAM, registers and the trace ledger persist across batches. Prepared runs now
-execute 4,224 cases in two batches, preserving all earlier coverage and the
+execute 4,736 cases in two batches, preserving all earlier coverage and the
 4,096-case limit per batch. No production resource limit was changed. The same
 audited Linux child rejects old magic, zero/oversized batch counts, oversized
 later batches and truncated records, with bounded waits and dummy output.
 
 Both direct startup helpers `sub_001D18B0` and `sub_001D19FD` are now retained.
-The entrypoint itself still needs inclusion, and `sub_001D2E6F` remains blocked
+The entrypoint is now explicitly inventoried, and `sub_001D2E6F` remains blocked
 by `sub_001CFF88`. That routine now lowers locally, but its default branch needs
-`sub_001D3970 -> sub_00243816 -> sub_0024647B`, whose dependency chain reaches
-`sub_0024490A`'s remaining loop-tail callbacks. The formatter `sub_00246622` now
-lowers locally too; its missing dependencies reach that same callback helper
-and `sub_001D5707`'s native memset. None of those bodies are
+`sub_001D3970 -> sub_00243816 -> sub_00246622`. The loop callback helper
+`sub_0024490A` is now retained. The formatter's remaining dependency chain goes
+through `sub_0024419D -> sub_00244171 -> sub_0024414A` to `sub_001D5707`'s
+native memset. None of those bodies are
 replaced by stubs. Complete the remaining functions and service/renderer/loader
 integration before enabling a title; retained literal-call closure is not full
 runtime routing or gameplay qualification.
@@ -650,10 +652,10 @@ Wine; these are synthetic control-flow checks, not complete original-function
 or physical gameplay qualification. No host API, runtime permission or legacy
 admission gate changes.
 
-The final inventory retains 95 additional functions. All 18,556 previously
+The common-exit checkpoint retained 95 additional functions. All 18,556 previously
 retained function/dependency records, including their lowered-body hashes, are
 unchanged. This does not expand original-function semantic qualification beyond
-the 36 functions/4,224 vectors recorded above.
+the 37 functions/4,736 vectors recorded above.
 
 ## Untraced computed jumps
 
@@ -688,8 +690,51 @@ fallback runs. That fixture receives no source/object exemption and runs in the
 admitted Linux children. This is component evidence, not startup, ISO loading,
 full formatting behavior, physical devices, audible audio or frame pacing.
 
-This step adds 207 retained functions. All 18,651 previous function/dependency
-records and lowered-body hashes remain unchanged. Literal-call closure now
-contains 18,858 functions; semantic reference qualification remains 36 functions
-and 4,224 vectors. The named entrypoint and five `_gen` helpers still require
-explicit inclusion; known missing runtime handlers still fail Unsupported.
+The untraced-jump checkpoint added 207 retained functions with all 18,651 prior
+function/dependency records and lowered-body hashes unchanged. The current
+literal-call closure contains 18,864 functions; semantic reference qualification
+is 37 functions and 4,736 vectors. The named entrypoint is now inventoried but
+blocked by dependencies; five `_gen` helpers still need inclusion. Known missing
+runtime handlers still fail Unsupported.
+
+## Callback tails in the current loop
+
+A separate context distinguishes labeled blocks from labeled `loop` bodies.
+Only nine statements at the exact end of the current loop can use the new
+rule. Both fallback paths must continue that same loop. On comparison copies,
+those two continues become exits from an isolated block and reuse the complete
+existing trace/lookup/fallback proof. Normal completion and both fallbacks then
+reach the next iteration. Breaks, ancestor targets, nested blocks, `while`
+contexts, trailing effects and changed guards remain rejected. Loop partitioning
+and all source, object, confinement and resource limits remain unchanged.
+Controlled original/reconstructed checks cover 7,680 three-iteration cases per
+target with observable per-iteration and post-loop effects.
+
+Prepared comparisons additionally run 512 unchanged original `sub_0024490A`
+cases with its actual `sub_0024499E` dependency. Bounded chains cover 0..5 table
+entries, skip flags, early stop indices, registered callbacks, original absence,
+non-code bounds, guest thread-head restoration, unaligned records and history
+writes. Registers, traces, diagnostic fields/order and the whole committed
+8 MiB match. A separate assertion verifies that no observable original write
+escapes the eight recorded spans; the converted RAM image is compared in full.
+This does not qualify arbitrary exception handlers or complete startup.
+
+Private vectors now use **TKN9**, preserving v4/244-byte contexts and the 1..16
+batches of at most 4,096 cases. Each case's former seven input/output RAM spans
+now includes an eighth 64-byte history span at guest `0x3C6100`. Old TKN8 is
+rejected before payload interpretation. The added span uses a forked RNG, and
+new loop cases follow all prior cases. Current prepared coverage is 37 selected
+original functions and 4,736 vectors in two batches. The same audited child
+checks old magic, malformed counts, truncated records and exact EOF.
+
+The inventory now includes the exact `xbe_entry_point` from pinned unit
+`recomp_0004_013.rs`, at original address `0x001D2807`. Unknown names and wrong
+owner units are rejected; duplicate numerical route addresses fail before
+emission. Numeric partition order and static direct routing are tested with a
+named entry between ordinary address ranges and a call across partitions.
+`dispatch::entry_available()` describes literal closed-graph presence only; it
+is false for the current kit because the remaining dependency reaches native
+memset in `sub_001D5707`. Existing runtime entrypoint migration faults and the
+legacy profile gate remain in force. The five `_gen` helpers still need review
+and inclusion. All 18,858 previous lowered-body/dependency records are unchanged;
+this step retains six additional functions without enabling Burnout.
