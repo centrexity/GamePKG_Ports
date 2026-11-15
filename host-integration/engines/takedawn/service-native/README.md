@@ -847,3 +847,10 @@ match the original section loop across all 64 MiB by SHA-256, including the
 supported private image's 17 sections. It remains separate from stack/FS/TLS,
 heap/kernel initialization, import bridging and native entrypoint execution;
 no title admission or gameplay claim follows from it.
+
+The [checked CPU startup data component](../service-bootstrap/README.md) now
+initializes the toolkit region, stack and main-thread FS/TLS through the same
+SDK. Confined Linux32/64 checks compare all RAM, layout and initial registers
+with the pinned original on synthetic cases and the authenticated private ISO.
+Heap allocation, kernel exports, memory/device models and native entry remain
+unqualified; the component does not enable the legacy profile.

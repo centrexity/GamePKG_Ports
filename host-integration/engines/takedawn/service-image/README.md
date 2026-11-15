@@ -106,9 +106,10 @@ checks still use the normal admission and confinement path.
 
 ## Remaining bootstrap work
 
-Initialize the original toolkit region, stack/FS/TLS, heap and kernel data, then
-resolve actual import ordinals with correct data-export versus native-handler
-semantics. Complete missing generated/manual/kernel/media and renderer paths
+The [checked CPU startup data component](../service-bootstrap/README.md) now
+qualifies the toolkit region, stack and main-thread FS/TLS initialization.
+Heap allocation, kernel data and actual import ordinals with correct data-export
+versus native-handler semantics remain required. Complete missing generated/manual/kernel/media and renderer paths
 using shared services; preserve original behavior rather than substituting
 success stubs. Only then connect and qualify the native entrypoint, saves,
 physical controls/rumble, audible audio and frame pacing. This component opens

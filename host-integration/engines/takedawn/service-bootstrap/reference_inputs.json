@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "production_ready": false,
+  "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+  "member": "toolkit/src/kernel/xbox_memory_layout.c",
+  "source_sha256": "c83cb0a4586ef3298911f4639e79ec1f904b4133b8469676ff0fa461b63f82f4",
+  "header_member": "toolkit/src/kernel/xbox_memory_layout.h",
+  "header_sha256": "ab33604d604d715d6c794ddeb6d42d03770ab476db811a9ca035951eb9269be7",
+  "regions": {
+    "toolkit": {
+      "start": 145419,
+      "end": 146956,
+      "sha256": "f27f3dd7e4b04efe4144c07d96cb5fd8df92133313eeadf2d84d2198c241edc9"
+    },
+    "tib_tls": {
+      "start": 150995,
+      "end": 156678,
+      "sha256": "d4ebee01592d46c3f9a1c9c24122edb5f3faf14b5efc2185b25594a97baf2e62"
+    }
+  },
+  "contract": "Exact pinned original toolkit/TIB/TLS CPU-data initialization only; OS mappings, devices, heap allocator and kernel bridge remain separate required work"
+}

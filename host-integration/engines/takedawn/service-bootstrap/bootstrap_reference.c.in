@@ -1,0 +1,38 @@
+/* Maintainer-only CPU-data oracle. Exact pinned original blocks inserted below.
+ * Inputs are checked by the test host. No OS, device, thread or console calls. */
+#include <stdint.h>
+#include <stddef.h>
+#include <string.h>
+#include <stdarg.h>
+typedef uint32_t DWORD;
+#define FALSE 0
+#define XBE_TLS_ADDR_OFFSET 0x12c
+#define XBOX_REGION_MIN 0x700000u
+#define XBOX_REGION_KDATA_OFF 0x40000u
+#define XBOX_REGION_TLS_OFF 0x60000u
+#define XBOX_REGION_PRCB_OFF 0x61000u
+#define XBOX_REGION_TLSBLK_OFF 0x70000u
+#define XBOX_REGION_STACK_OFF 0x80000u
+#define XBOX_STACK_BASE g_xbox_stack_base
+#define XBOX_STACK_SIZE g_xbox_stack_size
+#define XBOX_STACK_TOP (XBOX_STACK_BASE+XBOX_STACK_SIZE-16)
+#define XBOX_HEAP_BASE (XBOX_STACK_BASE+XBOX_STACK_SIZE)
+#define XBOX_HEAP_TOP 0x4000000u
+#define XBOX_FS_BASE g_fs_base
+#define xbox_heap_reset_base() (g_heap_next=XBOX_HEAP_BASE)
+static int silent_fprintf(void *stream,const char *format,...){(void)stream;(void)format;return 0;}
+#define fprintf silent_fprintf
+#define stderr ((void *)0)
+int gamepkg_bootstrap_reference(const uint8_t *xbe,uint8_t *ram,uint32_t image_high,uint32_t *output){
+    uint32_t g_xbox_image_hi=image_high,g_xbox_region_base=0,g_xbox_stack_base=0,g_xbox_stack_size=0;
+    uint32_t g_fs_base=0x4000,g_esp=0,g_heap_next=0,g_tls_template_va=0,g_tls_total=0;
+    uintptr_t g_memory_offset=(uintptr_t)ram;
+/* GAMEPKG_PINNED_TOOLKIT */
+    g_esp=XBOX_STACK_TOP;
+/* GAMEPKG_PINNED_TIB_TLS */
+    output[0]=g_xbox_region_base;output[1]=g_xbox_stack_base;output[2]=g_xbox_stack_size;
+    output[3]=g_esp;output[4]=g_heap_next;output[5]=XBOX_HEAP_TOP;output[6]=g_fs_base;
+    output[7]=g_tls_template_va;output[8]=g_tls_total;output[9]=g_tls_total?g_tls_template_va+0x200:0;
+    output[10]=64;output[11]=g_xbox_region_base+0x61000;output[12]=g_xbox_region_base+0x60000;output[13]=g_xbox_region_base+0x40000;
+    return 1;
+}
