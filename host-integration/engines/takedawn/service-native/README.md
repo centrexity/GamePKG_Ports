@@ -961,3 +961,21 @@ checks alias geometry, protection/decommit, cross-mirror transfer atomicity and
 holes. This qualifies the retail RAM topology, not NV2A/MCPX device behavior,
 complete guest-thread/kernel startup or native title entry. See its contract for
 page commitment, root-versus-RAM lifetimes and precise proof limits.
+
+
+The [checked kernel data component](../service-kernel-data/README.md) now
+preserves all 24 data-export addresses and original initialization memory effects,
+including command-line launch allocation and optional console-key/certificate
+signing. Four-target original-code comparisons include 24 cases, every main-RAM
+byte, all 400 ordinal probes and 1,024 fixed certificate-signature vectors.
+Complete-source/object audits pass on all four targets and exact original-data
+witnesses plus ownership/failure controls run in confined Linux32/64. The module
+uses existing checked RAM and the shared heap owner; it introduces no host API,
+crate, direct environment/file/clock access or accepted native import.
+
+The nine-function map does not yet accept those data exports. Connect initialized
+data to full import/remap/lookbehind preparation and periodic host-time updates,
+then finish other kernel functions/thread/device and generated/media/renderer
+paths before title entry. Key/EEPROM configuration parsing and coordinator status
+reporting remain separate port work. This component does not enable title
+admission, and its synthetic witnesses do not establish actual gameplay.

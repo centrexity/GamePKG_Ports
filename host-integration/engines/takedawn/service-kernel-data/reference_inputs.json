@@ -1,0 +1,75 @@
+{
+  "schema": 1,
+  "production_ready": false,
+  "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+  "sources": {
+    "kernel": {
+      "member": "toolkit/src/kernel/kernel_bridge.c",
+      "sha256": "bf62f8787a2e78a0abdb28e10ad8f79c5267dc655491353af231067747ce446e",
+      "functions": {
+        "kernel_data_init": {
+          "start": 9803,
+          "end": 19855,
+          "sha256": "76c54ff8f3c4a8a4d5664443b152ab428c7c95c80ec062347813e2f248ba55b4"
+        },
+        "kernel_data_va_for_ordinal": {
+          "start": 7074,
+          "end": 9669,
+          "sha256": "a4e04840d0d132ef1e19edf76958916ce0f9e870e3afb4ec0a8a03442b000be4"
+        }
+      }
+    },
+    "crypto": {
+      "member": "toolkit/src/kernel/kernel_crypto.c",
+      "sha256": "0abfd628753ef8137654ef95418fd7bea23ab58824b25db05ba89dfa0c851046",
+      "functions": {
+        "sha1_rotate_left": {
+          "start": 1921,
+          "end": 2030,
+          "sha256": "243ce07e379ac506118b08e3b383c1f33f717c61dad5379faa21062b297a43ec"
+        },
+        "sha1_transform": {
+          "start": 2032,
+          "end": 3273,
+          "sha256": "36eb2d64c3bdb6b685efa338e2548c156fe1a4e6387763e4e0dad142ab910c81"
+        },
+        "xbox_XcSHAInit": {
+          "start": 3275,
+          "end": 3670,
+          "sha256": "6357759afe74c802935ca2ba7aa3707907391d34b37236e1daaef894fbbd0517"
+        },
+        "xbox_XcSHAUpdate": {
+          "start": 3672,
+          "end": 4571,
+          "sha256": "5c8d27a54ca0f60fc5c919b635313635dd5082df06e4d09f600d7d7ff9d10801"
+        },
+        "xbox_XcSHAFinal": {
+          "start": 4573,
+          "end": 5646,
+          "sha256": "ef6103b3f98e9164c33dc683ac839b31d578ae1bc3a8f2407326342104bb1294"
+        },
+        "xbox_XcHMAC": {
+          "start": 7491,
+          "end": 9076,
+          "sha256": "72ab6325173e21c32e8de51e5bd67fb551ca9cd00acf20d48e212610031b3dc7"
+        }
+      }
+    },
+    "console": {
+      "member": "toolkit/src/kernel/kernel_console_keys.c",
+      "sha256": "e0d2e6fa353a34242f995d4d3beb16ec3ae2dc5b53a1b03006bb2a656f9b8565",
+      "functions": {
+        "xbox_ConsoleKeyDeriveSignature": {
+          "start": 5240,
+          "end": 5663,
+          "sha256": "23ceec0ad9dd20390f31927b7acfcdd6426e51bcd0a5955e21776949954c1663"
+        }
+      }
+    }
+  },
+  "header": {
+    "member": "toolkit/src/kernel/xbox_memory_layout.h",
+    "sha256": "ab33604d604d715d6c794ddeb6d42d03770ab476db811a9ca035951eb9269be7"
+  },
+  "zero_certificate_signature": "6f2e8637356ce21dae7ad7d1ed982002"
+}

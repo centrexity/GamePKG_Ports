@@ -1,0 +1,48 @@
+/* Maintainer only, following exact pinned original Heap definitions. */
+typedef uint32_t ULONG;
+typedef uint8_t UCHAR;
+#define VOID void
+#ifndef __stdcall
+#define __stdcall
+#endif
+#define SecureZeroMemory(p,n) memset((p),0,(n))
+typedef struct { uint32_t State[5];uint32_t Count[2];uint8_t Buffer[64]; } XBOX_SHA_CONTEXT,*PXBOX_SHA_CONTEXT;
+/* PINNED_SHA1_ROTATE_LEFT */
+/* PINNED_SHA1_TRANSFORM */
+/* PINNED_XBOX_XCSHAINIT */
+/* PINNED_XBOX_XCSHAUPDATE */
+/* PINNED_XBOX_XCSHAFINAL */
+/* PINNED_XBOX_XCHMAC */
+/* PINNED_XBOX_CONSOLEKEYDERIVESIGNATURE */
+static uint32_t g_xbox_region_base,g_tick,xbox_HalBootSMCVideoMode;
+static uintptr_t g_xbox_mem_offset;
+static uint8_t xbox_HDKey[16],xbox_SignatureKey[16],g_hd[16];
+static int g_has_key;
+static const char *g_cmd;
+#define XBOX_BASE_ADDRESS 0x10000u
+#define XBOX_KERNEL_DATA_BASE (g_xbox_region_base+0x40000u)
+/* PINNED_KDATA_DEFINITIONS */
+#define BRIDGE_MEM32(a) (*(uint32_t *)((uintptr_t)(a)+g_xbox_mem_offset))
+#define BRIDGE_MEM16(a) (*(uint16_t *)((uintptr_t)(a)+g_xbox_mem_offset))
+#define BRIDGE_MEM8(a) (*(uint8_t *)((uintptr_t)(a)+g_xbox_mem_offset))
+#define XBOX_TO_NATIVE(a) ((void *)((uintptr_t)(a)+g_xbox_mem_offset))
+#define RENV_CMDLINE 1
+static uint32_t GetTickCount(void){return g_tick;}
+static const char *recomp_env(int id){(void)id;return g_cmd;}
+static int xbox_ConsoleKeyLoad(uint8_t out[16]){memcpy(out,g_hd,16);return g_has_key;}
+static const char *xbox_ConsoleKeyStatus(void){return "synthetic";}
+static uint32_t xbox_HeapAlloc(uint32_t bytes,uint32_t alignment){return heap_alloc_unlocked(bytes,alignment);}
+/* PINNED_KERNEL_DATA_INIT */
+/* PINNED_KERNEL_DATA_VA_FOR_ORDINAL */
+void gamepkg_data_run(uint8_t *ram,const uint32_t *values,const uint8_t *cmd,const uint8_t *hd,const uint8_t *cert){
+    gamepkg_heap_reset(ram,0x1000000,values[4]);g_xbox_mem_offset=(uintptr_t)ram;
+    g_xbox_region_base=values[1];g_tick=values[2];xbox_HalBootSMCVideoMode=values[3];
+    g_cmd=(const char *)cmd;g_has_key=(int)values[7];memcpy(g_hd,hd,16);
+    memset(xbox_HDKey,0,16);memset(xbox_SignatureKey,0,16);
+    BRIDGE_MEM32(0x10000)=values[5];BRIDGE_MEM32(0x10118)=values[6];
+    if(values[6]>=0x10000&&values[6]<0x800000)memcpy((void *)(g_xbox_mem_offset+values[6]+0xc0),cert,16);
+    kernel_data_init();
+}
+void gamepkg_data_keys(uint8_t *out){memcpy(out,xbox_HDKey,16);memcpy(out+16,xbox_SignatureKey,16);}
+uint32_t gamepkg_data_address(uint32_t ordinal){return kernel_data_va_for_ordinal(ordinal);}
+void gamepkg_data_signature(const uint8_t *cert,uint8_t *out){xbox_ConsoleKeyDeriveSignature(cert,out);}
