@@ -979,3 +979,40 @@ then finish other kernel functions/thread/device and generated/media/renderer
 paths before title entry. Key/EEPROM configuration parsing and coordinator status
 reporting remain separate port work. This component does not enable title
 admission, and its synthetic witnesses do not establish actual gameplay.
+
+
+For the next complete import resolver, the app now supplies child-local op 17 /
+`local_memory_page_states(window, offset, pages)` in host implementation
+[`8e741b5`](https://github.com/centrexity/GamePKG/commit/8e741b5). The current
+shared digest is
+`22be2884a8921bfbcacb3b8f3f1fe8da111840f0bb3b600269a21d36221cc0be`, composite
+native recipe `d8f147d4eed6560b`. It snapshots 1..256 aligned pages of an owned
+opaque RAM window: 0 uncommitted, 1 committed/no-access, 2 read-only, 3 read/write.
+These are state bytes, not the existing protect modes (0 no-access, 1 RO, 2 RW).
+The exact 24-byte request is window u64, offset u64, page count u32,
+reserved-zero u32. No memory contents, rights or native addresses are returned.
+The copy is atomic with protection updates, not a lease for later operations;
+setup must serialize writers and handle every subsequent failure. Unsupported
+from an older SDK must not become guessed protection or direct OS access.
+
+This fills the missing generic prerequisite for the original temporary import
+writeability and restoration. The port resolver itself is still pending. Preserve
+the pinned original's asymmetric behavior: remap and data classification apply
+to the main run, while the 16-word lookbehind uses raw ordinals and function
+routing, at synthetic slot `main_count + distance` (leaving slot `main_count`
+empty). Unsupported imports and capacity overflow must not be concealed by
+truncation or successful stubs. The original zero-count setter retains its
+previous/default count, so it cannot be treated as an empty title table without
+review. Derive the actual run from the authenticated image, preserve ordinary
+non-marker bytes, and verify the original full setup before enabling entry.
+
+The migrated kernel-data component was requalified against this new SDK:
+24 pinned-original initializations / all 400 ordinal probes / full 64 MiB RAM
+and 1,024 certificate-signature vectors per native Linux32/64 and Windows32/64
+under Wine, plus complete source/object audits on all four targets and actual
+confined Linux32/64 witness/ownership controls. The app separately qualifies
+query framing, isolation, all states, maximum count, revocation, nonmutation and
+concurrent protection snapshots without raising any quota. These remain silent
+infrastructure checks, not complete title startup, Windows AppContainer runtime,
+physical controls, audible output or measured frame pacing. Legacy title gates
+and the app's pinned submodule remain unchanged.
