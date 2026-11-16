@@ -463,16 +463,33 @@ impl Queue {
         Ok(self.queue_snapshot(ram)?.1)
     }
     pub fn queue_join(&mut self, ram: &memory::Memory) -> Result<u64, i32> {
+        Ok(self.queue_join_task(ram)?.result())
+    }
+    pub fn queue_join_task(&mut self, ram: &memory::Memory) -> Result<gamepkg::LocalTaskJoin, i32> {
         self.queue_creator(ram)?;
         if self.worker == 0 || self.joined {
             return Err(-1);
         }
-        let mut reply = [0u8; 8];
-        if gamepkg::local_call(11, &u64::to_le_bytes(self.worker), &mut reply)? != 8 {
-            return Err(-3);
+        let joined = gamepkg::local_task_join(self.worker)?;
+        self.joined = true;
+        Ok(joined)
+    }
+    // Another owner may consume the same job's join. Only the SDK's actual
+    // join evidence can release this owner's lifetime requirement.
+    pub fn queue_accept_join(
+        &mut self,
+        ram: &memory::Memory,
+        joined: &gamepkg::LocalTaskJoin,
+    ) -> Result<(), i32> {
+        self.queue_creator(ram)?;
+        if self.worker == 0 || self.joined {
+            return Err(-1);
+        }
+        if joined.task_id() != self.worker {
+            return Err(-4);
         }
         self.joined = true;
-        Ok(u64::from_le_bytes(reply))
+        Ok(())
     }
     pub fn queue_worker_binding(&self, ram: &memory::Memory) -> Result<[u64; 2], i32> {
         let (_, bytes) = self.queue_snapshot(ram)?;

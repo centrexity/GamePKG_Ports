@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Maintainer-only original display/vblank state differential; never player tooling."""
-import argparse, hashlib, importlib.util, json, os, subprocess, tarfile, tempfile
+import argparse, hashlib, importlib.util, json, os, subprocess, tarfile, tempfile, shutil
 from pathlib import Path
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--app',type=Path,required=True);p.add_argument('--app-lib',type=Path);p.add_argument('--wine',action='store_true');p.add_argument('--repeat',type=int,choices=range(1,33),default=1);a=p.parse_args()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--app',type=Path,required=True);p.add_argument('--app-lib',type=Path);p.add_argument('--wine',action='store_true');p.add_argument('--evidence',type=Path);p.add_argument('--repeat',type=int,choices=range(1,33),default=1);a=p.parse_args()
     app=a.app.resolve(strict=True);here=Path(__file__).resolve().parent;pins=json.loads((here/'reference_inputs.json').read_text());kit=here.parents[3]/'takedawn/assets/takedawn-source-kit.tar.gz'
     assert hashlib.sha256(kit.read_bytes()).hexdigest()==pins['source_kit_sha256']
     with tarfile.open(kit) as t:data=t.extractfile(pins['member']).read()
@@ -47,7 +47,18 @@ def main():
         if a.app_lib:
             lib=a.app_lib.resolve(strict=True);spec=importlib.util.spec_from_file_location('helpers',here.parent/'service-save/check.py');helpers=importlib.util.module_from_spec(spec);spec.loader.exec_module(helpers)
             exe=root/'admission';cmd=['rustc','--edition=2021','-D','warnings',str(here/'admission.rs'),'--extern','gamepkg='+str(lib),'-L','dependency='+str(lib.parent),'-o',str(exe)]
-            for name in ['tempfile','toml']:cmd+=['--extern',name+'='+str(helpers.dependency(lib,name))]
+            for name in ['tempfile','toml','serde_json']:cmd+=['--extern',name+'='+str(helpers.dependency(lib,name))]
             subprocess.run(cmd,check=True);subprocess.run([str(exe),str(app),str(here),str(root)],check=True)
+        if a.evidence:
+            a.evidence.mkdir(parents=True,exist_ok=False);receipts={}
+            for path in sorted(root.glob('receipt-*/services.json')):
+                value=json.loads(path.read_text());assert len(value['game']['objects'])==len(value['raw_objects']) and len(value['raw_objects'])>=1
+                name=path.parent.name+'.json';shutil.copyfile(path,a.evidence/name);receipts[name]=hashlib.sha256(path.read_bytes()).hexdigest()
+            if a.app_lib:assert len(receipts)==4
+            vectors={}
+            for mode in [-1,0,1]:
+                path=root/('vectors-'+str(mode));name=path.name+'.bin';shutil.copyfile(path,a.evidence/name);vectors[name]=hashlib.sha256(path.read_bytes()).hexdigest()
+            report={'schema':1,'status':'pacing-state-and-scheduling-component-not-hardware-cadence-or-gameplay','original':pins,'receipts':receipts,'vectors':vectors,'sources':{name:hashlib.sha256(path.read_bytes()).hexdigest() for name,path in modules},'rustc':subprocess.check_output(['rustc','-vV'],text=True),'windows':'Wine components' if a.wine else 'compile-only','profile_admission':'blocked'}
+            (a.evidence/'qualification.json').write_text(json.dumps(report,indent=2)+'\n')
     print('Pacing state component only; not actual display reports, IRQ delivery, complete timer/DPC execution, gameplay or measured frame pacing.')
 if __name__=='__main__':main()

@@ -589,3 +589,18 @@ cannot be used as production handlers. Cancellation/guest wait contracts,
 retained timer/vblank/spin/TIB/context loop and full source/build/launcher closure
 remain required. No main import or native title profile is enabled; SDK identity,
 installed app, pinned ports submodule, ROMs/saves and launch defaults are unchanged.
+
+
+## Shared-worker join evidence
+
+The app SDK now mints private-field `LocalTaskJoin` after the actual consuming
+join. Queue and pacing owners validate and borrow this same receipt instead of
+joining a shared job twice. Timer close retains its existing queue-scoped witness.
+See `service-kernel-pacing/SHARED_JOIN.md`. Full SDK is
+`fe309935dd602e2cf098e50065f6035de33dac88b51d45a2bc1ba47cf026742f`.
+Four-target component tests, complete source/object qualification and actual
+confined Linux x64/i686 runs pass; Windows component tests use Wine. Pacing,
+queue and timer-firing regressions have fresh receipts for this SDK. This
+supersedes previous statements that the installed SDK remained unchanged.
+Production worker-loop/context/IRQ/handler closure and title builds/launchers
+remain required; no native title profile or pinned submodule is enabled.

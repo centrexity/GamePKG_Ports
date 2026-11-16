@@ -223,16 +223,34 @@ impl Schedule {
     // Consume the assigned task's actual nonblocking join, even after config
     // revocation. A caller cannot supply an unverified completion claim.
     pub fn schedule_join(&mut self, ram: &memory::Memory) -> Result<u64, i32> {
+        Ok(self.schedule_join_task(ram)?.result())
+    }
+    pub fn schedule_join_task(
+        &mut self,
+        ram: &memory::Memory,
+    ) -> Result<gamepkg::LocalTaskJoin, i32> {
         self.schedule_creator(ram)?;
         if self.assigned == 0 || self.joined {
             return Err(-1);
         }
-        let mut reply = [0u8; 8];
-        if gamepkg::local_call(11, &u64::to_le_bytes(self.assigned), &mut reply)? != 8 {
-            return Err(-3);
+        let joined = gamepkg::local_task_join(self.assigned)?;
+        self.joined = true;
+        Ok(joined)
+    }
+    pub fn schedule_accept_join(
+        &mut self,
+        ram: &memory::Memory,
+        joined: &gamepkg::LocalTaskJoin,
+    ) -> Result<(), i32> {
+        self.schedule_creator(ram)?;
+        if self.assigned == 0 || self.joined {
+            return Err(-1);
+        }
+        if joined.task_id() != self.assigned {
+            return Err(-4);
         }
         self.joined = true;
-        Ok(u64::from_le_bytes(reply))
+        Ok(())
     }
     pub fn schedule_close(&mut self, ram: &memory::Memory) -> Result<(), i32> {
         if self.record == 0 {

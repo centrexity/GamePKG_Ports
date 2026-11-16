@@ -185,3 +185,11 @@ scope witnesses, actual single join, close after queue release and revoked-root
 cleanup. Its intentionally premature-join implementation must fail. The complete
 queue source/object matrix and original queue operations are also requalified;
 no existing ring/Inserted/notification/callback semantics change.
+
+### SDK receipt adoption for a shared pacing worker
+
+`queue_join_task` retains the typed SDK join receipt; `queue_accept_join` adopts
+the same actual job's receipt from another owner. `queue_join_witness` is available
+after either path. See [the shared join contract](../service-kernel-pacing/SHARED_JOIN.md)
+for exact ownership, error and teardown rules. The older scalar `queue_join`
+discards this SDK receipt and cannot coordinate a later pacing adoption.

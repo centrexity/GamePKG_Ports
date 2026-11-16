@@ -143,6 +143,12 @@ pub fn game_main(){let code=match run(){Ok(())=>0u64,Err(code)=>code as i64 as u
         .unwrap();
         let artifact = preparation::build(root.path(), &checked, &plan, vec![], vec![]).unwrap();
         artifact.executable().unwrap();
+        fs::create_dir_all(Path::new(&args[3]).join(format!("receipt-{target:?}"))).unwrap();
+        fs::write(
+            Path::new(&args[3]).join(format!("receipt-{target:?}/services.json")),
+            serde_json::to_vec_pretty(artifact.receipt()).unwrap(),
+        )
+        .unwrap();
         assert_eq!(
             artifact.receipt().game.sdk,
             gamepkg::port_host::build_identity()

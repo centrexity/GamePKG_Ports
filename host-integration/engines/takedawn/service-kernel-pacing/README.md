@@ -55,9 +55,9 @@ Both lower and upper crossings are included in original-C differentials.
 ## Shared-record ownership and worker integration
 
 `shared::Schedule` uses the supplied `gamepkg`, checked `memory`/`kernel_pool`,
-`pacing` and existing `wait_service`. No SDK/host implementation changes or
-additional quotas. Require native SDK `c4edee3e44be562b`, full identity
-`10c4f4ca7ea37783c08ea2cafd1b129ca9b3160cbe4d3cf30d6c1a5da8c51e88`.
+`pacing` and existing `wait_service`. No additional quotas. Shared join integration requires native SDK
+`544b35bf60db343f`, full identity
+`fe309935dd602e2cf098e50065f6035de33dac88b51d45a2bc1ba47cf026742f`.
 
 - `schedule_new(&Memory,mode)` creates one 144-byte copied record and an owning
   controller bound to its creating reviewed task/child entry.
@@ -78,7 +78,9 @@ additional quotas. Require native SDK `c4edee3e44be562b`, full identity
   pure-state encoding, not a lease/pointer or mutable native object.
 - Stop/cancel the worker. Creator-only `schedule_join(&mut self,&Memory)` consumes
   its actual nonblocking local join and returns the result; Busy retains owner
-  resources. Never consume that assigned job through another join path.
+  resources. For a worker shared with other controllers, retain the typed receipt
+  from `schedule_join_task` or accept the exact job receipt through
+  `schedule_accept_join`; see [SHARED_JOIN.md](SHARED_JOIN.md).
 - `schedule_close` refuses an assigned, unjoined job, even if it already finished.
   After the real join it revokes the owned record. Configuration revocation is
   reported after cleanup; `schedule_closed()` then returns true. A borrowed view
