@@ -163,3 +163,15 @@ native DPC handler, queue drain, timer/event shadow, spin/TIB/context wiring,
 renderer/media/launcher, physical control, audible audio or measured 60 FPS
 claim follows from these synthetic callbacks. Finish those integrations before
 enabling a native title.
+
+
+The maintainer witness transport retains its single 336-byte mailbox slot.
+Busy is retryable backpressure: `callback_send` retries using existing local
+clock samples and bounded retry pauses for at most one counter-frequency second,
+then returns Busy. Other errors propagate. This applies to witnesses and worker
+error reports so an already-full channel cannot silently lose a report and turn
+it into a receiver timeout. It does not alter callback scheduling, guest state,
+quota, service timeout, title admission or the original C oracle.
+The separate maintainer shell tests a deliberately full queue with no consumer
+and a delayed consumer, and rejects controls that drop the witness or return
+Busy immediately. The game fixture uses only the generated shared bindings.

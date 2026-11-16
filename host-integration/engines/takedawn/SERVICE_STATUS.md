@@ -415,3 +415,61 @@ The installed matching app also passed isolated signed native 2048 and Arkanoo
 builds with 120 hidden frames each. All seven catalog entries and thumbnail
 notices/hashes pass. This does not change the 108 unresolved main imports or
 4,709 not-closed generated definitions; production Burnout remains unadmitted.
+
+
+## Typed event service coordination (2026-11-16)
+
+The app supplies child-local ABI 1 operations 27 (`local_event_wait`) and 28
+(`local_event_state`). Current full SDK identity:
+`51d880fd16a9cfacef7fb2d9582be1e26e32728685082248ce8f83e510ab1606`.
+App implementation: `8164988a4dd6f9f8863f8c98c51e4db216d7f299`; matching
+installed CLI/GUI native identity: `324b3c58fe2292b1`.
+Use the exact framing, errors and lifetimes in app `docs/PORT_SERVICES.md`,
+"Typed child-local event observation and waiting". Rebuild against this SDK;
+old executable receipts must not be reused or relabelled.
+
+Event wait accepts only an opaque event ID and 0..1000 ms timeout. It cannot
+acquire a mutex; cancellation, release and close return Denied and wake blocked
+waiters. Auto-reset signals are consumed only by a successful wait, while manual
+signals persist until reset. The snapshot copies manual/signaled booleans
+without consuming or resetting, allocating a sync slot or granting a lifetime
+lease. A subsequent call rechecks revocation and task cancellation. Existing
+128-object quotas, source restrictions and all-object auditing are unchanged.
+The original generic wait 23 retains its prior semantics.
+
+This is a generic primitive for the original timer shadow-event behavior, not
+an implemented timer adapter. Keep the original 32 timer slots, periodic rearm
+and one-shot removal before callback, callback outside the timer lock, and guest
+SignalState publication after shadow signaling in checked port code. Preserve
+signed relative due-time and host-clock/skew truncation order. Do not infer a
+multi-event atomic operation from a snapshot or silently skip failed signals.
+The original shadow-map capacity and SDK sync quota differ; resolve resource
+admission explicitly rather than adding an OS event fallback or widening quotas.
+The timer/DPC queue shares one actual worker: a consuming SDK join must occur
+once before either component closes borrowed resources. Independent double joins
+are not an acceptable lifecycle adapter.
+
+The current source-checked event/deadline fixture passes all four target builds
+and every emitted optimized game-object audit; Linux x64/i686 run with actual
+GamePKG confinement before owner dispatch. Standalone runtime and wire tests
+pass on Linux x64/i686 and Windows x64/i686 through Wine, including cancellation
+handoff, invalid framing, wrong-kind non-acquisition and signal preservation.
+Removing the cancellation/value-lock synchronization makes the regression test
+fail. These results do not establish production timers, title startup, Windows
+confinement, physical controls, audible audio or frame pacing. Burnout and Halo
+remain unadmitted; no source archive, generated helper, ROM, save, recipe or
+launch default changes in this interface checkpoint.
+
+
+Current-SDK regressions pass for retained drain (384 original-C witnesses per
+target), notifications (512 per target) and callbacks (256 per target), including
+negative mutation controls, all eight optimized game-object audits on each of
+four targets and actual confined Linux x64/i686 fixtures. Windows component
+execution uses Wine; Windows prepared executables are compile/link qualification.
+A callback witness test previously treated its single-slot channel's Busy as a
+fatal worker error and could lose the error report too. The test transport now
+retries bounded backpressure without increasing capacity; deliberate full-queue
+and delayed-consumer checks plus drop/immediate-failure controls verify it.
+The installed app also native-builds signed 2048 and Arkanoo in a private test
+library and completes 120 headless frames each. Catalog metadata and all seven
+thumbnail hashes/notices pass. No gameplay or physical-device claim follows.

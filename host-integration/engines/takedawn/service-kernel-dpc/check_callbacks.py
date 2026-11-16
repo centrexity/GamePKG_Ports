@@ -116,6 +116,28 @@ def main():
             assert result.returncode != 0, name
             assert 'callback vector' in result.stderr or 'on an `Err` value: -3' in result.stderr, result.stderr
             print('PASS required failing ' + name + ' control; never admitted', flush=True)
+        original_probe = (here / 'probe.rs').read_text()
+        begin = original_probe.index('pub fn callback_send(')
+        end = original_probe.index('fn cb_word(', begin)
+        for name, body in [
+            ('drop-full-witness', 'match gamepkg::local_mailbox_send(replies, bytes) { Err(-2) => Ok(()), result => result }'),
+            ('fail-full-witness', 'gamepkg::local_mailbox_send(replies, bytes)'),
+        ]:
+            bad = root / (name + '.rs')
+            bad.write_text(original_probe[:begin] +
+                           'pub fn callback_send(replies:u64,bytes:&[u8])->Result<(),i32>{' + body + '}\n' +
+                           original_probe[end:])
+            main_source = root / (name + '-main.rs')
+            main_source.write_text(source.read_text().replace(
+                json.dumps(str(here / 'probe.rs')), json.dumps(str(bad))))
+            exe = root / name
+            subprocess.run(['rustc', '--edition=2021', '-D', 'warnings', '-O',
+                            str(main_source), '-C', 'link-arg=' + str(root / 'x86_64-unknown-linux-gnu.o'),
+                            '-o', str(exe)], check=True)
+            result = subprocess.run([str(exe)], capture_output=True, text=True, timeout=90)
+            assert result.returncode != 0, name
+            assert 'panicked at' in result.stderr, result.stderr
+            print('PASS required failing ' + name + ' control; never admitted', flush=True)
         if a.app_lib:
             lib = a.app_lib.resolve(strict=True)
             spec = importlib.util.spec_from_file_location('helpers', component.parent / 'service-save/check.py')

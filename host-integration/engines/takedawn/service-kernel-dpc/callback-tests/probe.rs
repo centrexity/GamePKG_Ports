@@ -13,6 +13,28 @@ fn cb_need(value: bool) -> Result<(), i32> {
         Err(-3)
     }
 }
+// The depth-one witness channel has retryable backpressure. Preserve every
+// witness instead of terminating the worker (and losing its error report) if
+// the parent is briefly descheduled. This is test transport, not a game limit.
+pub fn callback_send(replies: u64, bytes: &[u8]) -> Result<(), i32> {
+    let start = gamepkg::local_performance_sample()?;
+    loop {
+        match gamepkg::local_mailbox_send(replies, bytes) {
+            Ok(()) => return Ok(()),
+            Err(-2) => {
+                let now = gamepkg::local_performance_sample()?;
+                if now.frequency != start.frequency || now.counter < start.counter {
+                    return Err(-3);
+                }
+                if now.counter - start.counter >= start.frequency {
+                    return Err(-2);
+                }
+                memory::Memory::call_retry_pause()?;
+            }
+            Err(code) => return Err(code),
+        }
+    }
+}
 fn cb_word(bytes: &[u8], at: usize) -> Result<u64, i32> {
     let b = bytes.get(at..at + 8).ok_or(-1)?;
     Ok(u64::from_le_bytes([
@@ -131,7 +153,7 @@ fn cb_cases(
         if scenario == 6 {
             cb_need(ram.read_u32(0x741000)? == 3 && ram.read_u32(0x743030)? == 5)?;
         }
-        gamepkg::local_mailbox_send(replies, &[0u8; 336])?;
+        callback_send(replies, &[0u8; 336])?;
         return Ok(());
     }
     for index in 0..256u32 {
@@ -160,7 +182,7 @@ fn cb_cases(
         let controller = irql::Controller::controller_borrow(ram, task.task_key()[0])?;
         let counts = controller.controller_counts(ram)?;
         cb_need(counts[0] == u64::from(cases::callback_old(index) >= 2) && counts[1] == 0)?;
-        gamepkg::local_mailbox_send(replies, &witness)?;
+        callback_send(replies, &witness)?;
         task.irql_lower(ram, &mut cpu, 0)?;
     }
     // Preflight errors are explicit and leave the live worker reusable.
@@ -189,7 +211,7 @@ pub fn callback_worker(context: u64) -> u64 {
                     let mut message = [0u8; 336];
                     message[0..4].copy_from_slice(&u32::to_le_bytes(0x52454243));
                     message[4..8].copy_from_slice(&i32::to_le_bytes(code));
-                    let _ = gamepkg::local_mailbox_send(replies, &message);
+                    let _ = callback_send(replies, &message);
                 }
             }
             code as i64 as u64
