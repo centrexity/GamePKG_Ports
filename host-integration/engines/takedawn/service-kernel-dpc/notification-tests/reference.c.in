@@ -1,0 +1,21 @@
+/* Maintainer only. Exact original policy bodies; controlled published hooks. */
+#include <stdint.h>
+#define DISPATCH_LEVEL 2
+static int t_gate_depth,t_in_isr,g_current_irql;
+static int prompt,consumer,pending,kicks;
+static int pending_hook(void) { return !consumer && pending; }
+static void kick_hook(void) { kicks++; }
+static struct { int (*pending)(void); void (*kick)(void); } s_dpc = { pending_hook,kick_hook };
+static int xbox_DpcPromptOn(void) { return prompt; }
+/* PINNED_PENDING */
+/* PINNED_RELEASE */
+/* PINNED_QUEUED */
+void notify_reference(uint32_t index,uint64_t *out) {
+ static const int levels[8]={0,1,2,3,4,16,255,128};
+ prompt=index&1; t_gate_depth=(index>>1)&3;
+ g_current_irql=levels[(index>>3)&7];t_in_isr=(index>>6)&1;
+ pending=(index>>7)&1;consumer=(index>>8)&1;
+ kicks=0;xbox_DpcQueued();out[0]=(uint64_t)kicks;
+ kicks=0;dpc_release_point();out[1]=(uint64_t)kicks;
+ out[2]=out[0]+out[1];
+}

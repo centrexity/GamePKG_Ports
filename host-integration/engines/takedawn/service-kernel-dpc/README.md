@@ -128,6 +128,12 @@ execution, frame pacing or playable-title claim follows from these checks.
 
 ## Remaining port integration
 
+`notify.rs` now supplies the checked original queued/release **notification**
+policy described in [NOTIFICATIONS.md](NOTIFICATIONS.md). It composes the real
+IQL/raw gate, assigned queue consumer and existing host clock wake lane. It
+does not drain the queue, execute a DPC or replace the production timer worker.
+Its qualification is separate from the queue-only witnesses above.
+
 Connect the original gate/IRQL/CLI/STI and ISR safe points, deferred wake policy,
 native callback dispatch and guest stack/TIB, timer/event shadow records,
 statistics histogram/reporting, shutdown and reviewed production worker. Do not

@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+  "member": "toolkit/src/kernel/kernel_hal.c",
+  "source_sha256": "4e65affa22218adfd942c8f0460292358b055bacad5ede8faa3480eec268717e",
+  "functions": {
+    "pending": {
+      "start": 25123,
+      "end": 25222,
+      "sha256": "6481e1ff56c50b3efcfbbb50075338d2555359c7d4ee84dfeae1d67e986ed2af"
+    },
+    "release": {
+      "start": 25263,
+      "end": 25432,
+      "sha256": "f301e8adc3122bb709a3567589e9bf7bd67cdfe562c6f29dccdc89ec679d1545"
+    },
+    "queued": {
+      "start": 25434,
+      "end": 25691,
+      "sha256": "4ed35b57c345332d9a2c9cf6665e63d73ce02de50046fa91e260aaecaade5f30"
+    }
+  }
+}

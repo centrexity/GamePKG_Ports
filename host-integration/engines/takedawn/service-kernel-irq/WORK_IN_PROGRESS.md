@@ -18,6 +18,10 @@ Remaining required work:
    host-owned wakeable sleeper, timer/event shadows and per-thread TIB. Never
    drain DPCs inline on an arbitrary title thread. Keep the timer's guest stack
    lease for its whole worker lifetime and release on every exit/error.
+   The checked queued/release notification adapter is now available in
+   `../service-kernel-dpc/notify.rs`; see `NOTIFICATIONS.md` there for exact
+   bindings, readiness and partial-error semantics. It does not connect the
+   production observer or supply a callback drain automatically.
 4. Initialize/share one IQL/stack/IRQ instance per title, attach every fresh Task
    view, and connect the full native thunk/context/bridge and entry paths. The
    existing four-ID native context has not automatically expanded to carry this
