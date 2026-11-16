@@ -1044,3 +1044,9 @@ alias ordering and explicit caller-owned SDK clearing. Current app requirement:
 See `../service-kernel-crypto/README.md`; 115 main functions and the remaining
 runtime/device/generated/manual/media/renderer/native-entry path still need
 migration. No title profile or enforcement exception is enabled.
+
+The next timing/settings migration has a coordinated host clock prerequisite:
+see `CLOCK_SERVICE_HANDOFF.md` for app `da4864d`, SDK `969defa5bb1d6421`, exact raw
+counter/calendar units, worker-only routing and the remaining shared root/skew/
+settings integration. This service addition does not register new kernel calls;
+the private main-function gap remains 115 and native gameplay stays gated.
