@@ -630,3 +630,34 @@ spin/pause/profiler/IRQ handlers, full source closure and builders/launchers sti
 need integration. This helper does not start or admit the title, prove physical
 input/audio/graphics or measure frame pacing. App SDK/binaries and the pinned
 ports submodule are unchanged; the locally installed app already has this SDK.
+
+
+## Retained timer-worker startup composition
+
+`service-timer-worker/worker.rs` now rebuilds the actual reviewed worker's checked
+memory view from the existing four-ID context, borrows the root/KSV-bound common
+stack pool, retains one actor-owned slice and creates its own TIB via the
+serialized heap actor. It publishes CPU ESP/FS only after setup succeeds.
+`worker_parts` returns safe memory/CPU/lease borrows for the existing dispatch
+APIs without reallocating the stack between iterations. `worker_finish` attempts
+both local cleanup paths and retains terminal errors across repeated calls.
+`worker_finished` is local stack-release/heap-close-attempt state, not successful
+cleanup, task completion or join proof. See `service-timer-worker/README.md`.
+
+Ten actual-worker modes cover success, missing TLS/heap, heap/stack exhaustion,
+foreign root, malformed context, pre-start/live revocation and live cancellation.
+The real owner refuses pool close while the actual worker retains its slice.
+Six intentionally broken variants must fail. Four-target witness bytes match
+(Windows components via Wine); complete source checks and all eight separately
+optimized game objects per target pass before trusted linking. Actual confined
+Linux x64/i686 children execute the same cases. No SDK/schema/quota/import/policy
+change or native title admission is introduced; current SDK is
+fe309935dd602e2cf098e50065f6035de33dac88b51d45a2bc1ba47cf026742f.
+
+This is synthetic startup/lifetime composition, not original-C whole-worker or
+actual title qualification. The owner still must publish production context and
+controller IDs, wire IRQL/IRQ/profiler/device handlers, spin/pause/wakeup and the
+retained timer loop, then complete full source/build/launcher closure and actual
+graphics/input/audio/pacing checks. Shared owner cleanup still needs its actual
+single SDK join. Installed app binaries and the pinned ports submodule stay
+unchanged; no renderer/default or user ROM/save change is made.
