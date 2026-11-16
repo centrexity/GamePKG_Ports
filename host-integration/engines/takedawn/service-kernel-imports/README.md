@@ -5,7 +5,8 @@ ordinary dependency-free game source, the initialized kernel-data component and
 the finite allocator bridges. `image_imports.rs` binds that plan to the reviewed
 image/CPU setup. No native function pointer, OS protection call, success stub or
 engine exemption is introduced. **The title remains gated:** only the nine
-migrated allocator functions and 24 data exports are available. A complete table
+migrated allocator functions, three checked SHA functions and 24 data exports
+are available. See `../service-kernel-sha/README.md` for the SHA extension. A complete table
 containing any other function fails Unsupported before publication.
 
 Requires shared SDK local op 17, available from app `8e741b5`: full digest
@@ -156,8 +157,10 @@ The image fixture composes in-place XDVDFS, authenticated image loading,
 CPU/TIB/TLS setup, the shared allocator, correct data region and import planning.
 Retail/debug synthetic images reach real native allocation through the patched
 table; unsupported imports, wrong code bounds and wrong data region reject
-without table publication. The authorized private ISO remains read-only and
-unextracted. Its main table currently contains **121 unmigrated function exports**;
+without table publication. Synthetic mode 6 also routes SHA init/update/final
+through the complete image/import/Call pipeline and verifies the `abc` digest.
+The authorized private ISO remains read-only and
+unextracted. Its main table currently contains **118 unmigrated function exports**;
 it rejects Unsupported without changing the table. Numeric inventory is private
 test evidence, not a claim those functions are implemented. No title entry runs.
 

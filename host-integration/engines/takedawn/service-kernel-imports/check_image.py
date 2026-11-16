@@ -13,12 +13,12 @@ def main():
   root=Path(temp);probe=root/'admission';cmd=['rustc','--edition=2021','-D','warnings',str(here/'image_admission.rs'),'--extern','gamepkg='+str(lib),'-L','dependency='+str(lib.parent),'-o',str(probe)]
   for name in ['cap_std','tempfile','toml','serde_json']:cmd+=['--extern',name+'='+str(helpers.dependency(lib,name))]
   subprocess.run(cmd,check=True);cases=[]
-  for mode in [0,1,2,3,5]:
+  for mode in [0,1,2,3,5,6]:
    data=images.image();images.word(data,0x10c,0x770000);images.word(data,0x1b8+8,0x76e000);images.word(data,0x1b8+16,0x1000)
    images.word(data,0x158,0x12400^(0xefb1f152 if mode==1 else 0x5b6d40b6))
    if mode==1:images.word(data,0x128,0x11020^0x94859d4b)
    data[0xfc0:0x1000+379*4]=bytes(64+379*4)
-   for index,ordinal in enumerate([14,181 if mode==2 else 16,23]):images.word(data,0x1000+index*4,0x80000000|ordinal)
+   for index,ordinal in enumerate([14,181 if mode==2 else 16,23]+([335,336,337] if mode==6 else [])):images.word(data,0x1000+index*4,0x80000000|ordinal)
    images.word(data,0xffc,0x8000000e)
    image=root/(str(mode)+'.iso');discs.fixture(image)
    with image.open('r+b') as f:f.truncate(100*2048);f.seek(40*2048+4);f.write(struct.pack('<II',80,len(data)));f.seek(80*2048);f.write(data)

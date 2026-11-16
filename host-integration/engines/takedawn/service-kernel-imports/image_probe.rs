@@ -87,7 +87,7 @@ pub fn image_import_run() -> Result<(), i32> {
         }
     }
     let planned = image_imports::imports_image(&ram, &image, &data, &[]);
-    if mode[0] >= 2 {
+    if mode[0] >= 2 && mode[0] != 6 {
         let expected = if mode[0] == 3 || mode[0] == 5 { -1 } else { -5 };
         match planned {
             Err(code) => {
@@ -106,13 +106,14 @@ pub fn image_import_run() -> Result<(), i32> {
         gamepkg::diagnostic(1, 0x544b0f00, &[u64::from(mode[0]), expected as i64 as u64])?;
     } else {
         let prepared = planned?;
-        if prepared.imports_layout() != [table, 3, 5] {
+        let count = if mode[0] == 6 { 6 } else { 3 };
+        if prepared.imports_layout() != [table, count, count + 2] {
             return Err(-3);
         }
         prepared.imports_publish(&mut ram)?;
         if ram.read_u32(table)? != 0xfe000000
             || ram.read_u32(table + 4)? != data.data_address(&ram, 16)?
-            || ram.read_u32(table - 4)? != 0xfe000010
+            || ram.read_u32(table - 4)? != 0xfe000000 + (count + 1) * 4
         {
             return Err(-3);
         }
@@ -123,15 +124,46 @@ pub fn image_import_run() -> Result<(), i32> {
         if state.eax != shape[4] || state.esp != sp + 8 {
             return Err(-3);
         }
+        let allocation = state.eax;
+        if mode[0] == 6 {
+            ram.write_bytes(0x13000, &[97u8, 98, 99])?;
+            for (slot, args) in [
+                (3u32, [0x14003u32, 0, 0]),
+                (4, [0x14003, 0x13000, 3]),
+                (5, [0x14003, 0x15000, 0]),
+            ] {
+                state.esp = sp;
+                ram.write_u32(sp, 0x12345678)?;
+                for index in 0..3usize {
+                    ram.write_u32(sp + 4 + index as u32 * 4, args[index])?;
+                }
+                calls_runtime::invoke_call(&mut state, &mut ram, 0xfe000000 + slot * 4, sp)?;
+                if state.eax != 0
+                    || state.esp != sp + 4 + kernel_pool::kernel_supported(332 + slot)?
+                {
+                    return Err(-3);
+                }
+            }
+            let mut digest = [0u8; 20];
+            ram.read_bytes(0x15000, &mut digest)?;
+            if digest
+                != [
+                    0xa9, 0x99, 0x3e, 0x36, 0x47, 0x06, 0x81, 0x6a, 0xba, 0x3e, 0x25, 0x71, 0x78,
+                    0x50, 0xc2, 0x6c, 0x9c, 0xd0, 0xd8, 0x9d,
+                ]
+            {
+                return Err(-3);
+            }
+        }
         gamepkg::diagnostic(
             1,
             0x544b0f00,
             &[
                 u64::from(mode[0]),
                 u64::from(table),
-                3,
-                5,
-                u64::from(state.eax),
+                u64::from(count),
+                u64::from(count + 2),
+                u64::from(allocation),
             ],
         )?;
     }

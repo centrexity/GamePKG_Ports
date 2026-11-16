@@ -110,7 +110,7 @@ impl Imports {
                 continue;
             }
             kernel_pool::kernel_supported(ordinal)?;
-            physical |= ordinal >= 165;
+            physical |= kernel_pool::kernel_physical(ordinal);
             imports_put(&mut patched, 64 + slot * 4, 0xfe000000 + slot as u32 * 4);
         }
         let mut slots = count;
@@ -127,7 +127,7 @@ impl Imports {
             // Original lookbehind deliberately has neither remap nor data routing.
             let ordinal = current & 0x7fffffff;
             kernel_pool::kernel_supported(ordinal)?;
-            physical |= ordinal >= 165;
+            physical |= kernel_pool::kernel_physical(ordinal);
             ordinals[slot as usize] = ordinal;
             slots = slots.max(slot + 1);
             imports_put(&mut patched, at, 0xfe000000 + slot * 4);

@@ -236,3 +236,10 @@ registered worker contexts and maintainer original-code comparison. The older
 four-pool fixture and full generated-candidate four-pool regression remain
 independent. This changes no kernel record/stack/allocator protocol, budget,
 source/object rule or title-admission gate.
+
+
+The dispatcher additionally implements SHA ordinals 335/336/337; see
+`../service-kernel-sha/README.md` for exact behavior and the separate original-C,
+source/object and confined-call checks. The nine-allocator corpus here remains
+a distinct regression, not the SHA qualification. `kernel_physical` now lists
+only 165/166/168/171/180 so hash preparation does not require a heap owner.

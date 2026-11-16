@@ -1,0 +1,83 @@
+{
+  "schema": 1,
+  "production_ready": false,
+  "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+  "sources": {
+    "crypto": {
+      "member": "toolkit/src/kernel/kernel_crypto.c",
+      "sha256": "0abfd628753ef8137654ef95418fd7bea23ab58824b25db05ba89dfa0c851046",
+      "functions": {
+        "sha1_rotate_left": {
+          "start": 1921,
+          "end": 2030,
+          "sha256": "243ce07e379ac506118b08e3b383c1f33f717c61dad5379faa21062b297a43ec"
+        },
+        "sha1_transform": {
+          "start": 2032,
+          "end": 3273,
+          "sha256": "36eb2d64c3bdb6b685efa338e2548c156fe1a4e6387763e4e0dad142ab910c81"
+        },
+        "xbox_XcSHAInit": {
+          "start": 3275,
+          "end": 3670,
+          "sha256": "6357759afe74c802935ca2ba7aa3707907391d34b37236e1daaef894fbbd0517"
+        },
+        "xbox_XcSHAUpdate": {
+          "start": 3672,
+          "end": 4571,
+          "sha256": "5c8d27a54ca0f60fc5c919b635313635dd5082df06e4d09f600d7d7ff9d10801"
+        },
+        "xbox_XcSHAFinal": {
+          "start": 4573,
+          "end": 5646,
+          "sha256": "ef6103b3f98e9164c33dc683ac839b31d578ae1bc3a8f2407326342104bb1294"
+        }
+      }
+    },
+    "bridge": {
+      "member": "toolkit/src/kernel/kernel_bridge.c",
+      "sha256": "bf62f8787a2e78a0abdb28e10ad8f79c5267dc655491353af231067747ce446e",
+      "functions": {
+        "bridge_XcSHAInit": {
+          "start": 244612,
+          "end": 244734,
+          "sha256": "2272411c7a5b2cc87c988fcdb08f1a8db6d5b402bd1d5acc9ee0b0321feb7226"
+        },
+        "bridge_XcSHAUpdate": {
+          "start": 244736,
+          "end": 244962,
+          "sha256": "51e2267c7921d7c74101f3293a45bd2b280d73cfa2e3ba3fffc27931f33b9276"
+        },
+        "bridge_XcSHAFinal": {
+          "start": 244964,
+          "end": 245146,
+          "sha256": "1bb8635f5619e61b484661f41f2145a91aa53198d411ed5bc856c0eb04c9c98c"
+        },
+        "stdcall_args_for_ordinal": {
+          "start": 370039,
+          "end": 392581,
+          "sha256": "9296186dab3e4cf69665559022afb261930e0efa09eea4b88f72ea723da76542"
+        },
+        "bridge_for_ordinal": {
+          "start": 392583,
+          "end": 417340,
+          "sha256": "105df98d229ad685ab70118227e48691621ea24d97bd3f9ccdae179ad4a3c85b"
+        }
+      }
+    }
+  },
+  "ordinals": {
+    "335": "bridge_XcSHAInit",
+    "336": "bridge_XcSHAUpdate",
+    "337": "bridge_XcSHAFinal"
+  },
+  "header": {
+    "member": "toolkit/src/kernel/kernel.h",
+    "sha256": "efae4f1b5aab8a2a420d00b8fb5fd75a1fb9a717704a709c34baddcc254bd17e",
+    "context": {
+      "start": 14589,
+      "end": 14725,
+      "sha256": "d53e7ee7203f39865b26da0da893e2cdaf8d7284398b7a122fb48082bf3ad53e"
+    }
+  }
+}

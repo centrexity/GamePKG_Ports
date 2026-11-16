@@ -1029,3 +1029,11 @@ Linux32/64 checks qualify the component, not all title imports. The private
 image currently still rejects on 121 unmigrated function exports; no title
 entry has run. See its contract for explicit per-page restoration semantics,
 partial-publication failure/abort requirements and exact remaining work.
+
+
+SHA kernel exports 335/336/337 now use checked guest RAM and the original
+92-byte context/counter/buffer semantics; see `../service-kernel-sha/README.md`.
+They participate in complete import preparation and the actual finite Call
+router. The private main-table inventory is down to 118 unmigrated functions;
+this does not enable the title or qualify gameplay. Shared SDK and all
+admission/confinement limits remain unchanged.
