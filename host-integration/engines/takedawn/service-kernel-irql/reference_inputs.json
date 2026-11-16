@@ -1,0 +1,134 @@
+{
+  "schema": 1,
+  "production_ready": false,
+  "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+  "member": "toolkit/src/kernel/kernel_hal.c",
+  "source_sha256": "4e65affa22218adfd942c8f0460292358b055bacad5ede8faa3480eec268717e",
+  "functions": {
+    "irql_publish": {
+      "start": 2638,
+      "end": 2878,
+      "sha256": "80cf30eeedffc7b88db54ba99a5635ec638a1a3288412febfc6c909f094268f6"
+    },
+    "gate_entered": {
+      "start": 9675,
+      "end": 9810,
+      "sha256": "cf4e5fb6584ec893ba04005f0c77067469ec92aa085b5f37f762658c24bd2dbc"
+    },
+    "gate_try": {
+      "start": 9812,
+      "end": 9971,
+      "sha256": "7a9b21f8a3f574e95096fc134a1e5489a3a5f062246cbfa1085b8d848ba33272"
+    },
+    "gate_enter": {
+      "start": 9973,
+      "end": 10299,
+      "sha256": "13d3d3a7c60911616d80c123b243a6e6b40cb6369b15f57e58ca4090dfe4ef39"
+    },
+    "gate_leave_raw": {
+      "start": 10301,
+      "end": 10457,
+      "sha256": "e034eb9d58de02083d23f5a512c3952d409ddb052bd11781c620beeab7c01f1e"
+    },
+    "xbox_DispatchGateOwner": {
+      "start": 10459,
+      "end": 10580,
+      "sha256": "4e2f9eeccd5e875734bd77594a35fe2453030a22acd90b0b8a6e648346a290aa"
+    },
+    "xbox_DispatchGateTryEnter": {
+      "start": 11079,
+      "end": 11141,
+      "sha256": "2cae315199655b7182564a53abb346e43cf1c3919a7a17d01d38188c7543eaa8"
+    },
+    "xbox_DispatchGateEnter": {
+      "start": 11143,
+      "end": 11198,
+      "sha256": "fb133bd2a1480b4a035e0a28f72742dbed37d7fe70a73c588bf0c141054b3ab5"
+    },
+    "xbox_DispatchGateLeave": {
+      "start": 11367,
+      "end": 11507,
+      "sha256": "152b703032fbe87a9a8e52f888f31d4b94c26f69ddd2939022945b954f037022"
+    },
+    "xbox_NativeInterruptDisable": {
+      "start": 11777,
+      "end": 11995,
+      "sha256": "94d2e136b7667e379df9a58734cd589a94f069df6783d53b2b2027fac3c6cd1b"
+    },
+    "xbox_NativeInterruptEnableAfterShadow": {
+      "start": 11997,
+      "end": 12235,
+      "sha256": "7bfa66c94eaf6916201458cc4372b3fe546e18e8775f753aa653a1787999206b"
+    },
+    "xbox_NativeInterruptsEnabled": {
+      "start": 12237,
+      "end": 12312,
+      "sha256": "55534656af7bfa017e8c7a4702210f4057419cf8f6f5942d354931d602796356"
+    },
+    "irql_release_due": {
+      "start": 25693,
+      "end": 25779,
+      "sha256": "28c844d1a0c07842e795caa2e99ab912c03534b4051c016dca55c21c296c1b72"
+    },
+    "irql_track_gated": {
+      "start": 31915,
+      "end": 34018,
+      "sha256": "d43b52972e738f8af2b2672ae21ab66449a4b442d5e5c0baa22583a52ece9e59"
+    },
+    "irql_track": {
+      "start": 34020,
+      "end": 34141,
+      "sha256": "261992ab89d6a31dacf202f0532d1e77f0ebfabcb7131c89649145730a9842c3"
+    },
+    "xbox_IrqlEnterInterrupt": {
+      "start": 34792,
+      "end": 35237,
+      "sha256": "f699f4a4f3893dfe6b2410f83bb8a8206d4f4e48bad17a721b3770f0fe574367"
+    },
+    "xbox_IrqlLeaveInterrupt": {
+      "start": 35239,
+      "end": 35702,
+      "sha256": "60cb7f3c81e366e9e7f44add06c0ab43f0d32241537b92db469b1ae617455da4"
+    },
+    "xbox_IrqlThisThreadBlocksDpcs": {
+      "start": 35885,
+      "end": 36026,
+      "sha256": "fed9bbbb92c3993b392d5fda1fcd260c00ce6430290255ddb25a30b43019a687"
+    },
+    "xbox_IrqlCurrent": {
+      "start": 36028,
+      "end": 36090,
+      "sha256": "89091461fb29cc08c7ee6fba2482007713e510e8b1c675e1f845f698d1d49980"
+    },
+    "xbox_KfRaiseIrql": {
+      "start": 36215,
+      "end": 36598,
+      "sha256": "5d556bb09d67f7514dccf5f91340ca5291e1496299021556a59f804b2fd17b37"
+    },
+    "xbox_KfLowerIrql": {
+      "start": 36696,
+      "end": 38025,
+      "sha256": "43de957d06717c4b3370ecd34f13d261e3304d42f5e3acbe43f770cf044ddfd2"
+    },
+    "xbox_KeRaiseIrqlToDpcLevel": {
+      "start": 38110,
+      "end": 38320,
+      "sha256": "7aa44a75729fd703a2313aafaba373f692f275a95822c5dc85ce35b95103b3fb"
+    },
+    "xbox_IrqlBlocksInterrupts": {
+      "start": 4059,
+      "end": 4247,
+      "sha256": "91a16d3197240608343a24ee62a6dedeb72b3c6907fecfd9711546d9061eb5cf"
+    },
+    "xbox_IrqlRaisedCount": {
+      "start": 4433,
+      "end": 4539,
+      "sha256": "713543d9f24751f40633264fc463634f0a5b21636fb6898b1126f55e74d67757"
+    },
+    "xbox_IrqlTransitions": {
+      "start": 5046,
+      "end": 5146,
+      "sha256": "484ac29111dcd686106e8457e3e6d8de8fdc2f8cc1019512d54e4ba09890c187"
+    }
+  }
+}

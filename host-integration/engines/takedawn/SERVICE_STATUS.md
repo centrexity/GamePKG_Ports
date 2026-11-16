@@ -4,7 +4,32 @@ This is tested integration work, **not a playable Burnout release**. The legacy
 profile remains blocked. No source pin, signature, cached executable or engine
 exception may bypass that block. The source kit and catalog URLs are unchanged.
 
-## Current checkpoint: IRQ state and raw gate
+## Current checkpoint: checked IRQL controller
+
+`service-kernel-irql` adds a root/KSV3-bound IQL1 controller with bounded real-task
+registration, original IRQL/PCR publication order, separate raised/CLI gate
+holds, interrupt bracketing and explicit bounded abort cleanup. The exact APIs,
+2176-byte record, literal hook signatures and partial-error semantics are in its
+README. No SDK, source-kit, root, CPU or KSV format/limit changes are introduced.
+
+2048 ordered original-C state/RAM/return witnesses pass per target, including
+controlled callback return at a different priority and full Rust CPU restoration.
+Real workers exercise contention, wrong-owner release, active-close denial,
+normal join and cancellation cleanup. Malformed/full/closing state, foreign/stale
+handles, PCR overflow/read-only denial and actual KSV revocation are checked.
+An early release before PCR publication is required to fail. Complete fixture
+sources scan before bindings, and all eight optimized objects audit before
+trusted linking on Linux32/64 and Windows32/64; actual confined Linux children
+repeat the witnesses/controls. Windows component execution uses Wine, not a real
+Windows gameplay or confinement check. Catalog validation passes all seven entries.
+
+The production pending-device hooks and full timer/DPC/IRQ/native-handler
+integration are still missing; the controller is not wired into the full
+candidate. Main imports/counts below therefore remain unchanged. Renderer,
+media, bootstrap, launch and real title qualification remain required. Burnout
+and Halo stay blocked; synthetic callbacks are not gameplay or device evidence.
+
+## Earlier checkpoint: IRQ state and raw gate
 
 Ports `9a2ce80` / `64ae362` qualify private CPU **v5/316 bytes**, including flags,
 FP comparison and all eight MMX values, plus the actual root-bound recursive
@@ -28,8 +53,9 @@ audited; a fixture growth helper was removed rather than allowlisted. Native
 Windows-host compiler scheduling is unchanged and still needs qualification.
 
 Exact APIs: `service-native/IRQ_SERVICE_HANDOFF.md`, `service-kernel-gate/README.md`
-and app PORT_SERVICES.md. Next implement original IRQL/PCR, safe/release points,
-CLI/STI, native IRQ/DPC callbacks and timer integration. Raw release is not final
+and app PORT_SERVICES.md. The later IRQL checkpoint above implements the
+bookkeeping/PCR and CLI/STI helper contracts; production safe/release points,
+native IRQ/DPC callbacks and timer integration remain. Raw release is not final
 GateLeave. Complete renderer/media/bootstrap/launch and gameplay qualification
 remain required; do not enable the legacy engine or exempt media.
 

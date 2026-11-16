@@ -1,0 +1,134 @@
+/* Maintainer-only oracle: pinned original bodies with controlled hooks. */
+#include <stdint.h>
+#include <stddef.h>
+#include <string.h>
+#include <stdarg.h>
+#include <stdio.h>
+typedef uint8_t KIRQL;
+typedef int32_t LONG;
+typedef void VOID;
+#undef __fastcall
+#undef __stdcall
+#define __fastcall
+#define __stdcall
+#define DISPATCH_LEVEL 2
+#define IRQL_CALLER() NULL
+#define XBOX_LOG_WARN 1
+#define XBOX_LOG_HAL 1
+#define XBOX_PROF_WAIT_GATE 0
+#define RENV_IRQL_TRACE 0
+static int quiet_print(FILE *stream,const char *text,...){(void)stream;(void)text;return 0;}
+static int quiet_flush(FILE *stream){(void)stream;return 0;}
+#define fprintf quiet_print
+#define fflush quiet_flush
+static KIRQL g_current_irql;
+static uint32_t g_fs_base, g_eflags;
+static ptrdiff_t g_xbox_mem_offset;
+static int t_release_due,t_irql_counted,t_dispatch_gate_held,t_gate_depth;
+static int t_native_irq_masked,t_in_isr;
+static volatile LONG g_irql_raised_count,g_native_irq_masked_count,s_transitions,s_gate_owner;
+static int s_trace=0;
+static volatile LONG s_traced;
+static int s_dispatch_gate;
+static uint8_t memory[65536];
+static LONG InterlockedCompareExchange(volatile LONG *p,LONG value,LONG expected){LONG old=*p;if(old==expected)*p=value;return old;}
+static LONG InterlockedExchange(volatile LONG *p,LONG value){LONG old=*p;*p=value;return old;}
+static LONG delta(volatile LONG *p,uint32_t d){uint32_t n;memcpy(&n,(const void *)p,4);n+=d;memcpy((void *)p,&n,4);return *p;}
+static LONG InterlockedIncrement(volatile LONG *p){return delta(p,1);}
+static LONG InterlockedDecrement(volatile LONG *p){return delta(p,UINT32_MAX);}
+static unsigned long GetCurrentThreadId(void){return 1;}
+static void dispatch_gate_once(void){}
+static void EnterCriticalSection(int *p){(void)p;}
+static int TryEnterCriticalSection(int *p){(void)p;return 1;}
+static void LeaveCriticalSection(int *p){(void)p;}
+static int xbox_ProfOn(void){return 0;}
+static long long xbox_ProfNowUs(void){return 0;}
+static void xbox_ProfWait(int k,long long v){(void)k;(void)v;}
+static void irql_holder_add(void *p){(void)p;}
+static void irql_holder_drop(void){}
+static int recomp_env(int key){(void)key;return 0;}
+static void trace(uint64_t kind,uint32_t flags,uint8_t new_level){
+ uint32_t count;memcpy(&count,memory+0x1000,4);if(count>=256)return;
+ uint64_t v[16]={kind,g_current_irql,t_irql_counted,t_dispatch_gate_held,t_native_irq_masked,t_in_isr,t_release_due,(uint32_t)g_irql_raised_count,(uint32_t)g_native_irq_masked_count,(uint32_t)s_transitions,t_gate_depth,flags,memory[0x24],new_level,0,0};
+ for(unsigned i=0;i<16;i++)for(unsigned j=0;j<8;j++)memory[0x4000+count*128+i*8+j]=(uint8_t)(v[i]>>(j*8));
+ count++;memcpy(memory+0x1000,&count,4);
+}
+static void xbox_log(int level,int area,const char *text,...){
+ (void)level;(void)area;va_list ap;va_start(ap,text);(void)va_arg(ap,int);int n=va_arg(ap,int);va_end(ap);
+ trace(strstr(text,"KfRaiseIrql:")?5:6,0,(uint8_t)n);
+}
+static void irq_release_point(void){trace(3,g_eflags,0);}
+static void release_window(void){trace(2,g_eflags,0);}
+static void (*s_irq_release_hook)(void)=release_window;
+static void xbox_SpinWake(void){trace(4,0,0);}
+static void irql_release_due(void);
+static void xbox_IrqSafePoint(void);
+int xbox_IrqlEnterInterrupt(int level);
+void xbox_IrqlLeaveInterrupt(int saved);
+KIRQL xbox_KfRaiseIrql(KIRQL level);
+/* PINNED_IRQL_PUBLISH */
+/* PINNED_GATE_ENTERED */
+/* PINNED_GATE_TRY */
+/* PINNED_GATE_ENTER */
+/* PINNED_GATE_LEAVE_RAW */
+/* PINNED_XBOX_DISPATCHGATEOWNER */
+/* PINNED_XBOX_DISPATCHGATETRYENTER */
+/* PINNED_XBOX_DISPATCHGATEENTER */
+/* PINNED_XBOX_DISPATCHGATELEAVE */
+/* PINNED_XBOX_NATIVEINTERRUPTDISABLE */
+/* PINNED_XBOX_NATIVEINTERRUPTENABLEAFTERSHADOW */
+/* PINNED_XBOX_NATIVEINTERRUPTSENABLED */
+/* PINNED_IRQL_RELEASE_DUE */
+/* PINNED_IRQL_TRACK_GATED */
+/* PINNED_IRQL_TRACK */
+/* PINNED_XBOX_IRQLENTERINTERRUPT */
+/* PINNED_XBOX_IRQLLEAVEINTERRUPT */
+/* PINNED_XBOX_IRQLTHISTHREADBLOCKSDPCS */
+/* PINNED_XBOX_IRQLCURRENT */
+/* PINNED_XBOX_KFRAISEIRQL */
+/* PINNED_XBOX_KFLOWERIRQL */
+/* PINNED_XBOX_KERAISEIRQLTODPCLEVEL */
+/* PINNED_XBOX_IRQLBLOCKSINTERRUPTS */
+/* PINNED_XBOX_IRQLRAISEDCOUNT */
+/* PINNED_XBOX_IRQLTRANSITIONS */
+
+static void xbox_IrqSafePoint(void){
+ trace(1,g_eflags,0);
+ if(!memory[0x1008]||!t_gate_depth||t_native_irq_masked||t_in_isr||g_current_irql>2)return;
+ memory[0x1008]=0;uint32_t flags=g_eflags;t_in_isr=1;
+ int saved=xbox_IrqlEnterInterrupt(16);g_eflags^=0x1234;
+ xbox_KfRaiseIrql(2);xbox_IrqlLeaveInterrupt(saved);t_in_isr=0;g_eflags=flags;
+}
+static uint64_t hash(const uint8_t *b,size_t n){uint64_t h=UINT64_C(14695981039346656037);for(size_t i=0;i<n;i++)h=(h^b[i])*UINT64_C(1099511628211);return h;}
+void irql_reference(uint32_t index,uint8_t *out){
+ memset(memory,0xa5,sizeof(memory));memset(memory+0x1000,0,4);memory[0x1008]=(uint8_t)(index&1);
+ g_current_irql=0;t_release_due=t_irql_counted=t_dispatch_gate_held=t_gate_depth=t_native_irq_masked=t_in_isr=0;
+ g_irql_raised_count=g_native_irq_masked_count=s_gate_owner=0;
+ s_transitions=0;if(index%31==0){uint32_t n=UINT32_MAX-3;memcpy((void *)&s_transitions,&n,4);}
+ g_fs_base=(index&4)?0x740000:0;g_xbox_mem_offset=(ptrdiff_t)memory-0x740000;
+ g_eflags=index*1664525u+1013904223u;
+ uint8_t results[160]={0};int saved=0;
+ for(unsigned step=0;step<20;step++){
+  int op=0,param=0;uint64_t r=0;
+  switch(step){
+   case 0:op=0;param=index%256;break;case 1:op=0;param=(index>>3)%256;break;
+   case 2:op=1;param=(index>>5)%256;break;case 3:case 7:case 19:op=1;break;
+   case 4:case 5:op=2;break;case 6:case 17:case 18:op=4;break;case 8:op=3;break;
+   case 9:op=5;break;case 10:op=7;param=1;break;case 11:op=8;param=16;break;
+   case 12:case 16:op=9;break;case 13:op=7;break;case 14:op=6;break;
+   case 15:op=8;param=(index&2)?-258:-1;break;
+  }
+  switch(op){
+   case 0:r=xbox_KfRaiseIrql((KIRQL)param);break;case 1:xbox_KfLowerIrql((KIRQL)param);break;
+   case 2:xbox_NativeInterruptDisable();break;case 3:xbox_NativeInterruptEnableAfterShadow();break;
+   case 4:r=xbox_KeRaiseIrqlToDpcLevel();break;case 5:xbox_DispatchGateEnter();break;
+   case 6:xbox_DispatchGateLeave();break;case 7:t_in_isr=param;break;
+   case 8:saved=xbox_IrqlEnterInterrupt(param);r=(uint64_t)(int64_t)saved;break;
+   case 9:xbox_IrqlLeaveInterrupt(saved);break;
+  }
+  for(unsigned j=0;j<8;j++)results[step*8+j]=(uint8_t)(r>>(j*8));
+ }
+ uint32_t n;memcpy(&n,memory+0x1000,4);
+ uint64_t v[16]={hash(memory,sizeof(memory)),hash(results,sizeof(results)),g_current_irql,t_irql_counted,t_dispatch_gate_held,t_native_irq_masked,t_in_isr,t_release_due,(uint32_t)g_irql_raised_count,(uint32_t)g_native_irq_masked_count,(uint32_t)s_transitions,t_gate_depth,g_eflags,xbox_IrqlThisThreadBlocksDpcs(),xbox_NativeInterruptsEnabled(),n};
+ for(unsigned i=0;i<16;i++)for(unsigned j=0;j<8;j++)out[i*8+j]=(uint8_t)(v[i]>>(j*8));
+}

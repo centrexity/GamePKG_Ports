@@ -51,6 +51,19 @@ register source/hash and v5/316 metadata; stale version, length and helper hash
 reject. Root288, KSV3/64 and four opaque context IDs remain unchanged. Existing
 SDK identity, memory/task/record quotas and compiler/confinement limits remain.
 
+## Checked IRQL component available
+
+`../service-kernel-irql/README.md` now defines the IQL1 controller/task contract,
+original PCR/release ordering, separate raised/CLI holds, literal native hook
+signatures and explicit partial-error/abort behavior. The controlled differential
+and reviewed-worker fixtures pass source/object admission, but are not production
+IRQ/DPC handlers. Do not reuse fixture/no-op hooks as a runnable title. Supply the
+real finite native callbacks and integrate pending delivery, safe/release races,
+worker stacks and timer/DPC roles before enabling any kernel import. Original
+holder/profiling diagnostics and STI call-site shadow still need wiring. The
+controller has not been imported into the full candidate; unresolved counts and
+engine admission remain unchanged.
+
 ## Required dispatch-gate semantics
 
 Use a GamePKG-owned actual recursive mutex (local21/create, typed26/acquire,
