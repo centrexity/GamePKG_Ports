@@ -26,6 +26,10 @@ Remaining required work:
    convention; `CALLBACKS.md` defines finite routes, profiling, retained guest
    stack ownership and partial-error cleanup. Its synthetic original-C
    qualification is not real title callback or timer/drain integration.
+   `../service-kernel-dpc/drain.rs` now provides the retained work-drain algorithm;
+   `TAKE.md`/`DRAIN.md` define locked depth observation, guard/lag, zero-time gate
+   contention, callback order, counters and fatal-prefix cleanup. These helpers
+   still need real title routes/profiler/configuration and timer integration.
 4. Initialize/share one IQL/stack/IRQ instance per title, attach every fresh Task
    view, and connect the full native thunk/context/bridge and entry paths. The
    existing four-ID native context has not automatically expanded to carry this

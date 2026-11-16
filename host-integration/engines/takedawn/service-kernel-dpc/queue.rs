@@ -14,6 +14,18 @@ pub struct Queue {
     joined: bool,
     owned: bool,
 }
+// A single assigned consumer's still-locked dequeue observation. No native
+// pointer, callback, new SDK object or permission is represented by this value.
+pub struct Take {
+    root: u64,
+    services: u64,
+    record: u64,
+    lock: u64,
+    worker: u64,
+    version: u64,
+    bytes: std::vec::Vec<u8>,
+    held: bool,
+}
 fn queue_u64(bytes: &[u8], at: usize) -> Result<u64, i32> {
     let b = bytes.get(at..at + 8).ok_or(-1)?;
     Ok(u64::from_le_bytes([
@@ -366,6 +378,59 @@ impl Queue {
                 && queue_u64(&bytes, 56)? != queue_u64(&bytes, 64)?,
         )
     }
+    // Unlike queue_pending, this also reports entries to the assigned timer.
+    // Cancelled holes are entries until consumed, just as head != tail in C.
+    pub fn queue_nonempty(&self, ram: &memory::Memory) -> Result<bool, i32> {
+        let (_, bytes) = self.queue_snapshot(ram)?;
+        Ok(queue_u64(&bytes, 56)? != queue_u64(&bytes, 64)?)
+    }
+    // The original drain records queue depth while locked, BEFORE head/flag
+    // publication. A successful Some transfers exactly this lock depth to Take.
+    pub fn queue_take_begin(&self, ram: &memory::Memory) -> Result<Option<Take>, i32> {
+        let (_, observed) = self.queue_snapshot(ram)?;
+        let (worker, cancelled) = gamepkg::local_task_status()?;
+        if cancelled || queue_u64(&observed, 40)? != 1 || queue_u64(&observed, 32)? != worker {
+            return Err(-4);
+        }
+        let (version, bytes) = self.queue_locked(ram)?;
+        let result = self.queue_take_prepare(version, bytes);
+        match result {
+            Ok(Some(value)) => Ok(Some(value)),
+            Ok(None) => {
+                self.queue_unlock()?;
+                Ok(None)
+            }
+            Err(code) => {
+                if self.queue_unlock().is_err() {
+                    return Err(-3);
+                }
+                Err(code)
+            }
+        }
+    }
+    fn queue_take_prepare(
+        &self,
+        version: u64,
+        bytes: std::vec::Vec<u8>,
+    ) -> Result<Option<Take>, i32> {
+        let (worker, cancelled) = gamepkg::local_task_status()?;
+        if cancelled || queue_u64(&bytes, 40)? != 1 || queue_u64(&bytes, 32)? != worker {
+            return Err(-4);
+        }
+        if queue_u64(&bytes, 56)? == queue_u64(&bytes, 64)? {
+            return Ok(None);
+        }
+        Ok(Some(Take {
+            root: self.root,
+            services: self.services,
+            record: self.record,
+            lock: self.lock,
+            worker,
+            version,
+            bytes,
+            held: true,
+        }))
+    }
     pub fn queue_state(&self, ram: &memory::Memory) -> Result<std::vec::Vec<u8>, i32> {
         Ok(self.queue_snapshot(ram)?.1)
     }
@@ -416,5 +481,80 @@ impl Queue {
             return Err(-4);
         }
         Ok(())
+    }
+}
+impl Take {
+    fn take_live(&self, ram: &memory::Memory) -> Result<(), i32> {
+        if !self.held
+            || ram.call_handle() != self.root
+            || gamepkg::local_task_status()?.0 != self.worker
+        {
+            return Err(-4);
+        }
+        queue_owner(ram, self.services)?;
+        let (version, bytes) = gamepkg::local_record_snapshot(self.record, 1616)?;
+        // Any interfering/reentrant publisher invalidates this observation;
+        // never silently refresh it and acknowledge a different queue entry.
+        if version != self.version || bytes != self.bytes {
+            return Err(-3);
+        }
+        Ok(())
+    }
+    pub fn take_depth(&self, ram: &memory::Memory) -> Result<u32, i32> {
+        self.take_live(ram)?;
+        let head = queue_u64(&self.bytes, 56)?;
+        let tail = queue_u64(&self.bytes, 64)?;
+        Ok(((tail + 64 - head) % 64) as u32)
+    }
+    pub fn take_entry(&self, ram: &memory::Memory) -> Result<[u64; 4], i32> {
+        self.take_live(ram)?;
+        let at = 80 + queue_u64(&self.bytes, 56)? as usize * 24;
+        Ok([
+            u64::from(queue_u32(&self.bytes, at)?),
+            u64::from(queue_u32(&self.bytes, at + 4)?),
+            u64::from(queue_u32(&self.bytes, at + 8)?),
+            queue_u64(&self.bytes, at + 16)?,
+        ])
+    }
+    fn take_commit(&self, ram: &mut memory::Memory) -> Result<[u64; 4], i32> {
+        let value = self.take_entry(ram)?;
+        let mut bytes = self.bytes.clone();
+        queue_put(&mut bytes, 56, (queue_u64(&self.bytes, 56)? + 1) % 64)?;
+        match gamepkg::local_record_compare_exchange(self.record, self.version, &bytes) {
+            Ok(_) => {}
+            Err(-2) => return Err(-3),
+            Err(code) => return Err(code),
+        }
+        if value[0] != 0 {
+            ram.write_u8((value[0] as u32).wrapping_add(2), 0)?;
+        }
+        Ok(value)
+    }
+    // Attempts cleanup on every result, including partial head/flag publication.
+    // Check take_closed after an error; failed unlock needs owner cleanup/stop.
+    pub fn take_publish(&mut self, ram: &mut memory::Memory) -> Result<[u64; 4], i32> {
+        let result = self.take_commit(ram);
+        let closed = self.take_abort();
+        let value = result?;
+        closed?;
+        Ok(value)
+    }
+    // No root/KSV/cancellation precondition for cleanup of an already-owned
+    // depth. Another actual task may neither unlock nor mark this value closed.
+    pub fn take_abort(&mut self) -> Result<(), i32> {
+        if !self.held {
+            return Ok(());
+        }
+        if gamepkg::local_task_status()?.0 != self.worker {
+            return Err(-4);
+        }
+        if gamepkg::local_call(24, &u64::to_le_bytes(self.lock), &mut [])? != 0 {
+            return Err(-3);
+        }
+        self.held = false;
+        Ok(())
+    }
+    pub fn take_closed(&self) -> bool {
+        !self.held
     }
 }

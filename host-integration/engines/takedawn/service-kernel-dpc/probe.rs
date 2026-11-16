@@ -24,6 +24,125 @@ fn probe_resume(task: u64) -> Result<(), i32> {
             && out == u32::to_le_bytes(1),
     )
 }
+fn probe_take(ram: &mut memory::Memory, owner: &queue::Queue) -> Result<Option<[u64; 4]>, i32> {
+    let before = owner.queue_state(ram)?;
+    let expected_depth = (probe_word(&before, 64)? + 64 - probe_word(&before, 56)?) % 64;
+    probe_need(owner.queue_nonempty(ram)? == (expected_depth != 0))?;
+    let mut observation = match owner.queue_take_begin(ram)? {
+        Some(value) => value,
+        None => {
+            probe_need(expected_depth == 0)?;
+            return Ok(None);
+        }
+    };
+    let depth = observation.take_depth(ram)?;
+    let entry = observation.take_entry(ram)?;
+    let flag = if entry[0] == 0 {
+        0
+    } else {
+        ram.read_u8((entry[0] as u32).wrapping_add(2))?
+    };
+    probe_need(u64::from(depth) == expected_depth && owner.queue_state(ram)? == before)?;
+    observation.take_abort()?;
+    probe_need(
+        observation.take_closed()
+            && observation.take_depth(ram) == Err(-4)
+            && owner.queue_state(ram)? == before,
+    )?;
+    let mut stale = owner.queue_take_begin(ram)?.ok_or(-3)?;
+    let (version, identical) = gamepkg::local_record_snapshot(owner.queue_id(), 1616)?;
+    gamepkg::local_record_compare_exchange(owner.queue_id(), version, &identical)?;
+    probe_need(
+        stale.take_publish(ram) == Err(-3)
+            && stale.take_closed()
+            && owner.queue_state(ram)? == before,
+    )?;
+    let mut current = owner.queue_take_begin(ram)?.ok_or(-3)?;
+    probe_need(current.take_depth(ram)? == depth && current.take_entry(ram)? == entry)?;
+    if entry[0] != 0 {
+        probe_need(ram.read_u8((entry[0] as u32).wrapping_add(2))? == flag)?;
+    }
+    let value = current.take_publish(ram)?;
+    probe_need(current.take_closed() && current.take_publish(ram) == Err(-4) && value == entry)?;
+    Ok(Some(value))
+}
+fn probe_take_controls(
+    ram: &mut memory::Memory,
+    owner: &queue::Queue,
+    window: u64,
+) -> Result<(), i32> {
+    while owner.queue_pop(ram)?.is_some() {}
+    ram.write_u8(0x744002, 0)?;
+    probe_need(owner.queue_insert(ram, 0x744000, 1, 2)? == [1, 0])?;
+    let mut observation = owner.queue_take_begin(ram)?.ok_or(-3)?;
+    let before = owner.queue_state(ram)?;
+    let mut readonly = ram.call_view();
+    readonly.attach(0x740000, 65536, window, 0, false)?;
+    probe_need(observation.take_publish(&mut readonly) == Err(-4) && observation.take_closed())?;
+    let after = owner.queue_state(ram)?;
+    probe_need(
+        probe_word(&after, 56)? == (probe_word(&before, 56)? + 1) % 64
+            && !owner.queue_nonempty(ram)?
+            && ram.read_u8(0x744002)? == 1,
+    )?;
+    // The failed flag clear is an explicit partial prefix, not rolled back or retried.
+    ram.write_u8(0x744002, 0)?;
+    probe_need(owner.queue_insert(ram, 0x744000, 3, 4)? == [1, 0])?;
+    let mut observation = owner.queue_take_begin(ram)?.ok_or(-3)?;
+    let (version, original) = gamepkg::local_record_snapshot(ram.call_handle(), 288)?;
+    let mut revoked = original.clone();
+    for lane in 280..288usize {
+        revoked[lane] = 0;
+    }
+    let version = gamepkg::local_record_compare_exchange(ram.call_handle(), version, &revoked)?;
+    probe_need(
+        observation.take_depth(ram) == Err(-4)
+            && observation.take_publish(ram) == Err(-4)
+            && observation.take_closed(),
+    )?;
+    gamepkg::local_record_compare_exchange(ram.call_handle(), version, &original)?;
+    probe_need(owner.queue_nonempty(ram)? && ram.read_u8(0x744002)? == 1)?;
+    let mut observation = owner.queue_take_begin(ram)?.ok_or(-3)?;
+    let foreign = memory::Memory::new()?;
+    probe_need(
+        observation.take_entry(&foreign) == Err(-4)
+            && observation.take_publish(&mut foreign.call_view()) == Err(-4)
+            && observation.take_closed(),
+    )?;
+    gamepkg::local_record_release(foreign.call_handle())?;
+    let mut observation = owner.queue_take_begin(ram)?.ok_or(-3)?;
+    let mut records = std::vec::Vec::new();
+    let mut sync = std::vec::Vec::new();
+    for _ in 0..65u32 {
+        match gamepkg::local_record_create(&[0u8; 8]) {
+            Ok(id) => records.push(id),
+            Err(-2) => break,
+            Err(code) => return Err(code),
+        }
+    }
+    probe_need(gamepkg::local_record_create(&[0u8; 8]) == Err(-2))?;
+    for _ in 0..129u32 {
+        let mut reply = [0u8; 8];
+        match gamepkg::local_call(20, &[0u8; 8], &mut reply) {
+            Ok(8) => sync.push(u64::from_le_bytes(reply)),
+            Err(-2) => break,
+            Err(code) => return Err(code),
+            _ => return Err(-3),
+        }
+    }
+    let mut reply = [0u8; 8];
+    probe_need(gamepkg::local_call(20, &[0u8; 8], &mut reply) == Err(-2))?;
+    probe_need(observation.take_depth(ram)? == 1)?;
+    let value = observation.take_publish(ram)?;
+    probe_need(value[0..3] == [0x744000, 3, 4] && observation.take_closed())?;
+    for id in sync {
+        gamepkg::local_call(25, &u64::to_le_bytes(id), &mut [])?;
+    }
+    for id in records {
+        gamepkg::local_record_release(id)?;
+    }
+    Ok(())
+}
 fn probe_worker(context: u64) -> Result<u64, i32> {
     let (_, bytes) = gamepkg::local_record_snapshot(context, 40)?;
     probe_need(bytes.len() == 40)?;
@@ -38,9 +157,37 @@ fn probe_worker(context: u64) -> Result<u64, i32> {
         if u64::from_le_bytes(cmd) == 1 {
             return Ok(0);
         }
-        probe_need(u64::from_le_bytes(cmd) == 0 && !owner.queue_pending(&ram)?)?;
+        if u64::from_le_bytes(cmd) == 3 {
+            probe_take_controls(&mut ram, &owner, probe_word(&bytes, 8)?)?;
+            gamepkg::local_mailbox_send(replies, &[0u8; 40])?;
+            continue;
+        }
+        if u64::from_le_bytes(cmd) == 4 {
+            while owner.queue_pop(&mut ram)?.is_some() {}
+            ram.write_u8(0x744002, 0)?;
+            owner.queue_insert(&mut ram, 0x744000, 5, 6)?;
+            let mut observation = owner.queue_take_begin(&ram)?.ok_or(-3)?;
+            gamepkg::local_mailbox_send(replies, &[0u8; 40])?;
+            probe_need(
+                gamepkg::local_mailbox_receive(commands, 1000, &mut cmd)? == 8
+                    && u64::from_le_bytes(cmd) == 5,
+            )?;
+            let value = observation.take_publish(&mut ram)?;
+            probe_need(value[0..3] == [0x744000, 5, 6] && observation.take_closed())?;
+            gamepkg::local_mailbox_send(replies, &[0u8; 40])?;
+            continue;
+        }
+        probe_need(
+            (u64::from_le_bytes(cmd) == 0 || u64::from_le_bytes(cmd) == 2)
+                && !owner.queue_pending(&ram)?,
+        )?;
         let mut reply = [0u64; 5];
-        if let Some(value) = owner.queue_pop(&mut ram)? {
+        let popped = if u64::from_le_bytes(cmd) == 2 {
+            probe_take(&mut ram, &owner)?
+        } else {
+            owner.queue_pop(&mut ram)?
+        };
+        if let Some(value) = popped {
             reply = [1, value[0], value[1], value[2], value[3]];
         }
         let mut bytes = std::vec::Vec::new();
@@ -54,7 +201,17 @@ fn probe_worker(context: u64) -> Result<u64, i32> {
 pub fn dpc_worker(context: u64) -> u64 {
     match probe_worker(context) {
         Ok(v) => v,
-        Err(c) => c as i64 as u64,
+        Err(c) => {
+            if let Ok((_, bytes)) = gamepkg::local_record_snapshot(context, 40) {
+                if let Ok(replies) = probe_word(&bytes, 32) {
+                    let mut packet = [0u8; 40];
+                    packet[0..8].copy_from_slice(&u64::to_le_bytes(0x445043455252));
+                    packet[8..16].copy_from_slice(&u64::to_le_bytes(c as i64 as u64));
+                    let _ = gamepkg::local_mailbox_send(replies, &packet);
+                }
+            }
+            c as i64 as u64
+        }
     }
 }
 pub fn dpc_probe(stats: bool) -> Result<std::vec::Vec<u8>, i32> {
@@ -173,9 +330,15 @@ pub fn dpc_probe(stats: bool) -> Result<std::vec::Vec<u8>, i32> {
                 value[0] = u64::from(owner.queue_remove(&mut ram, input[1])?);
             }
             _ => {
-                gamepkg::local_mailbox_send(commands, &u64::to_le_bytes(0))?;
+                gamepkg::local_mailbox_send(
+                    commands,
+                    &u64::to_le_bytes(if index & 1 == 0 { 0 } else { 2 }),
+                )?;
                 let mut bytes = [0u8; 40];
                 probe_need(gamepkg::local_mailbox_receive(replies, 1000, &mut bytes)? == 40)?;
+                if probe_word(&bytes, 0)? == 0x445043455252 {
+                    return Err(probe_word(&bytes, 8)? as i32);
+                }
                 for lane in 0..5usize {
                     value[lane] = probe_word(&bytes, lane * 8)?;
                 }
@@ -204,6 +367,27 @@ pub fn dpc_probe(stats: bool) -> Result<std::vec::Vec<u8>, i32> {
             stats && input[0] == 0 && value[0] == 1,
         )));
     }
+    gamepkg::local_mailbox_send(commands, &u64::to_le_bytes(3))?;
+    let mut reply = [0u8; 40];
+    probe_need(
+        gamepkg::local_mailbox_receive(replies, 1000, &mut reply)? == 40 && reply == [0u8; 40],
+    )?;
+    gamepkg::local_mailbox_send(commands, &u64::to_le_bytes(4))?;
+    probe_need(
+        gamepkg::local_mailbox_receive(replies, 1000, &mut reply)? == 40 && reply == [0u8; 40],
+    )?;
+    let mutex = probe_word(&owner.queue_state(&ram)?, 24)?;
+    probe_need(
+        gamepkg::local_mutex_lock(mutex, 0) == Err(-2)
+            && owner.queue_take_begin(&ram).err() == Some(-4)
+            && owner.queue_close(&ram) == Err(-2),
+    )?;
+    gamepkg::local_mailbox_send(commands, &u64::to_le_bytes(5))?;
+    probe_need(
+        gamepkg::local_mailbox_receive(replies, 1000, &mut reply)? == 40 && reply == [0u8; 40],
+    )?;
+    gamepkg::local_mutex_lock(mutex, 0)?;
+    gamepkg::local_call(24, &u64::to_le_bytes(mutex), &mut [])?;
     gamepkg::local_mailbox_send(commands, &u64::to_le_bytes(1))?;
     let mut joined = false;
     for _ in 0..4096u32 {

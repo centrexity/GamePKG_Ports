@@ -72,9 +72,10 @@ a successful kick. Report/stop the affected actor/session; do not blindly retry
 as if insertion had failed before publication. Existing queue partial RAM-write
 semantics remain unchanged.
 
-Native callback dispatch, argument/stack/IRQL epilogue, drain guard/lag,
-histogram/reporting, timer/event shadows, spin notification, device delivery,
-full native context and production observer wiring remain required. Neither
+The checked callback convention and retained work-drain helpers are now defined
+in [CALLBACKS.md](CALLBACKS.md) and [DRAIN.md](DRAIN.md). Production finite routes,
+profiler/histogram/reporting, timer/event shadows, spin notification, device
+delivery, full native context and production observer wiring remain required. Neither
 Burnout nor Halo admission is enabled by this library.
 
 ## Qualification

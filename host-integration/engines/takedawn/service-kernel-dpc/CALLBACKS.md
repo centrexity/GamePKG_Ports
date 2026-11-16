@@ -9,6 +9,11 @@ host address, SDK operation, record format, quota or import exemption is added.
 
 ## API and ownership
 
+`callback_ready(&Memory,&Task,&Registers,&Lease) -> Result<(),i32>` exposes the
+same nonmutating preconditions used by callback_run so the retained drain can
+validate its actual consumer/stack even on empty or deferred passes. This does
+not initialize or qualify a production TIB. See [DRAIN.md](DRAIN.md).
+
 `Callback::callback_new(&Memory,&Queue,&Controller,&Pool)` returns a nonowning
 Rust value bound to the root/KSV3, assigned actual queue consumer, IQL controller
 and guest worker-stack pool. An unassigned queue is Unsupported (-5); a finished

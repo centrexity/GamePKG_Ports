@@ -47,7 +47,7 @@ impl Callback {
             worker,
         })
     }
-    fn callback_check(
+    pub fn callback_ready(
         &self,
         ram: &memory::Memory,
         task: &irql::Task,
@@ -94,7 +94,7 @@ impl Callback {
         second: u32,
         profile: i32,
     ) -> Result<bool, i32> {
-        self.callback_check(ram, task, cpu, lease)?;
+        self.callback_ready(ram, task, cpu, lease)?;
         if dpc == 0 {
             return Ok(false);
         }

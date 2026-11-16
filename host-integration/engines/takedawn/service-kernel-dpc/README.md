@@ -2,9 +2,10 @@
 
 This is port-owned Rust, not trusted GamePKG runtime code. It translates the
 original Takedawn pending-DPC ring using GamePKG records, typed recursive mutexes,
-checked guest RAM and reviewed tasks. It does **not** yet deliver native DPCs,
-implement dispatch gates/IRQL, connect timer/interrupt delivery, or enable any
-additional kernel import. The production Burnout profile remains blocked.
+checked guest RAM and reviewed tasks. This page describes queue primitives;
+the checked notification, callback and retained-drain helpers are linked below.
+Production title routines, profiling and timer/interrupt/bridge integration are
+still required before enabling any kernel import. Burnout remains blocked.
 
 Requires the GamePKG SDK with local operation 26 (`local_mutex_lock`). The
 shared ABI contract is the app's `docs/PORT_SERVICES.md`. No Cargo dependency,
@@ -49,6 +50,11 @@ opaque IDs are u64. Read/write accesses use the checked memory adapter.
 - `queue_pending(&Memory) -> Result<bool, i32>` reports head!=tail for other
   tasks, including holes, and false for the assigned timer/consumer task.
   `queue_state(&Memory)` returns a copied complete record for diagnostics/tests.
+- `queue_nonempty` also reports entries to the timer. `queue_take_begin` returns
+  its assigned consumer's still-locked `Take` observation, or None after empty
+  unlock. `take_depth`/`take_entry` observe before publication; `take_publish`
+  advances/clears/unlocks and `take_abort` unlocks without consuming. See
+  [TAKE.md](TAKE.md) for exact ownership, revocation and partial-error semantics.
 - Creator-only `queue_join(&mut self, &Memory)` consumes the actual nonblocking
   reviewed-task join and returns its result. Until it completes, close is Busy.
   `queue_close` revokes/releases record and mutex, never fabricates task
@@ -138,7 +144,13 @@ Its qualification is separate from the queue-only witnesses above.
 retained guest-stack lease, with explicit finite route/profiler interfaces,
 priority restoration and abort cleanup. See [CALLBACKS.md](CALLBACKS.md).
 Its original-C witnesses use synthetic native routines, not title callbacks.
-The real provider tables, queue drain and production timer remain unfinished.
+The real provider tables, drain integration and production timer remain unfinished.
+
+`drain.rs` now supplies the retained original work-drain algorithm, including
+zero-time gate try, guard/lag, locked depth observation, latency/callback order,
+holes, requeue and explicit abort cleanup. See [DRAIN.md](DRAIN.md). Its
+controlled providers and synthetic callbacks do not finish the real timer,
+profiler, handler tables, native context or actual title integration.
 
 Connect the original gate/IRQL/CLI/STI and ISR safe points, deferred wake policy,
 native callback dispatch and guest stack/TIB, timer/event shadow records,
