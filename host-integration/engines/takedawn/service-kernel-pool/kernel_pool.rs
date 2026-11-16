@@ -20,6 +20,10 @@ fn pool_argument_bytes(ordinal: u32) -> Result<u32, i32> {
         _ => Err(-5),
     }
 }
+// Shared classification for the checked import planner, never a handler pointer.
+pub fn kernel_supported(ordinal: u32) -> Result<u32, i32> {
+    pool_argument_bytes(ordinal)
+}
 // Until other kernel/data handlers are migrated, preparation accepts only a
 // wholly supported pool import table. Unsupported imports fail before writes;
 // no unresolved marker may silently fall into ICALL's non-code fallback.
@@ -81,24 +85,50 @@ fn pool_snapshot(ram: &memory::Memory) -> Result<(u64, std::vec::Vec<u8>, u32), 
         return Err(-5);
     }
     let (version, record) = gamepkg::local_record_snapshot(id, 1540)?;
-    if record.len() < 28
-        || pool_word(&record, 0)? != 0x324c504b
-        || pool_long(&record, 8)? != ram.call_handle()
-        || pool_word(&record, 20)? != 0
-    {
+    if record.len() < 28 || pool_long(&record, 8)? != ram.call_handle() {
         return Err(-1);
     }
+    let magic = pool_word(&record, 0)?;
     let count = pool_word(&record, 4)?;
     let table = pool_word(&record, 16)?;
+    if count == 0 || count > 378 {
+        return Err(-1);
+    }
+    let declared = pool_word(&record, 20)?;
+    let main = if magic == 0x324c504b {
+        if declared != 0 || table & 3 != 0 {
+            return Err(-1);
+        }
+        count
+    } else if magic == 0x334c504b {
+        if declared == 0 || declared > count || count > declared + 17 || count == declared + 1 {
+            return Err(-1);
+        }
+        declared
+    } else {
+        return Err(-1);
+    };
     if count == 0
         || count > 378
         || record.len() != 28 + count as usize * 4
         || table < 65536
-        || table & 3 != 0
-        || u64::from(table) + u64::from(count) * 4 > 67108864
+        || u64::from(table) + u64::from(main) * 4 > 67108864
         || pool_word(&record, 24 + count as usize * 4)? > 8
     {
         return Err(-1);
+    }
+    if magic == 0x334c504b && count > main {
+        if pool_word(&record, 24 + main as usize * 4)? != 0
+            || pool_word(&record, 24 + (count as usize - 1) * 4)? == 0
+        {
+            return Err(-1);
+        }
+        for slot in main + 1..count {
+            let ordinal = pool_word(&record, 24 + slot as usize * 4)?;
+            if ordinal != 0 && pool_argument_bytes(ordinal).is_err() {
+                return Err(-1);
+            }
+        }
     }
     Ok((version, record, count))
 }

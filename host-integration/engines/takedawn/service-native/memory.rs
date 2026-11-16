@@ -289,6 +289,19 @@ impl Memory {
         });
         Ok(())
     }
+    // One complete guest page backed by one opaque window. This grants no
+    // access or native pointer; callers still use checked local operations.
+    pub fn memory_page_backing(&self, address: u32) -> Result<[u64; 2], i32> {
+        self.call_snapshot()?;
+        if address & 4095 != 0 {
+            return Err(-1);
+        }
+        let (window, offset) = self.resolve(address, 4096, false)?;
+        if offset & 4095 != 0 {
+            return Err(-1);
+        }
+        Ok([window, offset])
+    }
     fn resolve(&self, address: u32, length: u64, write: bool) -> Result<(u64, u64), i32> {
         let end = u64::from(address).checked_add(length).ok_or(-1)?;
         if end > 4294967296 {

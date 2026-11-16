@@ -1016,3 +1016,16 @@ concurrent protection snapshots without raising any quota. These remain silent
 infrastructure checks, not complete title startup, Windows AppContainer runtime,
 physical controls, audible output or measured frame pacing. Legacy title gates
 and the app's pinned submodule remain unchanged.
+
+
+The [complete import preparation component](../service-kernel-imports/README.md)
+now connects initialized data and supported function imports, exact remapping,
+raw 16-word lookbehind, full count/capacity checks and per-page protection
+restoration. It publishes strict KPL3 metadata understood by the existing finite
+router, retaining KPL2 compatibility and every quota. An image adapter binds
+setup to the loaded executable bounds and its derived kernel-data region.
+Four-target original-code comparisons/source-object audits and actual confined
+Linux32/64 checks qualify the component, not all title imports. The private
+image currently still rejects on 121 unmigrated function exports; no title
+entry has run. See its contract for explicit per-page restoration semantics,
+partial-publication failure/abort requirements and exact remaining work.

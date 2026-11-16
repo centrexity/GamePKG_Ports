@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "production_ready": false,
+  "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+  "member": "toolkit/src/kernel/kernel_bridge.c",
+  "source_sha256": "bf62f8787a2e78a0abdb28e10ad8f79c5267dc655491353af231067747ce446e",
+  "functions": {
+    "xbox_kernel_bridge_init": {
+      "start": 434845,
+      "end": 440448,
+      "sha256": "83e23a96b92ed6187c7f301d1900ed0e5dcd4b6cc11e09c8e86baf5b16afa141"
+    },
+    "xbox_kernel_set_thunk_address": {
+      "start": 433453,
+      "end": 434141,
+      "sha256": "103d03e7abed1e6db3fdbedb77eb56aed27bb770029a3bfd429b272eb32c82e5"
+    },
+    "xbox_kernel_set_ordinal_remap": {
+      "start": 434705,
+      "end": 434843,
+      "sha256": "9cfc7a86a73cb76834714c1920bfab820bbd856590856145773d23fddbc51a2c"
+    },
+    "stdcall_args_for_ordinal": {
+      "start": 370039,
+      "end": 392581,
+      "sha256": "9296186dab3e4cf69665559022afb261930e0efa09eea4b88f72ea723da76542"
+    },
+    "bridge_ExAllocatePool": {
+      "start": 76636,
+      "end": 76957,
+      "sha256": "de9b54a0bba214b9bdf3e540a0967dbbe4bdacc155e1f57ff4e3350befe63fa2"
+    },
+    "bridge_for_ordinal": {
+      "start": 392583,
+      "end": 417340,
+      "sha256": "105df98d229ad685ab70118227e48691621ea24d97bd3f9ccdae179ad4a3c85b"
+    }
+  },
+  "scan": {
+    "member": "toolkit/src/kernel/xbox_memory_layout.c",
+    "source_sha256": "c83cb0a4586ef3298911f4639e79ec1f904b4133b8469676ff0fa461b63f82f4",
+    "start": 148659,
+    "end": 148988,
+    "sha256": "5b98e95c56e42322484e028e7647f053fac52d0da870d2fe7accad92b30e052c"
+  },
+  "header": {
+    "member": "toolkit/src/kernel/kernel.h",
+    "sha256": "efae4f1b5aab8a2a420d00b8fb5fd75a1fb9a717704a709c34baddcc254bd17e"
+  }
+}

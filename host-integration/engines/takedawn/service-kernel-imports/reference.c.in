@@ -1,0 +1,65 @@
+/* Maintainer only. Follows exact heap and kernel-data oracle definitions. */
+typedef uint32_t DWORD;
+#define LPVOID void *
+#define PAGE_READWRITE 4u
+#define PAGE_READONLY 2u
+#define KERNEL_LOG_ON() 0
+#define KERNEL_VA_BASE 0xfe000000u
+/* PINNED_THUNK_DEFINITIONS */
+static uint32_t g_eax,g_esp;
+#define STACK_ARG(n) BRIDGE_MEM32(g_esp+(n)*4)
+/* PINNED_BRIDGE_EXALLOCATEPOOL */
+typedef void (*bridge_func_t)(void);
+static void not_invoked(void){}
+static bridge_func_t bridge_for_ordinal(ULONG ordinal){
+    switch(ordinal){case 14:return bridge_ExAllocatePool;case 15:case 17:case 23:case 165:case 166:case 168:case 171:case 180:return not_invoked;default:return NULL;}
+}
+static ULONG g_slot_ordinals[378];
+static bridge_func_t g_slot_bridges[378];
+static int g_slot_arg_bytes[378];
+static uint8_t g_slot_arg_unknown[378];
+static uint8_t g_page_states[16384];
+static uint32_t g_thunk_table_base=XBOX_KERNEL_THUNK_TABLE_BASE;
+static uint32_t g_thunk_table_count=XBOX_KERNEL_THUNK_TABLE_SIZE;
+static const unsigned short *g_ordinal_remap;
+static int g_ordinal_remap_count;
+static int VirtualProtect(void *pointer,size_t bytes,DWORD mode,DWORD *old){
+    uintptr_t address=(uintptr_t)pointer-g_xbox_mem_offset;
+    size_t first=address/4096,end=(address+bytes+4095)/4096;
+    if(!bytes||end>16384||(mode!=4&&mode!=2&&mode!=1))return 0;
+    *old=g_page_states[first]==3?4:g_page_states[first]==2?2:1;
+    for(size_t page=first;page<end;page++)g_page_states[page]=(uint8_t)(mode==4?3:mode==2?2:1);
+    return 1;
+}
+/* PINNED_STDCALL_ARGS_FOR_ORDINAL */
+/* PINNED_XBOX_KERNEL_SET_THUNK_ADDRESS */
+/* PINNED_XBOX_KERNEL_SET_ORDINAL_REMAP */
+/* Preserve the pinned body/types; its int/u32 loop is bounded to 378 here. */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-compare"
+/* PINNED_XBOX_KERNEL_BRIDGE_INIT */
+#pragma GCC diagnostic pop
+void gamepkg_import_run(uint8_t *ram,uint32_t table,uint32_t mode,const uint16_t *remap,uint32_t remap_count){
+    gamepkg_heap_reset(ram,0x1000000,67108864);g_xbox_mem_offset=(uintptr_t)ram;
+    g_xbox_region_base=0x700000;g_tick=123;xbox_HalBootSMCVideoMode=0;g_cmd=NULL;g_has_key=0;
+    memset(xbox_HDKey,0,16);memset(xbox_SignatureKey,0,16);
+    memset(g_slot_ordinals,0,sizeof g_slot_ordinals);memset(g_slot_bridges,0,sizeof g_slot_bridges);memset(g_slot_arg_bytes,0,sizeof g_slot_arg_bytes);memset(g_slot_arg_unknown,0,sizeof g_slot_arg_unknown);
+    memset(g_page_states,3,sizeof g_page_states);g_thunk_table_base=XBOX_KERNEL_THUNK_TABLE_BASE;g_thunk_table_count=378;
+    xbox_kernel_set_ordinal_remap(remap,(int)remap_count);
+    uint32_t thunk_va=table,thunk_count=0;
+/* PINNED_ORIGINAL_THUNK_SCAN */
+    size_t first=(table-64)/4096,end=(table+g_thunk_table_count*4+(mode==4?0:4)+4095)/4096;
+    for(size_t page=first;page<end;page++)g_page_states[page]=(uint8_t)(mode==10&&page==first+1?3:mode%3==0?3:2);
+    xbox_kernel_bridge_init();
+}
+uint32_t gamepkg_import_count(void){return g_thunk_table_count;}
+uint32_t gamepkg_import_slots(void){uint32_t n=g_thunk_table_count;for(uint32_t i=0;i<378;i++)if(g_slot_ordinals[i]&&i+1>n)n=i+1;return n;}
+void gamepkg_import_slot(uint32_t slot,uint32_t *out){out[0]=g_slot_ordinals[slot];out[1]=(uint32_t)g_slot_arg_bytes[slot];out[2]=g_slot_bridges[slot]!=NULL;}
+void gamepkg_import_invoke(uint32_t *out){
+    out[0]=0xffffffffu;out[1]=0;out[2]=0;
+    for(uint32_t slot=0;slot<378;slot++)if(g_slot_ordinals[slot]==14&&g_slot_bridges[slot]){
+        BRIDGE_MEM32(0x50000)=0x12345678;BRIDGE_MEM32(0x50004)=64;
+        g_esp=0x50004;g_eax=0x87654321;bridge_ExAllocatePool();g_esp+=4;
+        out[0]=slot;out[1]=g_eax;out[2]=g_esp;break;
+    }
+}
