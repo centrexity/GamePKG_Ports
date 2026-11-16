@@ -1,0 +1,68 @@
+/* Maintainer pinned shadow/event code; no game object or native event provider. */
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+#include <assert.h>
+typedef uint64_t HANDLE;
+typedef int CRITICAL_SECTION;
+typedef int BOOL;
+#define TRUE 1
+#define FALSE 0
+#undef NULL
+#define NULL 0
+#define fprintf(...) ((void)0)
+#define fflush(...) ((void)0)
+#define GetLastError() 0
+#define KE_SHADOW_SIZE 4096
+typedef struct{uint32_t guest_va;HANDLE host_handle;uint32_t in_use;}KE_SHADOW_SLOT;
+static KE_SHADOW_SLOT g_ke_shadow[KE_SHADOW_SIZE];
+static CRITICAL_SECTION g_ke_shadow_cs;
+static int g_ke_shadow_init,depth;
+static uint32_t g_args[8],g_eax;
+static uint8_t guest_mem[65536];
+#define STACK_ARG(i) g_args[i]
+#define XBOX_TO_NATIVE(va) (guest_mem+((uint32_t)(va)-UINT32_C(0x740000)))
+#define BRIDGE_MEM8(va) (*(uint8_t*)XBOX_TO_NATIVE(va))
+#define BRIDGE_MEM32(va) (*(uint32_t*)XBOX_TO_NATIVE(va))
+static int bridge_va_mapped(uint32_t va,uint32_t bytes){return va>=0x740000&&(uint64_t)va+bytes<=0x750000;}
+static void InitializeCriticalSection(int *p){(void)p;}
+static void EnterCriticalSection(int *p){(void)p;depth++;}
+static void LeaveCriticalSection(int *p){(void)p;assert(depth==1);depth--;}
+static struct{int alive,manual,signal;} evs[1024];
+static uint32_t created;
+static HANDLE CreateEventW(void *attributes,BOOL manual,BOOL initial,void *name){(void)attributes;(void)name;assert(created<1023);HANDLE h=++created;evs[h].alive=1;evs[h].manual=manual;evs[h].signal=initial;return h;}
+static void CloseHandle(HANDLE h){assert(h>0&&h<=created&&evs[h].alive);evs[h].alive=0;}
+static int SetEvent(HANDLE h){assert(h>0&&h<=created&&evs[h].alive);evs[h].signal=1;return 1;}
+static int ResetEvent(HANDLE h){assert(h>0&&h<=created&&evs[h].alive);evs[h].signal=0;return 1;}
+/* PINNED_INIT */
+/* PINNED_INSERT */
+/* PINNED_LOOKUP */
+/* PINNED_REMOVE */
+/* PINNED_LAZY */
+/* PINNED_INITIALIZE_EVENT */
+/* PINNED_INITIALIZE_TIMER */
+static void reset_shadow(uint32_t timer_va){/* PINNED_TIMER_RESET */}
+static void signal_shadow(uint32_t fired_va){/* PINNED_TIMER_SIGNAL */}
+static void put32(uint8_t *p,uint32_t v){for(int i=0;i<4;i++)p[i]=(uint8_t)(v>>(i*8));}
+static void put64(uint8_t *p,uint64_t v){for(int i=0;i<8;i++)p[i]=(uint8_t)(v>>(i*8));}
+void shadow_event_reference(uint32_t index,const uint32_t *args,uint8_t *out){
+ if(!index){g_ke_shadow_init=0;depth=0;created=0;memset(evs,0,sizeof(evs));memset(guest_mem,0xa5,sizeof(guest_mem));}
+ uint32_t guest=0x740100+args[1]*64;uint64_t result=0;HANDLE h;
+ g_args[0]=guest;g_args[1]=args[2];g_args[2]=args[3];
+ switch(args[0]){
+  case 0:bridge_KeInitializeEvent();result=g_eax;break;
+  case 1:bridge_KeInitializeTimerEx();result=g_eax;break;
+  case 2:h=ke_event_shadow(guest);if(h)result=(uint64_t)SetEvent(h);break;
+  case 3:h=ke_event_shadow(guest);if(h)ResetEvent(h);break;
+  case 4:h=ke_event_shadow(guest);if(!h)result=UINT64_C(0xffffffff);else if(!evs[h].signal)result=258;else if(!evs[h].manual)evs[h].signal=0;break;
+  case 5:result=(ke_shadow_lookup(guest)!=0);reset_shadow(guest);break;
+  case 6:result=(ke_shadow_lookup(guest)!=0);signal_shadow(guest);break;
+  default:result=(ke_shadow_lookup(guest)!=0);ke_shadow_remove(guest);break;
+ }
+ put64(out,result);put64(out+8,created);
+ for(int slot=0;slot<16;slot++){
+  h=ke_shadow_lookup(0x740100+(uint32_t)slot*64);uint8_t *p=out+16+slot*12;
+  put32(p,(uint32_t)h);put32(p+4,h?(uint32_t)evs[h].manual:0);put32(p+8,h?(uint32_t)evs[h].signal:0);
+ }
+ memcpy(out+208,guest_mem+0x100,1024);
+}

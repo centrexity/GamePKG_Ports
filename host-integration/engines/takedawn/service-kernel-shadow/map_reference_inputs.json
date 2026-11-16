@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+  "member": "toolkit/src/kernel/kernel_bridge.c",
+  "source_sha256": "bf62f8787a2e78a0abdb28e10ad8f79c5267dc655491353af231067747ce446e",
+  "functions": {
+    "init": {
+      "start": 297024,
+      "end": 297296,
+      "sha256": "4678f825eceb51057e796278736d0f6b49d5cd813b5ce61aa961af1f7fec874b"
+    },
+    "insert": {
+      "start": 297449,
+      "end": 298753,
+      "sha256": "65516514b03d622eca875257417de1813d8a2ab6663c8f9cd6fd4d16414ffc19"
+    },
+    "lookup": {
+      "start": 298834,
+      "end": 299288,
+      "sha256": "0a92088fcd5da70b832fbe37912c1eaeda871fd5d1415401f465b20bdde3f745"
+    },
+    "remove": {
+      "start": 299349,
+      "end": 299953,
+      "sha256": "25d3ac59120b9f2d5cfa31b4ea988f70c4d85bf9da7502b5667519a17e93d42a"
+    }
+  },
+  "scope": "Logical map and close-order traces only. Synthetic opaque tokens do not create native events or bypass SDK quotas."
+}

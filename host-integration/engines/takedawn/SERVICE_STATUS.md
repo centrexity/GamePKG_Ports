@@ -511,3 +511,50 @@ loop remain required. No main import or generated source closure is enabled.
 Four target component tests and source/object builds, confined Linux fixtures
 and Windows Wine runs do not qualify real Windows confinement, title gameplay,
 physical controls, audible audio, graphics fidelity or measured frame pacing.
+
+
+## Checked shadow-map and event adapter checkpoint
+
+`service-kernel-shadow/README.md` now specifies the port-owned `Shadow`, scoped
+`Guard` and typed event/header adapters. The map preserves all 4,096 original
+logical slots with lazy root-bound pages; its tokens alone confer no native
+authority. Real events remain SDK-owned and subject to the unchanged active-sync
+quota. Guard counts prevent premature owner close, even on a recursive same-task
+hold. Creator-only deletion guards and retained cleanup IDs support teardown
+after KSV3 revocation. No new SDK operation or native import is introduced.
+
+Event initialization publishes the event mapping before guest-header writes;
+timer initialization clears all 40 guest bytes first. Type 2 remains an auto-reset
+event despite guest Type 8. Inline first users double-check the mapping under the
+mutex and share one event. Normal set/reset do not mirror guest SignalState;
+post-set timer reset leaves that word unchanged. Post-callback signal happens
+before writing SignalState=1, so a failed write is an explicit fatal prefix.
+Old events close under the map mutex before replacement/removal. Unknown guest
+VAs never become native handle/pointer fallbacks.
+
+Map qualification covers all 4,096 slots, 512 original operations/close traces,
+eight exact full-slot snapshots per target, hostile metadata/page/type/schema
+controls and three required-failing variants. Event qualification separately
+covers 256 pinned header/lazy/reset/signal cases per target, actual SDK worker
+first-use/auto-reset contention with real joins, exact quota/leak accounting,
+stale/wrong-kind handling, read-only prefix failures, revoked cleanup and four
+required-failing variants. The complete sources precede generated bindings;
+all eight optimized game objects per target precede trusted runtime linking.
+Linux x64/i686 execute with actual confinement; Windows x64/i686 component runs
+use Wine and Windows prepared binaries are compile/link qualification only.
+The strict object audit rejected a compiler slice-copy panic helper; the game
+helper now uses bounds-checked fixed-width byte copying instead. The import
+allowlist and all profile/admission enforcement remain unchanged.
+
+`CANCEL_REVIEW.md` records a newly confirmed migration gap: the legacy bridge
+passes a guest KTIMER to a host-native struct helper whose Inserted offset and
+pointer fields differ by target width. It cannot be copied into checked Rust or
+justified by a new raw native timer-queue service. Neither examined cancellation
+body resets the shadow event, despite the old introductory comment. The complete
+cancel/guest wait/object contracts, actual timer callbacks and retained timer/
+vblank/spin/TIB/context loop still need integration and qualification before main
+imports can close. No current main import is enabled by this checkpoint.
+Shared SDK identity, installed CLI/GUI, source archive, recipe, launch defaults,
+ROMs/saves and pinned ports submodule are unchanged. These fixtures do not qualify
+title startup/gameplay, physical controls, audible audio, GPU fidelity, actual
+Windows confinement or measured frame pacing; both title profiles remain blocked.

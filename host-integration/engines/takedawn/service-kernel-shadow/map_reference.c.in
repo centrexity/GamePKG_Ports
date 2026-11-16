@@ -1,0 +1,38 @@
+/* Maintainer-only original logical shadow map with synthetic opaque tokens. */
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+#include <assert.h>
+typedef uint64_t HANDLE;
+typedef int CRITICAL_SECTION;
+#define KE_SHADOW_SIZE 4096
+#undef NULL
+#define NULL 0
+#define fprintf(...) ((void)0)
+typedef struct { uint32_t guest_va;HANDLE host_handle;uint32_t in_use; } KE_SHADOW_SLOT;
+static KE_SHADOW_SLOT g_ke_shadow[KE_SHADOW_SIZE];
+static CRITICAL_SECTION g_ke_shadow_cs;
+static int g_ke_shadow_init;
+static uint64_t closed,trace;
+static int depth;
+static void InitializeCriticalSection(int *p){(void)p;}
+static void EnterCriticalSection(int *p){(void)p;depth++;}
+static void LeaveCriticalSection(int *p){(void)p;assert(depth==1);depth--;}
+static void CloseHandle(HANDLE h){closed++;for(int i=0;i<8;i++)trace=(trace^(uint8_t)(h>>(i*8)))*UINT64_C(1099511628211);}
+/* PINNED_INIT */
+/* PINNED_INSERT */
+/* PINNED_LOOKUP */
+/* PINNED_REMOVE */
+static void put32(uint8_t *p,uint32_t v){for(int i=0;i<4;i++)p[i]=(uint8_t)(v>>(i*8));}
+static void put64(uint8_t *p,uint64_t v){for(int i=0;i<8;i++)p[i]=(uint8_t)(v>>(i*8));}
+uint32_t shadow_map_reference(uint32_t index,const uint64_t *args,uint8_t *out){
+ if(!index){g_ke_shadow_init=0;depth=0;closed=0;trace=UINT64_C(14695981039346656037);
+  for(uint32_t i=0;i<4096;i++)ke_shadow_insert(0x1000+i*4,UINT64_C(0x100000000)+i);
+ }
+ uint32_t guest=(uint32_t)args[1];uint64_t before=ke_shadow_lookup(guest);
+ if(args[0]==0)ke_shadow_insert(guest,args[2]);else if(args[0]==2)ke_shadow_remove(guest);
+ put64(out,before);put64(out+8,ke_shadow_lookup(guest));put64(out+16,closed);put64(out+24,trace);
+ uint32_t length=32;
+ if(index%64==63){for(int i=0;i<4096;i++){put32(out+length,g_ke_shadow[i].guest_va);put64(out+length+4,g_ke_shadow[i].host_handle);length+=12;}}
+ return length;
+}

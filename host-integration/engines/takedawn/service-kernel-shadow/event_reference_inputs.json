@@ -1,0 +1,54 @@
+{
+  "schema": 1,
+  "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+  "member": "toolkit/src/kernel/kernel_bridge.c",
+  "source_sha256": "bf62f8787a2e78a0abdb28e10ad8f79c5267dc655491353af231067747ce446e",
+  "functions": {
+    "init": {
+      "start": 297024,
+      "end": 297296,
+      "sha256": "4678f825eceb51057e796278736d0f6b49d5cd813b5ce61aa961af1f7fec874b"
+    },
+    "insert": {
+      "start": 297449,
+      "end": 298753,
+      "sha256": "65516514b03d622eca875257417de1813d8a2ab6663c8f9cd6fd4d16414ffc19"
+    },
+    "lookup": {
+      "start": 298834,
+      "end": 299288,
+      "sha256": "0a92088fcd5da70b832fbe37912c1eaeda871fd5d1415401f465b20bdde3f745"
+    },
+    "remove": {
+      "start": 299349,
+      "end": 299953,
+      "sha256": "25d3ac59120b9f2d5cfa31b4ea988f70c4d85bf9da7502b5667519a17e93d42a"
+    },
+    "initialize_event": {
+      "start": 326843,
+      "end": 328172,
+      "sha256": "3ad00a49e30fa917aa5d6202de52972708703888caa8a54635339adb4fd3c259"
+    },
+    "initialize_timer": {
+      "start": 142700,
+      "end": 143677,
+      "sha256": "83d438502a8bbbe941537705ef7389e4f26180981732212f21bfe63b558ae338"
+    },
+    "lazy": {
+      "start": 300937,
+      "end": 302259,
+      "sha256": "9746049f8ba8870b1f3c4ef92be40e34b43b19416c34e01d3a45ee908b9e6a47"
+    },
+    "timer_reset": {
+      "start": 156941,
+      "end": 157120,
+      "sha256": "3961273ba1eefb2234e1470749ee7c583f375728fc3077415b1d73b06d3ae1d0"
+    },
+    "timer_signal": {
+      "start": 146573,
+      "end": 146778,
+      "sha256": "7163b944afda680c140975d9f0838665ceb8e5868c3e486be4976cb99b0f256b"
+    }
+  },
+  "scope": "Event/timer header, shadow/lazy map and reset/signal adapter ordering. C fake event states are not full guest wait/alert/timeout or legacy raw-pointer fallback qualification. Separate SDK workers/quotas/faults are tested."
+}
