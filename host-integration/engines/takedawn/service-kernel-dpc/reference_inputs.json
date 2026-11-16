@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "production_ready": false,
+  "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+  "member": "toolkit/src/kernel/kernel_bridge.c",
+  "source_sha256": "bf62f8787a2e78a0abdb28e10ad8f79c5267dc655491353af231067747ce446e",
+  "parts": {
+    "insert": {
+      "start": 110458,
+      "end": 111596,
+      "sha256": "ae8716a3f7f41a46b0a33a0efac3054f6413344cdb99be48c68c563e1fdf164f"
+    },
+    "remove": {
+      "start": 111984,
+      "end": 112464,
+      "sha256": "69c7c40bc1ab52e7288b90b2124051794499e977a81b7a3f309deb4211bfe0bd"
+    },
+    "pending": {
+      "start": 111675,
+      "end": 111774,
+      "sha256": "55815e8fe7e9dc73e1743951bb69ccb3996bd019acaca065fd3d67507f702c39"
+    },
+    "pop_prefix": {
+      "start": 135508,
+      "end": 135780,
+      "sha256": "c014e7515e727763be973db82c924b55fd0e703eb2319e5242f3e36cf076885e"
+    }
+  },
+  "scope": "original insert/remove/pending and exact dequeue prefix only; excludes gate/IRQL, native DPC execution and timer/interrupt integration",
+  "required_sdk": "GamePKG ABI 1 local operation 26, typed recursive mutex acquisition",
+  "tested_service_identity": "1a0a22784975cc28a19a57195eef56f25e57be28e462d2785f549576074c98bb"
+}
