@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "production_ready": false,
+  "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+  "member": "toolkit/src/platform/host_time.c",
+  "source_sha256": "70ae62a56934eb3edafee5fc031177df8bc714d667c72e3b8290f45ff3615d94",
+  "functions": {
+    "host_now": {
+      "start": 862,
+      "end": 1530,
+      "sha256": "fb40d0ff941f5983e2c48de1dcaa08a86805b786a971a7056054906f89a1105c"
+    },
+    "guest_now": {
+      "start": 11411,
+      "end": 11486,
+      "sha256": "761bab92f97df834e7cf305c92d815b0f9d48e42c65aa918d44b65a5ad82863f"
+    }
+  },
+  "scope": "exact original QPC-to-ns and guest skew arithmetic; actual waits use the reviewed GamePKG service, never injected platform calls"
+}

@@ -4,7 +4,42 @@ This is tested integration work, **not a playable Burnout release**. The legacy
 profile remains blocked. No source pin, signature, cached executable or engine
 exception may bypass that block. The source kit and catalog URLs are unchanged.
 
-## Latest checked component: shared guest timestamp counter
+## Current checkpoint: port-owned host clock and wakeable sleep
+
+`service-kernel-wait` now supplies checked Rust host/guest nanosecond conversion
+and the original one-sleeper pending-wake behavior using GamePKG local operations
+38–41. It preserves coalesced notifications without replacing the observed
+generation during a counter refresh, supports zero-duration consumption and
+bounded relative sleeps, and binds sleepers to the root/configuration/reviewed
+task that created them. A reproduced close-between-reads race now returns
+revocation without acknowledging a pending wake; deterministic maintainer
+injection also rejects a temporary copy with the old premature error return.
+See [service-kernel-wait/README.md](service-kernel-wait/README.md) for exact APIs,
+ownership, errors, pinned original C, commands and integration steps.
+
+The installed app/SDK remains `c4edee3e44be562b` (full
+`10c4f4ca7ea37783c08ea2cafd1b129ca9b3160cbe4d3cf30d6c1a5da8c51e88`).
+No app implementation, source kit archive, helper hash, KSV3/root/CPU schema,
+resource limit, dependency/import rule, admission gate or recipe changes.
+
+4,096 unchanged original C clock vectors and 36,864 deadline properties per
+target pass. Each Linux/Windows x64/i686 component runs 32 repeated lifecycle
+fixtures (Windows under Wine), with 64 coalesced-wake cycles and 64 reviewed-task
+handoffs per repeat. Full source scans before bindings and every optimized
+game-object audit before trusted linking pass on all four targets. Confined
+Linux x64/i686 reproduce the original C witnesses and continue local deadline/
+wake consumption through a real queued-window/client-mutex stall of >=60ms.
+The actual maintainer oracle is rejected if placed in unused game source.
+
+The main import gap remains **108**, and 4,709 generated definitions are not
+closed. Periodic KeTickCount and dispatcher initialization components already
+exist; complete timer/shadow-event/DPC/IRQL/IRQ scheduling, vblank/display pacing,
+time-warp/suspend, remaining kernel/device/generated/manual/media/renderer and
+production entry/build/launch work remain. No gameplay, physical input, audible
+audio, actual Windows AppContainer behavior or measured frame pacing is proved.
+Older pins/counts below describe historical checkpoints, not the current SDK.
+
+## Earlier checked component: shared guest timestamp counter
 
 Ports `e206014` adds the original 733,333,333 Hz guest timestamp conversion,
 one shared first-use origin, strict 64-byte KSV2 state and all five pinned

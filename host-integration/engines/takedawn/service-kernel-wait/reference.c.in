@@ -1,0 +1,31 @@
+/* Maintainer-only unchanged source bodies with deterministic platform samples. */
+#include <stdint.h>
+#ifndef _WIN32
+#define _WIN32 1
+#endif
+typedef struct { int64_t QuadPart; } LARGE_INTEGER;
+static int64_t counter_value, frequency_value;
+static LARGE_INTEGER *frequency_slot;
+static uint64_t s_skew_ns;
+static int QueryPerformanceFrequency(LARGE_INTEGER *value) {
+    frequency_slot = value;
+    value->QuadPart = frequency_value;
+    return 1;
+}
+static int QueryPerformanceCounter(LARGE_INTEGER *value) {
+    value->QuadPart = counter_value;
+    return 1;
+}
+/* PINNED_HOST_NOW */
+/* PINNED_GUEST_NOW */
+void wait_reference(uint64_t counter, uint64_t frequency, uint64_t skew,
+                    uint64_t *host, uint64_t *guest) {
+    /* Reset the original function's live static cache through the pointer it
+       previously supplied to the platform stub. Its body is unmodified. */
+    if (frequency_slot) frequency_slot->QuadPart = 0;
+    counter_value = (int64_t)counter;
+    frequency_value = (int64_t)frequency;
+    s_skew_ns = skew;
+    *host = xbox_HostNowNs();
+    *guest = xbox_GuestNowNs();
+}
