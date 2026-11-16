@@ -187,3 +187,48 @@ included in this work.
 The generic builder and launcher exist in the app; the complete migrated game
 input needed to select them does not yet exist here. Do not re-enable the old
 direct-device executable while this work remains.
+
+## Child-local deadline/wakeup interface coordination
+
+The app SDK now provides `local_clock_state`, `local_clock_wait` and
+`local_clock_wake` (local operations 39/40/41). Use the app's PORT_SERVICES.md
+section "Independent child-local deadline and wakeup lane" for the exact ABI,
+errors and lifetimes. Current SDK identity is
+`10c4f4ca7ea37783c08ea2cafd1b129ca9b3160cbe4d3cf30d6c1a5da8c51e88`
+(CLI/GUI native identity `c4edee3e44be562b`). Rebuild against a matching app;
+do not copy generated bindings into game source or reuse an older SDK receipt.
+App implementation commit: `3e9a8c021ac486af5de8cb76b6978af42c203d3f`.
+
+This supplies the generic primitive needed to replace the original host_time
+WakeableSleep in the timer worker. It uses one runtime-owned timing lane, a
+raw-counter absolute deadline, its exact frequency and a retained wake
+generation. Maximum future horizon is one second, one waiter is permitted, and
+the state/wait/wake operations remain independent of the remote window-request
+mutex. Waits belong in the confined game's worker, never the app window owner.
+Windows uses a private high-resolution timer/event pair and explicitly reports
+Unsupported when unavailable; Linux uses monotonic condition-variable waiting.
+There is no game OS import, timer handle, callback, spin loop or fallback.
+
+Keep the existing periodic tick's separate 1ms local event wait: consuming the
+single deadline lane there would contend with the original timer worker. The
+port still owns timer/DPC queues, guest skew and vblank scheduling, DPC register/
+stack/TIB setup and finite native call routing. Wire wake notifications into
+that actual port state machine; the new primitive alone does not execute a DPC
+or migrate the timer thread. No KSV3, root, generated helper or recipe changes
+are made by this interface handoff.
+
+App qualification covers local wait/wakeup/cancellation/teardown on Linux and
+Windows x64/i686 (Windows execution under Wine), source admission and every
+optimized game-object audit on all four targets, and real confined Linux
+x64/i686 execution before any owner request is dispatched. The socket regression
+also completes all three local operations while a real window request holds the
+remote client mutex. Neither test establishes Windows AppContainer behavior,
+physical controls/audio, hardware wake precision or measured gameplay pacing.
+
+Existing periodic-tick, clock and dispatcher component regressions pass against
+this SDK: respectively 2,048/256/768 original C vectors per target, all four
+source/object audits, and actual confined Linux x64/i686 live/lifetime controls.
+The installed matching app also passed isolated signed native 2048 and Arkanoo
+builds with 120 hidden frames each. All seven catalog entries and thumbnail
+notices/hashes pass. This does not change the 108 unresolved main imports or
+4,709 not-closed generated definitions; production Burnout remains unadmitted.
