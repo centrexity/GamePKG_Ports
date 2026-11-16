@@ -4,6 +4,30 @@ This is tested integration work, **not a playable Burnout release**. The legacy
 profile remains blocked. No source pin, signature, cached executable or engine
 exception may bypass that block. The source kit and catalog URLs are unchanged.
 
+## Latest checked component
+
+Ports `4f05bf1ed54937fce87ab7c7aefa830dc30c3b33` adds checked kernel export 24,
+root-owned configuration and shared guest skew storage. See
+[service-kernel-settings/README.md](service-kernel-settings/README.md) for the
+exact 288-byte root / 64-byte KSV1 contracts, original behavior, error ordering,
+ownership and validation matrix. The CPU record remains 244 bytes; context IDs
+and runtime quotas are unchanged. All four targets pass source and every-object
+audits; actual confined Linux32/64 settings and image-router witnesses pass.
+Windows C/Rust comparisons use Wine, not real AppContainer gameplay.
+
+The private image now rejects **114 remaining main function exports** before
+publication or title entry. Kernel 125..128 remain unsupported. Their next host
+prerequisite is a performance-only read that does not initialize the calendar
+anchor: the existing combined sample must not move the original first-SystemTime
+anchor to an earlier QPC query. No timing export, full native entry, renderer or
+production launcher is enabled by this checkpoint.
+
+The current installed app implementation is
+`da4864db4e17a5d5f0c615a8383976d0a9e4f3cf`, SDK recipe `969defa5bb1d6421`.
+This port-only change requires no app binary reinstall. The older component
+counts and app pins below describe their recorded checkpoints; current shared
+contracts live in the app's PORT_SERVICES.md and NATIVE_FUNCTION_MIGRATION.md.
+
 Incremental save migration: [service-save/README.md](service-save/README.md).
 App `75d180311f5e29765ad4778f265908daaa0afb31` adds scoped metadata and duplicate
 file handles. The save helper source passes all four target object audits and
