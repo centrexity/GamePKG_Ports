@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "production_ready": false,
+  "service_identity": "885f6e7118f8a07e3ab9af872b5212eed7ef67e4d91375683cc8008cabe032a7",
+  "record_format": "GAT1",
+  "record_bytes": 64,
+  "scope": "actual recursive lock, shared ownership/depth, root/configuration and lifetime only; safe points, IRQL and IRQ/DPC delivery remain required"
+}
