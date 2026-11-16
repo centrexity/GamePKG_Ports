@@ -4,7 +4,36 @@ This is tested integration work, **not a playable Burnout release**. The legacy
 profile remains blocked. No source pin, signature, cached executable or engine
 exception may bypass that block. The source kit and catalog URLs are unchanged.
 
-## Current checkpoint: shared display/vblank schedule
+## Current checkpoint: IRQ state and raw gate
+
+Ports `9a2ce80` / `64ae362` qualify private CPU **v5/316 bytes**, including flags,
+FP comparison and all eight MMX values, plus the actual root-bound recursive
+raw gate. Older CPU244/v4 references below are historical. Root288, KSV3/64,
+four-ID context, underlying source-kit archive and production gates are unchanged.
+The complete candidate closes **19,420** definitions, leaves **4,596**, and still
+has **108 main imports** unresolved. Main entry/gameplay remains unadmitted.
+
+Full source/object/link builds pass on Linux32/64 and Windows32/64; actual
+confined Linux children pass 39 original functions / 5,888 complete CPU/RAM
+vectors and prior scalar/vector/call/protection controls. Original IRQ state,
+codec and raw-gate tests pass, including normal/cancelled worker cleanup.
+Windows runtime here is Wine. Nothing qualifies real devices, graphics, audible
+audio, gameplay or frame pacing.
+
+Current shared SDK:
+`885f6e7118f8a07e3ab9af872b5212eed7ef67e4d91375683cc8008cabe032a7`
+(installed app native ID `c3660cab98f1b962`). Linux compiler scheduling uses a
+private jobserver under the same 12 GiB limit. All eight optimized objects remain
+audited; a fixture growth helper was removed rather than allowlisted. Native
+Windows-host compiler scheduling is unchanged and still needs qualification.
+
+Exact APIs: `service-native/IRQ_SERVICE_HANDOFF.md`, `service-kernel-gate/README.md`
+and app PORT_SERVICES.md. Next implement original IRQL/PCR, safe/release points,
+CLI/STI, native IRQ/DPC callbacks and timer integration. Raw release is not final
+GateLeave. Complete renderer/media/bootstrap/launch and gameplay qualification
+remain required; do not enable the legacy engine or exempt media.
+
+## Earlier checkpoint: shared display/vblank schedule
 
 `service-kernel-pacing` adds checked display learning and nanosecond vblank
 scheduling from ten unchanged pinned C functions, plus root/configuration-bound
