@@ -1,0 +1,65 @@
+{
+  "schema": 1,
+  "production_ready": false,
+  "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+  "member": "toolkit/src/kernel/kernel_pacing.c",
+  "source_sha256": "20f7794c0a646c7cb8782521d8675e61bd660ccd7dcc19d345ee02b787cfc05b",
+  "functions": {
+    "due": {
+      "start": 1554,
+      "end": 1828,
+      "sha256": "992f7685bd7592bd2d6ad540482e6a83953bcb80875424fbe092571ba4a10587"
+    },
+    "lock": {
+      "start": 5864,
+      "end": 6061,
+      "sha256": "15f816956fb3ef246c9655cd625486da724d57c61474905db64ddcef5e513e60"
+    },
+    "locked": {
+      "start": 6063,
+      "end": 6131,
+      "sha256": "3fa316d4089936a52f8472784c239db79d5428150e27a3850bdfecdd6c73a2a7"
+    },
+    "auto": {
+      "start": 6337,
+      "end": 6476,
+      "sha256": "850cc09409423a30730e96149312275359fe3b48d08a7bdb5a6a716a0ca985cd"
+    },
+    "gcd": {
+      "start": 6701,
+      "end": 7001,
+      "sha256": "b21da9ffc3e7280809d4660d015c0ee0f7e3e87429ad1ec1b74599506dc295e3"
+    },
+    "refresh": {
+      "start": 7003,
+      "end": 14263,
+      "sha256": "e0f8bc37d659fa1b8a681eda46680a6e88777f19028234bbb1c0052729dd20fb"
+    },
+    "relearn": {
+      "start": 14265,
+      "end": 14329,
+      "sha256": "0da0e7419ddd9103d31d28fd2e3a58d45342f6d4e317935277ee0b3867622175"
+    },
+    "changed": {
+      "start": 14331,
+      "end": 14465,
+      "sha256": "9e25ec75f48309ccec5dfeba822e82d7f4e301dcd3b707f7052f23f7b4eabd2b"
+    },
+    "grid": {
+      "start": 14579,
+      "end": 15355,
+      "sha256": "759713afa8d814326b497960c3dd2845dc257d79bd0271a25e3cf30edf41024d"
+    },
+    "step": {
+      "start": 15357,
+      "end": 16898,
+      "sha256": "47572dcd548bc17b1696508727b8e72ddab01baaa929de247dbd5bb6c1ed268b"
+    }
+  },
+  "globals": {
+    "start": 3996,
+    "end": 5864,
+    "sha256": "35c9e517ba8399de29a093cbf3e3b5b89e0c8509cd9ad1196e6d75cf9504f6d4"
+  },
+  "scope": "unchanged display-learning, locking and vblank scheduling functions; no native IRQ, display or OS test backend"
+}

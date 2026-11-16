@@ -1,0 +1,63 @@
+/* Maintainer-only original pacing code; never an admitted game object. */
+#include <stdint.h>
+#include <string.h>
+typedef int64_t LONGLONG;
+typedef struct {int started;uint64_t t0_ns,count;} XboxVblankSchedule;
+#define XBOX_VBLANK_HZ 60u
+#define XBOX_VBLANK_RESTART_NS 100000000ull
+#define RENV_VBLANK_SYNC 1
+static int config_mode;
+static uint32_t diagnostics;
+static int32_t mirrored_said;
+static XboxVblankSchedule schedule;
+static const char *recomp_env(int key){(void)key;return config_mode<0?0:config_mode?"display":"off";}
+static int reference_fprintf(void *stream,const char *format,...){
+    (void)stream;
+    if(strstr(format,"for two"))diagnostics|=1;
+    else if(strstr(format,"in a row"))diagnostics|=2;
+    else if(strstr(format,"are irregular"))diagnostics|=4;
+    return 0;
+}
+#define fprintf reference_fprintf
+#define stderr ((void*)0)
+/* PINNED_GLOBALS */
+/* PINNED_DUE */
+/* PINNED_LOCK */
+/* PINNED_LOCKED */
+/* PINNED_AUTO */
+/* PINNED_GCD */
+/* PINNED_REFRESH */
+/* PINNED_RELEARN */
+/* PINNED_CHANGED */
+/* PINNED_GRID */
+/* PINNED_STEP */
+static void put64(uint8_t *out,uint64_t value){for(int n=0;n<8;n++)out[n]=(uint8_t)(value>>(n*8));}
+static void put32(uint8_t *out,uint32_t value){for(int n=0;n<4;n++)out[n]=(uint8_t)(value>>(n*8));}
+void pacing_reference_init(int mode){config_mode=mode;(void)xbox_VblankDisplayLockOn();}
+void pacing_reference(uint32_t operation,uint64_t first,uint64_t second,uint8_t *out){
+    uint64_t result[4]={0,0,0,0};diagnostics=0;
+    if(operation==0){xbox_VblankDisplayLockAuto(first!=0);result[0]=(uint64_t)xbox_VblankDisplayLockOn();}
+    else if(operation==1){
+        uint64_t prev=(uint64_t)s_disp_ns;int was_relearn=s_disp_relearn;
+        int enabled=display_lock_on();
+        xbox_VblankDisplayRefresh(first,second);
+        /* Mirror the C-local diagnostic counter for serialization only. Its
+         * actual first-warning output is independently captured above. */
+        uint64_t cur=(uint64_t)s_disp_period;
+        if(enabled && !was_relearn && first && second && cur && prev && first>prev && first-prev<=100000000u){
+            uint64_t r=(first-prev)%cur;
+            if(r>cur/8 && cur-r>cur/8)mirrored_said++;
+        }
+        result[0]=diagnostics;
+    }
+    else if(operation==2)xbox_VblankDisplayRelearn();
+    else if(operation==3)result[0]=(uint64_t)xbox_VblankDisplayRateChanged();
+    else if(operation==4)result[0]=(uint64_t)xbox_VblankSchedule(&schedule,first,&result[1],&result[2]);
+    else if(operation==5)result[0]=(uint64_t)xbox_VblankDisplayLockOn();
+    for(int n=0;n<4;n++)put64(out+n*8,result[n]);
+    out+=32;put32(out,0x31435056u);
+    int32_t values[11]={config_mode,s_disp_lock,s_disp_cand_n,s_disp_off,s_disp_offrun,s_disp_onrun,s_disp_jitter,s_disp_relearn,s_disp_rate_changed,mirrored_said,schedule.started};
+    for(int n=0;n<11;n++)put32(out+4+n*4,(uint32_t)values[n]);
+    uint64_t words[7]={(uint64_t)s_disp_ns,(uint64_t)s_disp_period,s_disp_cand,s_disp_offsum,s_disp_onsum,schedule.t0_ns,schedule.count};
+    for(int n=0;n<7;n++)put64(out+48+n*8,words[n]);
+}

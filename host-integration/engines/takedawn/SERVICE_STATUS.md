@@ -4,7 +4,37 @@ This is tested integration work, **not a playable Burnout release**. The legacy
 profile remains blocked. No source pin, signature, cached executable or engine
 exception may bypass that block. The source kit and catalog URLs are unchanged.
 
-## Current checkpoint: port-owned host clock and wakeable sleep
+## Current checkpoint: shared display/vblank schedule
+
+`service-kernel-pacing` adds checked display learning and nanosecond vblank
+scheduling from ten unchanged pinned C functions, plus root/configuration-bound
+copied state for the actual reviewed worker. It preserves forced/automatic
+display selection, measured/stated periods, missed-frame neutral steps,
+candidate learning, rate changes, irregular report recovery, exact grid/tolerance/
+staleness behavior and restart after pauses. See its README for exact 104-byte
+VPC1 /144-byte PCS1 contracts, APIs, ownership, errors and remaining wiring.
+
+12,288 original C state/output witnesses per target pass in auto/off/on modes.
+32 actual local worker/lifecycle suites per target exercise assignment before
+resume, concurrent reports, real shared-skew pause restart, record exhaustion,
+wrong/foreign/borrowed roles, malformed metadata, cancellation, nonblocking join
+and cleanup. A deterministic mid-clock revocation control preserves the entire
+record/version; a temporary old-error copy is required to fail. Full source scans
+before SDK injection and every optimized object audit before trusted linking pass
+on all four targets, plus actual confined Linux x64/i686 witnesses and >=60ms
+queued-window stalls. Windows component execution is Wine only.
+
+The app SDK/install, source kit archive, KSV3/root/CPU schemas, existing helper
+hashes, quotas, source/dependency/import rules and profile gates are unchanged.
+Main imports still have **108** unresolved functions and 4,709 generated
+definitions are not closed. The schedule does not yet raise original IRQ/PCRTC
+effects, execute the complete timer/DPC/IRQL worker or receive authentic display
+reports. Time-warp/suspend/spin/profiling, remaining native/manual/device/renderer/
+media and production build/launch still need integration. No title gameplay,
+physical controls/audio/display, actual AppContainer or measured frame pacing
+is qualified by these component tests.
+
+## Earlier checkpoint: port-owned host clock and wakeable sleep
 
 `service-kernel-wait` now supplies checked Rust host/guest nanosecond conversion
 and the original one-sleeper pending-wake behavior using GamePKG local operations
