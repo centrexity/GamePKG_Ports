@@ -170,3 +170,25 @@ title, renderer and production launcher admission. Do not conflate TSC with raw
 QPC, leave ticks fixed at the synthetic initializer's 123, guess suspend gaps,
 skip operations or use a direct platform fallback. New mutable metadata requires
 explicit schema/lifetime/concurrency qualification before consumption.
+
+## Shared guest TSC and all five generated callers completed
+
+Ports `e206014` supplies `kernel_tsc_read`, `kernel_tsc_state` and the pure
+`kernel_tsc_value` helper, original 733,333,333 Hz arithmetic and one CAS-published
+first-use origin. Exact metadata, budgets, sample ordering, errors and accepted
+partial initialization are specified in `../service-kernel-tsc/README.md`.
+The transient record is now strict KSV2 (same 64 bytes; old KSV1 rejects), with
+origin/frequency/initialized at offsets 32/40/48 and reserved-zero at 56. Root,
+CPU and context shapes, host SDK and quotas are unchanged.
+
+All five exact generated timestamp bodies are qualified through original-body
+comparisons and actual finite-router Linux32/64 execution, not just a helper
+mock. Clock errors/CAS contention tests are explicitly separate maintainer
+fault injection. Four-target source/every-object checks pass for both those
+callers and the refreshed 19,307-definition partial candidate; the five bodies
+match byte-for-byte. Source/SDK binding and unsafe-oracle rejection remain.
+
+Next: periodic tick data, real timer/scheduler/wakeup/IRQ/DPC/device and
+time-warp/suspend handling, followed by all remaining complete-title and
+production launcher requirements. Main imports still reject 111 functions.
+No game profile, main branch or release is enabled by these component checks.

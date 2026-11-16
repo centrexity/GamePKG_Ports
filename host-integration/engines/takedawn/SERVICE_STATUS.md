@@ -4,7 +4,31 @@ This is tested integration work, **not a playable Burnout release**. The legacy
 profile remains blocked. No source pin, signature, cached executable or engine
 exception may bypass that block. The source kit and catalog URLs are unchanged.
 
-## Latest checked component: kernel clock consumers
+## Latest checked component: shared guest timestamp counter
+
+Ports `e206014` adds the original 733,333,333 Hz guest timestamp conversion,
+one shared first-use origin, strict 64-byte KSV2 state and all five pinned
+generated timestamp callers. See
+[service-kernel-tsc/README.md](service-kernel-tsc/README.md) for exact APIs,
+metadata, errors, partial effects, commands and validation boundaries.
+KSV1 is rejected; root 288 / CPU 244 / four context IDs and all quotas remain.
+The new ordinary game helper is not a host API, engine exemption or CPU loop.
+
+Original C arithmetic (768 cases/target), original generated bodies (240
+cases/target), four-target complete source/every-object audits and actual
+confined Linux32/64 finite-router calls pass. Four first users share one origin;
+clock faults, contention with intervening skew writes, malformed records and
+denied second stores are covered. The full refreshed partial kit passes its
+four-target source/object and Linux reference/confinement matrix: 19,307 literal
+closed definitions, 2,439 emitted files, all five timestamp bodies identical to
+the independently qualified component. A closed graph is not full title proof.
+
+The main import gap remains **111**. Periodic tick/timer/scheduler/wakeup,
+time-warp/suspend/IRQ/device, remaining kernel/generated/manual/media/renderer/
+entry and production launcher requirements are unfinished. No title profile is
+enabled; the SDK/installed app remains `9fef7a199380e4b4` with no binary change.
+
+## Earlier checked component: kernel clock consumers
 
 Ports `b70e07e` implements exports 125..128 through the actual GamePKG clock SDK
 and existing shared root-bound skew, retaining original CPU/stack completion,

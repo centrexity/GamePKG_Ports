@@ -10,9 +10,9 @@ linked into admitted game objects. The complete title remains blocked.
 
 `kernel_supported` reports argument bytes 0 for 125/126/127 and 4 for 128.
 `kernel_requires_services` is true for 125/126/128: their import preparation and
-publication require the existing valid root-bound KSV1 configuration/skew record
+publication require the existing valid root-bound KSV2 configuration/skew record
 before patching. Frequency (127) does not depend on that record. The root stays
-288 bytes, CPU record 244 bytes, context four opaque IDs and KSV1 64 bytes.
+288 bytes, CPU record 244 bytes, context four opaque IDs and KSV2 64 bytes.
 No record, task, stack, process, transfer or diagnostic limit was increased.
 
 | Export | Clock / shared-state ordering | Result |
@@ -114,8 +114,10 @@ CLI/GUI 0.1.24 services are already installed locally.
 
 ## Remaining work
 
-The separate guest TSC still needs its original 733,333,333 Hz conversion and
-shared first-use origin; raw QPC must not replace it. Periodic tick data must
+The separate guest TSC conversion/shared first-use origin and all five generated
+callers now exist at `e206014`; see `../service-kernel-tsc/README.md` for exact
+KSV2 contracts and differential/confinement evidence. Raw QPC must not replace
+that guest counter. Periodic tick data must
 advance through the existing checked data API rather than stay at the synthetic
 initializer's 123. This component does not implement timer queues, waits,
 scheduling, IRQ/DPC/device semantics, time-warp wakeups or suspend recovery.

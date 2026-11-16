@@ -263,3 +263,10 @@ See `../service-kernel-clock/README.md` for exact APIs, signed arithmetic domain
 unsigned wrap, no-read null behavior, output protections and original-source /
 confined-worker evidence. Allocator behavior, quotas and complete-title gating
 are unchanged; no direct platform clocks or engine exemptions were added.
+
+Timestamp checkpoint `e206014` adds the port-owned guest TSC helpers and strict
+64-byte KSV2 metadata. It preserves configured flags/skew, shares one first-use
+origin and rejects old/malformed state without a host API or quota change.
+All five generated consumers are compared with their originals and exercised
+through the finite router in actual confined Linux children. See
+`../service-kernel-tsc/README.md` for exact contracts, failures and scope.
