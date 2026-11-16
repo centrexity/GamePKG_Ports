@@ -123,6 +123,25 @@ staleness, quota and cancellation checks pass, but the actual callback/timer
 wiring has not consumed this pool yet. No root/KSV format or context expansion
 has occurred. Never drop a pending line because no slice is available.
 
+## Checked IRQ queue/epilogue available
+
+`../service-kernel-irq/README.md` defines IRQ1/384, coalesced posting, first/retry
+raw gate ownership, safe/release paths, actual guest-stack callback bracketing,
+full CPU/FS restoration, statistics, explicit error/close/discard semantics and
+literal route/observer signatures. Default original-C witnesses and controlled
+actual-worker race/option/lifetime/quota checks pass without profile exemptions.
+Fault copies distinguish omitted second try, early PCR release, lost pending bit
+and event-dependent abort. Cleanup record retries no longer allocate wait events.
+Wait statistics follow signed32 original Windows/Xbox conversion on all targets,
+including long-pause delivery; no extra gameplay timeout is introduced.
+
+This still needs real native device routes, original diagnostics/reload/handler
+registration, DPC/timer/spin roles, guest TIB and complete bridge/context wiring.
+The fixture route/observer modules are not those implementations. The full
+candidate has not consumed these IDs and remains unadmitted; see the component's
+WORK_IN_PROGRESS.md. Do not treat controlled callback evidence as a real title,
+hardware display, physical controls, audible audio or measured pacing result.
+
 ## Required interrupt and callback integration
 
 The original three lines (vblank, APU, OHCI) coalesce pending bits. A poster tries

@@ -4,7 +4,31 @@ This is tested integration work, **not a playable Burnout release**. The legacy
 profile remains blocked. No source pin, signature, cached executable or engine
 exception may bypass that block. The source kit and catalog URLs are unchanged.
 
-## Current checkpoint: guest worker-stack pool
+## Current checkpoint: IRQ queue/epilogue and bounded cleanup
+
+`service-kernel-irq` composes coalesced pending lines, original post/release gate
+races, checked worker slices, IRQL/PCR order and complete register restoration
+through literal checked callback interfaces. Exact IRQ1/384 contracts and test
+scopes are in its README. Default C witnesses cover 128 complete CPU/RAM/stats/
+IRQL/stack cases per target; 36 signed32 wait boundaries run on each applicable
+original C ABI. Long pauses do not impose a new gameplay timeout.
+
+Actual-worker suites repeat32 per target: 128 controlled interleavings, 192
+option cases, 64 callback/new-post/cancellation cases and lifecycle/quota
+controls. Fault seams are explicitly checked test copies with separate receipts,
+not production hooks. A reproduced stale-CAS/full-sync-quota failure stranded a
+raised count with event-dependent abort; bounded record-only cleanup fixes it.
+Required-failing controls retain that regression and ordering/bit/retry errors.
+All eight optimized objects remain audited; confined Linux runs and Windows
+components through Wine are distinguished. SDK, quotas, original source archive,
+root/KSV/CPU/context formats and profile gates remain unchanged.
+
+Real handlers, production diagnostics/reload/registration, DPC/timer/spin/TIB,
+full bridge, renderer/media/bootstrap/launch and actual title qualification still
+remain. Candidate/import counts below are unchanged; neither Burnout nor Halo
+is enabled by these component results.
+
+## Earlier checkpoint: guest worker-stack pool
 
 `service-worker-stacks` adds checked lowest-free allocation of up to sixteen
 256 KiB guest slices from the reviewed bootstrap layout, including shrunken

@@ -1,0 +1,256 @@
+{
+  "schema": 1,
+  "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+  "sources": {
+    "hal": {
+      "member": "toolkit/src/kernel/kernel_hal.c",
+      "sha256": "4e65affa22218adfd942c8f0460292358b055bacad5ede8faa3480eec268717e"
+    },
+    "thread": {
+      "member": "toolkit/src/kernel/kernel_thread.c",
+      "sha256": "8e8a6476a1c9664d25bfae18fb89e34dd165882b8fb6d1d753ac766b184cb3f9"
+    }
+  },
+  "parts": {
+    "irql_publish": {
+      "source": "hal",
+      "start": 2638,
+      "end": 2878,
+      "sha256": "80cf30eeedffc7b88db54ba99a5635ec638a1a3288412febfc6c909f094268f6"
+    },
+    "gate_entered": {
+      "source": "hal",
+      "start": 9675,
+      "end": 9810,
+      "sha256": "cf4e5fb6584ec893ba04005f0c77067469ec92aa085b5f37f762658c24bd2dbc"
+    },
+    "gate_try": {
+      "source": "hal",
+      "start": 9812,
+      "end": 9971,
+      "sha256": "7a9b21f8a3f574e95096fc134a1e5489a3a5f062246cbfa1085b8d848ba33272"
+    },
+    "gate_enter": {
+      "source": "hal",
+      "start": 9973,
+      "end": 10299,
+      "sha256": "13d3d3a7c60911616d80c123b243a6e6b40cb6369b15f57e58ca4090dfe4ef39"
+    },
+    "gate_leave_raw": {
+      "source": "hal",
+      "start": 10301,
+      "end": 10457,
+      "sha256": "e034eb9d58de02083d23f5a512c3952d409ddb052bd11781c620beeab7c01f1e"
+    },
+    "xbox_DispatchGateOwner": {
+      "source": "hal",
+      "start": 10459,
+      "end": 10580,
+      "sha256": "4e2f9eeccd5e875734bd77594a35fe2453030a22acd90b0b8a6e648346a290aa"
+    },
+    "xbox_DispatchGateTryEnter": {
+      "source": "hal",
+      "start": 11079,
+      "end": 11141,
+      "sha256": "2cae315199655b7182564a53abb346e43cf1c3919a7a17d01d38188c7543eaa8"
+    },
+    "xbox_DispatchGateEnter": {
+      "source": "hal",
+      "start": 11143,
+      "end": 11198,
+      "sha256": "fb133bd2a1480b4a035e0a28f72742dbed37d7fe70a73c588bf0c141054b3ab5"
+    },
+    "xbox_DispatchGateLeave": {
+      "source": "hal",
+      "start": 11367,
+      "end": 11507,
+      "sha256": "152b703032fbe87a9a8e52f888f31d4b94c26f69ddd2939022945b954f037022"
+    },
+    "xbox_NativeInterruptDisable": {
+      "source": "hal",
+      "start": 11777,
+      "end": 11995,
+      "sha256": "94d2e136b7667e379df9a58734cd589a94f069df6783d53b2b2027fac3c6cd1b"
+    },
+    "xbox_NativeInterruptEnableAfterShadow": {
+      "source": "hal",
+      "start": 11997,
+      "end": 12235,
+      "sha256": "7bfa66c94eaf6916201458cc4372b3fe546e18e8775f753aa653a1787999206b"
+    },
+    "xbox_NativeInterruptsEnabled": {
+      "source": "hal",
+      "start": 12237,
+      "end": 12312,
+      "sha256": "55534656af7bfa017e8c7a4702210f4057419cf8f6f5942d354931d602796356"
+    },
+    "irql_release_due": {
+      "source": "hal",
+      "start": 25693,
+      "end": 25779,
+      "sha256": "28c844d1a0c07842e795caa2e99ab912c03534b4051c016dca55c21c296c1b72"
+    },
+    "irql_track_gated": {
+      "source": "hal",
+      "start": 31915,
+      "end": 34018,
+      "sha256": "d43b52972e738f8af2b2672ae21ab66449a4b442d5e5c0baa22583a52ece9e59"
+    },
+    "irql_track": {
+      "source": "hal",
+      "start": 34020,
+      "end": 34141,
+      "sha256": "261992ab89d6a31dacf202f0532d1e77f0ebfabcb7131c89649145730a9842c3"
+    },
+    "xbox_IrqlEnterInterrupt": {
+      "source": "hal",
+      "start": 34792,
+      "end": 35237,
+      "sha256": "f699f4a4f3893dfe6b2410f83bb8a8206d4f4e48bad17a721b3770f0fe574367"
+    },
+    "xbox_IrqlLeaveInterrupt": {
+      "source": "hal",
+      "start": 35239,
+      "end": 35702,
+      "sha256": "60cb7f3c81e366e9e7f44add06c0ab43f0d32241537b92db469b1ae617455da4"
+    },
+    "xbox_IrqlThisThreadBlocksDpcs": {
+      "source": "hal",
+      "start": 35885,
+      "end": 36026,
+      "sha256": "fed9bbbb92c3993b392d5fda1fcd260c00ce6430290255ddb25a30b43019a687"
+    },
+    "xbox_IrqlCurrent": {
+      "source": "hal",
+      "start": 36028,
+      "end": 36090,
+      "sha256": "89091461fb29cc08c7ee6fba2482007713e510e8b1c675e1f845f698d1d49980"
+    },
+    "xbox_KfRaiseIrql": {
+      "source": "hal",
+      "start": 36215,
+      "end": 36598,
+      "sha256": "5d556bb09d67f7514dccf5f91340ca5291e1496299021556a59f804b2fd17b37"
+    },
+    "xbox_KfLowerIrql": {
+      "source": "hal",
+      "start": 36696,
+      "end": 38025,
+      "sha256": "43de957d06717c4b3370ecd34f13d261e3304d42f5e3acbe43f770cf044ddfd2"
+    },
+    "xbox_KeRaiseIrqlToDpcLevel": {
+      "source": "hal",
+      "start": 38110,
+      "end": 38320,
+      "sha256": "7aa44a75729fd703a2313aafaba373f692f275a95822c5dc85ce35b95103b3fb"
+    },
+    "xbox_IrqlBlocksInterrupts": {
+      "source": "hal",
+      "start": 4059,
+      "end": 4247,
+      "sha256": "91a16d3197240608343a24ee62a6dedeb72b3c6907fecfd9711546d9061eb5cf"
+    },
+    "xbox_IrqlRaisedCount": {
+      "source": "hal",
+      "start": 4433,
+      "end": 4539,
+      "sha256": "713543d9f24751f40633264fc463634f0a5b21636fb6898b1126f55e74d67757"
+    },
+    "xbox_IrqlTransitions": {
+      "source": "hal",
+      "start": 5046,
+      "end": 5146,
+      "sha256": "484ac29111dcd686106e8457e3e6d8de8fdc2f8cc1019512d54e4ba09890c187"
+    },
+    "irq_note_wait": {
+      "source": "hal",
+      "start": 16391,
+      "end": 16677,
+      "sha256": "5c4c34742ca298fc6c6153e5f9ba3bec85142ef1fd67f72666c9205142ab53cf"
+    },
+    "irq_run_line": {
+      "source": "hal",
+      "start": 19367,
+      "end": 20350,
+      "sha256": "eaed1933bd4d5b81a3f2a9e94282722ba4021bc259212636474da658a83a9983"
+    },
+    "irq_run_pending": {
+      "source": "hal",
+      "start": 20352,
+      "end": 20930,
+      "sha256": "dcb414f1691ef6d63e289d81958fdbdea0d7f3b3cf9822a28cda7caf1c618821"
+    },
+    "xbox_IrqSafePoint": {
+      "source": "hal",
+      "start": 21206,
+      "end": 21493,
+      "sha256": "3f6fbf745822d9dbc696524ddd2fc3f28df31879b0109b9d0169fc669fec3226"
+    },
+    "irq_release_point": {
+      "source": "hal",
+      "start": 22384,
+      "end": 22676,
+      "sha256": "6dc8df878a69ab26cb75b6df52d43081c15881091b5c5d3a7ccacb5fd9b598ac"
+    },
+    "xbox_IrqPost": {
+      "source": "hal",
+      "start": 27957,
+      "end": 29426,
+      "sha256": "c9d36d530a4cd5108883585c29594f8a8002a74a118eb3673dd75c877ce3762a"
+    },
+    "xbox_IrqStatsGet": {
+      "source": "hal",
+      "start": 29428,
+      "end": 30062,
+      "sha256": "111fbef06d35a292e141b7288271ceb62eead55ab3d85dbd4529b0eef9d4160e"
+    },
+    "xbox_IrqNoteUngated": {
+      "source": "hal",
+      "start": 30064,
+      "end": 30606,
+      "sha256": "8c4cfc1dffdd5e211aa9c42fe1a2bfa0ec18850c75d8ec142b2783ed2de48648"
+    },
+    "irq_wait_check": {
+      "source": "hal",
+      "start": 26056,
+      "end": 27589,
+      "sha256": "c973cdaf8c259ae24441f9065b925aec055a2efa2fcf9b3a0a97619632f7c945"
+    },
+    "xbox_IrqSafePointsOn": {
+      "source": "hal",
+      "start": 15987,
+      "end": 16090,
+      "sha256": "9738ecc3b7a912c82d935e45dfc100a1d4a96754a0803917ba5f4b838e6d8c84"
+    },
+    "xbox_worker_stack_alloc": {
+      "source": "thread",
+      "start": 15742,
+      "end": 16234,
+      "sha256": "b060912fda9a5144e6b97c26e08170f30b509472e1a258e382bf6da061da73cb"
+    },
+    "xbox_worker_stack_free": {
+      "source": "thread",
+      "start": 16236,
+      "end": 16390,
+      "sha256": "e8a4f414688d9b58fc4f086da175cc2f78db3b6c65153fac4c0619389737f5e4"
+    },
+    "regs_type": {
+      "source": "hal",
+      "start": 17609,
+      "end": 17822,
+      "sha256": "abdecef69bcb6af834061c93fbd76d18a1e07e2a7d1ac7593161099e62353c4f"
+    },
+    "regs_save": {
+      "source": "hal",
+      "start": 17824,
+      "end": 18532,
+      "sha256": "2824a7527a8c780bff380863ecc7681e8c22ce9ed287f190a29d4813ec43164a"
+    },
+    "regs_restore": {
+      "source": "hal",
+      "start": 18534,
+      "end": 19251,
+      "sha256": "1cc47140453c7d3418ad11c5879bd43823add14026a75656cae6e1e911bb6234"
+    }
+  }
+}

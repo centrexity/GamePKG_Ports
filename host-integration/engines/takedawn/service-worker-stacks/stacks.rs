@@ -288,7 +288,7 @@ impl Pool {
                     validation?;
                     return Ok(());
                 }
-                Err(-2) => memory::Memory::call_retry_pause()?,
+                Err(-2) => {} // Cleanup retries use only the existing record.
                 Err(code) => return Err(code),
             }
         }
@@ -388,7 +388,7 @@ impl Lease {
                     validation?;
                     return Ok(());
                 }
-                Err(-2) => memory::Memory::call_retry_pause()?,
+                Err(-2) => {} // Cleanup retries use only the existing record.
                 Err(code) => return Err(code),
             }
         }

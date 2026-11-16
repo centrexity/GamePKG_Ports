@@ -66,7 +66,9 @@ error after a successful prefix (including a hook error, cancellation, failed
 PCR write or counter publication), stop that actor and call `irql_abort`; do not
 blindly retry the original operation. Counts and applied bits share one CAS so
 cleanup does not mistake a TLS flag written before a counter for an applied
-increment. A failed PCR write may leave the original prefix's new priority/count
+increment. Cleanup CAS retries now use only existing records, without creating a
+wait event; full sync quota must not strand a counted hold after a stale CAS.
+The same 64-attempt bound and explicit incomplete-cleanup Busy remain. A failed PCR write may leave the original prefix's new priority/count
 visible. Error cleanup is explicit rather than pretending the operation rolled
 back or that an interrupt ran. Unrecoverable corrupted/released record cleanup
 errors require session shutdown, which revokes the host-owned resources.

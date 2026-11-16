@@ -69,7 +69,9 @@ Errors retain SDK meanings: -1 Invalid, -2 Busy, -3 Failed, -4 Denied,
 mutating allocation checks again before returning the lease. Cancellation or
 KSV revocation denies new work. Actual owner release/creator close still clean
 up, then return Denied even when cleanup completed. Cleanup failure that leaves
-resources owned requires retry or whole-session shutdown. A failed post-create/
+resources owned requires retry or whole-session shutdown. Release/close CAS
+retries use bounded existing-record loops and allocate no new wait event, so
+sync-quota exhaustion cannot invalidate their retry mechanism. A failed post-create/
 post-allocation liveness check tries cleanup; incomplete cleanup returns Failed,
 never a fabricated successful allocation. Malformed/released storage cannot be
 repaired implicitly; end the failed session rather than reusing affected tokens.

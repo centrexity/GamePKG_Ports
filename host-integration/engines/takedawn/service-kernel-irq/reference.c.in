@@ -1,0 +1,203 @@
+/* Maintainer-only oracle: pinned original bodies with controlled hooks. */
+#include <stdint.h>
+#include <stddef.h>
+#include <string.h>
+#include <stdarg.h>
+#include <stdio.h>
+typedef uint8_t KIRQL;
+typedef int32_t LONG;
+typedef void VOID;
+#undef __fastcall
+#undef __stdcall
+#define __fastcall
+#define __stdcall
+#define DISPATCH_LEVEL 2
+#define IRQL_CALLER() NULL
+#define XBOX_LOG_WARN 1
+#define XBOX_LOG_HAL 1
+#define XBOX_PROF_WAIT_GATE 0
+#define RENV_IRQL_TRACE 0
+static int quiet_print(FILE *stream,const char *text,...){(void)stream;(void)text;return 0;}
+static int quiet_flush(FILE *stream){(void)stream;return 0;}
+#define fprintf quiet_print
+#define fflush quiet_flush
+static KIRQL g_current_irql;
+static ptrdiff_t g_xbox_mem_offset;
+static int t_release_due,t_irql_counted,t_dispatch_gate_held,t_gate_depth;
+static int t_native_irq_masked,t_in_isr;
+static volatile LONG g_irql_raised_count,g_native_irq_masked_count,s_transitions,s_gate_owner;
+static int s_trace=0;
+static volatile LONG s_traced;
+static int s_dispatch_gate;
+static uint8_t memory[65536];
+static LONG InterlockedCompareExchange(volatile LONG *p,LONG value,LONG expected){LONG old=*p;if(old==expected)*p=value;return old;}
+static LONG InterlockedExchange(volatile LONG *p,LONG value){LONG old=*p;*p=value;return old;}
+static LONG delta(volatile LONG *p,uint32_t d){uint32_t n;memcpy(&n,(const void *)p,4);n+=d;memcpy((void *)p,&n,4);return *p;}
+static LONG InterlockedIncrement(volatile LONG *p){return delta(p,1);}
+static LONG InterlockedDecrement(volatile LONG *p){return delta(p,UINT32_MAX);}
+static unsigned long GetCurrentThreadId(void){return 1;}
+static void dispatch_gate_once(void){}
+static void EnterCriticalSection(int *p){(void)p;}
+static int TryEnterCriticalSection(int *p){(void)p;return 1;}
+static void LeaveCriticalSection(int *p){(void)p;}
+static int xbox_ProfOn(void){return 0;}
+static long long xbox_ProfNowUs(void){return 0;}
+static void xbox_ProfWait(int k,long long v){(void)k;(void)v;}
+static void irql_holder_add(void *p){(void)p;}
+static void irql_holder_drop(void){}
+static int recomp_env(int key){(void)key;return 0;}
+typedef union {float f[4];double d[2];uint32_t u[4];int32_t i[4];uint64_t q[2];} RecompXmm;
+typedef union {uint32_t u[2];uint64_t q;} RecompMmx;
+static uint32_t g_eax,g_ecx,g_edx,g_ebx,g_esi,g_edi,g_ebp,g_esp,g_seh_ebp,g_eflags,g_fs_base;
+static int g_df,g_fp_top,g_fp_cmp;
+static double g_fp_stack[8];static uint16_t g_fp_control_word,g_fp_cc;
+static RecompXmm g_xmm0,g_xmm1,g_xmm2,g_xmm3,g_xmm4,g_xmm5,g_xmm6,g_xmm7;
+static RecompMmx g_mm0,g_mm1,g_mm2,g_mm3,g_mm4,g_mm5,g_mm6,g_mm7;
+
+#define XBOX_IRQ_LINES 3
+#define XBOX_IRQ_POSTED 0
+#define XBOX_IRQ_GATED 1
+#define XBOX_IRQ_UNGATED 2
+#define XBOX_WORKER_STACK_COUNT 16
+#define XBOX_WORKER_STACK_SIZE (256*1024)
+#define XBOX_STACK_SIZE (1024*1024)
+#define XBOX_WORKER_STACK_TOP(slot) (0x780000u+XBOX_WORKER_STACK_SIZE*((slot)+1)-16)
+#define IRQL_HOLDERS 8
+static struct {LONG tid;void *ra;uint32_t guest_ra;} s_holders[IRQL_HOLDERS];
+static volatile LONG g_worker_stack_used[16];
+static volatile LONG s_irq_pending;
+static void (*s_irq_run[3])(void);
+static uint64_t s_irq_post_ns[3];
+static int s_irq_mode,s_irq_force;
+static uint64_t s_irq_wait_ns,s_irq_last_log_ns;
+static volatile LONG s_irq_points_refused;
+static const char *const s_irq_names[3]={"vblank","apu","ohci"};
+static struct {volatile LONG posted[3],on_holder[3],second_try[3],forced[3],ungated[3],max_wait_us[3],wait_logs,refused;} s_irq;
+typedef struct {LONG posted[3],on_holder[3],second_try[3],forced[3],ungated[3],max_wait_us[3],wait_logs,refused;} XboxIrqStats;
+static LONG InterlockedOr(volatile LONG *p,LONG bits){LONG old=*p;*p=old|bits;return old;}
+static LONG InterlockedAnd(volatile LONG *p,LONG bits){LONG old=*p;*p=old&bits;return old;}
+static uint64_t xbox_HostNowNs(void){uint64_t value=0;for(unsigned i=0;i<8;i++)value|=(uint64_t)memory[0x1008+i]<<(i*8);return value;}
+static void mem_word(unsigned at,uint32_t value){for(unsigned i=0;i<4;i++)memory[at+i]=(uint8_t)(value>>(i*8));}
+static uint32_t mem_get(unsigned at){return (uint32_t)memory[at]|(uint32_t)memory[at+1]<<8|(uint32_t)memory[at+2]<<16|(uint32_t)memory[at+3]<<24;}
+static void counter(unsigned at){mem_word(at,mem_get(at)+1);}
+static void xbox_log(int level,int area,const char *text,...){(void)level;(void)area;(void)text;counter(0x1014);}
+static void xbox_SpinWake(void){counter(0x1010);}
+static void dpc_release_point(void){counter(0x1018);}
+static void irq_config(void){s_irq_mode=1;s_irq_force=0;s_irq_wait_ns=250000000;}
+static void (*s_irq_release_hook)(void);
+static void (*s_irq_post_hook)(int);
+static void irql_release_due(void);
+static void irq_release_point(void);
+void xbox_IrqSafePoint(void);
+int xbox_IrqlEnterInterrupt(int level);
+void xbox_IrqlLeaveInterrupt(int saved);
+KIRQL xbox_KfRaiseIrql(KIRQL level);
+/* PINNED_REGS_TYPE */
+/* PINNED_REGS_SAVE */
+/* PINNED_REGS_RESTORE */
+/* PINNED_XBOX_WORKER_STACK_ALLOC */
+/* PINNED_XBOX_WORKER_STACK_FREE */
+/* PINNED_IRQL_PUBLISH */
+/* PINNED_GATE_ENTERED */
+/* PINNED_GATE_TRY */
+/* PINNED_GATE_ENTER */
+/* PINNED_GATE_LEAVE_RAW */
+/* PINNED_XBOX_DISPATCHGATEOWNER */
+/* PINNED_XBOX_DISPATCHGATETRYENTER */
+/* PINNED_XBOX_DISPATCHGATEENTER */
+/* PINNED_XBOX_DISPATCHGATELEAVE */
+/* PINNED_XBOX_NATIVEINTERRUPTDISABLE */
+/* PINNED_XBOX_NATIVEINTERRUPTENABLEAFTERSHADOW */
+/* PINNED_XBOX_NATIVEINTERRUPTSENABLED */
+/* PINNED_IRQL_RELEASE_DUE */
+/* PINNED_IRQL_TRACK_GATED */
+/* PINNED_IRQL_TRACK */
+/* PINNED_XBOX_IRQLENTERINTERRUPT */
+/* PINNED_XBOX_IRQLLEAVEINTERRUPT */
+/* PINNED_XBOX_IRQLTHISTHREADBLOCKSDPCS */
+/* PINNED_XBOX_IRQLCURRENT */
+/* PINNED_XBOX_KFRAISEIRQL */
+/* PINNED_XBOX_KFLOWERIRQL */
+/* PINNED_XBOX_KERAISEIRQLTODPCLEVEL */
+/* PINNED_XBOX_IRQLBLOCKSINTERRUPTS */
+/* PINNED_XBOX_IRQLRAISEDCOUNT */
+/* PINNED_XBOX_IRQLTRANSITIONS */
+/* PINNED_IRQ_NOTE_WAIT */
+/* PINNED_IRQ_RUN_LINE */
+/* PINNED_IRQ_RUN_PENDING */
+/* PINNED_XBOX_IRQSAFEPOINT */
+/* PINNED_IRQ_RELEASE_POINT */
+/* PINNED_IRQ_WAIT_CHECK */
+/* PINNED_XBOX_IRQSAFEPOINTSON */
+/* PINNED_XBOX_IRQPOST */
+/* PINNED_XBOX_IRQSTATSGET */
+/* PINNED_XBOX_IRQNOTEUNGATED */
+static uint32_t get32(const uint8_t *p){return (uint32_t)p[0]|(uint32_t)p[1]<<8|(uint32_t)p[2]<<16|(uint32_t)p[3]<<24;}
+static void put32(uint8_t *p,uint32_t v){for(int i=0;i<4;i++)p[i]=(uint8_t)(v>>(8*i));}
+static void load_state(const uint8_t *p){
+ uint32_t *words[]={&g_eax,&g_ebx,&g_ecx,&g_edx,&g_esi,&g_edi,&g_ebp,&g_esp,&g_seh_ebp};
+ for(int i=0;i<9;i++)*words[i]=get32(p+i*4);
+ uint32_t bits=get32(p+36);memcpy(&g_df,&bits,4);bits=get32(p+40);memcpy(&g_fp_top,&bits,4);
+ g_fp_cc=(uint16_t)(p[44]|(uint16_t)p[45]<<8);g_fp_control_word=(uint16_t)(p[46]|(uint16_t)p[47]<<8);
+ for(int i=0;i<8;i++){uint64_t v=get32(p+48+i*8)|(uint64_t)get32(p+52+i*8)<<32;memcpy(&g_fp_stack[i],&v,8);}
+ RecompXmm *x[]={&g_xmm0,&g_xmm1,&g_xmm2,&g_xmm3,&g_xmm4,&g_xmm5,&g_xmm6,&g_xmm7};
+ for(int i=0;i<8;i++)for(int j=0;j<4;j++)x[i]->u[j]=get32(p+112+i*16+j*4);
+ g_fs_base=get32(p+240);g_eflags=get32(p+244);bits=get32(p+248);memcpy(&g_fp_cmp,&bits,4);
+ RecompMmx *m[]={&g_mm0,&g_mm1,&g_mm2,&g_mm3,&g_mm4,&g_mm5,&g_mm6,&g_mm7};
+ for(int i=0;i<8;i++)for(int j=0;j<2;j++)m[i]->u[j]=get32(p+252+i*8+j*4);
+}
+static void store_state(uint8_t *p){
+ uint32_t words[]={g_eax,g_ebx,g_ecx,g_edx,g_esi,g_edi,g_ebp,g_esp,g_seh_ebp};for(int i=0;i<9;i++)put32(p+i*4,words[i]);
+ uint32_t bits;memcpy(&bits,&g_df,4);put32(p+36,bits);memcpy(&bits,&g_fp_top,4);put32(p+40,bits);
+ p[44]=(uint8_t)g_fp_cc;p[45]=(uint8_t)(g_fp_cc>>8);p[46]=(uint8_t)g_fp_control_word;p[47]=(uint8_t)(g_fp_control_word>>8);
+ for(int i=0;i<8;i++){uint64_t v;memcpy(&v,&g_fp_stack[i],8);put32(p+48+i*8,(uint32_t)v);put32(p+52+i*8,(uint32_t)(v>>32));}
+ RecompXmm *x[]={&g_xmm0,&g_xmm1,&g_xmm2,&g_xmm3,&g_xmm4,&g_xmm5,&g_xmm6,&g_xmm7};for(int i=0;i<8;i++)for(int j=0;j<4;j++)put32(p+112+i*16+j*4,x[i]->u[j]);
+ put32(p+240,g_fs_base);put32(p+244,g_eflags);memcpy(&bits,&g_fp_cmp,4);put32(p+248,bits);
+ RecompMmx *m[]={&g_mm0,&g_mm1,&g_mm2,&g_mm3,&g_mm4,&g_mm5,&g_mm6,&g_mm7};for(int i=0;i<8;i++)for(int j=0;j<2;j++)put32(p+252+i*8+j*4,m[i]->u[j]);
+}
+
+static void route(unsigned line){
+ uint32_t count=mem_get(0x1000);
+ uint32_t values[8]={line,g_esp,(g_eax==0&&g_ebx==0&&g_ecx==0&&g_edx==0&&g_esi==0&&g_edi==0),g_current_irql,t_in_isr,t_gate_depth,memory[g_fs_base-0x740000+0x24],g_eflags};
+ for(unsigned lane=0;lane<8;lane++){mem_word(0x4000+count*32+lane*4,values[lane]);}mem_word(0x1000,count+1);
+ g_eax=0x31415926;g_mm7.u[0]=0x80000000;g_mm7.u[1]=0xffffffff;
+ g_xmm1.u[0]=9;g_xmm1.u[1]=8;g_xmm1.u[2]=7;g_xmm1.u[3]=6;
+ uint64_t bits=UINT64_C(0x7ff8000000001234);memcpy(&g_fp_stack[3],&bits,8);g_eflags^=0x1234;
+ xbox_KfRaiseIrql(2);
+}
+static void vblank(void){route(0);}static void apu(void){route(1);}static void ohci(void){route(2);}
+static uint64_t hash(const uint8_t *p,size_t n){uint64_t h=UINT64_C(14695981039346656037);for(size_t i=0;i<n;i++)h=(h^p[i])*UINT64_C(1099511628211);return h;}
+void irq_reference(const uint8_t *before,uint8_t *out){
+ memset(memory,0,sizeof(memory));memset((void *)&s_irq,0,sizeof(s_irq));memset(s_irq_post_ns,0,sizeof(s_irq_post_ns));
+ for(unsigned i=0;i<16;i++)g_worker_stack_used[i]=0;
+ load_state(before);g_xbox_mem_offset=(ptrdiff_t)memory-0x740000;
+ g_current_irql=0;t_release_due=t_irql_counted=t_dispatch_gate_held=t_gate_depth=t_native_irq_masked=t_in_isr=0;
+ g_irql_raised_count=g_native_irq_masked_count=s_transitions=s_gate_owner=s_irq_pending=s_irq_points_refused=0;
+ s_irq_last_log_ns=0;irq_config();s_irq_run[0]=vblank;s_irq_run[1]=apu;s_irq_run[2]=ohci;
+ for(unsigned i=0;i<8;i++)memory[0x1008+i]=(uint8_t)(UINT64_C(1000000000)>>(8*i));
+ xbox_NativeInterruptDisable();unsigned lines[4]={2,0,1,1};
+ for(unsigned lane=0;lane<4;lane++){uint64_t now=UINT64_C(1000000000)+lane*1000;for(unsigned i=0;i<8;i++)memory[0x1008+i]=(uint8_t)(now>>(8*i));xbox_IrqPost((int)lines[lane]);}
+ xbox_IrqSafePoint();xbox_NativeInterruptEnableAfterShadow();
+ int held[4];for(unsigned i=0;i<4;i++)held[i]=xbox_worker_stack_alloc();
+ xbox_DispatchGateEnter();xbox_NativeInterruptDisable();for(int line=0;line<3;line++)xbox_IrqPost(line);
+ xbox_NativeInterruptEnableAfterShadow();xbox_worker_stack_free(held[0]);xbox_IrqSafePoint();
+ for(unsigned i=1;i<4;i++){xbox_worker_stack_free(held[i]);}xbox_DispatchGateLeave();
+ store_state(out);XboxIrqStats stats;xbox_IrqStatsGet(&stats,1);
+ LONG *groups[6]={stats.posted,stats.on_holder,stats.second_try,stats.forced,stats.ungated,stats.max_wait_us};
+ for(unsigned group=0;group<6;group++)for(unsigned line=0;line<3;line++)put32(out+316+(group*3+line)*4,(uint32_t)groups[group][line]);
+ put32(out+388,(uint32_t)stats.wait_logs);put32(out+392,(uint32_t)stats.refused);
+ uint64_t ram=hash(memory,sizeof(memory));unsigned used=0;for(unsigned i=0;i<16;i++)used+=(unsigned)g_worker_stack_used[i];
+ uint32_t fields[14]={g_current_irql,t_irql_counted,t_dispatch_gate_held,t_native_irq_masked,t_in_isr,t_release_due,(uint32_t)g_irql_raised_count,(uint32_t)g_native_irq_masked_count,(uint32_t)s_transitions,t_gate_depth,(uint32_t)s_irq_pending,used,(uint32_t)ram,(uint32_t)(ram>>32)};
+ for(unsigned i=0;i<14;i++)put32(out+396+i*4,fields[i]);
+}
+/* Isolate the original signed32 LONG diagnostic on ABIs where long is 32 bits.
+ * Linux64 compares a wider long before narrowing, so its maxima can become
+ * negative or decrease. Observe that ABI difference without copying it to games.
+ * Game code always uses the original Xbox/Windows signed32 conversion explicitly.
+ */
+int irq_wait_reference(uint64_t elapsed_us,uint32_t previous,uint32_t *out){
+ uint64_t posted=UINT64_C(1000000000),now=posted+elapsed_us*UINT64_C(1000);
+ for(unsigned i=0;i<8;i++)memory[0x1008+i]=(uint8_t)(now>>(8*i));
+ memcpy((void *)&s_irq.max_wait_us[0],&previous,4);irq_note_wait(0,posted);
+ memcpy(out,(const void *)&s_irq.max_wait_us[0],4);return (int)(sizeof(long)*8);
+}

@@ -419,7 +419,11 @@ impl Task {
             state_put(&mut b, 64 + self.slot * 64 + lane, value)?;
             match self.task_commit(version, &b) {
                 Ok(()) => return Ok(()),
-                Err(-2) => memory::Memory::call_retry_pause()?,
+                Err(-2) => {
+                    if !cleanup {
+                        memory::Memory::call_retry_pause()?;
+                    }
+                }
                 Err(code) => return Err(code),
             }
         }
@@ -471,7 +475,11 @@ impl Task {
             }
             match self.task_commit(version, &b) {
                 Ok(()) => return Ok(()),
-                Err(-2) => memory::Memory::call_retry_pause()?,
+                Err(-2) => {
+                    if !cleanup {
+                        memory::Memory::call_retry_pause()?;
+                    }
+                }
                 Err(code) => return Err(code),
             }
         }
@@ -683,7 +691,7 @@ impl Task {
                     cleared = true;
                     break;
                 }
-                Err(-2) => memory::Memory::call_retry_pause()?,
+                Err(-2) => {} // Cleanup must not allocate a retry event under quota pressure.
                 Err(code) => return Err(code),
             }
         }
