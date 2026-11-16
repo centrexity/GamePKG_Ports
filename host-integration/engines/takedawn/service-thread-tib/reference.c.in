@@ -1,0 +1,6 @@
+/* Maintainer only: unchanged original per-thread TIB and heap, never game code. */
+#define XBOX_TIB_MAIN 0x4000u
+static uint32_t g_tls_template_va,g_tls_total,g_tls_thread_size=64;
+static uint32_t xbox_HeapAlloc(uint32_t size,uint32_t alignment){return heap_alloc_unlocked(size,alignment);}
+/* PINNED_THREAD_TIB */
+uint32_t gamepkg_tib(uint32_t source,uint32_t total){g_tls_template_va=source;g_tls_total=total;return xbox_AllocThreadTib();}

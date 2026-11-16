@@ -604,3 +604,29 @@ queue and timer-firing regressions have fresh receipts for this SDK. This
 supersedes previous statements that the installed SDK remained unchanged.
 Production worker-loop/context/IRQ/handler closure and title builds/launchers
 remain required; no native title profile or pinned submodule is enabled.
+
+
+## Original worker TIB/TLS setup
+
+`service-thread-tib/thread_tib.rs` now implements the original per-thread TIB
+allocation through the existing serialized heap actor and GamePKG-owned checked
+RAM. The caller supplies the applied bootstrap's TLS template/extent, retains
+its normal context and installs the returned guest address into CPU.fs_base only
+after success. Copy order, current inherited bytes, own SEH/slot zero/+4, zeroed
+thread data, no-TLS and allocation exhaustion match unchanged original C.
+
+Seven modes use two allocations on an actual SDK worker and a separate heap
+actor, comparing both addresses, allocation counters and the complete 64MiB RAM
+hash. Invalid metadata, absent heap and revoked-root controls pass. Four
+intentionally broken variants fail. Linux/Windows x64/i686 native component
+vectors agree (Windows via Wine). Complete source checks, all eight separately
+optimized game objects per target and actual confined Linux x64/i686 execution
+pass on SDK fe309935dd602e2cf098e50065f6035de33dac88b51d45a2bc1ba47cf026742f.
+See `service-thread-tib/README.md` for the exact API, failure-prefix contract and
+maintainer command. No C oracle enters a game object.
+
+Production context publication, retained timer-worker stack and CPU/TIB setup,
+spin/pause/profiler/IRQ handlers, full source closure and builders/launchers still
+need integration. This helper does not start or admit the title, prove physical
+input/audio/graphics or measure frame pacing. App SDK/binaries and the pinned
+ports submodule are unchanged; the locally installed app already has this SDK.
