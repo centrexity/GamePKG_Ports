@@ -112,3 +112,37 @@ unavailable: it additionally needs a performance-only host read that does not
 anchor absolute time before the original first SystemTime query. The existing
 combined op 65 contract is unchanged; do not use its calendar side effect as an
 unreviewed timing approximation.
+
+## Performance-only prerequisite completed
+
+App `b617c3e450fb198689803c8890e01c0c5bebd52f` supplies ABI 1 op **66** /
+`gamepkg::performance_sample() -> Result<PerformanceSample, i32>`. Request empty,
+reply exactly 24 bytes: LE u64 counter, actual counts/second frequency, boot ms.
+It uses the same platform units as op 65, with counter <=i64::MAX and frequency
+1..i64::MAX, but never reads wall time, initializes the calendar anchor or updates
+its last-sample state. Op 65's first successful call still anchors at its own
+counter. Neither operation uses op 60 session-deadline units. Do not guess a
+frequency or substitute guest TSC units; TSC conversion/origin stays port-owned.
+
+Both operations run on the private connection worker. Direct owner-thread calls
+are Busy; malformed requests/short capacities Invalid; closed sessions Denied.
+Malformed SDK reply shape/ranges are Failed. Unsupported hosts/platforms must
+not fall back to direct OS reads. Quotas, waits, source checks and object/import
+rules are unchanged. Complete host contracts are in app PORT_SERVICES.md.
+
+Shared SDK digest is
+`91f55ad297aeb2109e0622778c9a967ebc831e44975dc5edc6d8573013d2988a`,
+recipe `9fef7a199380e4b4`. Seven exact-source host clock tests pass on each of
+Linux32/64 and Windows32/64 under Wine, including untouched calendar state before
+and after counter-only reads. Actual confined Linux children each return 16 raw
+and 16 calendar samples bounded by host counters; all four targets pass complete
+source checks, separate optimization and every-object audit before trusted link.
+The settings and complete image/import matrices also pass with this SDK, while
+the private image still rejects 114 remaining main exports before title entry.
+
+Next work belongs in checked port code: register exact 125..128 math/CPU effects,
+shared skew consumption, separate guest TSC origin/units, periodic tick and real
+timers/scheduler. Choose op 66 for QPC/uptime-only paths and op 65 only where the
+original first calendar query belongs. Do not enable these exports or the title
+on the strength of infrastructure tests. No gameplay, visible rendering, physical
+input, audible audio, real Windows AppContainer or measured pacing is qualified.

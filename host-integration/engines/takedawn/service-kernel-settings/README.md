@@ -146,3 +146,10 @@ change that behavior. Source launch flags, scheduler/IRQ/device/generated/manual
 media/renderer/entry and complete reviewed production builder/launcher admission
 still remain. Keep all unmigrated profiles gated; never use direct platform
 calls or fake success to fill those gaps.
+
+Update: app `b617c3e` now provides the required non-calendar performance read,
+op 66 / `performance_sample()`. See the exact contract and validation in
+`../service-native/CLOCK_SERVICE_HANDOFF.md`. The full settings and image/import
+checks pass again with SDK recipe `9fef7a199380e4b4`. Consume that API explicitly
+when implementing 125..128; this extension does not register them or qualify
+title gameplay. The historical SDK above describes the initial port-only change.

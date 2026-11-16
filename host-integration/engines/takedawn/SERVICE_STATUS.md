@@ -28,6 +28,14 @@ This port-only change requires no app binary reinstall. The older component
 counts and app pins below describe their recorded checkpoints; current shared
 contracts live in the app's PORT_SERVICES.md and NATIVE_FUNCTION_MIGRATION.md.
 
+The subsequent app `b617c3e` completes that performance-only prerequisite with
+op 66, exact 24-byte copied counter/frequency/uptime replies and no calendar
+anchor effect. Current SDK recipe is `9fef7a199380e4b4`; see
+[the clock handoff](service-native/CLOCK_SERVICE_HANDOFF.md#performance-only-prerequisite-completed).
+Settings and image/import checks pass against it. Timing consumers and all
+production admission/gameplay requirements remain unfinished; the main gap
+remains 114. The installed CLI/GUI have been rebuilt together for this SDK.
+
 Incremental save migration: [service-save/README.md](service-save/README.md).
 App `75d180311f5e29765ad4778f265908daaa0afb31` adds scoped metadata and duplicate
 file handles. The save helper source passes all four target object audits and
