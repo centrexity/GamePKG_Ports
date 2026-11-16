@@ -7,18 +7,18 @@ RDTSC instruction, guessed host frequency, calendar anchor or instruction loop.
 The five pinned generated callers are compiled native Rust; no game engine,
 media bridge or original unsafe oracle is trusted/exempted.
 
-## KSV2 metadata contract
+## KSV3 metadata contract
 
-`../service-kernel-pool/kernel_pool.rs` now uses an exact 64-byte **KSV2** record.
+`../service-kernel-pool/kernel_pool.rs` now uses an exact 64-byte **KSV3** record.
 This is ephemeral port-private metadata, not a host ABI or save-file format.
-KSV1 is explicitly rejected, never silently upgraded. The root remains exactly
+KSV1 and KSV2 are explicitly rejected, never silently upgraded. The root remains exactly
 288 bytes, CPU record 244 bytes and context four opaque IDs. Host quotas and
 all source/dependency/object/confinement checks are unchanged.
 
 | Offset | LE value |
 | --- | --- |
-| 0 | magic u32 `0x3256534B` |
-| 4 | reserved-zero u32 |
+| 0 | magic u32 `0x3356534B` |
+| 4 | warn-once u32 bits: 0 DPC, 1 interrupt; other bits invalid |
 | 8 | owning root ID u64 |
 | 16 | immutable masked video flags u32 |
 | 20 | immutable audio flags u32 |
@@ -30,7 +30,7 @@ all source/dependency/object/confinement checks are unchanged.
 
 State 0 requires origin/frequency zero. State 1 permits origin zero, requires
 origin <=i64::MAX and frequency 1..i64::MAX. Any other state, shape, magic,
-reserved/configuration value is Invalid; wrong root is Denied. Existing settings,
+reserved/configuration/warning value is Invalid; wrong root is Denied. Existing settings,
 clock-query and skew APIs retain their signatures, configuration and arithmetic.
 Skew CAS preserves TSC fields, and TSC initialization preserves current skew.
 
@@ -159,10 +159,18 @@ This avoids serializing timer/TSC reads behind a pending window/broker request.
 Calendar queries still use remote operation 65 and preserve their separate
 first-use anchor. There is no remote or native-OS fallback if local reads fail.
 
-KSV2/root/CPU layouts, 64-attempt CAS behavior, skew arithmetic, first-use TSC
+KSV3/root/CPU layouts, 64-attempt CAS behavior, skew arithmetic, first-use TSC
 origin, quotas and original partial-write/error semantics are unchanged. The
 maintainer oracle injects local samples explicitly; actual confined admission
 uses the real child-local SDK and separately audited game objects. Regenerated
 provenance binds the updated kernel helper even though generated game bodies
-are unchanged. Complete title entry and the periodic tick/scheduler/device/
-renderer migration remain required before production admission.
+are unchanged. The separate periodic-tick component is qualified; complete title entry and
+scheduler/device/renderer migration remain required before production admission.
+
+## Dispatcher warning-state extension
+
+KSV3 now preserves the first-use clock fields while bounded warn-once publishers
+update the u32 at +4. See `../service-kernel-dispatcher/README.md` for exact
+initializer contracts, original-body/full-RAM evidence, CAS boundaries and
+concurrent skew/TSC preservation. KSV2 is not silently upgraded. Generated TSC
+bodies remain byte-identical; provenance binds the updated shared helper.

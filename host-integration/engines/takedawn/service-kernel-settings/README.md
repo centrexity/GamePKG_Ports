@@ -31,12 +31,12 @@ and all other limits remain unchanged. Records still cannot be resized by CAS.
 map and resolved mixer channels 2 or 6. It applies the original video setter's
 `0x001F0000` mask; stereo reports 0, six-channel mixing reports `0x00010002` from
 the original speaker helper. Skew and TSC state/origin/frequency start at zero;
-old KSV1 is rejected. The 64-byte KSV2 record is:
+old KSV1/KSV2 are rejected. The 64-byte KSV3 record is:
 
 | Offset | LE field |
 | --- | --- |
-| 0 | magic u32 `0x3256534B` |
-| 4 | reserved-zero u32 |
+| 0 | magic u32 `0x3356534B` |
+| 4 | warn-once bits u32: bit 0 DPC, bit 1 interrupt; all others invalid |
 | 8 | owning root record ID u64 |
 | 16 | immutable masked video flags u32 |
 | 20 | immutable audio flags u32 (0 / 0x10002) |
@@ -57,8 +57,8 @@ Unsupported. `kernel_advance_services(&Memory, delta)` and the owner's
 `service_advance` perform bounded checked-add/CAS on skew. Overflow does not
 change bytes/version. The selected record ID stays pinned across snapshot/CAS,
 so a stale owner cannot copy another same-root record into its old record, even
-when versions match. Owner methods also bind the root. Other flags remain fixed.
-This stores one shared offset; it does not yet feed the time kernel exports.
+when versions match. Owner methods also bind the root. Video/audio configuration remains fixed; updates preserve the warning and TSC
+fields. The shared offset feeds the migrated clock/TSC/tick consumers.
 
 `service_close` clears the matching root link and releases only that owner's
 record. Repeated close is harmless; another active link denies. A revoked root
@@ -164,7 +164,13 @@ See `../service-kernel-clock/README.md`. Guest TSC/origin, tick/timers/schedulin
 and the other complete-title requirements remain pending. No record schema,
 quota, app SDK, production recipe or launch gate changed in that checkpoint.
 
-The subsequent shared timestamp consumer uses the KSV2 fields above. See
+The subsequent shared timestamp consumer uses the KSV3 clock fields above. See
 `../service-kernel-tsc/README.md` for exact first-use CAS, lifetime, errors,
 original-body comparisons and generated-call integration. Video/audio/skew APIs
 retain their signatures; this ephemeral format is not a saved-game format.
+
+The dispatcher initializer extension now uses KSV3's +4 warning word without
+changing any existing API signature or other field. Root/CPU/context sizes,
+host SDK/quotas and source/object gates are unchanged. See
+`../service-kernel-dispatcher/README.md`; old KSV1/KSV2 and unsupported bits
+remain explicit negative cases, with no automatic upgrade or native fallback.

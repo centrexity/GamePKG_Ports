@@ -10,7 +10,7 @@
     "sub_001FC980"
   ],
   "game_sha256": "2586b22b6275b3aa043e128f18dd2d15d4a16b98ae3d2266a6e11f93bc246eca",
-  "kernel_services_source_sha256": "7ac727bab31d477d9ce2f7f86f6c3e74fcae4963462c8e34d57409423e53d05f",
+  "kernel_services_source_sha256": "af6c00b9242f3e928795816875de392c6c36c5210c80db86b0b90c16a74c51f4",
   "oracle_sha256": "9decfac909fb1a6a358db055a72ea056f916b4f233df60b76d98bb31115a81fd",
   "production_ready": false,
   "qualification": "Five exact leaf bodies only; requires original-body differential and complete source/every-object admission; unsafe oracle must never enter game sources",

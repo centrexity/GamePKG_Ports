@@ -265,3 +265,36 @@ reviewed Plan, then start one tick owner before game entry. Stop/join it before
 closing shared services or releasing data/root/backings. This does not migrate
 the surrounding NV2A ack/DSP/MMIO/fence/fast-kick worker, timers/DPC/IRQ scheduler,
 remaining 111 imports or complete native renderer/media/entry/production launch.
+
+## KSV3 dispatcher initializer consumer
+
+The current shared port record is KSV3, still exactly 64 bytes: magic
+`0x3356534B`, +4 u32 warning bits (DPC bit 0, interrupt bit 1), all remaining
+configuration/skew/TSC fields unchanged. Old KSV1/KSV2 and unsupported bits
+reject. This lets warn-once state survive kernel-map reinstallations and share
+across callers without moving game policy into the host. Root/CPU/context sizes,
+host SDK `ae6723644c2a82dc`, installed app binaries and quotas remain unchanged.
+
+Completed kernel 44/107/109 initialize vector/DPC/interrupt data through checked
+RAM; they do not deliver an interrupt or invoke a callback. See
+`../service-kernel-dispatcher/README.md` for exact byte/stack/API contracts,
+logical retail-buffer rules, bounded CAS, diagnostics and partial-effect errors.
+107/109 require configured KSV3 on preparation/invocation; 44 remains independent.
+
+Qualification includes 768 exact original-C calls per target, every CPU/backing
+byte, warning history across map reinstalls, maintainer-only later-write and
+metadata-error/CAS-boundary injections, all-source scanning before bindings,
+every separately optimized object audited before trusted linking, and actual
+confined Linux x64/i686 C-witness/negative/concurrent checks. A live same-root
+periodic tick, TSC origin and competing skew survive both warning publishers.
+Actual Windows hardware/AppContainer/gameplay/pacing remain unqualified; Windows
+component execution is Wine. No compiler import allowlist was relaxed.
+
+Settings, kernel clocks, periodic tick, all five generated TSC callers, complete
+import planning and in-place image/import checks pass again. The freshly
+regenerated 19,307-closed-function partial kit passes all four source/object
+targets and actual confined Linux x64/i686 witnesses on KSV3. Generated default
+and TSC leaf bodies remain byte-identical; provenance binds the changed helper.
+The supplied ISO now reports **108** unresolved main functions (previously 111)
+and still rejects before title import publication/entry. Timer/DPC/IRQ scheduling,
+remaining generated/manual/device/renderer/media and production gameplay remain.

@@ -4,9 +4,10 @@
 ordinary dependency-free game source, the initialized kernel-data component and
 the finite allocator bridges. `image_imports.rs` binds that plan to the reviewed
 image/CPU setup. No native function pointer, OS protection call, success stub or
-engine exemption is introduced. **The title remains gated:** only the nine
-migrated allocator functions, six checked SHA/RC4/HMAC functions and 24 data exports
-are available. See `../service-kernel-sha/README.md` for the SHA extension. A complete table
+engine exemption is introduced. **The title remains gated:** the 23 migrated functions
+(nine allocators, six SHA/RC4/HMAC, NV settings, four clocks, HAL vector query and
+two dispatcher initializers) and 24 data exports are available. See
+`../service-kernel-dispatcher/README.md` for the initializer contracts. A complete table
 containing any other function fails Unsupported before publication.
 
 Requires shared SDK local op 17, available from app `8e741b5`: full digest
@@ -196,3 +197,9 @@ The private ISO remains in place and rejects 111 remaining main function exports
 before publication/title entry. See `../service-kernel-clock/README.md` for the
 exact arithmetic, null, partial-effect and validation contracts. No complete
 title, production recipe or admission exception is enabled by this change.
+
+The current dispatcher extension registers only complete 44/107/109 behavior.
+107/109 require the configured KSV3 owner before import publication; 44 remains
+independent. Actual private in-place image checks report 108 unresolved main
+functions and continue to reject before patching/title entry. No timer, IRQ,
+DPC-execution or renderer handler is made available by object initialization.

@@ -1,0 +1,76 @@
+{
+  "schema": 1,
+  "production_ready": false,
+  "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+  "member": "toolkit/src/kernel/kernel_bridge.c",
+  "source_sha256": "bf62f8787a2e78a0abdb28e10ad8f79c5267dc655491353af231067747ce446e",
+  "functions": {
+    "bridge_va_mapped": {
+      "start": 4503,
+      "end": 4912,
+      "sha256": "d17bc85ddc4f73cece8c4a0cb29054eeafbb1119f8f59e6b1be04aa2e3c8e826"
+    },
+    "bridge_buf_ok": {
+      "start": 5278,
+      "end": 6012,
+      "sha256": "5f6208694761eaae13fd8e15b77e50ac12590a8f8d85ca4a4ed289e4e5189548"
+    },
+    "bridge_KeInitializeDpc": {
+      "start": 136394,
+      "end": 137253,
+      "sha256": "64acd18780c41f22652ddc8b7ad9e62fcd1841b945c546d762b4a891f2338eb1"
+    },
+    "bridge_KeInitializeInterrupt": {
+      "start": 138546,
+      "end": 139119,
+      "sha256": "d865271a0281ad352ed9406b86c98232a973429b4fac85aa85888d042fceb641"
+    },
+    "bridge_HalGetInterruptVector": {
+      "start": 138107,
+      "end": 138394,
+      "sha256": "575de941a3bcb4267698d90ee1df72e9ed0266d4c9325026e524fc482e27297d"
+    },
+    "stdcall_args_for_ordinal": {
+      "start": 370039,
+      "end": 392581,
+      "sha256": "9296186dab3e4cf69665559022afb261930e0efa09eea4b88f72ea723da76542"
+    },
+    "bridge_for_ordinal": {
+      "start": 392583,
+      "end": 417340,
+      "sha256": "105df98d229ad685ab70118227e48691621ea24d97bd3f9ccdae179ad4a3c85b"
+    }
+  },
+  "header": {
+    "member": "toolkit/src/kernel/kernel.h",
+    "sha256": "efae4f1b5aab8a2a420d00b8fb5fd75a1fb9a717704a709c34baddcc254bd17e",
+    "definitions": {
+      "XBOX_CONTIG_BASE": {
+        "start": 12889,
+        "end": 12925,
+        "sha256": "923fe66686074df0ee945fabfad0b79a3b1374f6bbf9d9e26c4f82ef546b4eb3"
+      },
+      "XBOX_CONTIG_SIZE": {
+        "start": 12926,
+        "end": 12972,
+        "sha256": "a327499d1108bb41b6c82a6b360aeba6849a8265c1e6db757d18edc4c3b22b9d"
+      }
+    }
+  },
+  "ordinals": {
+    "44": [
+      "bridge_HalGetInterruptVector",
+      8
+    ],
+    "107": [
+      "bridge_KeInitializeDpc",
+      12
+    ],
+    "109": [
+      "bridge_KeInitializeInterrupt",
+      28
+    ]
+  },
+  "default_total_ram": 67108864,
+  "default_map_size": 0
+}

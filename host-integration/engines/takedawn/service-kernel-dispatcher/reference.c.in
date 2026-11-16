@@ -1,0 +1,56 @@
+/* Maintainer-only exact original bridge bodies, no OS/device access. */
+#include <stdint.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+/* PINNED_XBOX_CONTIG_BASE */
+/* PINNED_XBOX_CONTIG_SIZE */
+static uint8_t arena[262144];
+static uint32_t g_eax,g_esp;
+static size_t g_xbox_map_size=0,g_xbox_total_ram=67108864;
+static uint32_t logs[4],warned;
+static int reference_fprintf(FILE *stream,const char *format,...){
+    (void)stream;(void)format;va_list args;va_start(args,format);
+    const char *name=va_arg(args,const char*);uint32_t address=va_arg(args,uint32_t);unsigned bytes=va_arg(args,unsigned);
+    uint32_t ordinal=name[12]=='D'?107u:109u;
+    logs[0]++;logs[1]=ordinal;logs[2]=address;logs[3]=bytes;warned|=ordinal==107u?1u:2u;va_end(args);return 0;
+}
+static int reference_fflush(FILE *stream){(void)stream;return 0;}
+#define fprintf reference_fprintf
+#define fflush reference_fflush
+static uint8_t *reference_pointer(uint32_t va){
+    if(va<0x20000u)return arena+va;
+    if(va>=0x3fff000u&&va<0x4000000u)return arena+0x20000u+(va-0x3fff000u);
+    if(va>=0x80000000u&&va<0x80001000u)return arena+0x21000u+(va-0x80000000u);
+    if(va>=0x83fff000u&&va<0x84000000u)return arena+0x22000u+(va-0x83fff000u);
+    if(va>=0x4000000u&&va<0x4001000u)return arena+0x23000u+(va-0x4000000u);
+    if(va>=0xf0000000u&&va<0xf0001000u)return arena+0x21000u+(va-0xf0000000u);
+    if(va>=0xff000000u&&va<0xff001000u)return arena+0x24000u+(va-0xff000000u);
+    abort();
+}
+#define XBOX_TO_NATIVE(va) reference_pointer(va)
+#define BRIDGE_MEM8(va) (*reference_pointer(va))
+#define BRIDGE_MEM16(va) (*(uint16_t*)reference_pointer(va))
+#define BRIDGE_MEM32(va) (*(uint32_t*)reference_pointer(va))
+static uint32_t stack_arg(uint32_t n){uint32_t v;memcpy(&v,reference_pointer(g_esp+4+n*4),4);return v;}
+#define STACK_ARG(n) stack_arg(n)
+/* PINNED_BRIDGE_VA_MAPPED */
+/* PINNED_BRIDGE_BUF_OK */
+/* PINNED_BRIDGE_KEINITIALIZEDPC */
+/* PINNED_BRIDGE_KEINITIALIZEINTERRUPT */
+/* PINNED_BRIDGE_HALGETINTERRUPTVECTOR */
+static uint32_t read32(const uint8_t *bytes){return (uint32_t)bytes[0]|((uint32_t)bytes[1]<<8)|((uint32_t)bytes[2]<<16)|((uint32_t)bytes[3]<<24);}
+static void write32(uint8_t *bytes,uint32_t value){for(unsigned i=0;i<4;i++)bytes[i]=(uint8_t)(value>>(i*8));}
+void dispatcher_reference(const uint8_t *input,uint8_t *output,uint8_t *cpu,uint32_t ordinal,uint32_t *diagnostics){
+    memcpy(arena,input,sizeof(arena));memset(logs,0,sizeof(logs));g_eax=read32(cpu);g_esp=read32(cpu+28);
+    uint32_t pop;
+    if(ordinal==44u){bridge_HalGetInterruptVector();pop=8;}
+    else if(ordinal==107u){bridge_KeInitializeDpc();pop=12;}
+    else if(ordinal==109u){bridge_KeInitializeInterrupt();pop=28;}
+    else{abort();}
+    write32(cpu,g_eax);write32(cpu+28,g_esp+4+pop);memcpy(output,arena,sizeof(arena));
+    memcpy(diagnostics,logs,sizeof(logs));diagnostics[4]=warned;
+}
+int dispatcher_buffer_reference(uint32_t va,uint32_t bytes){return bytes==0u||((va!=0u)&&bridge_va_mapped(va,bytes));}

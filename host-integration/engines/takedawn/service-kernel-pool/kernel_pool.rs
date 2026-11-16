@@ -15,9 +15,9 @@ fn pool_long(bytes: &[u8], at: usize) -> Result<u64, i32> {
 fn pool_argument_bytes(ordinal: u32) -> Result<u32, i32> {
     match ordinal {
         14 | 17 | 23 | 165 | 171 | 180 | 335 => Ok(4),
-        15 | 168 | 337 => Ok(8),
-        336 | 338 | 339 => Ok(12),
-        340 => Ok(28),
+        15 | 44 | 168 | 337 => Ok(8),
+        107 | 336 | 338 | 339 => Ok(12),
+        109 | 340 => Ok(28),
         24 | 166 => Ok(20),
         125 | 126 | 127 => Ok(0),
         128 => Ok(4),
@@ -265,6 +265,12 @@ pub fn kernel_invoke(
         let _ = pool_word(&args, 4)?;
     }
     ram.kernel_set_caller(caller);
+    if ordinal == 44 || ordinal == 107 || ordinal == 109 {
+        let value = pool_dispatcher_initialize(ram, ordinal, &args)?;
+        state.eax = value;
+        state.esp = end as u32;
+        return Ok(());
+    }
     if ordinal >= 125 && ordinal <= 128 {
         if ordinal == 128 {
             if first != 0 {
@@ -759,7 +765,10 @@ fn pool_services_snapshot(ram: &memory::Memory) -> Result<(u64, u64, std::vec::V
         return Err(-5);
     }
     let (version, record) = gamepkg::local_record_snapshot(id, 64)?;
-    if record.len() != 64 || pool_word(&record, 0)? != 0x3256534b || pool_word(&record, 4)? != 0 {
+    if record.len() != 64
+        || pool_word(&record, 0)? != 0x3356534b
+        || pool_word(&record, 4)? & !3u32 != 0
+    {
         return Err(-1);
     }
     if pool_long(&record, 8)? != ram.call_handle() {
@@ -794,7 +803,12 @@ pub fn kernel_service_values(ram: &memory::Memory) -> Result<[u64; 3], i32> {
     ])
 }
 pub fn kernel_requires_services(ordinal: u32) -> bool {
-    ordinal == 24 || ordinal == 125 || ordinal == 126 || ordinal == 128
+    ordinal == 24
+        || ordinal == 107
+        || ordinal == 109
+        || ordinal == 125
+        || ordinal == 126
+        || ordinal == 128
 }
 pub fn kernel_services_initialize(
     ram: &memory::Memory,
@@ -805,7 +819,7 @@ pub fn kernel_services_initialize(
         return Err(-1);
     }
     let mut record = [0u8; 64];
-    record[..4].copy_from_slice(&u32::to_le_bytes(0x3256534b));
+    record[..4].copy_from_slice(&u32::to_le_bytes(0x3356534b));
     record[8..16].copy_from_slice(&u64::to_le_bytes(ram.call_handle()));
     record[16..20].copy_from_slice(&u32::to_le_bytes(video & 0x001f0000));
     record[20..24].copy_from_slice(&u32::to_le_bytes(if speakers == 6 {
@@ -982,7 +996,7 @@ pub fn kernel_time_value(ordinal: u32, base: u64, frequency: u64, skew: u64) -> 
     }
 }
 
-// Separate guest TSC units/origin. KSV2 keeps one immutable first-use pair in
+// Separate guest TSC units/origin. KSV3 keeps one immutable first-use pair in
 // root-owned copied metadata. Calendar anchoring is never a side effect here.
 pub fn kernel_tsc_state(ram: &memory::Memory) -> Result<[u64; 3], i32> {
     let (_, _, record) = pool_services_snapshot(ram)?;
@@ -1059,4 +1073,84 @@ pub fn kernel_tsc_read(ram: &memory::Memory) -> Result<u64, i32> {
         }
     }
     Err(-2)
+}
+
+// Default reviewed retail geometry, as bridge_va_mapped with map_size=0 and
+// total_ram=64MiB. Mirrors/tiled views do not expand that original buffer rule.
+pub fn kernel_buffer_mapped(address: u32, bytes: u32) -> bool {
+    if bytes == 0 {
+        return true;
+    }
+    let end = u64::from(address) + u64::from(bytes);
+    address >= 4096 && (end <= 67108864 || (address >= 0x80000000 && end <= 0x84000000))
+}
+fn pool_buffer_ticket(ram: &memory::Memory, ordinal: u32) -> Result<bool, i32> {
+    let bit = match ordinal {
+        107 => 1u32,
+        109 => 2u32,
+        _ => return Err(-5),
+    };
+    let pinned = ram.services_handle()?;
+    for _ in 0..64u32 {
+        let (id, version, mut record) = pool_services_snapshot(ram)?;
+        if id != pinned {
+            return Err(-4);
+        }
+        let flags = pool_word(&record, 4)?;
+        if flags & bit != 0 {
+            return Ok(false);
+        }
+        record[4..8].copy_from_slice(&u32::to_le_bytes(flags | bit));
+        match gamepkg::local_record_compare_exchange(id, version, &record) {
+            Ok(_) => return Ok(true),
+            Err(-2) => memory::Memory::call_retry_pause()?,
+            Err(code) => return Err(code),
+        }
+    }
+    Err(-2)
+}
+fn pool_dispatcher_initialize(
+    ram: &mut memory::Memory,
+    ordinal: u32,
+    args: &[u8],
+) -> Result<u32, i32> {
+    let first = pool_word(args, 0)?;
+    let second = pool_word(args, 4)?;
+    if ordinal == 44 {
+        if second != 0 {
+            ram.write_u8(second, first as u8)?;
+        }
+        return Ok(first);
+    }
+    kernel_service_values(ram)?;
+    let size = if ordinal == 107 {
+        32u32
+    } else if ordinal == 109 {
+        44u32
+    } else {
+        return Err(-5);
+    };
+    if !kernel_buffer_mapped(first, size) {
+        if pool_buffer_ticket(ram, ordinal)? {
+            // Original diagnostics are best effort after its seen bit changes.
+            let _ = gamepkg::diagnostic(
+                2,
+                0x544b1700,
+                &[u64::from(ordinal), u64::from(first), u64::from(size)],
+            );
+        }
+        return Ok(0);
+    }
+    if ordinal == 107 {
+        ram.write_bytes(first, &[0u8; 32])?;
+        ram.write_u16(first, 0x13)?;
+        ram.write_u32(first + 12, second)?;
+        ram.write_u32(first + 16, pool_word(args, 8)?)?;
+    } else {
+        ram.write_bytes(first, &[0u8; 44])?;
+        ram.write_u32(first, second)?;
+        ram.write_u32(first + 4, pool_word(args, 8)?)?;
+        ram.write_u32(first + 8, pool_word(args, 12)?)?;
+    }
+    Ok(0)
 }

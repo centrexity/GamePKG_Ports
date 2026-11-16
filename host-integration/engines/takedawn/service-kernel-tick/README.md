@@ -64,7 +64,7 @@ as in the original assignment.
   Repeated close of an empty owner succeeds. Foreign-root operations on a live
   owner are Denied and leave it intact.
 
-The active worker revalidates its immutable metadata, root and pinned KSV2 owner
+The active worker revalidates its immutable metadata, root and pinned KSV3 owner
 on each iteration. It checks stop/cancellation before sampling and stop again
 before writing. Its requested ordinary wait is 1 ms, through local op 23 on the
 child worker, never the window owner. This is not a real-time scheduling or
@@ -89,7 +89,8 @@ IDs must be nonzero; offset+4 must not overflow. Wrong shapes/reserved fields
 are Invalid (-1); Busy (-2), Failed (-3), Denied (-4) and Unsupported (-5)
 propagate from the SDK. Worker completion returns 0 or the positive magnitude
 of its error; close validates that result. The schema is private metadata, not
-a host ABI/save format. KSV2/root/CPU schemas and all host quotas are unchanged.
+a host ABI/save format. The referenced service record is now KSV3; the tick record/root/CPU schemas and
+all host quotas are unchanged. Warning flags do not enter the tick metadata.
 
 ## Qualification
 

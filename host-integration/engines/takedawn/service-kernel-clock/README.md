@@ -10,16 +10,16 @@ linked into admitted game objects. The complete title remains blocked.
 
 `kernel_supported` reports argument bytes 0 for 125/126/127 and 4 for 128.
 `kernel_requires_services` is true for 125/126/128: their import preparation and
-publication require the existing valid root-bound KSV2 configuration/skew record
+publication require the existing valid root-bound KSV3 configuration/skew record
 before patching. Frequency (127) does not depend on that record. The root stays
-288 bytes, CPU record 244 bytes, context four opaque IDs and KSV2 64 bytes.
+288 bytes, CPU record 244 bytes, context four opaque IDs and KSV3 64 bytes.
 No record, task, stack, process, transfer or diagnostic limit was increased.
 
 | Export | Clock / shared-state ordering | Result |
 | --- | --- | --- |
-| 125 KeQueryInterruptTime | op 66 performance sample, then shared skew | Original unsigned `uptime_ms * 10000 + skew_ns / 100`, with defined u64 wrap |
-| 126 KeQueryPerformanceCounter | shared skew, then op 66 | Raw counter plus split seconds/remainder scaling using the actual frequency |
-| 127 KeQueryPerformanceFrequency | op 66, independent of skew | Actual raw counts per second, never a guessed console or host frequency |
+| 125 KeQueryInterruptTime | local op 38 performance sample, then shared skew | Original unsigned `uptime_ms * 10000 + skew_ns / 100`, with defined u64 wrap |
+| 126 KeQueryPerformanceCounter | shared skew, then local op 38 | Raw counter plus split seconds/remainder scaling using the actual frequency |
+| 127 KeQueryPerformanceFrequency | local op 38, independent of skew | Actual raw counts per second, never a guessed console or host frequency |
 | 128 KeQuerySystemTime | non-null: op 65 calendar sample, shared skew, checked LE output | Anchored UTC100ns plus `skew_ns / 100`; null is a successful no-read/no-write |
 
 125..127 return the full u64 as EDX:EAX and pop return + 0 argument bytes.
@@ -116,7 +116,7 @@ CLI/GUI 0.1.24 services are already installed locally.
 
 The separate guest TSC conversion/shared first-use origin and all five generated
 callers now exist at `e206014`; see `../service-kernel-tsc/README.md` for exact
-KSV2 contracts and differential/confinement evidence. Raw QPC must not replace
+KSV3 contracts and differential/confinement evidence. Raw QPC must not replace
 that guest counter. Periodic tick data must
 advance through the existing checked data API rather than stay at the synthetic
 initializer's 123. This component does not implement timer queues, waits,
@@ -139,10 +139,15 @@ This avoids serializing timer/TSC reads behind a pending window/broker request.
 Calendar queries still use remote operation 65 and preserve their separate
 first-use anchor. There is no remote or native-OS fallback if local reads fail.
 
-KSV2/root/CPU layouts, 64-attempt CAS behavior, skew arithmetic, first-use TSC
+KSV3/root/CPU layouts, 64-attempt CAS behavior, skew arithmetic, first-use TSC
 origin, quotas and original partial-write/error semantics are unchanged. The
 maintainer oracle injects local samples explicitly; actual confined admission
 uses the real child-local SDK and separately audited game objects. Regenerated
 provenance binds the updated kernel helper even though generated game bodies
 are unchanged. Complete title entry and the periodic tick/scheduler/device/
 renderer migration remain required before production admission.
+
+The current private service format is KSV3: warning bits at +4 are preserved by
+all skew/TSC writers. The clock signatures/ordering remain unchanged; see the
+dispatcher README for the two new warn-once publishers and their concurrency
+qualification. Old KSV2 does not pass the new helper decoder.
