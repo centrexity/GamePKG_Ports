@@ -217,6 +217,12 @@ that actual port state machine; the new primitive alone does not execute a DPC
 or migrate the timer thread. No KSV3, root, generated helper or recipe changes
 are made by this interface handoff.
 
+Snapshot the wake generation before checking/draining queue work, and pass that
+observation to the wait after deciding to sleep. Refreshing the counter must not
+silently replace the observed generation after the queue check: a concurrent
+notification could otherwise be lost. Retain the generation returned by a wait
+and recheck work; multiple wakes may coalesce, as with the original pending flag.
+
 App qualification covers local wait/wakeup/cancellation/teardown on Linux and
 Windows x64/i686 (Windows execution under Wine), source admission and every
 optimized game-object audit on all four targets, and real confined Linux
@@ -224,6 +230,16 @@ x64/i686 execution before any owner request is dispatched. The socket regression
 also completes all three local operations while a real window request holds the
 remote client mutex. Neither test establishes Windows AppContainer behavior,
 physical controls/audio, hardware wake precision or measured gameplay pacing.
+
+The existing full partial generated kit also passes this SDK's four-target
+source/object/link matrix and actual confined Linux x64/i686 execution, including
+the 38-function/4,864-vector original native witnesses and existing FPU/vector/
+context/adversarial controls. Its 19,307 closed definitions leave 4,709 not
+closed, and the main import plan still has 108 unresolved functions. This app
+update introduces no newly supported kernel export. The matching optimized
+CLI/GUI are installed locally; signed 2048 and Arkanoo each pass 120 headless
+native frames using that installation. The catalog's seven metadata/thumbnail
+checks pass. Burnout remains disabled pending complete migration/qualification.
 
 Existing periodic-tick, clock and dispatcher component regressions pass against
 this SDK: respectively 2,048/256/768 original C vectors per target, all four
