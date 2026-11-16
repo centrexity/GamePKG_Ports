@@ -1,10 +1,29 @@
-# Shared-service migration status — 2026-11-15
+# Shared-service migration status — 2026-11-16
 
 This is tested integration work, **not a playable Burnout release**. The legacy
 profile remains blocked. No source pin, signature, cached executable or engine
 exception may bypass that block. The source kit and catalog URLs are unchanged.
 
-## Latest checked component
+## Latest checked component: kernel clock consumers
+
+Ports `b70e07e` implements exports 125..128 through the actual GamePKG clock SDK
+and existing shared root-bound skew, retaining original CPU/stack completion,
+null behavior and arithmetic. See
+[service-kernel-clock/README.md](service-kernel-clock/README.md) for exact
+contracts, failure effects, original-source pins, command and validation scope.
+All four targets pass source checks and every-object audits. Original C bridge
+comparisons pass on Linux32/64 and Windows32/64 under Wine. Confined Linux32/64
+tests each exercise 80 actual kernel calls across five views with independent
+parent bounds; synthetic image mode 10 passes through the finite Call router.
+
+The private in-place image still rejects **111 remaining main function exports**
+before publication/title entry, down from 114. No game is enabled. Guest TSC,
+periodic tick/timers/scheduling, other kernel/device/media/renderer/entry and
+complete production builder/launcher work remain. The root/CPU/context formats,
+SDK recipe `9fef7a199380e4b4`, installed app, quotas and admission rules are
+unchanged. No app binary reinstall is needed for these port-only consumers.
+
+## Earlier configuration and host prerequisite checkpoints
 
 Ports `4f05bf1ed54937fce87ab7c7aefa830dc30c3b33` adds checked kernel export 24,
 root-owned configuration and shared guest skew storage. See

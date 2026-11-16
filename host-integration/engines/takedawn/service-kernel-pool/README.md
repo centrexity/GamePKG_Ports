@@ -256,3 +256,10 @@ for the exact 288-byte private root codec, 64-byte record, unchanged four-ID
 context, readiness/lifetime/error contracts and C/confinement controls. CPU
 records stay 244 bytes and all quotas stay intact. The private main gap is now
 114; time exports and full gameplay remain gated.
+
+Clock consumer checkpoint `b70e07e` also implements exports 125..128 using the
+actual host clock SDK, shared root-owned skew and original register/stack rules.
+See `../service-kernel-clock/README.md` for exact APIs, signed arithmetic domains,
+unsigned wrap, no-read null behavior, output protections and original-source /
+confined-worker evidence. Allocator behavior, quotas and complete-title gating
+are unchanged; no direct platform clocks or engine exemptions were added.

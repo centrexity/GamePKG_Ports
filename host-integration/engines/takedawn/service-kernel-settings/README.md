@@ -153,3 +153,9 @@ op 66 / `performance_sample()`. See the exact contract and validation in
 checks pass again with SDK recipe `9fef7a199380e4b4`. Consume that API explicitly
 when implementing 125..128; this extension does not register them or qualify
 title gameplay. The historical SDK above describes the initial port-only change.
+
+The next port consumer now exists at `b70e07e`: exports 125..128 consume shared
+skew through the SDK with original register/stack, null and arithmetic behavior.
+See `../service-kernel-clock/README.md`. Guest TSC/origin, tick/timers/scheduling
+and the other complete-title requirements remain pending. No record schema,
+quota, app SDK, production recipe or launch gate changed in that checkpoint.

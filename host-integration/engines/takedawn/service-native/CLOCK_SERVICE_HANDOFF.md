@@ -146,3 +146,27 @@ timers/scheduler. Choose op 66 for QPC/uptime-only paths and op 65 only where th
 original first calendar query belongs. Do not enable these exports or the title
 on the strength of infrastructure tests. No gameplay, visible rendering, physical
 input, audible audio, real Windows AppContainer or measured pacing is qualified.
+
+## Checked kernel consumers completed
+
+Ports `b70e07e` implements 125..128 in ordinary checked Rust. Exact contracts and
+four-target original-C comparisons, complete source/object admission, actual
+confined Linux workers and image-router evidence are in
+`../service-kernel-clock/README.md`. The private main gap is now 111; no complete
+title entry is enabled. CPU/root/context/KSV1 formats and all limits remain
+unchanged. The current installed SDK recipe remains `9fef7a199380e4b4`.
+
+125..127 return EDX:EAX and pop four return bytes; 128 returns EAX=0, preserves
+EDX and pops return + one argument, writing exactly eight checked LE bytes only
+for a non-null pointer. Null does not read/anchor the clock or fetch skew during
+invocation. 125/126/128 require configuration before import publication; 127 is
+independent of it. Signed arithmetic outside the original C's defined domain
+rejects explicitly; 125 preserves defined unsigned wrap. A failed output can
+follow a successful calendar read, so do not claim global rollback or replay.
+
+Next: separate guest TSC conversion/shared first-use origin, periodic tick
+updates, real timer/scheduler/IRQ/device behavior and remaining complete native
+title, renderer and production launcher admission. Do not conflate TSC with raw
+QPC, leave ticks fixed at the synthetic initializer's 123, guess suspend gaps,
+skip operations or use a direct platform fallback. New mutable metadata requires
+explicit schema/lifetime/concurrency qualification before consumption.

@@ -187,3 +187,12 @@ for the exact 288-byte private root codec, 64-byte record, unchanged four-ID
 context, readiness/lifetime/error contracts and C/confinement controls. CPU
 records stay 244 bytes and all quotas stay intact. The private main gap is now
 114; time exports and full gameplay remain gated.
+
+Clock consumer checkpoint `b70e07e` adds 125..128 with valid shared configuration
+for 125/126/128 and independent frequency support for 127. Image mode 10 verifies
+all four through authenticated synthetic loading, full import publication and
+the actual finite Call router, with real clock bounds and full CPU completion.
+The private ISO remains in place and rejects 111 remaining main function exports
+before publication/title entry. See `../service-kernel-clock/README.md` for the
+exact arithmetic, null, partial-effect and validation contracts. No complete
+title, production recipe or admission exception is enabled by this change.
