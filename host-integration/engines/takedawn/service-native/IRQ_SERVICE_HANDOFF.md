@@ -103,6 +103,13 @@ incomplete acquisition, not permission to proceed. Cancellation cannot abandon
 held recursive depths; coordinate owner cleanup and actual joins. KSV3/root
 revocation must deny new work without fabricating callbacks or task completion.
 
+The IRQL Task now also has an explicit per-view opaque hook context. Bind a
+live record once with `irql_hook_bind`, resolve with `irql_hook_context`, and
+validate its exact type/root/controller association in the literal consumer.
+Every fresh Task view starts unbound; no serialized context/SDK expansion or
+production bridge wiring is implied. Controlled IRQ queue/stack composition is
+being developed separately and is not original-C delivery-qualified yet.
+
 ## Checked worker-stack pool available
 
 `../service-worker-stacks/README.md` now defines a root/KSV3-bound pool for the

@@ -92,6 +92,16 @@ Each returns `Result<(),i32>` and runs in checked port code:
 - `spin_wake(&mut irql::Task,&mut memory::Memory)`
 - `warn(&mut irql::Task,&mut memory::Memory,kind:u32,old:u8,new:u8)`
 
+`Task::irql_hook_bind(&Memory, context:u64)` attaches a live copied-record ID
+once per Task Rust view; zero is Invalid, same-ID repeat is allowed, replacement
+is Denied. `irql_hook_context(&Memory)` returns Unsupported until bound. Every
+new `controller_task` view starts unbound. The consumer must validate its own
+record format/root/controller/pool associations before using the ID; binding
+alone neither proves its type nor extends its lifetime. This per-object context
+is not serialized into IQL1 or the four-ID native context. Current controlled
+IRQL fixtures deliberately do not use it; complete bridge integration must
+attach every real Task view before invoking production hooks.
+
 Warning kind 0 is mistaken raise-to-lower; 1 is mistaken lower-to-higher.
 Crossing down runs safe_point at the old level while holding the gate, drops
 count and raised-held, calls release_window before raw unlock, then defers

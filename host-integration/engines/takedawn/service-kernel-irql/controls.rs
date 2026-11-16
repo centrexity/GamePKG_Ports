@@ -69,6 +69,14 @@ pub fn controls(ram: &mut memory::Memory, window: u64) -> Result<(), i32> {
     let foreign = memory::Memory::new()?;
     let mut owner = irql::Controller::controller_new(ram)?;
     let mut task = owner.controller_task(ram)?;
+    control_need(task.irql_hook_context(ram) == Err(-5) && task.irql_hook_bind(ram, 0) == Err(-1))?;
+    task.irql_hook_bind(ram, owner.controller_id())?;
+    task.irql_hook_bind(ram, owner.controller_id())?;
+    control_need(
+        task.irql_hook_context(ram)? == owner.controller_id()
+            && task.irql_hook_bind(ram, foreign.call_handle()) == Err(-4),
+    )?;
+    control_need(owner.controller_task(ram)?.irql_hook_context(ram) == Err(-5))?;
     control_need(task.task_values(&foreign) == Err(-4))?;
     gamepkg::local_record_release(foreign.call_handle())?;
     let mut view = irql::Controller::controller_borrow(ram, owner.controller_id())?;

@@ -20,6 +20,7 @@ pub struct Task {
     raw_gate_record: u64,
     slot: usize,
     lock: gate::Gate,
+    hook_context: u64,
 }
 fn state_word(b: &[u8], at: usize) -> Result<u64, i32> {
     let b = b.get(at..at + 8).ok_or(-1)?;
@@ -227,6 +228,7 @@ impl Controller {
                         raw_gate_record: self.raw_gate_record,
                         slot,
                         lock: gate::Gate::gate_borrow(ram, self.raw_gate_record)?,
+                        hook_context: 0,
                     });
                 }
                 if used == 0 && empty == 33 {
@@ -248,6 +250,7 @@ impl Controller {
                         raw_gate_record: self.raw_gate_record,
                         slot: empty,
                         lock: gate::Gate::gate_borrow(ram, self.raw_gate_record)?,
+                        hook_context: 0,
                     })
                 }
                 Err(-2) => memory::Memory::call_retry_pause()?,
@@ -323,6 +326,27 @@ impl Controller {
     }
 }
 impl Task {
+    // Private port composition context, not a native pointer or callback.
+    // Each newly constructed Task view must bind before production hooks run.
+    pub fn irql_hook_bind(&mut self, ram: &memory::Memory, context: u64) -> Result<(), i32> {
+        self.task_snapshot(ram, false)?;
+        if context == 0 {
+            return Err(-1);
+        }
+        gamepkg::local_record_snapshot(context, 4096)?;
+        if self.hook_context != 0 && self.hook_context != context {
+            return Err(-4);
+        }
+        self.hook_context = context;
+        Ok(())
+    }
+    pub fn irql_hook_context(&self, ram: &memory::Memory) -> Result<u64, i32> {
+        self.task_snapshot(ram, false)?;
+        if self.hook_context == 0 {
+            return Err(-5);
+        }
+        Ok(self.hook_context)
+    }
     pub fn task_key(&self) -> [u64; 2] {
         [self.controller, self.task]
     }
