@@ -85,10 +85,11 @@ fn reject_bad_vectors(artifact: &preparation::Artifact) {
     for (magic, batches, count, error) in [
         (b"TKN7", 1u32, None, -1i16),
         (b"TKN8", 1, None, -1),
-        (b"TKN9", 0, None, -1),
-        (b"TKN9", 17, None, -1),
-        (b"TKN9", 1, Some(4097), -1),
-        (b"TKN9", 1, Some(1), -3),
+        (b"TKN9", 1, None, -1),
+        (b"TKNA", 0, None, -1),
+        (b"TKNA", 17, None, -1),
+        (b"TKNA", 1, Some(4097), -1),
+        (b"TKNA", 1, Some(1), -3),
     ] {
         let mut bytes = magic.to_vec();
         bytes.extend(batches.to_le_bytes());
@@ -97,7 +98,7 @@ fn reject_bad_vectors(artifact: &preparation::Artifact) {
         }
         cases.push((bytes, error));
     }
-    let mut later = b"TKN9".to_vec();
+    let mut later = b"TKNA".to_vec();
     for value in [2u32, 0, 4097] {
         later.extend(value.to_le_bytes());
     }
@@ -170,6 +171,7 @@ fn main() {
     for name in [
         "memory.rs",
         "registers.rs",
+        "irq_state_checks.rs",
         "fixture.rs",
         "vector.rs",
         "scalar.rs",
@@ -201,6 +203,12 @@ fn main() {
         let report: serde_json::Value =
             serde_json::from_slice(&fs::read(prepared.join("inventory.json")).unwrap()).unwrap();
         assert_eq!(report["production_ready"], false);
+        assert_eq!(report["register_record_version"], 5);
+        assert_eq!(report["register_record_bytes"], 316);
+        assert_eq!(
+            report["registers_source_sha256"],
+            gamepkg::verify::digest(&fs::read(here.join("registers.rs")).unwrap())
+        );
         assert_eq!(
             report["kernel_services_source_sha256"],
             gamepkg::verify::digest(&fs::read(source.join("source/src/kernel_pool.rs")).unwrap())
@@ -232,7 +240,7 @@ fn main() {
             .unwrap();
         }
     }
-    let mut library="mod memory;mod heap;mod contiguous;mod heap_service;mod kernel_pool;mod call_state;mod call_checks;mod copy_checks;mod fill_checks;mod debug;mod debug_checks;mod vector;mod scalar;mod registers;mod game;mod dispatch;mod fixture;pub fn game_main(){fixture::game_main();}\n".to_owned();
+    let mut library="mod memory;mod heap;mod contiguous;mod heap_service;mod kernel_pool;mod call_state;mod call_checks;mod copy_checks;mod fill_checks;mod debug;mod debug_checks;mod vector;mod scalar;mod registers;mod irq_state_checks;mod game;mod dispatch;mod fixture;pub fn game_main(){fixture::game_main();}\n".to_owned();
     if let Some(directory) = call_targets {
         let directory = Path::new(directory);
         let report: serde_json::Value =
@@ -364,7 +372,7 @@ fn main() {
         Target::Windows64,
         Target::Windows32,
     ] {
-        let codegen_units = 4;
+        let codegen_units = 8;
         let tasks = if call_targets.is_some() {
             vec!["heap_worker".into(), "pool_worker".into()]
         } else {

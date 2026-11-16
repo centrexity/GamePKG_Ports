@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+  "member": "toolkit/src/kernel/kernel_hal.c",
+  "source_sha256": "4e65affa22218adfd942c8f0460292358b055bacad5ede8faa3480eec268717e",
+  "parts": {
+    "save": {
+      "start": 17824,
+      "end": 18532,
+      "sha256": "2824a7527a8c780bff380863ecc7681e8c22ce9ed287f190a29d4813ec43164a"
+    },
+    "restore": {
+      "start": 18534,
+      "end": 19251,
+      "sha256": "1cc47140453c7d3418ad11c5879bd43823add14026a75656cae6e1e911bb6234"
+    },
+    "type": {
+      "start": 17609,
+      "end": 17822,
+      "sha256": "abdecef69bcb6af834061c93fbd76d18a1e07e2a7d1ac7593161099e62353c4f"
+    },
+    "prepare": {
+      "start": 20003,
+      "end": 20099,
+      "sha256": "26635a09a838c3e2398b5f5b27c3ab90c0ad9f68203eab35fd57efe0f436357b"
+    }
+  },
+  "scope": "original register save/restore and worker-stack GPR preparation only; no IRQ delivery or IRQL/gate behavior"
+}

@@ -4,7 +4,7 @@ type int8_t=i8; type int16_t=i16; type int32_t=i32; type int64_t=i64;
 type uint8_t=u8; type uint16_t=u16; type uint32_t=u32; type uint64_t=u64;
 type uintptr_t=usize; type ptrdiff_t=isize; type size_t=usize;
 static mut ORIGINAL:crate::registers::Registers=crate::registers::Registers {
- fs_base:0,eax:0,ebx:0,ecx:0,edx:0,esi:0,edi:0,ebp:0,esp:0,seh_ebp:0,df:0,fp_top:0,fp_cc:0,fp_control_word:0x037f,fp_stack:[0.0;8],xmm0:[0;4],xmm1:[0;4],xmm2:[0;4],xmm3:[0;4],xmm4:[0;4],xmm5:[0;4],xmm6:[0;4],xmm7:[0;4],
+ eflags:0x202,fp_cmp:0,mm0:[0;2],mm1:[0;2],mm2:[0;2],mm3:[0;2],mm4:[0;2],mm5:[0;2],mm6:[0;2],mm7:[0;2],fs_base:0,eax:0,ebx:0,ecx:0,edx:0,esi:0,edi:0,ebp:0,esp:0,seh_ebp:0,df:0,fp_top:0,fp_cc:0,fp_control_word:0x037f,fp_stack:[0.0;8],xmm0:[0;4],xmm1:[0;4],xmm2:[0;4],xmm3:[0;4],xmm4:[0;4],xmm5:[0;4],xmm6:[0;4],xmm7:[0;4],
 };
 static mut g_xbox_mem_offset:ptrdiff_t=0;
 #[derive(Copy,Clone)]
@@ -96,3 +96,6 @@ pub unsafe fn call_snapshot()->([u32;16],u32,u64) {(g_icall_trace,g_icall_trace_
 unsafe fn recomp_debug_service(service:u32,argument:u32) {
     crate::gamepkg_debug_service_ref(service,argument,g_xbox_mem_offset as usize);
 }
+
+unsafe fn gamepkg_tls_g_eflags()->*mut u32 {&raw mut ORIGINAL.eflags}
+unsafe fn gamepkg_tls_g_fp_cmp()->*mut i32 {&raw mut ORIGINAL.fp_cmp}

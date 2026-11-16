@@ -25,6 +25,16 @@ pub struct Registers {
     pub xmm7: [u32; 4],
     // Guest TIB/PCR address only. Never a native thread FS register or pointer.
     pub fs_base: u32,
+    pub eflags: u32,
+    pub fp_cmp: i32,
+    pub mm0: [u32; 2],
+    pub mm1: [u32; 2],
+    pub mm2: [u32; 2],
+    pub mm3: [u32; 2],
+    pub mm4: [u32; 2],
+    pub mm5: [u32; 2],
+    pub mm6: [u32; 2],
+    pub mm7: [u32; 2],
 }
 fn register_word(bytes: &[u8], offset: usize) -> u32 {
     u32::from_le_bytes([
@@ -60,6 +70,16 @@ impl Registers {
             xmm6: [0; 4],
             xmm7: [0; 4],
             fs_base: 0,
+            eflags: 0x202,
+            fp_cmp: 0,
+            mm0: [0; 2],
+            mm1: [0; 2],
+            mm2: [0; 2],
+            mm3: [0; 2],
+            mm4: [0; 2],
+            mm5: [0; 2],
+            mm6: [0; 2],
+            mm7: [0; 2],
         }
     }
     pub fn valid(&self) -> bool {
@@ -95,10 +115,19 @@ impl Registers {
             }
         }
         bytes.extend(u32::to_le_bytes(self.fs_base));
+        bytes.extend(u32::to_le_bytes(self.eflags));
+        bytes.extend(i32::to_le_bytes(self.fp_cmp));
+        for words in [
+            self.mm0, self.mm1, self.mm2, self.mm3, self.mm4, self.mm5, self.mm6, self.mm7,
+        ] {
+            for value in words {
+                bytes.extend(u32::to_le_bytes(value));
+            }
+        }
         bytes
     }
     pub fn decode(&mut self, bytes: &[u8]) -> Result<(), i32> {
-        if bytes.len() != 244 {
+        if bytes.len() != 316 {
             return Err(-1);
         }
         let top = register_word(bytes, 40) as i32;
@@ -156,6 +185,34 @@ impl Registers {
             self.xmm7[lane] = register_word(bytes, 224 + lane * 4);
         }
         self.fs_base = register_word(bytes, 240);
+        self.eflags = register_word(bytes, 244);
+        self.fp_cmp = register_word(bytes, 248) as i32;
+        self.mm0 = [register_word(bytes, 252), register_word(bytes, 256)];
+        self.mm1 = [register_word(bytes, 260), register_word(bytes, 264)];
+        self.mm2 = [register_word(bytes, 268), register_word(bytes, 272)];
+        self.mm3 = [register_word(bytes, 276), register_word(bytes, 280)];
+        self.mm4 = [register_word(bytes, 284), register_word(bytes, 288)];
+        self.mm5 = [register_word(bytes, 292), register_word(bytes, 296)];
+        self.mm6 = [register_word(bytes, 300), register_word(bytes, 304)];
+        self.mm7 = [register_word(bytes, 308), register_word(bytes, 312)];
+
         Ok(())
+    }
+    // The original IRQ epilogue restores all arithmetic state, but deliberately
+    // leaves the holder's current TIB/PCR base in place.
+    pub fn irq_restore(&mut self, bytes: &[u8]) -> Result<(), i32> {
+        let holder_fs = self.fs_base;
+        self.decode(bytes)?;
+        self.fs_base = holder_fs;
+        Ok(())
+    }
+    pub fn irq_prepare(&mut self, stack_top: u32) {
+        self.esp = stack_top;
+        self.eax = 0;
+        self.ecx = 0;
+        self.edx = 0;
+        self.ebx = 0;
+        self.esi = 0;
+        self.edi = 0;
     }
 }

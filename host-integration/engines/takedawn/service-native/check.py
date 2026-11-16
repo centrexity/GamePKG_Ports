@@ -72,6 +72,7 @@ def main():
             loop_original=""
             loop_support=""
             debug_original=""
+            fp_compare_original=""
             helper_units=[('prepared/src/recomp_0000_000.rs',['XMM_SUB','XMM_XOR']),
                           ('prepared/src/recomp_0002_018.rs',['recomp_fp_round24']),
                           ('prepared/src/recomp_0004_010.rs',['recomp_parity8']),
@@ -92,6 +93,9 @@ def main():
                 split_data=archive.extractfile('prepared/src/recomp_0006_019.rs').read()
                 assert hashlib.sha256(split_data).hexdigest()==pins['recomp_0006_019.rs']
                 split_original=pinned_function(split_data.decode(),'pub unsafe extern "C" fn sub_00243450(')
+                fp_compare_data=archive.extractfile('prepared/src/recomp_0007_003.rs').read()
+                assert hashlib.sha256(fp_compare_data).hexdigest()==pins['recomp_0007_003.rs']
+                fp_compare_original=pinned_function(fp_compare_data.decode(),'pub unsafe extern "C" fn sub_002490E1(')
 
             for unit_name,helpers_in_unit in helper_units:
                 data=archive.extractfile(unit_name).read()
@@ -141,7 +145,7 @@ def main():
         game_file=generated/'game.rs';dispatch_file=generated/'dispatch.rs'
         if args.prepared:
             report=json.loads((args.prepared/'inventory.json').read_text());selected={};locations={}
-            wanted={'sub_00244DF0':'recomp_0007_001.rs','sub_001FBAE0':'recomp_0005_013.rs','sub_00243450':'recomp_0006_019.rs','sub_002447BF':'recomp_0007_000.rs','sub_0024490A':'recomp_0007_000.rs','sub_0024499E':'recomp_0007_000.rs','sub_001D2955':'recomp_0004_014.rs'}
+            wanted={'sub_002490E1':'recomp_0007_003.rs','sub_00244DF0':'recomp_0007_001.rs','sub_001FBAE0':'recomp_0005_013.rs','sub_00243450':'recomp_0006_019.rs','sub_002447BF':'recomp_0007_000.rs','sub_0024490A':'recomp_0007_000.rs','sub_0024499E':'recomp_0007_000.rs','sub_001D2955':'recomp_0004_014.rs'}
             for name,unit_name in wanted.items():
                 entry=report['closed_graph'][name];assert entry['unit']==unit_name and entry['dependencies']==(['sub_0024499E'] if name=='sub_0024490A' else [])
             for filename,expected in report['emitted_files'].items():
@@ -152,7 +156,7 @@ def main():
                     if 'pub fn '+name+'(' in text:
                         assert name not in selected;selected[name]=pinned_function(text,'pub fn '+name+'(')
                         locations[name]=Path(filename).stem
-            assert set(selected)==set(wanted) and extra_original and icall_original and split_original and fs_original and loop_original and loop_support
+            assert set(selected)==set(wanted) and extra_original and icall_original and split_original and fs_original and loop_original and loop_support and fp_compare_original
             # This small reference crate flattens only the selected, hash-checked
             # literal dependency. The admitted full tree retains its original
             # partition-qualified calls and every source/object check.
@@ -166,16 +170,16 @@ def main():
             dispatch_file=scratch/'combined_dispatch.rs'
             branches=''.join('0x'+name[4:]+'=>crate::game::'+name+'(native_state,guest_ram),' for name in selected)
             dispatch_file.write_text('pub fn invoke(native_state:&mut crate::registers::Registers,guest_ram:&mut crate::memory::Memory,address:u32)->Result<(),i32>{if !native_state.valid(){return Err(-1);}match address{'+branches+'_=>crate::base_dispatch::invoke(native_state,guest_ram,address)}}')
-            names+=[n for n in selected if n not in ['sub_0024490A','sub_0024499E','sub_001D2955']]
-            names+=['sub_0024490A','sub_001D2955']
-        oracle=here.joinpath('oracle_prefix.inc.rs').read_text()+'\n'+generated.joinpath('oracle_helpers.rs').read_text()+'\n'+'\n'.join(extra_helpers)+'\n'+generated.joinpath('oracle.rs').read_text()+'\n'+extra_original+'\n'+icall_original+'\n'+split_original+'\n'+fs_original+'\n'+loop_original+'\n'+loop_support+'\n'+debug_original
+            names+=[n for n in selected if n not in ['sub_0024490A','sub_0024499E','sub_001D2955','sub_002490E1']]
+            names+=['sub_0024490A','sub_001D2955','sub_002490E1']
+        oracle=here.joinpath('oracle_prefix.inc.rs').read_text()+'\n'+generated.joinpath('oracle_helpers.rs').read_text()+'\n'+'\n'.join(extra_helpers)+'\n'+generated.joinpath('oracle.rs').read_text()+'\n'+extra_original+'\n'+icall_original+'\n'+split_original+'\n'+fs_original+'\n'+loop_original+'\n'+loop_support+'\n'+debug_original+'\n'+fp_compare_original
         oracle+='\npub unsafe fn invoke(address:u32){match address{'+''.join(f'0x{n[4:]}=>{n}(),' for n in names)+'_=>panic!("unknown reference function")}}\n'
         oracle+='\npub unsafe fn helper(operation:u32,first:[u32;4],second:[u32;4],immediate:u32)->[u32;4]{let a=RecompXmm{u:first};let b=RecompXmm{u:second};let result=match operation{0=>XMM_ADD(a,b),1=>XMM_SUB(a,b),2=>XMM_MUL(a,b),3=>XMM_XOR(a,b),4=>XMM_SHUFFLE(a,b,immediate),5=>XMM_SCALAR(f32::from_bits(first[0])),6=>XMM_ZERO(),_=>panic!("unknown helper")};result.u}\n'
         oracle+='\npub unsafe fn scalar_round24(value:f64)->f64{recomp_fp_round24(value)}pub unsafe fn scalar_parity8(value:u32)->i32{recomp_parity8(value)}pub unsafe fn scalar_rotate(value:u32,count:u32,carry:&mut i32,width:u32,left:bool)->u32{RC_ROT(value,count,carry,width,i32::from(left))}\n'
         oracle+='\npub unsafe fn scalar_round_integer(value:f64,control:u16)->f64{recomp_frndint(value,control)}pub unsafe fn scalar_integer_store(value:f64,control:u16,width:u32)->i64{recomp_fist(value,control,width)}\n'
         oracle_file=scratch/'reference.rs';oracle_file.write_text(oracle)
         wrapper='#![allow(non_camel_case_types,non_snake_case,non_upper_case_globals,unused_assignments,unused_variables,unused_mut,unused_parens,dead_code,unreachable_code)]\n'
-        for module,path in [('client',app/'engines/native-services/client.rs'),('local',app/'engines/native-services/local_bindings.rs'),('memory',here/'memory.rs'),('heap',here.parent/'service-heap/heap.rs'),('contiguous',here.parent/'service-contiguous/contiguous.rs'),('heap_service',here.parent/'service-heap/service.rs'),('kernel_pool',here.parent/'service-kernel-pool/kernel_pool.rs'),('pool_checks',here.parent/'service-kernel-pool/pool_checks.rs'),('call_state',here/'call_state.rs'),('copy_checks',here/'copy_checks.rs'),('fill_checks',here/'fill_checks.rs'),('debug',here/'debug.rs'),('debug_checks',here/'debug_checks.rs'),('fs_checks',here/'fs_checks.rs'),('jump_checks',here/'jump_checks.rs'),('vector',here/'vector.rs'),('scalar',here/'scalar.rs'),('registers',here/'registers.rs'),('game',game_file),('base_dispatch',generated/'dispatch.rs'),('dispatch',dispatch_file),('oracle',oracle_file)]:
+        for module,path in [('client',app/'engines/native-services/client.rs'),('local',app/'engines/native-services/local_bindings.rs'),('memory',here/'memory.rs'),('heap',here.parent/'service-heap/heap.rs'),('contiguous',here.parent/'service-contiguous/contiguous.rs'),('heap_service',here.parent/'service-heap/service.rs'),('kernel_pool',here.parent/'service-kernel-pool/kernel_pool.rs'),('pool_checks',here.parent/'service-kernel-pool/pool_checks.rs'),('call_state',here/'call_state.rs'),('copy_checks',here/'copy_checks.rs'),('fill_checks',here/'fill_checks.rs'),('debug',here/'debug.rs'),('debug_checks',here/'debug_checks.rs'),('fs_checks',here/'fs_checks.rs'),('jump_checks',here/'jump_checks.rs'),('vector',here/'vector.rs'),('scalar',here/'scalar.rs'),('registers',here/'registers.rs'),('irq_state_checks',here/'irq_state_checks.rs'),('game',game_file),('base_dispatch',generated/'dispatch.rs'),('dispatch',dispatch_file),('oracle',oracle_file)]:
             wrapper+=f'#[path={json.dumps(str(path))}]mod {module};\n'
         wrapper+=here.joinpath('reference_call_events.rs').read_text()+'\n'
         if args.call_targets:

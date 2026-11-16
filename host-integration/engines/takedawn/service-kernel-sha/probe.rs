@@ -76,7 +76,7 @@ pub fn sha_witness(
     state: &registers::Registers,
 ) -> Result<std::vec::Vec<u8>, i32> {
     let mut bytes = std::vec::Vec::new();
-    bytes.resize(244, 0u8);
+    bytes.resize(316, 0u8);
     ram.read_bytes(0x11000, &mut bytes[..128])?;
     ram.read_bytes(0x12000, &mut bytes[128..192])?;
     let cpu = state.encode();

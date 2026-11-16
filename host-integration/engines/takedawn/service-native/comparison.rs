@@ -1,6 +1,6 @@
 // Maintainer harness only. Module paths are supplied by check.py in the wrapper.
 use std::{fs::File, io::Write, path::Path};
-const SPANS: [(u32, usize); 8] = [
+const SPANS: [(u32, usize); 9] = [
     (0x10000, 1024),
     (0x11000, 1024),
     (0x1fe00, 1024),
@@ -9,10 +9,11 @@ const SPANS: [(u32, usize); 8] = [
     (0x463b00, 64),
     (0x3a34a0, 64),
     (0x3c6100, 64),
+    (0x36c0e0, 64),
 ];
 fn reference_case_count(address: u32) -> u32 {
     match address {
-        0x13f10 | 0x244df0 => 1024,
+        0x13f10 | 0x244df0 | 0x2490e1 => 1024,
         0x1fbae0 => 512,
         0x243450 => 256,
         0x15570 => 128,
@@ -58,6 +59,18 @@ fn initial_state(seed: &mut u64) -> registers::Registers {
     ] {
         for word in words {
             *word = next_random(seed) as u32;
+        }
+    }
+    // Fork the seed so historical scalar/XMM vectors retain their inputs.
+    let mut extended_seed = *seed ^ 0x735d278eb140a529;
+    r.eflags = next_random(&mut extended_seed) as u32;
+    r.fp_cmp = next_random(&mut extended_seed) as i32;
+    for words in [
+        &mut r.mm0, &mut r.mm1, &mut r.mm2, &mut r.mm3, &mut r.mm4, &mut r.mm5, &mut r.mm6,
+        &mut r.mm7,
+    ] {
+        for word in words {
+            *word = next_random(&mut extended_seed) as u32;
         }
     }
     r
@@ -151,7 +164,7 @@ fn compare_case(
         // unchanged. Original cases remain before the appended loop cases.
         let mut history_seed = *seed ^ u64::from(base);
         for b in &mut bytes {
-            *b = if base == 0x3c6100 {
+            *b = if base == 0x3c6100 || base == 0x36c0e0 {
                 next_random(&mut history_seed)
             } else {
                 next_random(seed)
@@ -315,6 +328,32 @@ fn compare_case(
                 bytes[at + 8..at + 12].copy_from_slice(&stop.to_le_bytes());
             }
         }
+        if address == 0x2490e1 {
+            let edges = [
+                0u64,
+                0x8000000000000000,
+                0x3ff0000000000000,
+                0xbff0000000000000,
+                0x7ff0000000000000,
+                0xfff0000000000000,
+                0x7ff8000000000001,
+                0x7ff0000000000001,
+                1,
+                0x8000000000000001,
+            ];
+            if base == 0x10000 {
+                bytes[..8].copy_from_slice(&edges[iteration as usize % edges.len()].to_le_bytes());
+            }
+            if base == 0x36c0e0 {
+                bytes[..8].copy_from_slice(
+                    &edges[(iteration as usize / edges.len()) % edges.len()].to_le_bytes(),
+                );
+            }
+            if base == 0x1fe00 {
+                let at = (r.esp - base) as usize;
+                bytes[at + 4..at + 8].copy_from_slice(&0x10000u32.to_le_bytes());
+            }
+        }
         ram.write_bytes(base, &bytes).unwrap();
         reference[base as usize..base as usize + count].copy_from_slice(&bytes);
         initial.extend(bytes);
@@ -338,7 +377,7 @@ fn compare_case(
         expected,
         "register mismatch at {address:08x}, vector {iteration}"
     );
-    // Prove that replaying the eight captured spans is sufficient: no other
+    // Prove that replaying the nine captured spans is sufficient: no other
     // observable RAM byte may change in either original or converted code.
     let mut spans = SPANS;
     spans.sort_unstable_by_key(|s| s.0);
@@ -797,7 +836,7 @@ fn main() {
         .map(|address| reference_case_count(*address))
         .sum();
     if let Some(file) = &mut output {
-        file.write_all(b"TKN9").unwrap();
+        file.write_all(b"TKNA").unwrap();
         let batches = count.div_ceil(4096);
         assert!((1..=16).contains(&batches));
         file.write_all(&batches.to_le_bytes()).unwrap();
@@ -832,6 +871,7 @@ fn main() {
     if args.len() == 2 {
         write_call_events(Path::new(&args[1]).with_file_name("diagnostics").as_path());
     }
+    crate::irq_state_checks::verify().unwrap();
     compare_runtime_guards();
     compare_scalar_helpers(&mut output);
     copy_checks::verify(&mut ram, window).unwrap();

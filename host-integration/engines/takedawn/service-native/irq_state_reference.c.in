@@ -1,0 +1,44 @@
+/* Maintainer-only original IRQ register-state reference, never game source. */
+#include <stdint.h>
+#include <string.h>
+_Static_assert(sizeof(int)==4,"original int state requires 32 bits");
+typedef union {float f[4];double d[2];uint32_t u[4];int32_t i[4];uint64_t q[2];} RecompXmm;
+typedef union {uint32_t u[2];uint64_t q;} RecompMmx;
+static uint32_t g_eax,g_ecx,g_edx,g_ebx,g_esi,g_edi,g_ebp,g_esp,g_seh_ebp,g_eflags,g_fs_base;
+static int g_df,g_fp_top,g_fp_cmp;
+static double g_fp_stack[8];static uint16_t g_fp_control_word,g_fp_cc;
+static RecompXmm g_xmm0,g_xmm1,g_xmm2,g_xmm3,g_xmm4,g_xmm5,g_xmm6,g_xmm7;
+static RecompMmx g_mm0,g_mm1,g_mm2,g_mm3,g_mm4,g_mm5,g_mm6,g_mm7;
+/* PINNED_TYPE */
+/* PINNED_SAVE */
+/* PINNED_RESTORE */
+static uint32_t get32(const uint8_t *p){return (uint32_t)p[0]|(uint32_t)p[1]<<8|(uint32_t)p[2]<<16|(uint32_t)p[3]<<24;}
+static void put32(uint8_t *p,uint32_t v){for(int i=0;i<4;i++)p[i]=(uint8_t)(v>>(8*i));}
+static void load_state(const uint8_t *p){
+ uint32_t *words[]={&g_eax,&g_ebx,&g_ecx,&g_edx,&g_esi,&g_edi,&g_ebp,&g_esp,&g_seh_ebp};
+ for(int i=0;i<9;i++)*words[i]=get32(p+i*4);
+ uint32_t bits=get32(p+36);memcpy(&g_df,&bits,4);bits=get32(p+40);memcpy(&g_fp_top,&bits,4);
+ g_fp_cc=(uint16_t)(p[44]|(uint16_t)p[45]<<8);g_fp_control_word=(uint16_t)(p[46]|(uint16_t)p[47]<<8);
+ for(int i=0;i<8;i++){uint64_t v=get32(p+48+i*8)|(uint64_t)get32(p+52+i*8)<<32;memcpy(&g_fp_stack[i],&v,8);}
+ RecompXmm *x[]={&g_xmm0,&g_xmm1,&g_xmm2,&g_xmm3,&g_xmm4,&g_xmm5,&g_xmm6,&g_xmm7};
+ for(int i=0;i<8;i++)for(int j=0;j<4;j++)x[i]->u[j]=get32(p+112+i*16+j*4);
+ g_fs_base=get32(p+240);g_eflags=get32(p+244);bits=get32(p+248);memcpy(&g_fp_cmp,&bits,4);
+ RecompMmx *m[]={&g_mm0,&g_mm1,&g_mm2,&g_mm3,&g_mm4,&g_mm5,&g_mm6,&g_mm7};
+ for(int i=0;i<8;i++)for(int j=0;j<2;j++)m[i]->u[j]=get32(p+252+i*8+j*4);
+}
+static void store_state(uint8_t *p){
+ uint32_t words[]={g_eax,g_ebx,g_ecx,g_edx,g_esi,g_edi,g_ebp,g_esp,g_seh_ebp};for(int i=0;i<9;i++)put32(p+i*4,words[i]);
+ uint32_t bits;memcpy(&bits,&g_df,4);put32(p+36,bits);memcpy(&bits,&g_fp_top,4);put32(p+40,bits);
+ p[44]=(uint8_t)g_fp_cc;p[45]=(uint8_t)(g_fp_cc>>8);p[46]=(uint8_t)g_fp_control_word;p[47]=(uint8_t)(g_fp_control_word>>8);
+ for(int i=0;i<8;i++){uint64_t v;memcpy(&v,&g_fp_stack[i],8);put32(p+48+i*8,(uint32_t)v);put32(p+52+i*8,(uint32_t)(v>>32));}
+ RecompXmm *x[]={&g_xmm0,&g_xmm1,&g_xmm2,&g_xmm3,&g_xmm4,&g_xmm5,&g_xmm6,&g_xmm7};for(int i=0;i<8;i++)for(int j=0;j<4;j++)put32(p+112+i*16+j*4,x[i]->u[j]);
+ put32(p+240,g_fs_base);put32(p+244,g_eflags);memcpy(&bits,&g_fp_cmp,4);put32(p+248,bits);
+ RecompMmx *m[]={&g_mm0,&g_mm1,&g_mm2,&g_mm3,&g_mm4,&g_mm5,&g_mm6,&g_mm7};for(int i=0;i<8;i++)for(int j=0;j<2;j++)put32(p+252+i*8+j*4,m[i]->u[j]);
+}
+void irq_state_reference(const uint8_t *before,const uint8_t *changed,uint32_t stack,uint8_t *prepared,uint8_t *restored){
+ load_state(before);IrqRegs saved;irq_regs_save(&saved);
+ int slot=0;(void)slot;
+ #define XBOX_WORKER_STACK_TOP(slot) stack
+/* PINNED_PREPARE */
+ store_state(prepared);load_state(changed);irq_regs_restore(&saved);store_state(restored);
+}

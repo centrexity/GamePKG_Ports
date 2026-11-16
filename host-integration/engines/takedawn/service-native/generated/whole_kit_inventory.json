@@ -3,50 +3,50 @@
   "production_ready": false,
   "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
   "inventory_sha256": "7d7ab7a7cfd00067396a84a82c055a588e308bc8cdc0a94451232cf0f8f12169",
-  "converter_main_sha256": "4f4be29567de7a435dd0df057684aad67ed40679d89ca9345024b3552e8e2ab7",
-  "converter_batch_sha256": "585955d74f3100edc372d9d238e8dc2a5f67142d960ca6ba45638ef4427104af",
+  "converter_main_sha256": "0aebbd8296ba5ade882824c30571b76aa6a30e0f7b18c6e440ffeee822ea5570",
+  "converter_batch_sha256": "89d19765c4980e88a3e11d77a2843c347efc79242d80d6073056cc517ed68a31",
   "converter_lock_sha256": "6d55a2c76709a6c1825c3fc3c9ac08e03d6e140635858336762f4ac2595a5259",
   "definitions": 24016,
   "unique_definitions": 24016,
-  "locally_convertible_definitions": 23008,
-  "closed_definitions": 19295,
+  "locally_convertible_definitions": 23138,
+  "closed_definitions": 19420,
   "source_units": 485,
-  "candidate_source_files": 2437,
-  "candidate_source_bytes": 121975559,
-  "direct_closed_edges": 5456,
-  "cross_unit_closed_edges": 3692,
+  "candidate_source_files": 2453,
+  "candidate_source_bytes": 128549743,
+  "direct_closed_edges": 5659,
+  "cross_unit_closed_edges": 3829,
   "duplicate_symbols": 0,
-  "unconverted_unique_definitions": 4721,
-  "closed_graph_sha256": "84f9d2ad0ca4c70a56a2ddf05117dfa0d05c972ca1652aef475cee65db295d5e",
-  "emitted_inventory_sha256": "526a2a3e867fa01bf8b0012f45f56c8526f9e4e714fba6ae44ea6c0bb21f5e8e",
+  "unconverted_unique_definitions": 4596,
+  "closed_graph_sha256": "0a0d27933889d96e579761dc27413fa5635a54a85c878adeca65e73716822b46",
+  "emitted_inventory_sha256": "d9798d5a5b437ed93bac831445aa3a4eadec078ade6dfcbcbf8c02f18502af25",
   "most_blocking_dependencies": [
     [
       "sub_00141010",
-      98
+      99
     ],
     [
       "sub_000B9620",
-      64
+      65
+    ],
+    [
+      "sub_001FEDC0",
+      63
     ],
     [
       "sub_001C69C0",
       61
     ],
     [
-      "sub_001FEDC0",
-      61
+      "sub_003518E0",
+      57
     ],
     [
       "sub_000D0890",
       54
     ],
     [
-      "sub_003518E0",
-      51
-    ],
-    [
       "sub_001CD8D0",
-      47
+      46
     ],
     [
       "sub_001C19A0",
@@ -77,11 +77,11 @@
   "parity_reference_cases_per_target": 65536,
   "rotate_carry_reference_cases_per_target": 261120,
   "control_word_records_per_target": 65536,
-  "register_record_version": 4,
-  "register_record_bytes": 244,
-  "vector_container": "TKN9",
+  "register_record_version": 5,
+  "register_record_bytes": 316,
+  "vector_container": "TKNA",
   "compiler_memory_bytes": 12884901888,
-  "qualification": "Candidate inventory/source facts; see README for actual build checks. Scalar FP value checks use the default host FP environment; no exception-flag, nondefault rounding, full-game, device or pacing qualification.",
+  "qualification": "Full candidate source/object/link checks pass on four targets; actual confined Linux32/64 reference/control execution passes. Windows runtime components use Wine. No complete title, device, graphics, audio or pacing qualification.",
   "copy_conformance_bytes_per_target": 1048593,
   "integer_rounding_reference_cases_per_target": 278936,
   "integer_store_reference_cases_per_target": 836808,
@@ -89,12 +89,12 @@
   "single_unit_reference_functions": 32,
   "single_unit_reference_vectors_per_target": 2304,
   "integer_store_function_reference_cases_per_target": 1024,
-  "compiler_codegen_units": 4,
+  "compiler_codegen_units": 8,
   "definition_scope": "sub_XXXXXXXX plus the exact unit-bound xbe_entry_point; five _gen helpers still require inclusion",
   "converter_icall_sha256": "cb8ed8e1590cdf67e69756afb9a753199e6ba971db0045af026f8284deea02f1",
   "converter_icall_pattern_sha256": "2610d0cf8e13c604631cefb56deed07262ac63fde336dd2c39711a21d0319405",
   "closed_graph_scope": "literal direct dependencies only; runtime native routes remain partial and must fault on known but unmigrated targets",
-  "runtime_call_functions": 843,
+  "runtime_call_functions": 851,
   "runtime_call_function_reference_cases_per_target": 512,
   "converter_icall_compacted_sha256": "283c6cdf386a3235dc5c5c3731403e53daa7f50a5b59ed0c14a46b2c32831821",
   "converter_icall_compacted_pattern_sha256": "8fd80ad1c27069b724a061b241a59c443a6955bffbface366da9057cb0d91f21",
@@ -104,7 +104,7 @@
   "guarded_call_graph_reference_cases_per_target": 7680,
   "tail_call_graph_reference_cases_per_target": 7680,
   "tail_wrapper_function_reference_cases_per_target": 128,
-  "registers_source_sha256": "e4077951e2d77ccb86dd967712acaa2eb28b41548ef6aac5545bb2330030366b",
+  "registers_source_sha256": "d4249e8646c372737a71eacb03cd599501da5d92e3bed5dacdb69ebbbdf2a1c8",
   "fs_epilogue_function_reference_cases_per_target": 128,
   "private_vector_batches": 2,
   "private_vector_max_batches": 16,
@@ -118,7 +118,7 @@
   "converter_icall_jump_compacted_pattern_sha256": "1227390f2070dda5ede7f4b5fa35a44f33eb0958cf1b4240085fe44031b6e344",
   "loop_tail_graph_reference_cases_per_target": 7680,
   "loop_helper_reference_cases_per_target": 512,
-  "private_vector_spans_per_case": 8,
+  "private_vector_spans_per_case": 9,
   "named_entrypoint": {
     "address": 1910791,
     "name": "xbe_entry_point",
@@ -131,5 +131,10 @@
   "debug_adapter_requests_per_target": 7,
   "debug_original_function_cases_per_target": 128,
   "debug_adapter_sha256": "3d5134094d611e98f181275f0f0733c9d6e206531196a35b335cfa4579328266",
-  "debug_review_sha256": "762949412897a58281a4bec8b72362f75f94bd93a7c31253f2da009266792340"
+  "debug_review_sha256": "762949412897a58281a4bec8b72362f75f94bd93a7c31253f2da009266792340",
+  "irq_original_state_cases_per_target": 4096,
+  "fp_compare_function_reference_cases_per_target": 1024,
+  "reference_functions_per_target": 39,
+  "reference_vectors_per_target": 5888,
+  "qualified_shared_sdk": "885f6e7118f8a07e3ab9af872b5212eed7ef67e4d91375683cc8008cabe032a7"
 }

@@ -291,6 +291,8 @@ impl Lower {
             "seh_ebp",
             "fs_base",
             "df",
+            "eflags",
+            "fp_cmp",
             "fp_stack",
             "fp_top",
             "fp_cc",
@@ -1565,7 +1567,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         return Err("generated Rust formatting failed".into());
     }
-    let provenance = serde_json::json!({"schema":1,"register_record_version":4,"register_record_bytes":244,"debug_adapter_sha256":format!("{:x}",Sha256::digest(include_bytes!("../../debug.rs"))),"debug_review_sha256":format!("{:x}",Sha256::digest(include_bytes!("../reviewed_debug_service.json"))),"registers_source_sha256":format!("{:x}",Sha256::digest(include_bytes!("../../registers.rs"))),"kernel_services_source_sha256":format!("{:x}",Sha256::digest(include_bytes!("../../../service-kernel-pool/kernel_pool.rs"))),"float_arithmetic_nan_policy":"quiet-first-NaN-preserve-sign-and-payload","generator_source_sha256":format!("{:x}",Sha256::digest(include_bytes!("main.rs"))),"generator_batch_sha256":format!("{:x}",Sha256::digest(include_bytes!("batch.rs"))),"generator_icall_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall.rs"))),"generator_icall_compacted_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_compacted.rs"))),"generator_icall_compacted_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_compacted_template.inc"))),"generator_icall_guarded_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_guarded_template.inc"))),"generator_icall_jump_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_jump_template.inc"))),"generator_icall_jump_compacted_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_jump_compacted_template.inc"))),"generator_icall_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_template.inc"))),"generator_inventory_sha256":format!("{:x}",Sha256::digest(include_bytes!("../reviewed_units.tsv"))),"generator_lock_sha256":format!("{:x}",Sha256::digest(include_bytes!("../Cargo.lock"))),"formatter_version":String::from_utf8(formatter.stdout)?.trim(),"game_sha256":format!("{:x}",Sha256::digest(fs::read(output.join("game.rs"))?)),"dispatch_sha256":format!("{:x}",Sha256::digest(fs::read(output.join("dispatch.rs"))?)),"input_sha256":source_hash,"source_kit_sha256":"6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4","runtime_call_functions":runtime_call_functions,"converted":accepted.keys().collect::<Vec<_>>(),"rejected":rejected,"production_ready":false});
+    let provenance = serde_json::json!({"schema":1,"register_record_version":5,"register_record_bytes":316,"debug_adapter_sha256":format!("{:x}",Sha256::digest(include_bytes!("../../debug.rs"))),"debug_review_sha256":format!("{:x}",Sha256::digest(include_bytes!("../reviewed_debug_service.json"))),"registers_source_sha256":format!("{:x}",Sha256::digest(include_bytes!("../../registers.rs"))),"kernel_services_source_sha256":format!("{:x}",Sha256::digest(include_bytes!("../../../service-kernel-pool/kernel_pool.rs"))),"float_arithmetic_nan_policy":"quiet-first-NaN-preserve-sign-and-payload","generator_source_sha256":format!("{:x}",Sha256::digest(include_bytes!("main.rs"))),"generator_batch_sha256":format!("{:x}",Sha256::digest(include_bytes!("batch.rs"))),"generator_icall_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall.rs"))),"generator_icall_compacted_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_compacted.rs"))),"generator_icall_compacted_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_compacted_template.inc"))),"generator_icall_guarded_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_guarded_template.inc"))),"generator_icall_jump_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_jump_template.inc"))),"generator_icall_jump_compacted_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_jump_compacted_template.inc"))),"generator_icall_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_template.inc"))),"generator_inventory_sha256":format!("{:x}",Sha256::digest(include_bytes!("../reviewed_units.tsv"))),"generator_lock_sha256":format!("{:x}",Sha256::digest(include_bytes!("../Cargo.lock"))),"formatter_version":String::from_utf8(formatter.stdout)?.trim(),"game_sha256":format!("{:x}",Sha256::digest(fs::read(output.join("game.rs"))?)),"dispatch_sha256":format!("{:x}",Sha256::digest(fs::read(output.join("dispatch.rs"))?)),"input_sha256":source_hash,"source_kit_sha256":"6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4","runtime_call_functions":runtime_call_functions,"converted":accepted.keys().collect::<Vec<_>>(),"rejected":rejected,"production_ready":false});
     fs::write(
         output.join("provenance.json"),
         serde_json::to_vec_pretty(&provenance)?,
@@ -2032,6 +2034,34 @@ fn main(){{let mut ram=memory::Memory;for input in 0..4096u32{{let expected=unsa
             "pub unsafe extern \"C\" fn sub_100()->u32{0}",
         ] {
             assert!(lower(syn::parse_str(source).unwrap()).is_err());
+        }
+    }
+}
+
+#[cfg(test)]
+mod interrupt_state_tests {
+    use super::*;
+    #[test]
+    fn flags_and_fp_comparison_lower_to_values_without_a_host_tls_accessor() {
+        let function:ItemFn=syn::parse_str("pub unsafe extern \"C\" fn sub_00000001(){let __gamepkg_tls_g_eflags=unsafe{gamepkg_tls_g_eflags()};let __gamepkg_tls_g_fp_cmp=unsafe{gamepkg_tls_g_fp_cmp()};*__gamepkg_tls_g_eflags=(*__gamepkg_tls_g_eflags)&!0x200u32;*__gamepkg_tls_g_fp_cmp=-1i32;}").unwrap();
+        let (converted, _) = lower(function).unwrap();
+        let text = converted.to_token_stream().to_string();
+        assert!(text.contains("native_state . eflags"));
+        assert!(text.contains("native_state . fp_cmp"));
+        assert!(!text.contains("unsafe"));
+        assert!(!text.contains("gamepkg_tls"));
+        for body in [
+            "let __gamepkg_tls_g_eflags=unsafe{gamepkg_tls_g_eflags(1u32)};",
+            "let forged=unsafe{gamepkg_tls_g_eflags()};",
+            "let __gamepkg_tls_g_eflags=unsafe{gamepkg_tls_g_host_eflags()};",
+            "let __gamepkg_tls_g_mm0=unsafe{gamepkg_tls_g_mm0()};",
+            "let __gamepkg_tls_g_fp_cmp=unsafe{evil::gamepkg_tls_g_fp_cmp()};",
+        ] {
+            let function: ItemFn = syn::parse_str(&format!(
+                "pub unsafe extern \"C\" fn sub_00000001(){{{body}}}"
+            ))
+            .unwrap();
+            assert!(lower(function).is_err(), "{body}");
         }
     }
 }

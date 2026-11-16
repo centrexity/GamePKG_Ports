@@ -362,7 +362,7 @@ pub(super) fn run(
         BTreeMap::new()
     };
     let report = serde_json::json!({
-        "schema":1,"production_ready":false,"register_record_version":4,"register_record_bytes":244,"debug_adapter_sha256":format!("{:x}",Sha256::digest(include_bytes!("../../debug.rs"))),"debug_review_sha256":format!("{:x}",Sha256::digest(include_bytes!("../reviewed_debug_service.json"))),"registers_source_sha256":format!("{:x}",Sha256::digest(include_bytes!("../../registers.rs"))),"kernel_services_source_sha256":format!("{:x}",Sha256::digest(include_bytes!("../../../service-kernel-pool/kernel_pool.rs"))),"source_kit_sha256":"6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+        "schema":1,"production_ready":false,"register_record_version":5,"register_record_bytes":316,"debug_adapter_sha256":format!("{:x}",Sha256::digest(include_bytes!("../../debug.rs"))),"debug_review_sha256":format!("{:x}",Sha256::digest(include_bytes!("../reviewed_debug_service.json"))),"registers_source_sha256":format!("{:x}",Sha256::digest(include_bytes!("../../registers.rs"))),"kernel_services_source_sha256":format!("{:x}",Sha256::digest(include_bytes!("../../../service-kernel-pool/kernel_pool.rs"))),"source_kit_sha256":"6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
         "inventory_sha256":format!("{:x}",Sha256::digest(INVENTORY.as_bytes())),
         "converter_main_sha256":format!("{:x}",Sha256::digest(include_bytes!("main.rs"))),
         "converter_batch_sha256":format!("{:x}",Sha256::digest(include_bytes!("batch.rs"))),

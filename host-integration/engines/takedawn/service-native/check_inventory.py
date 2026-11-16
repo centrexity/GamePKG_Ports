@@ -15,6 +15,8 @@ def digest(data):
     return hashlib.sha256(data).hexdigest()
 
 def validate(report, here, output, expected):
+    assert report['register_record_version']==5 and report['register_record_bytes']==316
+    assert report['registers_source_sha256']==digest((here/'registers.rs').read_bytes())
     assert report['source_kit_sha256'] == KIT and report['production_ready'] is False
     for field, path in [
         ('converter_main_sha256', here/'maintainer/src/main.rs'),
@@ -94,6 +96,11 @@ def main():
         subprocess.run([str(tool), '--prepare-closed', str(inputs), str(output)], check=True)
     report = json.loads((output/'inventory.json').read_text())
     validate(report, here, output, expected)
+    for field,bad_value in [('register_record_version',4),('register_record_bytes',244),('registers_source_sha256','0'*64)]:
+        changed=dict(report);changed[field]=bad_value
+        try:validate(changed,here,output,expected)
+        except AssertionError:pass
+        else:raise RuntimeError('Stale/mismatched register identity accepted: '+field)
     print(json.dumps({name: report[name] for name in ['definitions', 'unique_definitions', 'locally_convertible_definitions', 'closed_definitions']}, sort_keys=True))
     print('Verified inventory and candidate hashes only. Game source admission, separate object audits and semantic qualification remain required.')
 

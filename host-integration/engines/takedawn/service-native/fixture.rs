@@ -173,7 +173,7 @@ fn fixture_execute() -> Result<(), i32> {
     let mut offset = 0u64;
     let mut header = [0u8; 8];
     fixture_read(handle, &mut offset, &mut header)?;
-    if header[..4] != [84, 75, 78, 57] {
+    if header[..4] != [84, 75, 78, 65] {
         return Err(-1);
     }
     let batches = u32::from_le_bytes([header[4], header[5], header[6], header[7]]);
@@ -210,7 +210,7 @@ fn fixture_execute() -> Result<(), i32> {
             let mut address_bytes = [0u8; 4];
             fixture_read(handle, &mut offset, &mut address_bytes)?;
             let address = u32::from_le_bytes(address_bytes);
-            let mut state_bytes = [0u8; 244];
+            let mut state_bytes = [0u8; 316];
             fixture_read(handle, &mut offset, &mut state_bytes)?;
             context.decode(&state_bytes)?;
             let mut bounds = [0u8; 8];
@@ -225,6 +225,7 @@ fn fixture_execute() -> Result<(), i32> {
                 (4602624, 64),
                 (3814560, 64),
                 (0x3c6100, 64),
+                (0x36c0e0, 64),
             ] {
                 let mut bytes = std::vec::Vec::new();
                 bytes.resize(count, 0u8);
@@ -236,7 +237,7 @@ fn fixture_execute() -> Result<(), i32> {
             let actual_cpu = context.encode();
             if actual_cpu != state_bytes {
                 let mut at = 0usize;
-                while at < 244 && actual_cpu[at] == state_bytes[at] {
+                while at < 316 && actual_cpu[at] == state_bytes[at] {
                     at += 1;
                 }
                 gamepkg::diagnostic(
@@ -260,6 +261,7 @@ fn fixture_execute() -> Result<(), i32> {
                 (4602624, 64),
                 (3814560, 64),
                 (0x3c6100, 64),
+                (0x36c0e0, 64),
             ] {
                 let mut expected = std::vec::Vec::new();
                 expected.resize(count, 0u8);
@@ -307,6 +309,7 @@ fn fixture_execute() -> Result<(), i32> {
         return Err(-3);
     }
     gamepkg::file_close(handle)?;
+    crate::irq_state_checks::verify()?;
     crate::copy_checks::verify(&mut ram, window)?;
     crate::fill_checks::verify(&mut ram, window)?;
     crate::debug_checks::verify(&mut ram, window)?;

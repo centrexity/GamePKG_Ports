@@ -1058,3 +1058,83 @@ for the exact 288-byte private root codec, 64-byte record, unchanged four-ID
 context, readiness/lifetime/error contracts and C/confinement controls. CPU
 records stay 244 bytes and all quotas stay intact. The private main gap is now
 114; time exports and full gameplay remain gated.
+
+## Interrupt register preservation: private CPU record v5
+
+The next gate/IRQ integration requires the original `kernel_hal.c` register
+snapshot to survive callbacks. `registers.rs` now includes the previously absent
+`eflags: u32` (initial 0x202), `fp_cmp: i32` (initial 0), and eight MMX bit values
+`mm0` through `mm7`, each `[u32;2]`, initially zero. This is explicit native
+function-call state; it does not fetch/decode guest instructions or grant native
+pointers. MMX operation lowering is still rejected until individually qualified.
+Only exact pinned TLS accessors for scalar `eflags` and `fp_cmp` are additionally
+converted to owned Rust fields. Forged names, arguments, qualified accessors,
+alias bindings and MMX accessor calls remain rejected.
+
+CPU record **v5 is exactly 316 bytes**, using explicit little-endian fixed-width
+fields. Bytes 0..243 preserve the v4 layout, including guest `fs_base` at 240.
+New offsets: eflags u32 at 244, fp_cmp i32 at 248, then mm0..mm7 starting at
+252, eight bytes each (low u32 first). No NaN, signed comparison, flag or MMX bits
+are normalized. The existing fp_top range 0..7 remains validated. Decode rejects
+old 244-byte records, short/trailing input and invalid fp_top before mutation.
+All host resource quotas, root288, KSV3 and four-ID contexts are unchanged.
+
+`Registers::irq_prepare(stack_top:u32)` applies the original IRQ worker prefix:
+set esp to the supplied guest stack and zero eax/ecx/edx/ebx/esi/edi. It leaves
+other state unchanged. `irq_restore(&mut self, saved:&[u8]) -> Result<(),i32>`
+restores all recorded arithmetic state but retains the **current** holder guest
+fs_base, matching the original IRQ save/restore functions, which omit that
+field. Normal decode still restores fs_base. Malformed restoration is atomic.
+These primitives do not allocate a worker stack, publish PCR.Irql, acquire a
+dispatch gate, deliver an interrupt or execute a callback.
+
+Private native vectors advance from **TKN9 to TKNA** to bind both the 316-byte
+context and an appended captured RAM span at 0x36c0e0. Old markers reject before
+replay. Generator provenance records v5/316 and the exact register source hash;
+whole-kit admission checks all three before staging source. Every game object
+still undergoes separate optimization and import auditing before trusted linking.
+The source-kit archive remains unchanged; checked generated candidate identities
+must be regenerated, never patched to reuse an earlier receipt.
+
+`check_irq_state.py --wine` binds the archive, original kernel_hal.c file and
+exact bytes for its IRQ state type/save/restore and stack-preparation prefix.
+It compares 4096 full-state transitions per target with original C, covering
+arbitrary flags, comparison values, MMX bits, floating NaN payloads, clobbered
+callback state and deliberately changed holder FS. A corrupt-holder-FS copy must
+fail the original-C test. Codec tests cover 65536 arbitrary records and atomic
+rejection. `irq_state_checks.rs` supplies dependency-free preservation controls
+for actual checked/confined game fixtures, without reference hooks.
+
+The full native harness also adds the unchanged original `sub_002490E1` from
+reviewed unit recomp_0007_003.rs: 1024 floating compare vectors spanning negative,
+equal, positive and unordered results, signed zero, subnormals, infinities and
+NaNs, all fp_top values, full CPU/RAM effects and retained-state sentinels. Its
+extra input seed and new RAM span are forked so the previous 38 functions retain
+their original inputs; the new function is tested last. The remaining production
+gate/IRQL/IRQ callbacks and timer integration still need to consume these helpers.
+Do not treat register-state qualification as full interrupt delivery or gameplay.
+
+The isolated state component can be checked without rebuilding the whole candidate:
+`python3 check_irq_state.py --wine --app /path/to/app --app-lib /path/to/libgamepkg.rlib`.
+This also scans both game-source modules, audits all emitted optimized objects
+on four targets, rejects an unused maintainer test, and runs 4096 state controls
+in actual confined Linux32/64 children. It does not substitute for the complete
+candidate's build or gameplay. The fixture uses a fixed-size buffer, avoiding
+the unapproved allocation-growth import without changing any audit allowlist.
+
+The v5 checkpoint passes the complete four-target build/audit matrix and actual
+confined Linux x64/i686 execution: 39 original functions, 5888 full CPU/RAM
+vectors, scalar/vector/call/context/protection/revocation controls and malformed
+old-format rejection. Source/dependency checks precede binding injection and all
+eight optimized objects pass before trusted linking. Linux compiler scheduling
+uses the app's private jobserver under the unchanged 12 GiB limit; four/eight
+unrestricted partitions had exceeded it. A newly emitted allocation helper was
+removed by allocating the fixture buffer at fixed size; the allowlist did not
+change. The 2453-file candidate closes 19420 definitions, leaving 4596, with 108
+main imports still unresolved. Windows execution here is Wine component work;
+full Windows builds are compile/object/link qualification, not gameplay.
+
+`check_irq_state.py --wine --app /path/to/app --app-lib /path/to/libgamepkg.rlib`
+also runs the isolated state source/object audit on four targets and 4096
+preservation controls in actual confined Linux32/64. It rejects its unused
+maintainer harness. Neither suite enables production Burnout.
