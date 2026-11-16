@@ -87,7 +87,7 @@ pub fn image_import_run() -> Result<(), i32> {
         }
     }
     let planned = image_imports::imports_image(&ram, &image, &data, &[]);
-    if mode[0] >= 2 && mode[0] != 6 {
+    if mode[0] >= 2 && mode[0] != 6 && mode[0] != 7 {
         let expected = if mode[0] == 3 || mode[0] == 5 { -1 } else { -5 };
         match planned {
             Err(code) => {
@@ -106,7 +106,13 @@ pub fn image_import_run() -> Result<(), i32> {
         gamepkg::diagnostic(1, 0x544b0f00, &[u64::from(mode[0]), expected as i64 as u64])?;
     } else {
         let prepared = planned?;
-        let count = if mode[0] == 6 { 6 } else { 3 };
+        let count = if mode[0] == 7 {
+            9
+        } else if mode[0] == 6 {
+            6
+        } else {
+            3
+        };
         if prepared.imports_layout() != [table, count, count + 2] {
             return Err(-3);
         }
@@ -125,7 +131,7 @@ pub fn image_import_run() -> Result<(), i32> {
             return Err(-3);
         }
         let allocation = state.eax;
-        if mode[0] == 6 {
+        if mode[0] == 6 || mode[0] == 7 {
             ram.write_bytes(0x13000, &[97u8, 98, 99])?;
             for (slot, args) in [
                 (3u32, [0x14003u32, 0, 0]),
@@ -150,6 +156,46 @@ pub fn image_import_run() -> Result<(), i32> {
                 != [
                     0xa9, 0x99, 0x3e, 0x36, 0x47, 0x06, 0x81, 0x6a, 0xba, 0x3e, 0x25, 0x71, 0x78,
                     0x50, 0xc2, 0x6c, 0x9c, 0xd0, 0xd8, 0x9d,
+                ]
+            {
+                return Err(-3);
+            }
+        }
+        if mode[0] == 7 {
+            ram.write_bytes(0x16000, &[75u8, 101, 121])?;
+            ram.write_bytes(0x17000, &[80u8, 108, 97, 105, 110, 116, 101, 120, 116])?;
+            ram.fill(0x18000, 0x0b, 20)?;
+            ram.write_bytes(0x19000, &[72u8, 105, 32])?;
+            ram.write_bytes(0x1a000, &[84u8, 104, 101, 114, 101])?;
+            let crypto_sp = sp - 64;
+            for (slot, args) in [
+                (6u32, [0x1b003u32, 3, 0x16000, 0, 0, 0, 0]),
+                (7, [0x1b003, 9, 0x17000, 0, 0, 0, 0]),
+                (8, [0x18000, 20, 0x19000, 3, 0x1a000, 5, 0x1c000]),
+            ] {
+                state.esp = crypto_sp;
+                ram.write_u32(crypto_sp, 0x12345678)?;
+                for index in 0..7usize {
+                    ram.write_u32(crypto_sp + 4 + index as u32 * 4, args[index])?;
+                }
+                calls_runtime::invoke_call(&mut state, &mut ram, 0xfe000000 + slot * 4, crypto_sp)?;
+                if state.eax != 0
+                    || state.esp != crypto_sp + 4 + kernel_pool::kernel_supported(332 + slot)?
+                {
+                    return Err(-3);
+                }
+            }
+            let mut cipher = [0u8; 9];
+            ram.read_bytes(0x17000, &mut cipher)?;
+            if cipher != [0xbb, 0xf3, 0x16, 0xe8, 0xd9, 0x40, 0xaf, 0x0a, 0xd3] {
+                return Err(-3);
+            }
+            let mut digest = [0u8; 20];
+            ram.read_bytes(0x1c000, &mut digest)?;
+            if digest
+                != [
+                    0xb6, 0x17, 0x31, 0x86, 0x55, 0x05, 0x72, 0x64, 0xe2, 0x8b, 0xc0, 0xb6, 0xfb,
+                    0x37, 0x8c, 0x8e, 0xf1, 0x46, 0xbe, 0x00,
                 ]
             {
                 return Err(-3);

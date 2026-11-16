@@ -16,7 +16,8 @@ fn pool_argument_bytes(ordinal: u32) -> Result<u32, i32> {
     match ordinal {
         14 | 17 | 23 | 165 | 171 | 180 | 335 => Ok(4),
         15 | 168 | 337 => Ok(8),
-        336 => Ok(12),
+        336 | 338 | 339 => Ok(12),
+        340 => Ok(28),
         166 => Ok(20),
         _ => Err(-5),
     }
@@ -250,7 +251,7 @@ pub fn kernel_invoke(
     } else {
         0
     };
-    let mut args = [0u8; 20];
+    let mut args = [0u8; 28];
     ram.read_bytes((stack + 4) as u32, &mut args[..arg_bytes as usize])?;
     let first = pool_word(&args, 0)?;
     if ordinal == 15 {
@@ -259,6 +260,16 @@ pub fn kernel_invoke(
     ram.kernel_set_caller(caller);
     if ordinal >= 335 && ordinal <= 337 {
         pool_sha(ram, ordinal, &args)?;
+        state.eax = 0;
+        state.esp = end as u32;
+        return Ok(());
+    }
+    if ordinal >= 338 && ordinal <= 340 {
+        if ordinal == 340 {
+            pool_hmac(ram, &args)?;
+        } else {
+            pool_rc4(ram, ordinal, &args)?;
+        }
         state.eax = 0;
         state.esp = end as u32;
         return Ok(());
@@ -299,7 +310,7 @@ fn pool_sha_extent(address: u32, bytes: u32) -> Result<(), i32> {
     }
     Ok(())
 }
-fn pool_sha_transform(ram: &mut memory::Memory, context: u32, block: &[u8; 64]) -> Result<(), i32> {
+fn pool_sha_compress(prior: &mut [u32; 5], block: &[u8; 64]) {
     let mut words = [0u32; 80];
     for index in 0..16usize {
         let at = index * 4;
@@ -309,12 +320,6 @@ fn pool_sha_transform(ram: &mut memory::Memory, context: u32, block: &[u8; 64]) 
         words[index] =
             (words[index - 3] ^ words[index - 8] ^ words[index - 14] ^ words[index - 16])
                 .rotate_left(1);
-    }
-    let mut encoded = [0u8; 20];
-    ram.read_bytes(context, &mut encoded)?;
-    let mut prior = [0u32; 5];
-    for index in 0..5usize {
-        prior[index] = pool_word(&encoded, index * 4)?;
     }
     let mut a = prior[0];
     let mut b = prior[1];
@@ -344,9 +349,21 @@ fn pool_sha_transform(ram: &mut memory::Memory, context: u32, block: &[u8; 64]) 
         a = next;
     }
     for (index, value) in [a, b, c, d, e].iter().enumerate() {
-        let next = u32::to_le_bytes(prior[index].wrapping_add(*value));
+        prior[index] = prior[index].wrapping_add(*value);
+    }
+}
+fn pool_sha_transform(ram: &mut memory::Memory, context: u32, block: &[u8; 64]) -> Result<(), i32> {
+    let mut encoded = [0u8; 20];
+    ram.read_bytes(context, &mut encoded)?;
+    let mut prior = [0u32; 5];
+    for index in 0..5usize {
+        prior[index] = pool_word(&encoded, index * 4)?;
+    }
+    pool_sha_compress(&mut prior, block);
+    for index in 0..5usize {
+        let bytes = u32::to_le_bytes(prior[index]);
         for byte in 0..4usize {
-            encoded[index * 4 + byte] = next[byte];
+            encoded[index * 4 + byte] = bytes[byte];
         }
     }
     ram.write_bytes(context, &encoded)
@@ -473,4 +490,216 @@ fn pool_sha(ram: &mut memory::Memory, ordinal: u32, args: &[u8]) -> Result<(), i
         }
     }
     Ok(())
+}
+
+// RC4 keeps its original guest-visible 256-byte permutation and byte i/j.
+// Reads deliberately follow prior writes when key/data alias that context.
+fn pool_rc4(ram: &mut memory::Memory, ordinal: u32, args: &[u8]) -> Result<(), i32> {
+    let context = pool_word(args, 0)?;
+    let length = pool_word(args, 4)?;
+    let input = pool_word(args, 8)?;
+    if context == 0 || input == 0 || length == 0 {
+        return Ok(());
+    }
+    pool_sha_extent(context, 258)?;
+    if ordinal == 338 {
+        // KSA reads at most 256 key bytes, even with a larger declared key.
+        pool_sha_extent(input, length.min(256))?;
+        for index in 0..256u32 {
+            ram.write_u8(context + index, index as u8)?;
+        }
+        let mut j = 0u8;
+        for index in 0..256u32 {
+            let value = ram.read_u8(context + index)?;
+            let key_byte = ram.read_u8(input + index % length)?;
+            j = j.wrapping_add(value).wrapping_add(key_byte);
+            let other = ram.read_u8(context + u32::from(j))?;
+            ram.write_u8(context + index, other)?;
+            ram.write_u8(context + u32::from(j), value)?;
+        }
+        ram.write_u8(context + 256, 0)?;
+        ram.write_u8(context + 257, 0)?;
+        return Ok(());
+    }
+    if ordinal != 339 {
+        return Err(-5);
+    }
+    pool_sha_extent(input, length)?;
+    for position in 0..length {
+        let i = ram.read_u8(context + 256)?.wrapping_add(1);
+        ram.write_u8(context + 256, i)?;
+        let j = ram
+            .read_u8(context + 257)?
+            .wrapping_add(ram.read_u8(context + u32::from(i))?);
+        ram.write_u8(context + 257, j)?;
+        let value = ram.read_u8(context + u32::from(i))?;
+        let other = ram.read_u8(context + u32::from(j))?;
+        ram.write_u8(context + u32::from(i), other)?;
+        ram.write_u8(context + u32::from(j), value)?;
+        let selector = ram
+            .read_u8(context + u32::from(i))?
+            .wrapping_add(ram.read_u8(context + u32::from(j))?);
+        let key_byte = ram.read_u8(context + u32::from(selector))?;
+        let data_byte = ram.read_u8(input + position)?;
+        ram.write_u8(input + position, data_byte ^ key_byte)?;
+    }
+    Ok(())
+}
+struct PoolHash {
+    words: [u32; 5],
+    bytes: u64,
+    used: usize,
+    buffer: [u8; 64],
+}
+impl PoolHash {
+    fn hash_new() -> Self {
+        Self {
+            words: [0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0],
+            bytes: 0,
+            used: 0,
+            buffer: [0u8; 64],
+        }
+    }
+    fn hash_update(&mut self, input: &[u8]) {
+        self.bytes = self.bytes.wrapping_add(input.len() as u64);
+        for value in input {
+            self.buffer[self.used] = *value;
+            self.used += 1;
+            if self.used == 64 {
+                pool_sha_compress(&mut self.words, &self.buffer);
+                self.used = 0;
+            }
+        }
+    }
+    fn hash_final(&mut self) -> [u8; 20] {
+        let bits = u64::to_be_bytes(self.bytes.wrapping_mul(8));
+        self.hash_update(&[0x80u8]);
+        for _ in 0..64usize {
+            if self.used == 56 {
+                break;
+            }
+            self.hash_update(&[0u8]);
+        }
+        self.hash_update(&bits);
+        let mut digest = [0u8; 20];
+        for index in 0..5usize {
+            let bytes = u32::to_be_bytes(self.words[index]);
+            for byte in 0..4usize {
+                digest[index * 4 + byte] = bytes[byte];
+            }
+        }
+        digest
+    }
+    fn hash_clear(&mut self) -> Result<(), i32> {
+        gamepkg::zeroize(&mut self.buffer)?;
+        self.words = [0u32; 5];
+        self.bytes = 0;
+        self.used = 0;
+        Ok(())
+    }
+}
+fn pool_hash_input(
+    hash: &mut PoolHash,
+    ram: &memory::Memory,
+    input: u32,
+    length: u32,
+) -> Result<(), i32> {
+    if input == 0 || length == 0 {
+        return Ok(());
+    }
+    pool_sha_extent(input, length)?;
+    let mut block = std::vec::Vec::new();
+    block.resize(4096, 0u8);
+    let mut offset = 0u32;
+    while offset < length {
+        let count = (length - offset).min(4096) as usize;
+        if let Err(code) = ram.read_bytes(input + offset, &mut block[..count]) {
+            let _ = gamepkg::zeroize(&mut block);
+            return Err(code);
+        }
+        hash.hash_update(&block[..count]);
+        offset += count as u32;
+    }
+    gamepkg::zeroize(&mut block)
+}
+struct PoolHmac {
+    key: [u8; 64],
+    inner: [u8; 64],
+    outer: [u8; 64],
+    digest: [u8; 20],
+    hash: PoolHash,
+}
+impl PoolHmac {
+    fn hmac_compute(&mut self, ram: &mut memory::Memory, args: &[u8]) -> Result<(), i32> {
+        let key = pool_word(args, 0)?;
+        let length = pool_word(args, 4)?;
+        if length > 64 {
+            pool_hash_input(&mut self.hash, ram, key, length)?;
+            let mut digest = self.hash.hash_final();
+            for index in 0..20usize {
+                self.key[index] = digest[index];
+            }
+            gamepkg::zeroize(&mut digest)?;
+        } else if length != 0 {
+            ram.read_bytes(key, &mut self.key[..length as usize])?;
+        }
+        for index in 0..64usize {
+            self.inner[index] = self.key[index] ^ 0x36;
+            self.outer[index] = self.key[index] ^ 0x5c;
+        }
+        self.hash.hash_clear()?;
+        self.hash = PoolHash::hash_new();
+        self.hash.hash_update(&self.inner);
+        pool_hash_input(
+            &mut self.hash,
+            ram,
+            pool_word(args, 8)?,
+            pool_word(args, 12)?,
+        )?;
+        pool_hash_input(
+            &mut self.hash,
+            ram,
+            pool_word(args, 16)?,
+            pool_word(args, 20)?,
+        )?;
+        self.digest = self.hash.hash_final();
+        self.hash.hash_clear()?;
+        self.hash = PoolHash::hash_new();
+        self.hash.hash_update(&self.outer);
+        self.hash.hash_update(&self.digest);
+        let result = self.hash.hash_final();
+        ram.write_bytes(pool_word(args, 24)?, &result)
+    }
+    fn hmac_clear(&mut self) -> Result<(), i32> {
+        let key = gamepkg::zeroize(&mut self.key);
+        let inner = gamepkg::zeroize(&mut self.inner);
+        let outer = gamepkg::zeroize(&mut self.outer);
+        let digest = gamepkg::zeroize(&mut self.digest);
+        let hash = self.hash.hash_clear();
+        key?;
+        inner?;
+        outer?;
+        digest?;
+        hash
+    }
+}
+fn pool_hmac(ram: &mut memory::Memory, args: &[u8]) -> Result<(), i32> {
+    let key = pool_word(args, 0)?;
+    let output = pool_word(args, 24)?;
+    if key == 0 || output == 0 {
+        return Ok(());
+    }
+    pool_sha_extent(key, pool_word(args, 4)?)?;
+    pool_sha_extent(output, 20)?;
+    let mut hmac = PoolHmac {
+        key: [0u8; 64],
+        inner: [0u8; 64],
+        outer: [0u8; 64],
+        digest: [0u8; 20],
+        hash: PoolHash::hash_new(),
+    };
+    let outcome = hmac.hmac_compute(ram, args);
+    let cleaned = hmac.hmac_clear();
+    outcome?;
+    cleaned
 }

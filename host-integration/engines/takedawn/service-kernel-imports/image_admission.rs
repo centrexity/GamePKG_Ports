@@ -157,7 +157,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
         }
         for pair in args[4..].chunks_exact(2) {
             let mode = pair[0].to_str().unwrap().parse::<u8>().unwrap();
-            assert!(mode <= 6);
+            assert!(mode <= 7);
             let selected = fs::File::open(&pair[1]).unwrap();
             let mut indexed =
                 gamepkg::xbox_disc::Disc::from_file(selected.try_clone().unwrap()).unwrap();
@@ -229,8 +229,14 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
             assert_eq!(summaries.len(), 1);
             let values = &summaries[0].values;
             assert_eq!(values[0], u64::from(mode));
-            if mode < 2 || mode == 6 {
-                let count = if mode == 6 { 6 } else { 3 };
+            if mode < 2 || mode == 6 || mode == 7 {
+                let count = if mode == 7 {
+                    9
+                } else if mode == 6 {
+                    6
+                } else {
+                    3
+                };
                 assert_eq!(&values[1..], &[0x12400, count, count + 2, 0x1000000]);
             } else {
                 assert_eq!(

@@ -98,7 +98,7 @@ initializes CPU/allocator/data, publishes all three SHA imports via KPL3 and run
 `abc` through the actual finite Call router, verifying the independent expected
 digest. Both Linux widths execute it; four targets pass source/object admission.
 Your private ISO is read in place and remains Unsupported before any patch or
-title entry: its missing main-function inventory is now **118** (previously 121).
+title entry: its missing main-function inventory is now **115** (121 before SHA, then 118 before RC4/HMAC).
 It still needs remaining kernel calls, guest/device/runtime semantics and
 complete generated/manual/media/renderer/native-entry migration.
 
@@ -106,6 +106,8 @@ Existing allocator, complete import/protection and generated-function/source-
 enforcement regressions remain separate checks. These are silent synthetic/
 component tests. No title entry, game window, real graphics, physical controls,
 audible audio or measured frame pacing was qualified. Wine is not real Windows
-AppContainer/gameplay evidence. The installed shared SDK is unchanged:
-`22be2884a8921bfbcacb3b8f3f1fe8da111840f0bb3b600269a21d36221cc0be`,
-composite native recipe `d8f147d4eed6560b`. No production profile is enabled.
+AppContainer/gameplay evidence. The shared dispatcher now also contains RC4/HMAC and requires the clearing SDK
+in app `2c646c0ec78cb39b1251ccd7ba8662da5fc62ffa`:
+`dfdfb8933b8e744173dde07a3f59749deef10d4fc2fc120581353750a03fbda2`,
+composite recipe `867d8027dd05fc8c`. See `../service-kernel-crypto/README.md`.
+No production profile is enabled.

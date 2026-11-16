@@ -5,7 +5,7 @@ ordinary dependency-free game source, the initialized kernel-data component and
 the finite allocator bridges. `image_imports.rs` binds that plan to the reviewed
 image/CPU setup. No native function pointer, OS protection call, success stub or
 engine exemption is introduced. **The title remains gated:** only the nine
-migrated allocator functions, three checked SHA functions and 24 data exports
+migrated allocator functions, six checked SHA/RC4/HMAC functions and 24 data exports
 are available. See `../service-kernel-sha/README.md` for the SHA extension. A complete table
 containing any other function fails Unsupported before publication.
 
@@ -160,7 +160,7 @@ table; unsupported imports, wrong code bounds and wrong data region reject
 without table publication. Synthetic mode 6 also routes SHA init/update/final
 through the complete image/import/Call pipeline and verifies the `abc` digest.
 The authorized private ISO remains read-only and
-unextracted. Its main table currently contains **118 unmigrated function exports**;
+unextracted. Its main table currently contains **115 unmigrated function exports**;
 it rejects Unsupported without changing the table. Numeric inventory is private
 test evidence, not a claim those functions are implemented. No title entry runs.
 
@@ -172,3 +172,10 @@ The installed shared SDK is unchanged by these port-only helpers. Complete the
 remaining kernel/guest-thread/IRQ/device and generated/manual/media/renderer
 paths, periodic time/status integration and native entry before enabling title
 build/play/cache/export or claiming gameplay/frame-pacing qualification.
+
+
+The RC4/HMAC extension also exercises image mode 7 through the actual finite
+router and requires the current clearing SDK; see
+`../service-kernel-crypto/README.md` for exact argument/alias/error contracts and
+app pin `2c646c0ec78cb39b1251ccd7ba8662da5fc62ffa`. No root/page/record quota
+or source/object policy was relaxed.

@@ -1,0 +1,103 @@
+{
+  "schema": 1,
+  "production_ready": false,
+  "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+  "sources": {
+    "crypto": {
+      "member": "toolkit/src/kernel/kernel_crypto.c",
+      "sha256": "0abfd628753ef8137654ef95418fd7bea23ab58824b25db05ba89dfa0c851046",
+      "functions": {
+        "sha1_rotate_left": {
+          "start": 1921,
+          "end": 2030,
+          "sha256": "243ce07e379ac506118b08e3b383c1f33f717c61dad5379faa21062b297a43ec"
+        },
+        "sha1_transform": {
+          "start": 2032,
+          "end": 3273,
+          "sha256": "36eb2d64c3bdb6b685efa338e2548c156fe1a4e6387763e4e0dad142ab910c81"
+        },
+        "xbox_XcSHAInit": {
+          "start": 3275,
+          "end": 3670,
+          "sha256": "6357759afe74c802935ca2ba7aa3707907391d34b37236e1daaef894fbbd0517"
+        },
+        "xbox_XcSHAUpdate": {
+          "start": 3672,
+          "end": 4571,
+          "sha256": "5c8d27a54ca0f60fc5c919b635313635dd5082df06e4d09f600d7d7ff9d10801"
+        },
+        "xbox_XcSHAFinal": {
+          "start": 4573,
+          "end": 5646,
+          "sha256": "ef6103b3f98e9164c33dc683ac839b31d578ae1bc3a8f2407326342104bb1294"
+        },
+        "xbox_XcRC4Key": {
+          "start": 5965,
+          "end": 6533,
+          "sha256": "f5a31d0c08b0c7011ee97f990e5550ac47149f6eae81e3cbd4ccf14db992d145"
+        },
+        "xbox_XcRC4Crypt": {
+          "start": 6535,
+          "end": 7156,
+          "sha256": "fdf90d588f22c76d25e7577423eab7aa134da5f32149b32ab6bbe858960def66"
+        },
+        "xbox_XcHMAC": {
+          "start": 7491,
+          "end": 9076,
+          "sha256": "72ab6325173e21c32e8de51e5bd67fb551ca9cd00acf20d48e212610031b3dc7"
+        }
+      }
+    },
+    "bridge": {
+      "member": "toolkit/src/kernel/kernel_bridge.c",
+      "sha256": "bf62f8787a2e78a0abdb28e10ad8f79c5267dc655491353af231067747ce446e",
+      "functions": {
+        "bridge_XcRC4Key": {
+          "start": 245202,
+          "end": 245416,
+          "sha256": "845d5ca37eb6ac97bb4c5679677aa5bc8eed2104f0391289a0dd910143b276fc"
+        },
+        "bridge_XcRC4Crypt": {
+          "start": 245418,
+          "end": 245634,
+          "sha256": "b3dbb52b638ba15cdf5c2048b1244c3170f072eb60a3c541df6db9ef5e1520a9"
+        },
+        "bridge_XcHMAC": {
+          "start": 245678,
+          "end": 246005,
+          "sha256": "568ac479ff247e3136335b357c12c784a24de2c78220fc69456a61846eceb285"
+        },
+        "stdcall_args_for_ordinal": {
+          "start": 370039,
+          "end": 392581,
+          "sha256": "9296186dab3e4cf69665559022afb261930e0efa09eea4b88f72ea723da76542"
+        },
+        "bridge_for_ordinal": {
+          "start": 392583,
+          "end": 417340,
+          "sha256": "105df98d229ad685ab70118227e48691621ea24d97bd3f9ccdae179ad4a3c85b"
+        }
+      }
+    }
+  },
+  "ordinals": {
+    "338": "bridge_XcRC4Key",
+    "339": "bridge_XcRC4Crypt",
+    "340": "bridge_XcHMAC"
+  },
+  "header": {
+    "member": "toolkit/src/kernel/kernel.h",
+    "sha256": "efae4f1b5aab8a2a420d00b8fb5fd75a1fb9a717704a709c34baddcc254bd17e",
+    "context": {
+      "start": 14589,
+      "end": 14725,
+      "sha256": "d53e7ee7203f39865b26da0da893e2cdaf8d7284398b7a122fb48082bf3ad53e"
+    },
+    "rc4": {
+      "start": 14752,
+      "end": 14870,
+      "sha256": "6869c6b9e065e00bd9306dd53f30d9c934e84ee6d43f323eaeb624aae3fd6710"
+    }
+  }
+}

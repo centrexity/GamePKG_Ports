@@ -1,0 +1,40 @@
+/* Maintainer-only original C oracle. Never linked into admitted game objects. */
+#include <stdint.h>
+#include <stddef.h>
+#include <string.h>
+#include <stdlib.h>
+#if !defined(_WIN32)
+#define __stdcall
+#endif
+#define VOID void
+#define UCHAR uint8_t
+#define ULONG uint32_t
+/* PINNED_SHA_CONTEXT */
+_Static_assert(sizeof(XBOX_SHA_CONTEXT)==92,"fixed guest SHA layout");
+/* PINNED_SHA1_ROTATE_LEFT */
+/* PINNED_SHA1_TRANSFORM */
+/* PINNED_XBOX_XCSHAINIT */
+/* PINNED_XBOX_XCSHAUPDATE */
+/* PINNED_XBOX_XCSHAFINAL */
+/* PINNED_RC4_CONTEXT */
+_Static_assert(sizeof(XBOX_RC4_CONTEXT)==258,"fixed guest RC4 layout");
+static void *oracle_zero(void *buffer,size_t n) {volatile uint8_t *p=buffer;for(size_t i=0;i<n;i++)p[i]=0;return buffer;}
+#define SecureZeroMemory(p,n) oracle_zero((p),(n))
+/* PINNED_XBOX_XCRC4KEY */
+/* PINNED_XBOX_XCRC4CRYPT */
+/* PINNED_XBOX_XCHMAC */
+static uint8_t *arena;
+static uint32_t g_eax,g_esp;
+#define XBOX_TO_NATIVE(va) ((va)?(void*)(arena+(uint32_t)(va)):NULL)
+static uint32_t stack_arg(uint32_t n) { uint32_t v;memcpy(&v,arena+g_esp+4+n*4,4);return v; }
+#define STACK_ARG(n) stack_arg(n)
+/* PINNED_BRIDGE_XCRC4KEY */
+/* PINNED_BRIDGE_XCRC4CRYPT */
+/* PINNED_BRIDGE_XCHMAC */
+/* PINNED_STDCALL_ARGS_FOR_ORDINAL */
+void crypto_reference_reset(uint8_t *bytes) { arena=bytes; }
+void crypto_reference_call(uint32_t ordinal,uint32_t *eax,uint32_t *esp) {
+ g_eax=*eax;g_esp=*esp;
+ switch(ordinal) {case 338:bridge_XcRC4Key();break;case 339:bridge_XcRC4Crypt();break;case 340:bridge_XcHMAC();break;default:abort();}
+ *eax=g_eax;*esp=g_esp+4+stdcall_args_for_ordinal(ordinal);
+}

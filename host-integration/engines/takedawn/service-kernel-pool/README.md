@@ -243,3 +243,8 @@ The dispatcher additionally implements SHA ordinals 335/336/337; see
 source/object and confined-call checks. The nine-allocator corpus here remains
 a distinct regression, not the SHA qualification. `kernel_physical` now lists
 only 165/166/168/171/180 so hash preparation does not require a heap owner.
+
+RC4 key/streaming and HMAC-SHA1 (338/339/340) also use checked RAM and the finite
+router. See `../service-kernel-crypto/README.md`; the dispatcher now requires the
+current app clearing SDK. Its maximum argument copy is 28 bytes for HMAC,
+without changing any record, runtime, signed or child budget.

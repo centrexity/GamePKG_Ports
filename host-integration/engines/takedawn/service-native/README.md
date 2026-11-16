@@ -1037,3 +1037,10 @@ They participate in complete import preparation and the actual finite Call
 router. The private main-table inventory is down to 118 unmigrated functions;
 this does not enable the title or qualify gameplay. Shared SDK and all
 admission/confinement limits remain unchanged.
+
+RC4/HMAC exports 338/339/340 are checked game Rust as well, with exact context
+alias ordering and explicit caller-owned SDK clearing. Current app requirement:
+`2c646c0ec78cb39b1251ccd7ba8662da5fc62ffa`, recipe `867d8027dd05fc8c`.
+See `../service-kernel-crypto/README.md`; 115 main functions and the remaining
+runtime/device/generated/manual/media/renderer/native-entry path still need
+migration. No title profile or enforcement exception is enabled.
