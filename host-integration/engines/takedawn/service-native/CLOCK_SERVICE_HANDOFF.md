@@ -192,3 +192,33 @@ Next: periodic tick data, real timer/scheduler/wakeup/IRQ/DPC/device and
 time-warp/suspend handling, followed by all remaining complete-title and
 production launcher requirements. Main imports still reject 111 functions.
 No game profile, main branch or release is enabled by these component checks.
+
+## Local clock prerequisite complete
+
+Use GamePKG `local_performance_sample()` (local op 38), not remote op 66, for
+periodic tick/TSC/raw uptime/frequency paths. Its exact empty-request/24-byte
+counter-frequency-uptime reply and cancellation/shutdown contract are in app
+PORT_SERVICES.md. SDK digest:
+`d53f61beb0f6a40706b0c1c4bd09a912694ae1f1e5405efac9a88d3eda7c7573`, composite
+`ae6723644c2a82dc`. The platform implementation is trusted child runtime, linked
+only after scanning/optimizing/auditing all game objects; it grants no OS imports.
+
+Kernel 125..127 and both first-use/current TSC reads now consume local samples.
+SystemTime 128 still consumes remote calendar op 65. The five generated TSC
+bodies are unchanged, KSV2 and quotas are unchanged, and provenance was refreshed
+for the changed kernel helper. Errors propagate without a direct OS or remote
+clock fallback. Actual confined Linux x64/i686 tests, four-target source/object
+admission and original C/Rust comparisons pass; Wine is only a component test.
+
+The existing broker connection serializes all remote calls. Using remote op 66
+in a periodic worker could stall tick updates while a main-thread window call
+awaits owner dispatch. The real Linux private socket regression now withholds a
+fullscreen response and proves local clock samples complete before that response
+is sent. This proves the clock prerequisite, not the not-yet-migrated tick actor.
+
+Pinned original periodic KeTickCount is written by xbox_memory_layout.c's NV2A
+ack worker as wrapping u32 GetTickCount() + floor(shared_guest_skew_ns/1e6), with
+an approximately 1ms wait. Initial kernel-data initialization uses raw uptime
+without skew. Preserve that distinction. Porting the tick alone does not migrate
+that worker's GPU/DSP/fence/MMIO behavior, timer DPC execution or title startup.
+The 111 unresolved main imports and remaining complete-title gates remain.

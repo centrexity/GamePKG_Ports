@@ -128,3 +128,21 @@ selection remain unfinished. Continue ordinary checked Rust migration, preserve
 in-place ROM/private save grants and all admission/confinement rules, and
 qualify actual gameplay before enabling the title. No skipped operation, fake
 success, direct-device fallback or engine exemption is authorized.
+
+## Independent child-local clock migration
+
+The production helpers now use `gamepkg::local_performance_sample()` (local
+operation 38) for uptime, raw performance queries, frequency and guest TSC.
+The GamePKG runtime owns the platform read; no game OS import, dependency,
+unsafe code, raw pointer, arbitrary selector or enforcement exemption is added.
+This avoids serializing timer/TSC reads behind a pending window/broker request.
+Calendar queries still use remote operation 65 and preserve their separate
+first-use anchor. There is no remote or native-OS fallback if local reads fail.
+
+KSV2/root/CPU layouts, 64-attempt CAS behavior, skew arithmetic, first-use TSC
+origin, quotas and original partial-write/error semantics are unchanged. The
+maintainer oracle injects local samples explicitly; actual confined admission
+uses the real child-local SDK and separately audited game objects. Regenerated
+provenance binds the updated kernel helper even though generated game bodies
+are unchanged. Complete title entry and the periodic tick/scheduler/device/
+renderer migration remain required before production admission.

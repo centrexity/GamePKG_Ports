@@ -134,9 +134,9 @@ fn clock_worker_run(context: u64) -> Result<(), i32> {
         gamepkg::diagnostic(2, 0x544b1406, &[values[2], ids[4]])?;
         return Err(-3);
     }
-    let before = gamepkg::performance_sample()?;
+    let before = gamepkg::local_performance_sample()?;
     let value = kernel_pool::kernel_tsc_read(&ram)?;
-    let after = gamepkg::performance_sample()?;
+    let after = gamepkg::local_performance_sample()?;
     let state = kernel_pool::kernel_tsc_state(&ram)?;
     if state[2] != 1
         || state[1] != before.frequency

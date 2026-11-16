@@ -278,10 +278,10 @@ pub fn kernel_invoke(
             let value = if ordinal == 126 {
                 // Original counter bridge observes shared skew before QPC.
                 let values = kernel_service_values(ram)?;
-                let sample = gamepkg::performance_sample()?;
+                let sample = gamepkg::local_performance_sample()?;
                 kernel_time_value(ordinal, sample.counter, sample.frequency, values[2])?
             } else {
-                let sample = gamepkg::performance_sample()?;
+                let sample = gamepkg::local_performance_sample()?;
                 if ordinal == 125 {
                     let values = kernel_service_values(ram)?;
                     kernel_time_value(ordinal, sample.uptime_ms, 0, values[2])?
@@ -1020,7 +1020,7 @@ pub fn kernel_tsc_read(ram: &memory::Memory) -> Result<u64, i32> {
             return Err(-4);
         }
         if pool_long(&record, 48)? == 0 {
-            let sample = gamepkg::performance_sample()?;
+            let sample = gamepkg::local_performance_sample()?;
             if sample.counter > i64::MAX as u64
                 || sample.frequency == 0
                 || sample.frequency > i64::MAX as u64
@@ -1038,7 +1038,7 @@ pub fn kernel_tsc_read(ram: &memory::Memory) -> Result<u64, i32> {
         } else {
             let origin = pool_long(&record, 32)?;
             let frequency = pool_long(&record, 40)?;
-            let sample = gamepkg::performance_sample()?;
+            let sample = gamepkg::local_performance_sample()?;
             // Original GuestSkewNs is observed after the current counter read.
             // Revalidate publication; IDs/metadata snapshots are not leases.
             let (current, _, after) = pool_services_snapshot(ram)?;

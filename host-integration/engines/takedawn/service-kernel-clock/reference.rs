@@ -18,7 +18,7 @@ mod gamepkg {
         }
         crate::client::local_record_compare_exchange(id, version, bytes)
     }
-    pub fn performance_sample() -> Result<PerformanceSample, i32> {
+    pub fn local_performance_sample() -> Result<PerformanceSample, i32> {
         READS.lock().unwrap()[0] += 1;
         let e = *ERROR.lock().unwrap();
         if e != 0 {

@@ -79,9 +79,9 @@ pub fn leaf_live() -> Result<(), i32> {
         let mut state = leaf_state(mode);
         let cpu = state.encode();
         let mut expected = leaf_snapshot(&ram)?;
-        let before = gamepkg::performance_sample()?;
+        let before = gamepkg::local_performance_sample()?;
         leaf_invoke(kind, &mut state, &mut ram)?;
-        let after = gamepkg::performance_sample()?;
+        let after = gamepkg::local_performance_sample()?;
         let value = if kind >= 2 {
             u64::from(state.eax) | (u64::from(state.edx) << 32)
         } else {
