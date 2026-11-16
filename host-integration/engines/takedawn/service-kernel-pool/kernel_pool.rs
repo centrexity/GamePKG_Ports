@@ -18,7 +18,7 @@ fn pool_argument_bytes(ordinal: u32) -> Result<u32, i32> {
         15 | 168 | 337 => Ok(8),
         336 | 338 | 339 => Ok(12),
         340 => Ok(28),
-        166 => Ok(20),
+        24 | 166 => Ok(20),
         _ => Err(-5),
     }
 }
@@ -48,6 +48,7 @@ pub fn kernel_prepare(ram: &mut memory::Memory, table: u32, count: u32) -> Resul
     ram.read_bytes(table, &mut words[..count as usize * 4])?;
     let mut record = [0u8; 1540];
     let mut physical = false;
+    let mut services = false;
     record[..4].copy_from_slice(&u32::to_le_bytes(0x324c504b));
     record[4..8].copy_from_slice(&u32::to_le_bytes(count));
     record[8..16].copy_from_slice(&u64::to_le_bytes(ram.call_handle()));
@@ -63,9 +64,13 @@ pub fn kernel_prepare(ram: &mut memory::Memory, table: u32, count: u32) -> Resul
         let ordinal = thunk_word & 0x7fffffff;
         pool_argument_bytes(ordinal)?;
         physical |= kernel_physical(ordinal);
+        services |= kernel_requires_services(ordinal);
         record[24 + slot * 4..28 + slot * 4].copy_from_slice(&u32::to_le_bytes(ordinal));
         words[slot * 4..slot * 4 + 4]
             .copy_from_slice(&u32::to_le_bytes(0xfe000000 + slot as u32 * 4));
+    }
+    if services {
+        kernel_service_values(ram)?;
     }
     if physical {
         let mut client = ram.heap_take()?;
@@ -258,6 +263,12 @@ pub fn kernel_invoke(
         let _ = pool_word(&args, 4)?;
     }
     ram.kernel_set_caller(caller);
+    if ordinal == 24 {
+        let result = pool_nv_setting(ram, &args)?;
+        state.eax = result;
+        state.esp = end as u32;
+        return Ok(());
+    }
     if ordinal >= 335 && ordinal <= 337 {
         pool_sha(ram, ordinal, &args)?;
         state.eax = 0;
@@ -702,4 +713,186 @@ fn pool_hmac(ram: &mut memory::Memory, args: &[u8]) -> Result<(), i32> {
     let cleaned = hmac.hmac_clear();
     outcome?;
     cleaned
+}
+
+// One root-bound private record, reached through the root's trailing ID. Its
+// flags are immutable; guest skew changes by bounded CAS, never a copied view.
+pub struct KernelServices {
+    root: u64,
+    id: u64,
+}
+fn pool_services_snapshot(ram: &memory::Memory) -> Result<(u64, u64, std::vec::Vec<u8>), i32> {
+    let id = ram.services_handle()?;
+    if id == 0 {
+        return Err(-5);
+    }
+    let (version, record) = gamepkg::local_record_snapshot(id, 64)?;
+    if record.len() != 64 || pool_word(&record, 0)? != 0x3156534b || pool_word(&record, 4)? != 0 {
+        return Err(-1);
+    }
+    if pool_long(&record, 8)? != ram.call_handle() {
+        return Err(-4);
+    }
+    if pool_word(&record, 16)? & !0x001f0000u32 != 0 {
+        return Err(-1);
+    }
+    let audio = pool_word(&record, 20)?;
+    if audio != 0 && audio != 0x00010002 {
+        return Err(-1);
+    }
+    for at in [32usize, 40, 48, 56] {
+        if pool_long(&record, at)? != 0 {
+            return Err(-1);
+        }
+    }
+    Ok((id, version, record))
+}
+pub fn kernel_service_values(ram: &memory::Memory) -> Result<[u64; 3], i32> {
+    let (_, _, record) = pool_services_snapshot(ram)?;
+    Ok([
+        u64::from(pool_word(&record, 16)?),
+        u64::from(pool_word(&record, 20)?),
+        pool_long(&record, 24)?,
+    ])
+}
+pub fn kernel_requires_services(ordinal: u32) -> bool {
+    ordinal == 24
+}
+pub fn kernel_services_initialize(
+    ram: &memory::Memory,
+    video: u32,
+    speakers: u32,
+) -> Result<KernelServices, i32> {
+    if ram.services_handle()? != 0 || ram.kernel_handle() != 0 || (speakers != 2 && speakers != 6) {
+        return Err(-1);
+    }
+    let mut record = [0u8; 64];
+    record[..4].copy_from_slice(&u32::to_le_bytes(0x3156534b));
+    record[8..16].copy_from_slice(&u64::to_le_bytes(ram.call_handle()));
+    record[16..20].copy_from_slice(&u32::to_le_bytes(video & 0x001f0000));
+    record[20..24].copy_from_slice(&u32::to_le_bytes(if speakers == 6 {
+        0x00010002u32
+    } else {
+        0
+    }));
+    let id = gamepkg::local_record_create(&record)?;
+    if let Err(code) = ram.services_link(0, id) {
+        let _ = gamepkg::local_record_release(id);
+        return Err(code);
+    }
+    Ok(KernelServices {
+        root: ram.call_handle(),
+        id,
+    })
+}
+impl KernelServices {
+    pub fn service_handle(&self) -> u64 {
+        self.id
+    }
+    pub fn service_advance(&self, ram: &memory::Memory, delta: u64) -> Result<u64, i32> {
+        if self.root != ram.call_handle() {
+            return Err(-4);
+        }
+        pool_advance_services(ram, self.id, delta)
+    }
+    pub fn service_close(&self, ram: &memory::Memory) -> Result<(), i32> {
+        if self.root != ram.call_handle() {
+            return Err(-4);
+        }
+        match ram.services_handle() {
+            Ok(id) if id == self.id => ram.services_link(self.id, 0)?,
+            Ok(0) => {}
+            Err(-4) => {
+                let _ = gamepkg::local_record_release(self.id);
+                return Err(-4);
+            }
+            Ok(_) => return Err(-4),
+            Err(code) => return Err(code),
+        }
+        match gamepkg::local_record_release(self.id) {
+            Ok(()) | Err(-4) => Ok(()),
+            Err(code) => Err(code),
+        }
+    }
+}
+pub fn kernel_advance_services(ram: &memory::Memory, delta: u64) -> Result<u64, i32> {
+    let id = ram.services_handle()?;
+    if id == 0 {
+        return Err(-5);
+    }
+    pool_advance_services(ram, id, delta)
+}
+fn pool_advance_services(ram: &memory::Memory, id: u64, delta: u64) -> Result<u64, i32> {
+    for _ in 0..64usize {
+        let (observed, version, mut record) = pool_services_snapshot(ram)?;
+        if observed != id {
+            return Err(-4);
+        }
+        let skew = pool_long(&record, 24)?.checked_add(delta).ok_or(-1)?;
+        record[24..32].copy_from_slice(&u64::to_le_bytes(skew));
+        match gamepkg::local_record_compare_exchange(id, version, &record) {
+            Ok(_) => return Ok(skew),
+            Err(-2) => memory::Memory::call_retry_pause()?,
+            Err(code) => return Err(code),
+        }
+    }
+    Err(-2)
+}
+fn pool_nv_zero(ram: &mut memory::Memory, output: u32, length: u32) -> Result<(), i32> {
+    if length == 0 {
+        return Ok(());
+    }
+    if length > 67108864 || u64::from(output) + u64::from(length) > 4294967296 {
+        return Err(-1);
+    }
+    let mut zeros = std::vec::Vec::new();
+    zeros.resize(4096, 0u8);
+    let mut offset = 0u32;
+    while offset < length {
+        let count = (length - offset).min(4096);
+        ram.write_bytes(output + offset, &zeros[..count as usize])?;
+        offset += count;
+    }
+    Ok(())
+}
+fn pool_nv_setting(ram: &mut memory::Memory, args: &[u8]) -> Result<u32, i32> {
+    let values = kernel_service_values(ram)?;
+    let index = pool_word(args, 0)?;
+    let kind = pool_word(args, 4)?;
+    let output = pool_word(args, 8)?;
+    let length = pool_word(args, 12)?;
+    let result = pool_word(args, 16)?;
+    if output == 0 {
+        return Ok(0xc000000d);
+    }
+    let _ = gamepkg::diagnostic(0, 0x544b1300, &[u64::from(index), u64::from(length)]);
+    let nv_scalar = match index {
+        0 => Some(0xfffffed4u32),
+        7 | 18 => Some(1),
+        8 => Some(values[0] as u32),
+        9 => Some(values[1] as u32),
+        10 | 12 | 17 => Some(0),
+        _ => None,
+    };
+    if let Some(value) = nv_scalar {
+        if length >= 4 {
+            ram.write_u32(output, value)?;
+            if kind != 0 {
+                ram.write_u32(kind, 4)?;
+            }
+            if result != 0 {
+                ram.write_u32(result, 4)?;
+            }
+        }
+    } else {
+        let _ = gamepkg::diagnostic(2, 0x544b1301, &[u64::from(index)]);
+        pool_nv_zero(ram, output, length)?;
+        if kind != 0 {
+            ram.write_u32(kind, 4)?;
+        }
+        if result != 0 {
+            ram.write_u32(result, length)?;
+        }
+    }
+    Ok(0)
 }

@@ -25,15 +25,19 @@ mod call_state {
             value.seen[index] = index as u32;
             value.hits[index] = u64::MAX - index as u64;
         }
+        value.call_set_services(0, 0x123456789abcdef0).unwrap();
+        assert_eq!(value.call_services(), 0x123456789abcdef0);
         let bytes = value.call_encode();
-        assert_eq!(bytes.len(), 280);
+        assert_eq!(bytes.len(), 288);
         assert_eq!(
             &bytes[..8],
             &[0x44, 0x33, 0x22, 0x11, 0x88, 0x77, 0x66, 0x55]
         );
         assert_eq!(&bytes[72..84], &[255; 12]);
+        assert_eq!(&bytes[280..288], &0x123456789abcdef0u64.to_le_bytes());
+        assert!(CallState::call_decode(&bytes[..280]).is_err());
         assert_eq!(CallState::call_decode(&bytes).unwrap().call_encode(), bytes);
-        assert!(CallState::call_decode(&bytes[..279]).is_err());
+        assert!(CallState::call_decode(&bytes[..287]).is_err());
         assert!(CallState::call_decode(&[bytes.clone(), vec![0]].concat()).is_err());
         let mut malformed = bytes.clone();
         malformed[84..88].copy_from_slice(&17u32.to_le_bytes());
@@ -47,6 +51,22 @@ mod call_state {
         malformed = CallState::call_default().call_encode();
         malformed[152] = 1;
         assert!(CallState::call_decode(&malformed).is_err());
+    }
+    #[test]
+    fn shared_service_id_compare_and_set_preserves_the_original_trace_prefix() {
+        let mut value = CallState::call_default();
+        value.call_set_services(0, 0x123456789abcdef0).unwrap();
+        for target in 0..64u32 {
+            value.call_record(target);
+        }
+        value.call_set_bounds(10, 100).unwrap();
+        let before = value.call_encode();
+        assert_eq!(value.call_services(), 0x123456789abcdef0);
+        assert_eq!(value.call_set_services(0, 99), Err(-4));
+        assert_eq!(value.call_encode(), before);
+        value.call_set_services(0x123456789abcdef0, 0).unwrap();
+        assert_eq!(&value.call_encode()[..280], &before[..280]);
+        assert_eq!(value.call_services(), 0);
     }
     #[test]
     fn ring_bounds_zero_high_kernel_classification_and_wrapping_counters() {

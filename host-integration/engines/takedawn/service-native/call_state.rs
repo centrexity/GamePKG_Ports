@@ -10,6 +10,7 @@ pub struct CallState {
     seen: [u32; 16],
     hits: [u64; 16],
     used: u32,
+    services: u64,
 }
 impl CallState {
     pub fn call_default() -> Self {
@@ -22,6 +23,7 @@ impl CallState {
             seen: [0; 16],
             hits: [0; 16],
             used: 0,
+            services: 0,
         }
     }
     pub fn call_new(low: u32, high: u32) -> Result<Self, i32> {
@@ -115,10 +117,10 @@ fn call_wide(bytes: &[u8], at: usize) -> u64 {
     ])
 }
 impl CallState {
-    // Fixed 280-byte LE value record, independent of native struct layout.
+    // Fixed 288-byte LE value record, independent of native struct layout.
     pub fn call_encode(&self) -> std::vec::Vec<u8> {
         let mut bytes = std::vec::Vec::new();
-        bytes.resize(280, 0u8);
+        bytes.resize(288, 0u8);
         bytes[..4].copy_from_slice(&u32::to_le_bytes(self.low));
         bytes[4..8].copy_from_slice(&u32::to_le_bytes(self.high));
         for index in 0..16 {
@@ -132,10 +134,21 @@ impl CallState {
         bytes[72..76].copy_from_slice(&u32::to_le_bytes(self.index));
         bytes[76..84].copy_from_slice(&u64::to_le_bytes(self.total));
         bytes[84..88].copy_from_slice(&u32::to_le_bytes(self.used));
+        bytes[280..288].copy_from_slice(&u64::to_le_bytes(self.services));
         bytes
     }
+    pub fn call_services(&self) -> u64 {
+        self.services
+    }
+    pub fn call_set_services(&mut self, expected: u64, next: u64) -> Result<(), i32> {
+        if self.services != expected {
+            return Err(-4);
+        }
+        self.services = next;
+        Ok(())
+    }
     pub fn call_decode(bytes: &[u8]) -> Result<Self, i32> {
-        if bytes.len() != 280 {
+        if bytes.len() != 288 {
             return Err(-1);
         }
         let mut value = Self::call_new(call_word(bytes, 0), call_word(bytes, 4))?;
@@ -158,6 +171,7 @@ impl CallState {
                 }
             }
         }
+        value.services = call_wide(bytes, 280);
         value.index = call_word(bytes, 72);
         value.total = call_wide(bytes, 76);
         Ok(value)

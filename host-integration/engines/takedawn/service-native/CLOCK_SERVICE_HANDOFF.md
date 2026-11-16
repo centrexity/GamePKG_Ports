@@ -102,3 +102,13 @@ Existing image/import/crypto checks remain separate component evidence. These
 are silent service tests, not title entry, graphics, physical controls, audible
 output, real Windows AppContainer or measured gameplay/frame pacing. Python/C
 remain maintainer-only; ROMs remain read-only/in place and outside publication.
+
+
+The subsequent shared-services/NV implementation is documented in
+`../service-kernel-settings/README.md`: root codec 288 bytes with a trailing
+service ID, the same four-ID context, configured video/audio and shared skew,
+and original export 24. The main gap is now 114. Timing 125..128 remains
+unavailable: it additionally needs a performance-only host read that does not
+anchor absolute time before the original first SystemTime query. The existing
+combined op 65 contract is unchanged; do not use its calendar side effect as an
+unreviewed timing approximation.

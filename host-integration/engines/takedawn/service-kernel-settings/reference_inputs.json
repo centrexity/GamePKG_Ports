@@ -1,0 +1,162 @@
+{
+  "schema": 1,
+  "production_ready": false,
+  "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+  "sources": {
+    "toolkit/src/kernel/kernel_bridge.c": {
+      "sha256": "bf62f8787a2e78a0abdb28e10ad8f79c5267dc655491353af231067747ce446e",
+      "functions": {
+        "bridge_ExQueryNonVolatileSetting": {
+          "start": 72027,
+          "end": 72612,
+          "sha256": "770de2ee37b86c4828ef89dd21117fb815cb47bccb6b8d9dfd8774d15adf7280"
+        },
+        "stdcall_args_for_ordinal": {
+          "start": 370039,
+          "end": 392581,
+          "sha256": "9296186dab3e4cf69665559022afb261930e0efa09eea4b88f72ea723da76542"
+        },
+        "bridge_for_ordinal": {
+          "start": 392583,
+          "end": 417340,
+          "sha256": "105df98d229ad685ab70118227e48691621ea24d97bd3f9ccdae179ad4a3c85b"
+        }
+      }
+    },
+    "toolkit/src/kernel/kernel_xbox.c": {
+      "sha256": "0c7ce765f6b080f169c214b1a01ec3b131353a6a2a3f4ebd3e3a663f10d8ff21",
+      "functions": {
+        "xbox_ExQueryNonVolatileSetting": {
+          "start": 4891,
+          "end": 8377,
+          "sha256": "1289892e90670f145da88ae7547f385659f3920a57b518464c6235e0b90f5894"
+        }
+      }
+    },
+    "toolkit/src/kernel/kernel_hal.c": {
+      "sha256": "4e65affa22218adfd942c8f0460292358b055bacad5ede8faa3480eec268717e",
+      "functions": {
+        "xbox_SetVideoSettings": {
+          "start": 52698,
+          "end": 52864,
+          "sha256": "0ec9d7d2fb28aa771d6b3f012aa8c96a8a92eae2691af01d452a982c8e4f913f"
+        },
+        "xbox_GetVideoSettings": {
+          "start": 52866,
+          "end": 52926,
+          "sha256": "de51f45cf9bb71b67b3f9a3a676fb886294036ce990095566eb842e0ed977dc7"
+        }
+      }
+    },
+    "toolkit/src/apu/apu_core.c": {
+      "sha256": "e81ddc6c76e63aa9bc64452e083ae61946f4358693c436fbd9aae552b658f42b",
+      "functions": {
+        "mcpx_apu_xc_audio": {
+          "start": 29906,
+          "end": 29998,
+          "sha256": "709c537bd5b5eef58416b019ad5f7060168b250ddef4ac22b0f21fec0d9886c5"
+        }
+      }
+    },
+    "toolkit/src/apu/apu_speakers.c": {
+      "sha256": "c2b847696f52a09f51f71c3c39e05a3da345e489a3cdf14bec9b482212bc4177",
+      "functions": {
+        "apu_spk_xc_audio": {
+          "start": 3636,
+          "end": 3820,
+          "sha256": "7952408021a5a324e0a00f8bc30325db0ae0853639a04e5998ef2f8f4d1d92d0"
+        }
+      }
+    }
+  },
+  "headers": {
+    "toolkit/src/kernel/kernel.h": {
+      "sha256": "efae4f1b5aab8a2a420d00b8fb5fd75a1fb9a717704a709c34baddcc254bd17e",
+      "definitions": {
+        "STATUS_SUCCESS": {
+          "start": 2242,
+          "end": 2305,
+          "sha256": "8a2f27deb6fa1f7445538232f8ffcdae2a033af6eb69d7db3854866bfd9e3211"
+        },
+        "STATUS_INVALID_PARAMETER": {
+          "start": 3440,
+          "end": 3503,
+          "sha256": "492e60fbcd69514f3fe8e5dec5390daf75539c8cebffebae2eed2ef0eb1cfb5a"
+        },
+        "XC_LANGUAGE": {
+          "start": 53202,
+          "end": 53240,
+          "sha256": "097fa2580dfcc1951eb694cd21388fad166f1fc3e3e12f70d1593aca5510684e"
+        },
+        "XC_VIDEO": {
+          "start": 53241,
+          "end": 53279,
+          "sha256": "b120ac5ad837e90af9cda2a937f6b460293086032ace9bfbffc87bcc0f5d09d1"
+        },
+        "XC_AUDIO": {
+          "start": 53280,
+          "end": 53318,
+          "sha256": "66f5015e52369e5c5e7fe2fff6d0ba83dd9b188f3da4c65e9cd4702434f88744"
+        },
+        "XC_P_CONTROL_GAMES": {
+          "start": 53319,
+          "end": 53357,
+          "sha256": "ff1843442f87908939599ddfb4e1a566d2b2679470df5714e2820c738575492f"
+        },
+        "XC_P_CONTROL_MOVIES": {
+          "start": 53397,
+          "end": 53435,
+          "sha256": "b6ce884886321f32e8a1d3529ebb3bbd79f1ea6e07518ddbc0d56b87c8bb2bd3"
+        },
+        "XC_DVD_REGION": {
+          "start": 53631,
+          "end": 53669,
+          "sha256": "efd45c5d232bf548a16847517cb490cb8089e4237e6b6e29ca66ddd1006869da"
+        },
+        "XC_MISC": {
+          "start": 53592,
+          "end": 53630,
+          "sha256": "c0e51722d5109f650e6972343be9d89d4e48f37534f7b66ad4118dff89944ce7"
+        },
+        "XC_TIMEZONE_BIAS": {
+          "start": 52929,
+          "end": 52967,
+          "sha256": "3f31b4a429f4738f4ed74d9626549cfe93ac9d7ea2e76479ebfe8bbbd1d8d8b1"
+        },
+        "XC_VIDEO_AV_USER_MASK": {
+          "start": 55340,
+          "end": 55386,
+          "sha256": "0c213e70d972e9376b059987b9f08f2f8433b8f83f6ecaf7e7652eab79133e23"
+        }
+      }
+    },
+    "toolkit/src/apu/apu_speakers.h": {
+      "sha256": "82e4f08ea13aa1774d732f20e9459b02e404439381bc50d96bcd9ae7d6f0fd0e",
+      "definitions": {
+        "APU_SPK_CHANNELS": {
+          "start": 1303,
+          "end": 1414,
+          "sha256": "5888eef9b8117038cc63c41f601c94235fba40d87c6468113125a131201e6334"
+        },
+        "APU_XC_AUDIO_SURROUND": {
+          "start": 2286,
+          "end": 2330,
+          "sha256": "b61af5e5e181dfbed8a4baa6aa27974ce86ace6e08558915d150e73a4607fb84"
+        },
+        "APU_XC_AUDIO_ENABLE_AC3": {
+          "start": 2331,
+          "end": 2375,
+          "sha256": "d1053a235493e37c3bebe4a426386f1a263158fa74e696ac05f192d10b174e8c"
+        },
+        "APU_XC_AUDIO_STEREO": {
+          "start": 2241,
+          "end": 2285,
+          "sha256": "3f71d7607d90690ab11b54d41d7f8a3068dd1515be170c08df55c3da6ca09474"
+        }
+      }
+    }
+  },
+  "ordinals": {
+    "24": "bridge_ExQueryNonVolatileSetting"
+  }
+}

@@ -53,7 +53,7 @@ fn image_run(handle: u64, expected: [u8; 32], ram: &mut memory::Memory) -> Resul
         return Err(-3);
     }
     plan.image_load(ram)?;
-    let (_, record) = gamepkg::local_record_snapshot(ram.call_handle(), 280)?;
+    let (_, record) = gamepkg::local_record_snapshot(ram.call_handle(), 288)?;
     let low = u32::from_le_bytes([record[0], record[1], record[2], record[3]]);
     let high = u32::from_le_bytes([record[4], record[5], record[6], record[7]]);
     if low != bounds[2] || high != bounds[3] {

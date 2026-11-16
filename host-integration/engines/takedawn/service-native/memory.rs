@@ -153,7 +153,7 @@ impl Memory {
         self.calls
     }
     pub fn with_call_handle(record: u64) -> Result<Self, i32> {
-        let (_, bytes) = gamepkg::local_record_snapshot(record, 280)?;
+        let (_, bytes) = gamepkg::local_record_snapshot(record, 288)?;
         crate::call_state::CallState::call_decode(&bytes)?;
         Ok(Self {
             spans: std::vec::Vec::new(),
@@ -167,7 +167,7 @@ impl Memory {
     // A stale snapshot has not committed a call or touched game state. Yield
     // through an unsignaled host-owned event before retrying, so one hot
     // caller cannot exhaust another caller's bounded CAS attempts.
-    fn call_retry_pause() -> Result<(), i32> {
+    pub fn call_retry_pause() -> Result<(), i32> {
         let mut reply = [0u8; 8];
         if gamepkg::local_call(20, &[0u8; 8], &mut reply)? != 8 {
             return Err(-3);
@@ -185,9 +185,32 @@ impl Memory {
             _ => Err(-3),
         }
     }
+    // The root's trailing service ID is shared through the existing four-ID
+    // context. It is metadata, never a pointer or copied per-view clock state.
+    pub fn services_handle(&self) -> Result<u64, i32> {
+        let (_, bytes) = gamepkg::local_record_snapshot(self.calls, 288)?;
+        Ok(crate::call_state::CallState::call_decode(&bytes)?.call_services())
+    }
+    pub fn services_link(&self, expected: u64, next: u64) -> Result<(), i32> {
+        if expected == next {
+            return Err(-1);
+        }
+        for _ in 0..64usize {
+            let (version, bytes) = gamepkg::local_record_snapshot(self.calls, 288)?;
+            let mut state = crate::call_state::CallState::call_decode(&bytes)?;
+            state.call_set_services(expected, next)?;
+            match gamepkg::local_record_compare_exchange(self.calls, version, &state.call_encode())
+            {
+                Ok(_) => return Ok(()),
+                Err(-2) => Self::call_retry_pause()?,
+                Err(code) => return Err(code),
+            }
+        }
+        Err(-2)
+    }
     pub fn call_bounds(&self, low: u32, high: u32) -> Result<(), i32> {
         for _ in 0..64 {
-            let (version, bytes) = gamepkg::local_record_snapshot(self.calls, 280)?;
+            let (version, bytes) = gamepkg::local_record_snapshot(self.calls, 288)?;
             let mut state = crate::call_state::CallState::call_decode(&bytes)?;
             state.call_set_bounds(low, high)?;
             match gamepkg::local_record_compare_exchange(self.calls, version, &state.call_encode())
@@ -201,7 +224,7 @@ impl Memory {
     }
     pub fn call_begin(&self, target: u32) -> Result<bool, i32> {
         for _ in 0..64 {
-            let (version, bytes) = gamepkg::local_record_snapshot(self.calls, 280)?;
+            let (version, bytes) = gamepkg::local_record_snapshot(self.calls, 288)?;
             let mut state = crate::call_state::CallState::call_decode(&bytes)?;
             let call_is_code = state.call_record(target);
             let values = if call_is_code {
@@ -224,13 +247,13 @@ impl Memory {
         Err(-2)
     }
     pub fn call_absent(&self, target: u32) -> Result<(), i32> {
-        let (_, bytes) = gamepkg::local_record_snapshot(self.calls, 280)?;
+        let (_, bytes) = gamepkg::local_record_snapshot(self.calls, 288)?;
         let state = crate::call_state::CallState::call_decode(&bytes)?;
         gamepkg::diagnostic(2, 0x544b0002, &state.call_missing_values(target))?;
         Ok(())
     }
     pub fn call_snapshot(&self) -> Result<([u32; 16], u32, u64), i32> {
-        let (_, bytes) = gamepkg::local_record_snapshot(self.calls, 280)?;
+        let (_, bytes) = gamepkg::local_record_snapshot(self.calls, 288)?;
         let state = crate::call_state::CallState::call_decode(&bytes)?;
         let (index, total) = state.call_counters();
         Ok((state.call_trace(), index, total))

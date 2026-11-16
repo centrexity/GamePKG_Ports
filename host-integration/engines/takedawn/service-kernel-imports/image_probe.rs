@@ -55,6 +55,15 @@ pub fn image_import_run() -> Result<(), i32> {
         &[],
         None,
     )?;
+    let services = if mode[0] == 4 || mode[0] == 8 {
+        Some(kernel_pool::kernel_services_initialize(
+            &ram,
+            0x10000,
+            if mode[0] == 8 { 6 } else { 2 },
+        )?)
+    } else {
+        None
+    };
     let table = image.image_thunk();
     let mut before = std::vec::Vec::new();
     before.resize(64 + 379 * 4, 0u8);
@@ -87,7 +96,7 @@ pub fn image_import_run() -> Result<(), i32> {
         }
     }
     let planned = image_imports::imports_image(&ram, &image, &data, &[]);
-    if mode[0] >= 2 && mode[0] != 6 && mode[0] != 7 {
+    if mode[0] >= 2 && mode[0] != 6 && mode[0] != 7 && mode[0] != 8 {
         let expected = if mode[0] == 3 || mode[0] == 5 { -1 } else { -5 };
         match planned {
             Err(code) => {
@@ -106,7 +115,9 @@ pub fn image_import_run() -> Result<(), i32> {
         gamepkg::diagnostic(1, 0x544b0f00, &[u64::from(mode[0]), expected as i64 as u64])?;
     } else {
         let prepared = planned?;
-        let count = if mode[0] == 7 {
+        let count = if mode[0] == 8 {
+            10
+        } else if mode[0] == 7 {
             9
         } else if mode[0] == 6 {
             6
@@ -131,7 +142,7 @@ pub fn image_import_run() -> Result<(), i32> {
             return Err(-3);
         }
         let allocation = state.eax;
-        if mode[0] == 6 || mode[0] == 7 {
+        if mode[0] == 6 || mode[0] == 7 || mode[0] == 8 {
             ram.write_bytes(0x13000, &[97u8, 98, 99])?;
             for (slot, args) in [
                 (3u32, [0x14003u32, 0, 0]),
@@ -161,7 +172,7 @@ pub fn image_import_run() -> Result<(), i32> {
                 return Err(-3);
             }
         }
-        if mode[0] == 7 {
+        if mode[0] == 7 || mode[0] == 8 {
             ram.write_bytes(0x16000, &[75u8, 101, 121])?;
             ram.write_bytes(0x17000, &[80u8, 108, 97, 105, 110, 116, 101, 120, 116])?;
             ram.fill(0x18000, 0x0b, 20)?;
@@ -201,6 +212,25 @@ pub fn image_import_run() -> Result<(), i32> {
                 return Err(-3);
             }
         }
+        if mode[0] == 8 {
+            let query_sp = sp - 64;
+            for (index, expected) in [(8u32, 0x10000u32), (9, 0x10002)] {
+                state.esp = query_sp;
+                ram.write_u32(query_sp, 0x12345678)?;
+                for (at, arg) in [index, 0x1d000, 0x1e000, 4, 0x1f000].iter().enumerate() {
+                    ram.write_u32(query_sp + 4 + at as u32 * 4, *arg)?;
+                }
+                calls_runtime::invoke_call(&mut state, &mut ram, 0xfe000024, query_sp)?;
+                if state.eax != 0
+                    || state.esp != query_sp + 24
+                    || ram.read_u32(0x1e000)? != expected
+                    || ram.read_u32(0x1d000)? != 4
+                    || ram.read_u32(0x1f000)? != 4
+                {
+                    return Err(-3);
+                }
+            }
+        }
         gamepkg::diagnostic(
             1,
             0x544b0f00,
@@ -212,6 +242,9 @@ pub fn image_import_run() -> Result<(), i32> {
                 u64::from(allocation),
             ],
         )?;
+    }
+    if let Some(owner) = services {
+        owner.service_close(&ram)?;
     }
     probe::imports_cleanup(&mut ram, job)?;
     Ok(())

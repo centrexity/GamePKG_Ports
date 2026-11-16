@@ -37,7 +37,7 @@ fn boot_range(start: u32, bytes: u32, low: u32, high: u32) -> Result<(), i32> {
 impl Bootstrap {
     pub fn boot_plan(image: &xbe::Image, ram: &memory::Memory) -> Result<Self, i32> {
         let _ = ram.call_snapshot()?;
-        let (_, record) = gamepkg::local_record_snapshot(ram.call_handle(), 280)?;
+        let (_, record) = gamepkg::local_record_snapshot(ram.call_handle(), 288)?;
         let bounds = image.image_bounds();
         if boot_word(&record, 0)? != bounds[2] || boot_word(&record, 4)? != bounds[3] {
             return Err(-1);

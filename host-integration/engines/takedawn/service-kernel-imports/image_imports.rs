@@ -20,7 +20,7 @@ pub fn imports_image(
     remap: &[u16],
 ) -> Result<imports::Imports, i32> {
     ram.call_snapshot()?;
-    let (_, record) = gamepkg::local_record_snapshot(ram.call_handle(), 280)?;
+    let (_, record) = gamepkg::local_record_snapshot(ram.call_handle(), 288)?;
     let bounds = image.image_bounds();
     if image_import_word(&record, 0)? != bounds[2] || image_import_word(&record, 4)? != bounds[3] {
         return Err(-1);

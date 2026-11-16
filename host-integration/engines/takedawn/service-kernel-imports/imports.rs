@@ -14,6 +14,7 @@ pub struct Imports {
     record: std::vec::Vec<u8>,
     pages: std::vec::Vec<[u64; 4]>,
     physical: bool,
+    services: bool,
 }
 fn imports_word(bytes: &[u8], at: usize) -> Result<u32, i32> {
     let part = bytes.get(at..at + 4).ok_or(-1)?;
@@ -92,6 +93,7 @@ impl Imports {
         patched.extend(&original);
         let mut ordinals = [0u32; 378];
         let mut physical = false;
+        let mut services = false;
         for slot in 0..count as usize {
             let current = imports_word(&original, 64 + slot * 4)?;
             if current & 0x80000000 == 0 {
@@ -111,6 +113,7 @@ impl Imports {
             }
             kernel_pool::kernel_supported(ordinal)?;
             physical |= kernel_pool::kernel_physical(ordinal);
+            services |= kernel_pool::kernel_requires_services(ordinal);
             imports_put(&mut patched, 64 + slot * 4, 0xfe000000 + slot as u32 * 4);
         }
         let mut slots = count;
@@ -128,6 +131,7 @@ impl Imports {
             let ordinal = current & 0x7fffffff;
             kernel_pool::kernel_supported(ordinal)?;
             physical |= kernel_pool::kernel_physical(ordinal);
+            services |= kernel_pool::kernel_requires_services(ordinal);
             ordinals[slot as usize] = ordinal;
             slots = slots.max(slot + 1);
             imports_put(&mut patched, at, 0xfe000000 + slot * 4);
@@ -164,6 +168,9 @@ impl Imports {
         if pages.len() > 2 {
             return Err(-1);
         }
+        if services {
+            kernel_pool::kernel_service_values(ram)?;
+        }
         Ok(Self {
             root: ram.call_handle(),
             table,
@@ -175,6 +182,7 @@ impl Imports {
             record,
             pages,
             physical,
+            services,
         })
     }
     pub fn imports_layout(&self) -> [u32; 3] {
@@ -238,6 +246,9 @@ impl Imports {
     }
     pub fn imports_publish(&self, ram: &mut memory::Memory) -> Result<(), i32> {
         self.imports_validate(ram)?;
+        if self.services {
+            kernel_pool::kernel_service_values(ram)?;
+        }
         if self.physical {
             let mut client = ram.heap_take()?;
             let ready = client.heap_contiguous_counter(0);

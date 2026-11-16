@@ -1,0 +1,59 @@
+/* Maintainer-only pinned C behavior oracle. Never an admitted game object. */
+#include <stdint.h>
+#include <stddef.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#if !defined(_WIN32)
+#define __stdcall
+#endif
+#define ULONG uint32_t
+#define LONG int32_t
+#define NTSTATUS int32_t
+#define PULONG uint32_t*
+#define PLONG int32_t*
+#define PVOID void*
+/* PINNED_STATUS_SUCCESS */
+/* PINNED_STATUS_INVALID_PARAMETER */
+/* PINNED_XC_LANGUAGE */
+/* PINNED_XC_VIDEO */
+/* PINNED_XC_AUDIO */
+/* PINNED_XC_P_CONTROL_GAMES */
+/* PINNED_XC_P_CONTROL_MOVIES */
+/* PINNED_XC_DVD_REGION */
+/* PINNED_XC_MISC */
+/* PINNED_XC_TIMEZONE_BIAS */
+/* PINNED_XC_VIDEO_AV_USER_MASK */
+/* PINNED_APU_SPK_CHANNELS */
+/* PINNED_APU_XC_AUDIO_SURROUND */
+/* PINNED_APU_XC_AUDIO_ENABLE_AC3 */
+/* PINNED_APU_XC_AUDIO_STEREO */
+#define XBOX_LOG_DEBUG 0
+#define XBOX_LOG_WARN 2
+#define XBOX_LOG_XBOX 0
+static uint32_t logs[6];
+static void xbox_log(int level,int tag,const char *format,...) {
+ (void)tag;(void)format;va_list args;va_start(args,format);uint32_t index=va_arg(args,uint32_t);
+ if(level==XBOX_LOG_DEBUG){logs[0]++;logs[1]=(uint32_t)level;logs[2]=index;logs[3]=va_arg(args,uint32_t);}
+ else{logs[0]++;logs[4]=(uint32_t)level;logs[5]=index;}
+ va_end(args);
+}
+static uint32_t g_xc_video,xbox_HalBootSMCVideoMode;
+static int title_channels;
+static int mcpx_apu_title_channels(void){return title_channels;}
+/* PINNED_XBOX_SETVIDEOSETTINGS */
+/* PINNED_XBOX_GETVIDEOSETTINGS */
+/* PINNED_APU_SPK_XC_AUDIO */
+/* PINNED_MCPX_APU_XC_AUDIO */
+/* PINNED_XBOX_EXQUERYNONVOLATILESETTING */
+static uint8_t *arena;
+static uintptr_t g_xbox_mem_offset;
+static uint32_t g_eax,g_esp;
+#define BRIDGE_MEM32(va) (*(uint32_t*)(arena+(uint32_t)(va)))
+static uint32_t stack_arg(uint32_t n){uint32_t v;memcpy(&v,arena+g_esp+4+n*4,4);return v;}
+#define STACK_ARG(n) stack_arg(n)
+/* PINNED_BRIDGE_EXQUERYNONVOLATILESETTING */
+/* PINNED_STDCALL_ARGS_FOR_ORDINAL */
+void settings_reference_reset(uint8_t *ram,uint32_t video,uint32_t speakers){arena=ram;g_xbox_mem_offset=(uintptr_t)ram;title_channels=(int)speakers;xbox_SetVideoSettings(video,0);memset(logs,0,sizeof(logs));}
+void settings_reference_call(uint32_t *eax,uint32_t *esp){g_eax=*eax;g_esp=*esp;bridge_ExQueryNonVolatileSetting();*eax=g_eax;*esp=g_esp+4+stdcall_args_for_ordinal(24);}
+void settings_reference_logs(uint32_t *out){memcpy(out,logs,sizeof(logs));}

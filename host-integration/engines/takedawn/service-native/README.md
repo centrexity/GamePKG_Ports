@@ -1050,3 +1050,11 @@ see `CLOCK_SERVICE_HANDOFF.md` for app `da4864d`, SDK `969defa5bb1d6421`, exact 
 counter/calendar units, worker-only routing and the remaining shared root/skew/
 settings integration. This service addition does not register new kernel calls;
 the private main-function gap remains 115 and native gameplay stays gated.
+
+
+The shared root services/NV extension adds original export 24 with configured
+video/audio flags and one shared offset. See `../service-kernel-settings/README.md`
+for the exact 288-byte private root codec, 64-byte record, unchanged four-ID
+context, readiness/lifetime/error contracts and C/confinement controls. CPU
+records stay 244 bytes and all quotas stay intact. The private main gap is now
+114; time exports and full gameplay remain gated.

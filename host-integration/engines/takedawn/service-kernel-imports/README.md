@@ -179,3 +179,11 @@ router and requires the current clearing SDK; see
 `../service-kernel-crypto/README.md` for exact argument/alias/error contracts and
 app pin `2c646c0ec78cb39b1251ccd7ba8662da5fc62ffa`. No root/page/record quota
 or source/object policy was relaxed.
+
+
+The shared root services/NV extension adds original export 24 with configured
+video/audio flags and one shared offset. See `../service-kernel-settings/README.md`
+for the exact 288-byte private root codec, 64-byte record, unchanged four-ID
+context, readiness/lifetime/error contracts and C/confinement controls. CPU
+records stay 244 bytes and all quotas stay intact. The private main gap is now
+114; time exports and full gameplay remain gated.

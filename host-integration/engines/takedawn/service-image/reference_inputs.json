@@ -12,7 +12,7 @@
   "native_sdk": "f9b87d0fde634662",
   "reused_sources": {
     "../service-disc/disc.rs": "ec4218694786afff82b5e22ebc9c8dad4b1e2a05a6f9c29f62eb4782b30eb21e",
-    "../service-native/memory.rs": "54f22f783e32db30cafbd4f34c9c0266cedf85b757ae04f81ec0025a60f3839a",
-    "../service-native/call_state.rs": "4f6f93a05261c307a0358680adc214e8447784defb24f2ddcfca9ca11d0df890"
+    "../service-native/memory.rs": "ea59287ecbc1cb09fde9c950c3dd288cff97254b9ff29fe098d38ed298b352b1",
+    "../service-native/call_state.rs": "7a925e401949870413751e32dc7bc20d903f0ca4c4279165844d05d41d4f1df3"
   }
 }

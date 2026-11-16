@@ -248,3 +248,11 @@ RC4 key/streaming and HMAC-SHA1 (338/339/340) also use checked RAM and the finit
 router. See `../service-kernel-crypto/README.md`; the dispatcher now requires the
 current app clearing SDK. Its maximum argument copy is 28 bytes for HMAC,
 without changing any record, runtime, signed or child budget.
+
+
+The shared root services/NV extension adds original export 24 with configured
+video/audio flags and one shared offset. See `../service-kernel-settings/README.md`
+for the exact 288-byte private root codec, 64-byte record, unchanged four-ID
+context, readiness/lifetime/error contracts and C/confinement controls. CPU
+records stay 244 bytes and all quotas stay intact. The private main gap is now
+114; time exports and full gameplay remain gated.
