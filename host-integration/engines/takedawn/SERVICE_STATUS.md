@@ -4,7 +4,30 @@ This is tested integration work, **not a playable Burnout release**. The legacy
 profile remains blocked. No source pin, signature, cached executable or engine
 exception may bypass that block. The source kit and catalog URLs are unchanged.
 
-## Current checkpoint: checked IRQL controller
+## Current checkpoint: guest worker-stack pool
+
+`service-worker-stacks` adds checked lowest-free allocation of up to sixteen
+256 KiB guest slices from the reviewed bootstrap layout, including shrunken
+stacks. Root/KSV3-bound WKS1 state owns actual-task leases with stale-token
+protection, bounded CAS, explicit exhaustion and cancellation/revocation cleanup.
+It does not allocate native memory or bypass checked guest RAM access. Exact APIs,
+576-byte representation, cleanup errors and one-pool integration rules are in its
+README. Existing SDK, root/KSV/CPU layouts, helper hashes and quotas are unchanged.
+
+16,384 original C allocation/free witnesses per target pass. Checked controls
+cover stale/foreign/wrong-owner tokens, malformed/full/closing state, generation
+overflow, real worker cancellation/revocation, unchanged record quotas and four
+concurrent workers retaining sixteen unique slices until release/join. A reversed
+allocation-order copy is required to fail. Full source scans and all eight
+optimized object audits pass on all four targets; confined Linux32/64 children
+repeat the vectors and controls. Windows component execution is Wine only.
+
+Production IRQ delivery, real handlers, the long-lived timer/DPC worker, original
+diagnostics/options and complete title paths remain unintegrated. Pending bits
+must survive stack exhaustion. Full candidate/import counts and admission remain
+unchanged; do not use these infrastructure tests to enable the legacy engine.
+
+## Earlier checkpoint: checked IRQL controller
 
 `service-kernel-irql` adds a root/KSV3-bound IQL1 controller with bounded real-task
 registration, original IRQL/PCR publication order, separate raised/CLI gate

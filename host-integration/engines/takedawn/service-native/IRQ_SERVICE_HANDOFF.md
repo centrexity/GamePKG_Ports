@@ -103,6 +103,19 @@ incomplete acquisition, not permission to proceed. Cancellation cannot abandon
 held recursive depths; coordinate owner cleanup and actual joins. KSV3/root
 revocation must deny new work without fabricating callbacks or task completion.
 
+## Checked worker-stack pool available
+
+`../service-worker-stacks/README.md` now defines a root/KSV3-bound pool for the
+original sixteen 256 KiB slices, fitting shrunken bootstrap regions. Use one pool
+per title and actual-task/generation-bound leases; allocation exhaustion is
+Ok(None), distinct from Busy/Denied. Prepare the native guest ESP from
+`stack_guest_top`, preserve existing Memory checks, and release the lease on the
+same actor after full IRQ restoration. The timer retains its slice for its whole
+worker lifetime and must release on every exit/error. Concurrent ownership,
+staleness, quota and cancellation checks pass, but the actual callback/timer
+wiring has not consumed this pool yet. No root/KSV format or context expansion
+has occurred. Never drop a pending line because no slice is available.
+
 ## Required interrupt and callback integration
 
 The original three lines (vblank, APU, OHCI) coalesce pending bits. A poster tries
