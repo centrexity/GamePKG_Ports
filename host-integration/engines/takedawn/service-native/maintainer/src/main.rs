@@ -1201,6 +1201,20 @@ impl VisitMut for Lower {
                 self.reject("indirect call");
                 return;
             };
+            if name == "xbox_ReadTimeStampCounter" {
+                if !call.attrs.is_empty()
+                    || !plain_callee(call)
+                    || !call.args.is_empty()
+                    || !matches!(&*call.func, Expr::Path(p) if p.attrs.is_empty())
+                    || self.locals.contains_key(&name)
+                    || self.tls.contains_key(&name)
+                {
+                    self.reject("unproven guest TSC binding or arity");
+                } else {
+                    *expr = parse_quote!(crate::kernel_pool::kernel_tsc_read(guest_ram)?);
+                }
+                return;
+            }
             if [
                 "recomp_fp_round24",
                 "recomp_parity8",
@@ -1405,6 +1419,9 @@ fn lower(mut function: ItemFn) -> Result<(ItemFn, BTreeSet<String>), BTreeSet<St
 }
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = std::env::args().collect::<Vec<_>>();
+    if args.len() == 4 && args[1] == "--prepare-tsc-leaves" {
+        return batch::prepare_tsc_leaves(Path::new(&args[2]), Path::new(&args[3]));
+    }
     if args.len() == 4 && ["--inventory", "--prepare-closed"].contains(&args[1].as_str()) {
         return batch::run(
             Path::new(&args[2]),
@@ -1548,7 +1565,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         return Err("generated Rust formatting failed".into());
     }
-    let provenance = serde_json::json!({"schema":1,"register_record_version":4,"register_record_bytes":244,"debug_adapter_sha256":format!("{:x}",Sha256::digest(include_bytes!("../../debug.rs"))),"debug_review_sha256":format!("{:x}",Sha256::digest(include_bytes!("../reviewed_debug_service.json"))),"registers_source_sha256":format!("{:x}",Sha256::digest(include_bytes!("../../registers.rs"))),"float_arithmetic_nan_policy":"quiet-first-NaN-preserve-sign-and-payload","generator_source_sha256":format!("{:x}",Sha256::digest(include_bytes!("main.rs"))),"generator_batch_sha256":format!("{:x}",Sha256::digest(include_bytes!("batch.rs"))),"generator_icall_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall.rs"))),"generator_icall_compacted_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_compacted.rs"))),"generator_icall_compacted_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_compacted_template.inc"))),"generator_icall_guarded_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_guarded_template.inc"))),"generator_icall_jump_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_jump_template.inc"))),"generator_icall_jump_compacted_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_jump_compacted_template.inc"))),"generator_icall_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_template.inc"))),"generator_inventory_sha256":format!("{:x}",Sha256::digest(include_bytes!("../reviewed_units.tsv"))),"generator_lock_sha256":format!("{:x}",Sha256::digest(include_bytes!("../Cargo.lock"))),"formatter_version":String::from_utf8(formatter.stdout)?.trim(),"game_sha256":format!("{:x}",Sha256::digest(fs::read(output.join("game.rs"))?)),"dispatch_sha256":format!("{:x}",Sha256::digest(fs::read(output.join("dispatch.rs"))?)),"input_sha256":source_hash,"source_kit_sha256":"6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4","runtime_call_functions":runtime_call_functions,"converted":accepted.keys().collect::<Vec<_>>(),"rejected":rejected,"production_ready":false});
+    let provenance = serde_json::json!({"schema":1,"register_record_version":4,"register_record_bytes":244,"debug_adapter_sha256":format!("{:x}",Sha256::digest(include_bytes!("../../debug.rs"))),"debug_review_sha256":format!("{:x}",Sha256::digest(include_bytes!("../reviewed_debug_service.json"))),"registers_source_sha256":format!("{:x}",Sha256::digest(include_bytes!("../../registers.rs"))),"kernel_services_source_sha256":format!("{:x}",Sha256::digest(include_bytes!("../../../service-kernel-pool/kernel_pool.rs"))),"float_arithmetic_nan_policy":"quiet-first-NaN-preserve-sign-and-payload","generator_source_sha256":format!("{:x}",Sha256::digest(include_bytes!("main.rs"))),"generator_batch_sha256":format!("{:x}",Sha256::digest(include_bytes!("batch.rs"))),"generator_icall_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall.rs"))),"generator_icall_compacted_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_compacted.rs"))),"generator_icall_compacted_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_compacted_template.inc"))),"generator_icall_guarded_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_guarded_template.inc"))),"generator_icall_jump_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_jump_template.inc"))),"generator_icall_jump_compacted_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_jump_compacted_template.inc"))),"generator_icall_pattern_sha256":format!("{:x}",Sha256::digest(include_bytes!("icall_template.inc"))),"generator_inventory_sha256":format!("{:x}",Sha256::digest(include_bytes!("../reviewed_units.tsv"))),"generator_lock_sha256":format!("{:x}",Sha256::digest(include_bytes!("../Cargo.lock"))),"formatter_version":String::from_utf8(formatter.stdout)?.trim(),"game_sha256":format!("{:x}",Sha256::digest(fs::read(output.join("game.rs"))?)),"dispatch_sha256":format!("{:x}",Sha256::digest(fs::read(output.join("dispatch.rs"))?)),"input_sha256":source_hash,"source_kit_sha256":"6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4","runtime_call_functions":runtime_call_functions,"converted":accepted.keys().collect::<Vec<_>>(),"rejected":rejected,"production_ready":false});
     fs::write(
         output.join("provenance.json"),
         serde_json::to_vec_pretty(&provenance)?,
@@ -1566,6 +1583,30 @@ mod tests {
     use super::*;
     fn lowered(body: &str) -> Result<(ItemFn, BTreeSet<String>), BTreeSet<String>> {
         lower(syn::parse_str(&format!("pub unsafe extern \"C\" fn sub_100(){{{body}}}")).unwrap())
+    }
+    #[test]
+    fn guest_tsc_requires_exact_direct_zero_argument_call() {
+        let body = "let value:uint64_t=xbox_ReadTimeStampCounter();";
+        let (function, deps) = lowered(body).unwrap();
+        assert!(deps.is_empty());
+        assert!(function
+            .to_token_stream()
+            .to_string()
+            .contains("crate :: kernel_pool :: kernel_tsc_read"));
+        for replacement in [
+            "xbox_ReadTimeStampCounter(0u32)",
+            "xbox_ReadTimeStampCounter::<u64>()",
+            "::xbox_ReadTimeStampCounter()",
+            "other::xbox_ReadTimeStampCounter()",
+            "(#[allow(unused)] xbox_ReadTimeStampCounter)()",
+            "(xbox_ReadTimeStampCounter)()",
+        ] {
+            assert!(
+                lowered(&body.replace("xbox_ReadTimeStampCounter()", replacement)).is_err(),
+                "{replacement}"
+            );
+        }
+        assert!(lowered(&format!("let xbox_ReadTimeStampCounter:uint32_t=0;{body}")).is_err());
     }
     fn load(address: &str, width: &str) -> String {
         format!("::core::ptr::read_volatile::<{width}>(::core::ptr::with_exposed_provenance_mut::<uint32_t>((({address}) as uintptr_t).wrapping_add(g_xbox_mem_offset as uintptr_t) as usize));")

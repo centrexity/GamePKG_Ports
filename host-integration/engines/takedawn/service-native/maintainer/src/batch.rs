@@ -362,7 +362,7 @@ pub(super) fn run(
         BTreeMap::new()
     };
     let report = serde_json::json!({
-        "schema":1,"production_ready":false,"register_record_version":4,"register_record_bytes":244,"debug_adapter_sha256":format!("{:x}",Sha256::digest(include_bytes!("../../debug.rs"))),"debug_review_sha256":format!("{:x}",Sha256::digest(include_bytes!("../reviewed_debug_service.json"))),"registers_source_sha256":format!("{:x}",Sha256::digest(include_bytes!("../../registers.rs"))),"source_kit_sha256":"6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+        "schema":1,"production_ready":false,"register_record_version":4,"register_record_bytes":244,"debug_adapter_sha256":format!("{:x}",Sha256::digest(include_bytes!("../../debug.rs"))),"debug_review_sha256":format!("{:x}",Sha256::digest(include_bytes!("../reviewed_debug_service.json"))),"registers_source_sha256":format!("{:x}",Sha256::digest(include_bytes!("../../registers.rs"))),"kernel_services_source_sha256":format!("{:x}",Sha256::digest(include_bytes!("../../../service-kernel-pool/kernel_pool.rs"))),"source_kit_sha256":"6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
         "inventory_sha256":format!("{:x}",Sha256::digest(INVENTORY.as_bytes())),
         "converter_main_sha256":format!("{:x}",Sha256::digest(include_bytes!("main.rs"))),
         "converter_batch_sha256":format!("{:x}",Sha256::digest(include_bytes!("batch.rs"))),
@@ -373,6 +373,7 @@ pub(super) fn run(
         "definitions":total,"unique_definitions":owners.len(),"locally_convertible_definitions":locally_convertible,
         "definition_scope":"sub_XXXXXXXX plus the exact unit-bound xbe_entry_point; five _gen helpers still require inclusion",
         "named_entrypoint":{"name":ENTRY,"unit":ENTRY_UNIT,"address":ENTRY_ADDRESS,"retained":accepted.contains_key(ENTRY)},
+        "tsc_read_functions":accepted.iter().filter(|(_,c)|c.code.contains("kernel_tsc_read")).map(|(n,_)|n).collect::<Vec<_>>(),
         "closed_definitions":accepted.len(),"duplicates":duplicates,"closed_graph":graph,"rejected":rejected,
         "emitted_files":emitted,
         "runtime_call_functions":accepted.iter().filter(|(_,c)|c.runtime_calls!=0).map(|(n,c)|(n,c.runtime_calls)).collect::<BTreeMap<_,_>>(),
@@ -624,4 +625,77 @@ state.allowed=false;assert_eq!(dispatch::invoke(&mut state,&mut ram,0x108),Err(-
         }
         fs::remove_dir_all(root).unwrap();
     }
+}
+
+// Exact dependency-free TSC leaf bodies for differential qualification. Original
+// unsafe bodies are emitted only as a maintainer oracle, never game source.
+pub(super) fn prepare_tsc_leaves(
+    input: &Path,
+    output: &Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if output.exists() {
+        return Err("TSC leaf output must not exist".into());
+    }
+    let selected = [
+        ("recomp_0004_013.rs", "sub_001D20AC"),
+        ("recomp_0005_013.rs", "sub_001FC960"),
+        ("recomp_0023_012.rs", "sub_00356AC0"),
+        ("recomp_0005_013.rs", "sub_001FC930"),
+        ("recomp_0005_013.rs", "sub_001FC980"),
+    ];
+    let pins = INVENTORY
+        .lines()
+        .map(|l| l.split_once('\t').unwrap())
+        .collect::<BTreeMap<_, _>>();
+    let mut original = Vec::new();
+    let mut functions = Vec::new();
+    let mut source_pins = BTreeMap::new();
+    for (unit, name) in selected {
+        let hash = pins.get(unit).ok_or("missing reviewed TSC unit")?;
+        let bytes = read_unit(input, unit, hash)?;
+        let ast = syn::parse_file(std::str::from_utf8(&bytes)?)?;
+        let mut matches = definitions(ast)
+            .filter(|f| f.sig.ident == name)
+            .collect::<Vec<_>>();
+        if matches.len() != 1 {
+            return Err("TSC leaf ownership is not unique".into());
+        }
+        let function = matches.remove(0);
+        original.push(function.clone());
+        let (lowered, deps) =
+            lower(function).map_err(|e| format!("TSC leaf requires review: {name}: {e:?}"))?;
+        if !deps.is_empty() {
+            return Err("TSC leaf acquired an unreviewed dependency".into());
+        }
+        functions.push(lowered);
+        source_pins.insert(unit, *hash);
+    }
+    fs::create_dir(output)?;
+    fs::write(output.join("game.rs"), quote!(#(#functions)*).to_string())?;
+    fs::write(output.join("oracle.rs"), quote!(#(#original)*).to_string())?;
+    for name in ["game.rs", "oracle.rs"] {
+        if !std::process::Command::new("rustfmt")
+            .arg("--edition")
+            .arg("2021")
+            .arg(output.join(name))
+            .status()?
+            .success()
+        {
+            return Err("TSC leaf formatting failed".into());
+        }
+    }
+    let report = serde_json::json!({"schema":1,"production_ready":false,"source_kit_sha256":"6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4","units":source_pins,
+        "functions":selected.iter().map(|(_,n)|n).collect::<Vec<_>>(),
+        "game_sha256":format!("{:x}",Sha256::digest(fs::read(output.join("game.rs"))?)),
+        "oracle_sha256":format!("{:x}",Sha256::digest(fs::read(output.join("oracle.rs"))?)),
+        "kernel_services_source_sha256":format!("{:x}",Sha256::digest(include_bytes!("../../../service-kernel-pool/kernel_pool.rs"))),
+        "converter_main_sha256":format!("{:x}",Sha256::digest(include_bytes!("main.rs"))),
+        "converter_batch_sha256":format!("{:x}",Sha256::digest(include_bytes!("batch.rs"))),
+        "converter_lock_sha256":format!("{:x}",Sha256::digest(include_bytes!("../Cargo.lock"))),
+        "qualification":"Five exact leaf bodies only; requires original-body differential and complete source/every-object admission; unsafe oracle must never enter game sources"});
+    fs::write(
+        output.join("provenance.json"),
+        serde_json::to_vec_pretty(&report)?,
+    )?;
+    Ok(())
 }

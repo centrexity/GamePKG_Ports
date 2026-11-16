@@ -134,6 +134,28 @@ fn clock_worker_run(context: u64) -> Result<(), i32> {
         gamepkg::diagnostic(2, 0x544b1406, &[values[2], ids[4]])?;
         return Err(-3);
     }
+    let before = gamepkg::performance_sample()?;
+    let value = kernel_pool::kernel_tsc_read(&ram)?;
+    let after = gamepkg::performance_sample()?;
+    let state = kernel_pool::kernel_tsc_state(&ram)?;
+    if state[2] != 1
+        || state[1] != before.frequency
+        || state[1] != after.frequency
+        || state[0] > after.counter
+    {
+        return Err(-3);
+    }
+    let low_counter = before.counter.max(state[0]);
+    let low = kernel_pool::kernel_tsc_value(low_counter, state[0], state[1], values[2])?;
+    let high = kernel_pool::kernel_tsc_value(after.counter, state[0], state[1], values[2])?;
+    if value < low || value > high {
+        return Err(-3);
+    }
+    gamepkg::diagnostic(
+        1,
+        0x544b1420 + ids[4] as u32,
+        &[value, state[0], state[1], before.counter, after.counter],
+    )?;
     clock_actual_calls(&mut ram, values[2], ids[4] as u32)
 }
 fn clock_join(job: u64) -> Result<(), i32> {
@@ -162,6 +184,9 @@ pub fn clock_live_controls(commit: bool) -> Result<(), i32> {
     services.service_advance(&ram, 12345678901)?;
     clock_actual_calls(&mut ram, 12345678901, 0)?;
     gamepkg::diagnostic(1, 0x544b1402, &[2u64])?;
+    if kernel_pool::kernel_tsc_state(&ram)? != [0u64, 0, 0] {
+        return Err(-3);
+    }
     let context = ram.thread_context();
     let mut records = [0u64; 4];
     let mut jobs = [0u64; 4];
@@ -227,7 +252,47 @@ pub fn clock_live_controls(commit: bool) -> Result<(), i32> {
     }
     clock_split_output(&ram)?;
     gamepkg::diagnostic(1, 0x544b1402, &[4u64])?;
+    let tsc_state = kernel_pool::kernel_tsc_state(&ram)?;
+    if tsc_state[2] != 1 {
+        return Err(-3);
+    }
+    if services.service_advance(&ram, 1)? != 12345678902
+        || kernel_pool::kernel_tsc_state(&ram)? != tsc_state
+    {
+        return Err(-3);
+    }
+    let id = services.service_handle();
+    for (at, value) in [
+        (0usize, 0x3156534bu64),
+        (32, u64::MAX),
+        (40, 0),
+        (40, u64::MAX),
+        (48, 2),
+        (56, 1),
+    ] {
+        let (version, original) = gamepkg::local_record_snapshot(id, 64)?;
+        let mut changed = std::vec::Vec::new();
+        changed.extend(&original);
+        let count = if at == 0 { 4usize } else { 8 };
+        let encoded = u64::to_le_bytes(value);
+        for index in 0..count {
+            changed[at + index] = encoded[index];
+        }
+        let updated = gamepkg::local_record_compare_exchange(id, version, &changed)?;
+        if kernel_pool::kernel_tsc_read(&ram) != Err(-1)
+            || kernel_pool::kernel_tsc_state(&ram) != Err(-1)
+            || services.service_advance(&ram, 1) != Err(-1)
+            || gamepkg::local_record_snapshot(id, 64)? != (updated, changed)
+        {
+            return Err(-3);
+        }
+        gamepkg::local_record_compare_exchange(id, updated, &original)?;
+    }
     services.service_close(&ram)?;
+    if kernel_pool::kernel_tsc_read(&ram) != Err(-5) {
+        return Err(-3);
+    }
+
     for slot in [0u32, 1, 3] {
         probe::clock_arguments(&mut ram, 0x11001)?;
         let mut state = cases::clock_initial(2);

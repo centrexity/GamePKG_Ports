@@ -1,0 +1,24 @@
+{
+  "converter_batch_sha256": "5857b0a587588433bf1e226e8317de22e97c223e29ca8a9c2dabc216baef9e32",
+  "converter_lock_sha256": "6d55a2c76709a6c1825c3fc3c9ac08e03d6e140635858336762f4ac2595a5259",
+  "converter_main_sha256": "8f962695d3bf5577657b1f0a7765f37170342b884ab435324b9ef370d18cd17b",
+  "functions": [
+    "sub_001D20AC",
+    "sub_001FC960",
+    "sub_00356AC0",
+    "sub_001FC930",
+    "sub_001FC980"
+  ],
+  "game_sha256": "2586b22b6275b3aa043e128f18dd2d15d4a16b98ae3d2266a6e11f93bc246eca",
+  "kernel_services_source_sha256": "5e22b9c863b77ac99efa9a12519fd9ad03b715fc7e47c1d095fad9a30e45bb20",
+  "oracle_sha256": "9decfac909fb1a6a358db055a72ea056f916b4f233df60b76d98bb31115a81fd",
+  "production_ready": false,
+  "qualification": "Five exact leaf bodies only; requires original-body differential and complete source/every-object admission; unsafe oracle must never enter game sources",
+  "schema": 1,
+  "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+  "units": {
+    "recomp_0004_013.rs": "f8c076c55807f154f364805103159f95b4f0335a8db58783d5eb57549b395ed8",
+    "recomp_0005_013.rs": "360105c491e048b2f2ee89e0272d37aee7a097bd0f965077f133c30a4765902a",
+    "recomp_0023_012.rs": "083393202dfd93f31eae80ac5d04358f120a6c704ac4e137db6ff8fd97acf8de"
+  }
+}

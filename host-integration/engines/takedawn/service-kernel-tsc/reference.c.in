@@ -1,0 +1,14 @@
+/* Maintainer-only original body with private statics per independent family. */
+#include <stdint.h>
+#include <stddef.h>
+typedef union {struct {uint32_t LowPart;int32_t HighPart;};int64_t QuadPart;} LARGE_INTEGER;
+static uint64_t raw_origin,raw_now,raw_freq,guest_skew;
+static int origin_pending;
+static int QueryPerformanceFrequency(LARGE_INTEGER *p){p->QuadPart=(int64_t)raw_freq;return 1;}
+static int QueryPerformanceCounter(LARGE_INTEGER *p){p->QuadPart=(int64_t)(origin_pending?raw_origin:raw_now);origin_pending=0;return 1;}
+static uint64_t xbox_GuestSkewNs(void){return guest_skew;}
+/* PINNED_CONSTANT */
+/* PINNED_FAMILIES */
+uint64_t tsc_reference(uint32_t family,const uint64_t *v){raw_origin=v[0];raw_now=v[1];raw_freq=v[2];guest_skew=v[3];origin_pending=(int)v[4];switch(family){
+case 0:return original_tsc0();case 1:return original_tsc1();case 2:return original_tsc2();case 3:return original_tsc3();
+case 4:return original_tsc4();case 5:return original_tsc5();case 6:return original_tsc6();default:return original_tsc7();}}

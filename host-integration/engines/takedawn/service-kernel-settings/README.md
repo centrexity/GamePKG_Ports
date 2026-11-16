@@ -30,17 +30,21 @@ and all other limits remain unchanged. Records still cannot be resized by CAS.
 `KernelServices` owner. It requires a live unconfigured root, no installed kernel
 map and resolved mixer channels 2 or 6. It applies the original video setter's
 `0x001F0000` mask; stereo reports 0, six-channel mixing reports `0x00010002` from
-the original speaker helper. Skew starts at zero. The 64-byte KSV1 record is:
+the original speaker helper. Skew and TSC state/origin/frequency start at zero;
+old KSV1 is rejected. The 64-byte KSV2 record is:
 
 | Offset | LE field |
 | --- | --- |
-| 0 | magic u32 `0x3156534B` |
+| 0 | magic u32 `0x3256534B` |
 | 4 | reserved-zero u32 |
 | 8 | owning root record ID u64 |
 | 16 | immutable masked video flags u32 |
 | 20 | immutable audio flags u32 (0 / 0x10002) |
 | 24 | shared guest clock offset ns u64 |
-| 32..63 | four reserved-zero u64s |
+| 32 | first-use TSC origin counter u64 |
+| 40 | first-use TSC frequency u64 |
+| 48 | initialized u64 (0 / 1) |
+| 56 | reserved-zero u64 |
 
 Malformed magic/shape/reserved/flag values are Invalid; wrong owning root is
 Denied. Allocation/publication failure releases the new record and leaves the
@@ -159,3 +163,8 @@ skew through the SDK with original register/stack, null and arithmetic behavior.
 See `../service-kernel-clock/README.md`. Guest TSC/origin, tick/timers/scheduling
 and the other complete-title requirements remain pending. No record schema,
 quota, app SDK, production recipe or launch gate changed in that checkpoint.
+
+The subsequent shared timestamp consumer uses the KSV2 fields above. See
+`../service-kernel-tsc/README.md` for exact first-use CAS, lifetime, errors,
+original-body comparisons and generated-call integration. Video/audio/skew APIs
+retain their signatures; this ephemeral format is not a saved-game format.

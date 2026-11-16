@@ -3,8 +3,21 @@ mod gamepkg {
     pub use crate::client::*;
     pub static INPUT: std::sync::Mutex<[u64; 7]> = std::sync::Mutex::new([0, 0, 1, 0, 0, 0, 0]);
     pub static READS: std::sync::Mutex<[u32; 2]> = std::sync::Mutex::new([0, 0]);
+    pub static CAS_BUSY: std::sync::Mutex<u32> = std::sync::Mutex::new(0);
     pub static STAGE: std::sync::Mutex<u64> = std::sync::Mutex::new(99);
     pub static ERROR: std::sync::Mutex<i32> = std::sync::Mutex::new(0);
+    pub fn local_record_compare_exchange(id: u64, version: u64, bytes: &[u8]) -> Result<u64, i32> {
+        let mut remaining = CAS_BUSY.lock().unwrap();
+        if *remaining != 0 && bytes.len() == 64 {
+            *remaining -= 1;
+            let (_, mut original) = crate::client::local_record_snapshot(id, 64)?;
+            let skew = u64::from_le_bytes(original[24..32].try_into().unwrap());
+            original[24..32].copy_from_slice(&skew.checked_add(1).ok_or(-1)?.to_le_bytes());
+            crate::client::local_record_compare_exchange(id, version, &original)?;
+            return Err(-2);
+        }
+        crate::client::local_record_compare_exchange(id, version, bytes)
+    }
     pub fn performance_sample() -> Result<PerformanceSample, i32> {
         READS.lock().unwrap()[0] += 1;
         let e = *ERROR.lock().unwrap();
@@ -169,8 +182,59 @@ fn main() {
     }
     *gamepkg::ERROR.lock().unwrap() = 0;
     probe::clock_cleanup(&mut ram, &services).unwrap();
+    tsc_read_controls();
     if let Some(path) = std::env::args_os().nth(1) {
         std::fs::write(path, vectors).unwrap();
     }
     println!("PASS: 256 original clock bridges, every 262144 RAM byte, all CPU bytes, exact raw/calendar/no-read selection, propagated clock errors and shared-root/permission controls; no title entry");
+}
+
+// Maintainer-only failure/concurrency controls; admitted source uses real calls.
+fn tsc_read_controls() {
+    let (mut ram, services) = probe::clock_memory(false).unwrap();
+    *gamepkg::INPUT.lock().unwrap() = [0, 100, 3, 0, 0, 0, 0];
+    let id = services.service_handle();
+    let initial = client::local_record_snapshot(id, 64).unwrap();
+    for code in [-1, -2, -3, -4, -5] {
+        *gamepkg::ERROR.lock().unwrap() = code;
+        assert_eq!(kernel_pool::kernel_tsc_read(&ram), Err(code));
+        assert_eq!(client::local_record_snapshot(id, 64).unwrap(), initial);
+    }
+    *gamepkg::ERROR.lock().unwrap() = 0;
+    *gamepkg::CAS_BUSY.lock().unwrap() = 64;
+    assert_eq!(kernel_pool::kernel_tsc_read(&ram), Err(-2));
+    assert_eq!(kernel_pool::kernel_tsc_state(&ram), Ok([0, 0, 0]));
+    assert_eq!(*gamepkg::CAS_BUSY.lock().unwrap(), 0);
+    *gamepkg::CAS_BUSY.lock().unwrap() = 1;
+    assert_eq!(kernel_pool::kernel_tsc_read(&ram), Ok(47));
+    assert_eq!(kernel_pool::kernel_service_values(&ram).unwrap()[2], 65);
+    assert_eq!(kernel_pool::kernel_tsc_state(&ram), Ok([100, 3, 1]));
+    let active = client::local_record_snapshot(id, 64).unwrap();
+    for code in [-1, -2, -3, -4, -5] {
+        *gamepkg::ERROR.lock().unwrap() = code;
+        assert_eq!(kernel_pool::kernel_tsc_read(&ram), Err(code));
+        assert_eq!(client::local_record_snapshot(id, 64).unwrap(), active);
+    }
+    *gamepkg::ERROR.lock().unwrap() = 0;
+    gamepkg::INPUT.lock().unwrap()[1] = 99;
+    assert_eq!(kernel_pool::kernel_tsc_read(&ram), Err(-3));
+    gamepkg::INPUT.lock().unwrap()[1] = 101;
+    gamepkg::INPUT.lock().unwrap()[2] = 4;
+    assert_eq!(kernel_pool::kernel_tsc_read(&ram), Err(-3));
+    assert_eq!(client::local_record_snapshot(id, 64).unwrap(), active);
+    gamepkg::INPUT.lock().unwrap()[2] = 3;
+    assert_eq!(kernel_pool::kernel_tsc_read(&ram), Ok(244444491));
+    services.service_advance(&ram, 1000000000).unwrap();
+    assert_eq!(kernel_pool::kernel_tsc_read(&ram), Ok(977777824));
+    assert_eq!(kernel_pool::kernel_tsc_state(&ram), Ok([100, 3, 1]));
+    probe::clock_cleanup(&mut ram, &services).unwrap();
+    // Publishing on the final bounded iteration retains a complete origin,
+    // even though that invocation has no budget left for its current sample.
+    let (mut ram, services) = probe::clock_memory(false).unwrap();
+    *gamepkg::CAS_BUSY.lock().unwrap() = 63;
+    assert_eq!(kernel_pool::kernel_tsc_read(&ram), Err(-2));
+    assert_eq!(kernel_pool::kernel_tsc_state(&ram), Ok([101, 3, 1]));
+    assert_eq!(kernel_pool::kernel_service_values(&ram).unwrap()[2], 63);
+    assert_eq!(kernel_pool::kernel_tsc_read(&ram), Ok(46));
+    probe::clock_cleanup(&mut ram, &services).unwrap();
 }

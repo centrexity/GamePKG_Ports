@@ -153,13 +153,35 @@ pub fn game_main(){let code=match run(){Ok(())=>0u64,Err(code)=>code as i64 as u
         events.extend(batch);
         let after = owner.host.timing().sample().unwrap();
         assert_eq!(before.frequency, after.frequency);
-        assert_eq!(events.len(), 90, "{events:?}");
+        assert_eq!(events.len(), 94, "{events:?}");
         assert_eq!(events[0].code, 0x544b1400);
         assert_eq!(events[0].bytes.as_deref().unwrap(), vectors);
-        assert_eq!(events[88].code, 0x544b1401);
-        assert_eq!(events[88].values, vec![80]);
-        assert_eq!(events[89].code, 0x544b14ff);
-        assert_eq!(events[89].values, vec![0]);
+        assert_eq!(events[92].code, 0x544b1401);
+        assert_eq!(events[92].values, vec![80]);
+        assert_eq!(events[93].code, 0x544b14ff);
+        assert_eq!(events[93].values, vec![0]);
+        let mut origin = None;
+        let mut tsc_views = 0u32;
+        for event in events
+            .iter()
+            .filter(|e| (0x544b1421..=0x544b1424).contains(&e.code))
+        {
+            assert_eq!(event.values.len(), 5);
+            let v = &event.values;
+            assert!((before.counter..=after.counter).contains(&v[1]));
+            assert_eq!(v[2], before.frequency);
+            assert!(v[3] >= before.counter && v[4] >= v[3] && v[4] <= after.counter);
+            if let Some(first) = origin {
+                assert_eq!(v[1], first);
+            } else {
+                origin = Some(v[1]);
+            }
+            let low = 12345678901u128 * 733333333 / 1000000000;
+            let high = u128::from(after.counter - v[1]) * 733333333 / u128::from(v[2]) + low;
+            assert!((low..=high).contains(&u128::from(v[0])));
+            tsc_views |= 1 << (event.code - 0x544b1421);
+        }
+        assert_eq!(tsc_views, 15);
         let mut counts = [[0u32; 4]; 5];
         let stages: Vec<_> = events
             .iter()
@@ -198,6 +220,6 @@ pub fn game_main(){let code=match run(){Ok(())=>0u64,Err(code)=>code as i64 as u
         }
         assert_eq!(counts, [[4; 4]; 5]);
         owner.stop().unwrap();
-        println!("PASS {target:?}: 256 original C arithmetic witnesses, 80 actual kernel calls on five views, full CPU checks, independent parent clock bounds and denial/overflow/null controls");
+        println!("PASS {target:?}: 256 original C arithmetic witnesses, 80 actual kernel calls on five views plus four shared-origin TSC reads, full CPU checks, independent parent clock bounds and denial/overflow/null controls");
     }
 }

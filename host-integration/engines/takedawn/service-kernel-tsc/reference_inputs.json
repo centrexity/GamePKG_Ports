@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "production_ready": false,
+  "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+  "member": "toolkit/src/kernel/kernel_hal.c",
+  "member_sha256": "4e65affa22218adfd942c8f0460292358b055bacad5ede8faa3480eec268717e",
+  "function": {
+    "start": 64875,
+    "end": 65928,
+    "sha256": "90442ffb36a13d19df7837ecd5a774737e4839540a346237f0e5acbda42a384c"
+  },
+  "constant": {
+    "start": 64841,
+    "end": 64873,
+    "sha256": "97f44318e655a186cf6b49fbd97b9e066d8135f46834eb7e799c461dc005a043"
+  }
+}

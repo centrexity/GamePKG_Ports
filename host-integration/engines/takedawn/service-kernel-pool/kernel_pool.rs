@@ -759,7 +759,7 @@ fn pool_services_snapshot(ram: &memory::Memory) -> Result<(u64, u64, std::vec::V
         return Err(-5);
     }
     let (version, record) = gamepkg::local_record_snapshot(id, 64)?;
-    if record.len() != 64 || pool_word(&record, 0)? != 0x3156534b || pool_word(&record, 4)? != 0 {
+    if record.len() != 64 || pool_word(&record, 0)? != 0x3256534b || pool_word(&record, 4)? != 0 {
         return Err(-1);
     }
     if pool_long(&record, 8)? != ram.call_handle() {
@@ -772,10 +772,16 @@ fn pool_services_snapshot(ram: &memory::Memory) -> Result<(u64, u64, std::vec::V
     if audio != 0 && audio != 0x00010002 {
         return Err(-1);
     }
-    for at in [32usize, 40, 48, 56] {
-        if pool_long(&record, at)? != 0 {
-            return Err(-1);
-        }
+    let origin = pool_long(&record, 32)?;
+    let frequency = pool_long(&record, 40)?;
+    let initialized = pool_long(&record, 48)?;
+    if pool_long(&record, 56)? != 0
+        || initialized > 1
+        || (initialized == 0 && (origin != 0 || frequency != 0))
+        || (initialized == 1
+            && (origin > i64::MAX as u64 || frequency == 0 || frequency > i64::MAX as u64))
+    {
+        return Err(-1);
     }
     Ok((id, version, record))
 }
@@ -799,7 +805,7 @@ pub fn kernel_services_initialize(
         return Err(-1);
     }
     let mut record = [0u8; 64];
-    record[..4].copy_from_slice(&u32::to_le_bytes(0x3156534b));
+    record[..4].copy_from_slice(&u32::to_le_bytes(0x3256534b));
     record[8..16].copy_from_slice(&u64::to_le_bytes(ram.call_handle()));
     record[16..20].copy_from_slice(&u32::to_le_bytes(video & 0x001f0000));
     record[20..24].copy_from_slice(&u32::to_le_bytes(if speakers == 6 {
@@ -974,4 +980,83 @@ pub fn kernel_time_value(ordinal: u32, base: u64, frequency: u64, skew: u64) -> 
     } else {
         Ok(value)
     }
+}
+
+// Separate guest TSC units/origin. KSV2 keeps one immutable first-use pair in
+// root-owned copied metadata. Calendar anchoring is never a side effect here.
+pub fn kernel_tsc_state(ram: &memory::Memory) -> Result<[u64; 3], i32> {
+    let (_, _, record) = pool_services_snapshot(ram)?;
+    Ok([
+        pool_long(&record, 32)?,
+        pool_long(&record, 40)?,
+        pool_long(&record, 48)?,
+    ])
+}
+pub fn kernel_tsc_value(counter: u64, origin: u64, frequency: u64, skew: u64) -> Result<u64, i32> {
+    if counter > i64::MAX as u64
+        || origin > counter
+        || frequency == 0
+        || frequency > i64::MAX as u64
+    {
+        return Err(-1);
+    }
+    let ticks = counter - origin;
+    let seconds = ticks / frequency;
+    let remainder = ticks % frequency;
+    Ok(seconds
+        .wrapping_mul(733333333)
+        .wrapping_add(remainder.wrapping_mul(733333333) / frequency)
+        .wrapping_add((skew / 1000000000).wrapping_mul(733333333))
+        .wrapping_add((skew % 1000000000).wrapping_mul(733333333) / 1000000000))
+}
+pub fn kernel_tsc_read(ram: &memory::Memory) -> Result<u64, i32> {
+    let id = ram.services_handle()?;
+    if id == 0 {
+        return Err(-5);
+    }
+    for _ in 0..64usize {
+        let (observed, version, mut record) = pool_services_snapshot(ram)?;
+        if observed != id {
+            return Err(-4);
+        }
+        if pool_long(&record, 48)? == 0 {
+            let sample = gamepkg::performance_sample()?;
+            if sample.counter > i64::MAX as u64
+                || sample.frequency == 0
+                || sample.frequency > i64::MAX as u64
+            {
+                return Err(-3);
+            }
+            record[32..40].copy_from_slice(&u64::to_le_bytes(sample.counter));
+            record[40..48].copy_from_slice(&u64::to_le_bytes(sample.frequency));
+            record[48..56].copy_from_slice(&u64::to_le_bytes(1));
+            match gamepkg::local_record_compare_exchange(id, version, &record) {
+                Ok(_) => {}
+                Err(-2) => memory::Memory::call_retry_pause()?,
+                Err(code) => return Err(code),
+            }
+        } else {
+            let origin = pool_long(&record, 32)?;
+            let frequency = pool_long(&record, 40)?;
+            let sample = gamepkg::performance_sample()?;
+            // Original GuestSkewNs is observed after the current counter read.
+            // Revalidate publication; IDs/metadata snapshots are not leases.
+            let (current, _, after) = pool_services_snapshot(ram)?;
+            if current != id
+                || pool_long(&after, 32)? != origin
+                || pool_long(&after, 40)? != frequency
+                || pool_long(&after, 48)? != 1
+            {
+                return Err(-4);
+            }
+            if sample.frequency != frequency
+                || sample.counter < origin
+                || sample.counter > i64::MAX as u64
+            {
+                return Err(-3);
+            }
+            return kernel_tsc_value(sample.counter, origin, frequency, pool_long(&after, 24)?);
+        }
+    }
+    Err(-2)
 }

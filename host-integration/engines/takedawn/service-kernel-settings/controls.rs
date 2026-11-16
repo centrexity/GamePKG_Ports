@@ -130,6 +130,7 @@ pub fn settings_denials() -> Result<(), i32> {
     // Malformed typed service records fail before any output/CPU mutation.
     for (at, value, code) in [
         (0usize, 0u64, -1i32),
+        (0, 0x3156534b, -1),
         (4, 1, -1),
         (8, 0, -4),
         (16, 1, -1),

@@ -202,6 +202,10 @@ fn main() {
             serde_json::from_slice(&fs::read(prepared.join("inventory.json")).unwrap()).unwrap();
         assert_eq!(report["production_ready"], false);
         assert_eq!(
+            report["kernel_services_source_sha256"],
+            gamepkg::verify::digest(&fs::read(source.join("source/src/kernel_pool.rs")).unwrap())
+        );
+        assert_eq!(
             report["debug_adapter_sha256"],
             gamepkg::verify::digest(&fs::read(here.join("debug.rs")).unwrap())
         );
