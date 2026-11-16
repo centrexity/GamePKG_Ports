@@ -1,0 +1,16 @@
+/* Maintainer-only original statement. Never linked into admitted game objects. */
+#include <stdint.h>
+#include <string.h>
+static uint8_t memory[64];
+static uint64_t uptime,skew;
+#define XBOX_KERNEL_DATA_BASE 0u
+#define KDATA_TICK_COUNT 0x20u
+static uintptr_t g_memory_offset;
+static uint32_t GetTickCount(void){return (uint32_t)uptime;}
+static uint64_t xbox_GuestSkewNs(void){return skew;}
+uint32_t tick_reference(uint64_t milliseconds,uint64_t nanoseconds){
+    uptime=milliseconds;skew=nanoseconds;g_memory_offset=(uintptr_t)memory;
+    memset(memory,0xa5,sizeof(memory));
+/* PINNED_TICK_STATEMENT */
+    uint32_t result;memcpy(&result,memory+0x20,sizeof(result));return result;
+}

@@ -143,3 +143,14 @@ startup it observes the loaded image, TIB/TLS and stack through every main mirro
 while preserving all original CPU and whole-main-RAM comparisons. This is an
 explicit fixture migration to `TakedawnMemory`, not a legacy-launcher exemption.
 The title's native entry and other kernel/device work remain gated.
+
+## Live tick orchestration prerequisite
+
+The separate `../service-kernel-tick/` component now owns the normal periodic
+KeTickCount writer. After this bootstrap and heap/configuration setup, initialize
+kernel data with `Data::data_initialize_live` (raw uptime, no skew), register the
+reviewed integer tick_worker entry in the app Plan, then start its explicit
+Tick owner before title entry. Stop/join and verify `tick_closed()` before
+releasing shared configuration/data/root/backings. An errored start can retain
+resources and must be closed. This component does not implicitly start a task,
+execute a timer DPC or migrate the rest of the device/scheduler bridge.

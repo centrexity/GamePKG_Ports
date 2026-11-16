@@ -325,6 +325,23 @@ impl Memory {
         }
         Ok([window, offset])
     }
+    // Capture only one writable guest word, never a host address. The view's
+    // write permission is checked here; the local runtime checks page access
+    // again on every write. Copying this tuple is not a lease on the backing.
+    pub fn memory_writable_word_backing(&self, address: u32) -> Result<[u64; 2], i32> {
+        self.call_snapshot()?;
+        if address & 3 != 0 {
+            return Err(-1);
+        }
+        let (window, offset) = self.resolve(address, 4, true)?;
+        if offset & 3 != 0 {
+            return Err(-1);
+        }
+        if gamepkg::local_memory_page_states(window, offset & !4095u64, 1)? != [3u8] {
+            return Err(-4);
+        }
+        Ok([window, offset])
+    }
     fn resolve(&self, address: u32, length: u64, write: bool) -> Result<(u64, u64), i32> {
         let end = u64::from(address).checked_add(length).ok_or(-1)?;
         if end > 4294967296 {

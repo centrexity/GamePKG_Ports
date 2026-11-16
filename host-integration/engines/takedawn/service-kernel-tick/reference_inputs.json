@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "production_ready": false,
+  "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+  "member": "toolkit/src/kernel/xbox_memory_layout.c",
+  "source_sha256": "c83cb0a4586ef3298911f4639e79ec1f904b4133b8469676ff0fa461b63f82f4",
+  "function": {
+    "start": 72649,
+    "end": 87265,
+    "sha256": "ba449a1864f7881af46c3b53c40f67ac1838a2d48bbba0188acd5091b92a1b40"
+  },
+  "statement": {
+    "start": 84772,
+    "end": 84980,
+    "sha256": "1e296eeca1245b10358bb5555ff5ab60947b1ce9f6e5484758a4347a1ef47cf9"
+  },
+  "scope": "exact periodic tick word arithmetic only; not GPU/DSP/MMIO/fence/interrupt worker migration"
+}

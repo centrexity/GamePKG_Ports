@@ -1,4 +1,5 @@
 // Port-owned kernel data initialization over checked guest RAM and one owner.
+use crate::gamepkg;
 use crate::memory;
 use crate::signature;
 pub struct Data {
@@ -72,6 +73,27 @@ impl Data {
         command: &[u8],
         hd: Option<[u8; 16]>,
     ) -> Result<Self, i32> {
+        Self::data_initialize_sample(ram, region, Some(tick), video, command, hd)
+    }
+    // Production initialization samples boot uptime once, without guest skew.
+    // Explicit-value initialization remains for deterministic original-C oracles.
+    pub fn data_initialize_live(
+        ram: &mut memory::Memory,
+        region: u32,
+        video: u32,
+        command: &[u8],
+        hd: Option<[u8; 16]>,
+    ) -> Result<Self, i32> {
+        Self::data_initialize_sample(ram, region, None, video, command, hd)
+    }
+    fn data_initialize_sample(
+        ram: &mut memory::Memory,
+        region: u32,
+        tick: Option<u32>,
+        video: u32,
+        command: &[u8],
+        hd: Option<[u8; 16]>,
+    ) -> Result<Self, i32> {
         ram.call_snapshot()?;
         if region < 0x700000
             || region & 65535 != 0
@@ -93,6 +115,10 @@ impl Data {
         exports_put16(&mut page, 0x12, 0);
         exports_put16(&mut page, 0x14, 5849);
         exports_put16(&mut page, 0x16, 0);
+        let tick = match tick {
+            Some(value) => value,
+            None => gamepkg::local_performance_sample()?.uptime_ms as u32,
+        };
         exports_put32(&mut page, 0x20, tick);
         exports_put32(&mut page, 0x30, launch);
         for offset in [0x40usize, 0x50, 0x90, 0xa0, 0xb0, 0xc0] {
@@ -160,6 +186,11 @@ impl Data {
     pub fn data_tick(&self, ram: &mut memory::Memory, tick: u32) -> Result<(), i32> {
         self.data_live(ram)?;
         ram.write_u32(self.base + 0x20, tick)
+    }
+    pub fn data_tick_binding(&self, ram: &memory::Memory) -> Result<[u64; 3], i32> {
+        self.data_live(ram)?;
+        let backing = ram.memory_writable_word_backing(self.base + 0x20)?;
+        Ok([self.root, backing[0], backing[1]])
     }
     pub fn data_address(&self, ram: &memory::Memory, ordinal: u32) -> Result<u32, i32> {
         self.data_live(ram)?;

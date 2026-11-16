@@ -222,3 +222,46 @@ an approximately 1ms wait. Initial kernel-data initialization uses raw uptime
 without skew. Preserve that distinction. Porting the tick alone does not migrate
 that worker's GPU/DSP/fence/MMIO behavior, timer DPC execution or title startup.
 The 111 unresolved main imports and remaining complete-title gates remain.
+
+## Periodic KeTickCount component qualified
+
+`../service-kernel-tick/` now implements the separate normal tick writer in
+checked game-owned Rust. It uses the independent local clock, captures only a
+validated writable kernel-data word, pins the shared-services owner, and runs
+through a reviewed suspended/published/resumed integer task entry. Stop is a
+request; successful join precedes record/event release. `tick_closed()` exposes
+completed cleanup separately from task completion. Partial-start failures retain
+an owner for explicit cleanup; quota/closed-runtime errors do not fall back.
+See its README for the exact API, 64-byte metadata, errors and lifecycle.
+
+`Data::data_initialize_live` samples initial raw uptime without skew, preserving
+the original initialization/update distinction. The explicit-value constructor
+continues to pass all original-C data witnesses. `data_tick_binding` and
+`memory_writable_word_backing` check root ownership, view permissions, aligned
+complete range and a committed read/write host page; every worker write is
+rechecked by the trusted runtime. No private data keys or native pointer enter
+the worker record. KSV2/root/CPU layouts, app SDK and quotas are unchanged.
+
+Four-target original assignment/worker checks and all-source/object admission
+pass; actual confined Linux x64/i686 workers advance during a queued fullscreen
+request held for >=60ms. They also pass raw initialization, shared skew, no
+TSC-origin initialization, whole-backing no-scribble, 132 success/partial-start
+cycles, actual record/event/task exhaustion, malformed metadata and revoked-root/
+page/services controls. Windows component execution is under Wine, not actual
+Windows AppContainer/gameplay/pacing proof. Requested 1ms waits are not a proven
+hardware scheduling bound.
+
+The regenerated partial kit also completes its full matrix on the current SDK:
+23,013 locally convertible /19,307 literal closed definitions, 38 original
+functions /4,864 native register/whole-RAM vectors, separate optimization and
+all-object audits on all four targets, actual confined Linux x64/i686 and the
+existing hostile-source/lookup/context/FPU/vector controls. The maintainer-only
+collector now exports the exact local clock/page-state SDK names; production
+checks/quotas are unchanged. It remains a partial kit, not a complete title.
+
+Bootstrap integration must keep heap/data/configuration owners live, initialize
+data with the live constructor, register the exact tick_worker entry in the
+reviewed Plan, then start one tick owner before game entry. Stop/join it before
+closing shared services or releasing data/root/backings. This does not migrate
+the surrounding NV2A ack/DSP/MMIO/fence/fast-kick worker, timers/DPC/IRQ scheduler,
+remaining 111 imports or complete native renderer/media/entry/production launch.
