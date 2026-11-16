@@ -122,3 +122,9 @@ native-context setup. Keep the existing event quota and explicitly handle
 admission failures; no raw event fallback or silently reduced shadow capacity.
 No generated source-kit/import closure, recipe, launch default or profile gate
 is changed here. Burnout and Halo remain unadmitted pending their full paths.
+
+
+The checked composition in [FIRING.md](FIRING.md) now connects these primitives
+to the actual native callback adapter and current shadow-event lookup. It
+provides fatal-prefix actor cleanup and preserves callback-outside-lock order;
+production handlers and the complete worker loop remain required.

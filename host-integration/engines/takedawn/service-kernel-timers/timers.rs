@@ -314,6 +314,13 @@ impl Timers {
     pub fn timers_state(&self, ram: &memory::Memory) -> Result<std::vec::Vec<u8>, i32> {
         Ok(self.timers_snapshot(ram)?.1)
     }
+    pub fn timer_worker_binding(&self, ram: &memory::Memory) -> Result<[u64; 2], i32> {
+        let (_, bytes) = self.timers_snapshot(ram)?;
+        if timer_word(&bytes, 48)? == 0 {
+            return Err(-5);
+        }
+        Ok([self.queue, timer_word(&bytes, 40)?])
+    }
     pub fn timer_fire_begin(&self, ram: &memory::Memory, now: i64) -> Result<Scan, i32> {
         let (_, bytes) = self.timers_snapshot(ram)?;
         let (worker, cancelled) = gamepkg::local_task_status()?;

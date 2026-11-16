@@ -47,6 +47,9 @@ impl Callback {
             worker,
         })
     }
+    pub fn callback_queue_id(&self) -> u64 {
+        self.queue
+    }
     pub fn callback_ready(
         &self,
         ram: &memory::Memory,

@@ -558,3 +558,34 @@ Shared SDK identity, installed CLI/GUI, source archive, recipe, launch defaults,
 ROMs/saves and pinned ports submodule are unchanged. These fixtures do not qualify
 title startup/gameplay, physical controls, audible audio, GPU fidelity, actual
 Windows confinement or measured frame pacing; both title profiles remain blocked.
+
+
+## Actual native timer/callback/event composition
+
+`service-kernel-timers/firing.rs` and `FIRING.md` now connect the previously
+separate checked table, actual native DPC adapter and SDK event shadows. The
+pass validates worker/controller/stack/CPU and matching queue bindings before
+publication. `callback_queue_id` and `timer_worker_binding` are read-only port
+identity getters, not new host permissions or SDK operations. The pass preserves
+slot update/unlock, native callback, current shadow lookup, native signal and
+guest SignalState publication order. A failure after scan start aborts the actor
+without rolling back side effects or fabricating pass completion. Ownership of
+retained stack release, actual single join and cleanup remains with the worker.
+
+Nine actual-SDK scenarios execute on Linux/Windows x64/i686 (Windows through
+Wine), including replacement/removal from native callbacks, earlier/later timer
+mutation, null cases, wrong-queue preflight, native errors and a read-only signal
+word. A separate actual producer acquires the timer mutex inside each controlled
+native callback; the callback is not running under that lock. All four targets
+produce identical witness bytes. Five required-failing controls break signal
+order, queue binding, error propagation, actor abort or lock release. The complete
+source/object matrix and actual confined Linux x64/i686 execution pass without
+any policy/import exemption. Original timer-table and callback differential
+checks are requalified for the added getters.
+
+This is checked native composition with controlled finite routines, not original
+whole-loop or actual title qualification. Fixture clock/IRQ/profiler providers
+cannot be used as production handlers. Cancellation/guest wait contracts,
+retained timer/vblank/spin/TIB/context loop and full source/build/launcher closure
+remain required. No main import or native title profile is enabled; SDK identity,
+installed app, pinned ports submodule, ROMs/saves and launch defaults are unchanged.
