@@ -661,3 +661,37 @@ retained timer loop, then complete full source/build/launcher closure and actual
 graphics/input/audio/pacing checks. Shared owner cleanup still needs its actual
 single SDK join. Installed app binaries and the pinned ports submodule stay
 unchanged; no renderer/default or user ROM/save change is made.
+
+
+## Real-clock retained-worker drain and timer pass
+
+`service-timer-worker/dispatch.rs` now composes the original retained pending-DPC
+drain, production millisecond clock sample and timer/callback/event firing pass
+on the actual worker's own stack/TIB. It validates exact root/actor and
+[pool,slot,generation], checks queue/table bindings before IRQL registration,
+preserves work order and fatal publication prefixes, and refuses replay after
+work failure. `dispatch_actor` exposes owner-checked RAM/IRQL borrows for the
+existing typed IRQ attachment API; production must actually attach that queue.
+`worker_cleanup` permits only actual-owner cleanup after cancellation/revocation
+and exposes no usable CPU or mutable lease. The cached identity is captured
+inside fallible setup so final validation errors still release the lease.
+`dispatch_finish` aborts actor/gates before worker stack release, with stable
+worker cleanup errors. See `service-timer-worker/DISPATCH.md` for all contracts.
+
+Eight actual-worker modes exercise finite native callbacks using production
+clocks, delayed immediate-timer rearming, ordered drain/fire, timer/queued errors,
+cancellation and KSV revocation with a held recursive gate, another retained
+context on the same job, wrong queue binding, and native signaling before a
+read-only guest signal-word failure. All four targets agree; Windows uses Wine.
+Six deliberate regressions fail. Complete source checks, all eight audited
+optimized game objects per target and actual confined Linux x64/i686 executions
+pass. The ten-mode startup suite also has fresh source/object receipts for the
+cleanup lane. No SDK/schema/quota/import/admission or pinned submodule changes.
+SDK remains fe309935dd602e2cf098e50065f6035de33dac88b51d45a2bc1ba47cf026742f.
+
+These are synthetic guest-memory compositions with controlled routes and inert
+profiling/IRQ hooks, not production handlers or original-C whole-loop fidelity.
+Real context/IRQ attachment, vblank/device/profiler routes, spin/pause/warp and
+pacing/deadline/wait integration, full source/build/launcher closure and actual
+graphics/input/audio/pacing qualification remain required. Both title profiles
+remain blocked; installed app SDK/binaries and user ROMs/saves are unchanged.

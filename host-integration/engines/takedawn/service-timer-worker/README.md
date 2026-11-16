@@ -88,3 +88,15 @@ still need wiring, followed by full generated source/build/launcher closure.
 This does not prove title startup/gameplay, physical controls, audible audio,
 GPU fidelity, native Windows desktop behavior or measured frame pacing. Both
 unmigrated title profiles remain blocked.
+
+
+## Ordered dispatch integration
+
+[DISPATCH.md](DISPATCH.md) specifies the retained worker's ordered DPC-drain and
+timer-firing pass, production host clock sampling after drain, checked IRQ actor
+attachment access point, owner-only `worker_cleanup` lane and abort-before-stack
+release. This supersedes the earlier requirement for callers to abort an actor
+manually when using the new `Dispatch` owner; that owner performs its own abort.
+Standalone `Worker` users retain the explicit abort-before-finish obligation.
+The cached stack identity and ten-mode startup matrix have fresh receipts; no
+SDK/schema/quota or native profile admission changes.

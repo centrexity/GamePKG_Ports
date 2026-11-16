@@ -10,6 +10,7 @@ pub struct Worker {
     cpu: registers::Registers,
     lease: stacks::Lease,
     actor: u64,
+    stack_key: [u64; 3],
     finished: bool,
     finish_code: i32,
 }
@@ -18,7 +19,7 @@ fn worker_cpu(
     lease: &stacks::Lease,
     template: u32,
     total: u32,
-) -> Result<registers::Registers, i32> {
+) -> Result<(registers::Registers, [u64; 3]), i32> {
     let top = lease.stack_guest_top(ram)?;
     let tib = thread_tib::thread_tib_new(ram, template, total)?;
     if tib == 0 {
@@ -28,8 +29,8 @@ fn worker_cpu(
     let mut cpu = registers::Registers::new();
     cpu.esp = top;
     cpu.fs_base = tib;
-    lease.stack_identity(ram)?;
-    Ok(cpu)
+    let identity = lease.stack_identity(ram)?;
+    Ok((cpu, identity))
 }
 impl Worker {
     pub fn worker_start(
@@ -49,7 +50,8 @@ impl Worker {
         let mut lease = pool.stacks_allocate(&ram)?.ok_or(-2)?;
         let configured = worker_cpu(&mut ram, &lease, template, total);
         match configured {
-            Ok(cpu) => Ok(Self {
+            Ok((cpu, stack_key)) => Ok(Self {
+                stack_key,
                 ram,
                 cpu,
                 lease,
@@ -91,6 +93,15 @@ impl Worker {
         }
         self.lease.stack_identity(&self.ram)?;
         Ok((&mut self.ram, &mut self.cpu, &self.lease))
+    }
+    // Owner-only cleanup lane: no usable CPU or mutable lease escapes. This
+    // remains available after cancellation/revocation and local finish so the
+    // dispatch owner can abort gates and verify idempotent teardown identity.
+    pub fn worker_cleanup(&mut self) -> Result<(&mut memory::Memory, [u64; 3]), i32> {
+        if gamepkg::local_task_status()?.0 != self.actor {
+            return Err(-4);
+        }
+        Ok((&mut self.ram, self.stack_key))
     }
     pub fn worker_finish(&mut self) -> Result<(), i32> {
         if gamepkg::local_task_status()?.0 != self.actor {
