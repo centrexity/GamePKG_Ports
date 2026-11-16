@@ -55,11 +55,11 @@ pub fn image_import_run() -> Result<(), i32> {
         &[],
         None,
     )?;
-    let services = if mode[0] == 4 || mode[0] == 8 {
+    let services = if mode[0] == 4 || mode[0] == 8 || mode[0] == 10 {
         Some(kernel_pool::kernel_services_initialize(
             &ram,
             0x10000,
-            if mode[0] == 8 { 6 } else { 2 },
+            if mode[0] == 8 || mode[0] == 10 { 6 } else { 2 },
         )?)
     } else {
         None
@@ -96,7 +96,7 @@ pub fn image_import_run() -> Result<(), i32> {
         }
     }
     let planned = image_imports::imports_image(&ram, &image, &data, &[]);
-    if mode[0] >= 2 && mode[0] != 6 && mode[0] != 7 && mode[0] != 8 {
+    if mode[0] >= 2 && mode[0] != 6 && mode[0] != 7 && mode[0] != 8 && mode[0] != 10 {
         let expected = if mode[0] == 3 || mode[0] == 5 { -1 } else { -5 };
         match planned {
             Err(code) => {
@@ -115,7 +115,9 @@ pub fn image_import_run() -> Result<(), i32> {
         gamepkg::diagnostic(1, 0x544b0f00, &[u64::from(mode[0]), expected as i64 as u64])?;
     } else {
         let prepared = planned?;
-        let count = if mode[0] == 8 {
+        let count = if mode[0] == 10 {
+            14
+        } else if mode[0] == 8 {
             10
         } else if mode[0] == 7 {
             9
@@ -142,7 +144,7 @@ pub fn image_import_run() -> Result<(), i32> {
             return Err(-3);
         }
         let allocation = state.eax;
-        if mode[0] == 6 || mode[0] == 7 || mode[0] == 8 {
+        if mode[0] == 6 || mode[0] == 7 || mode[0] == 8 || mode[0] == 10 {
             ram.write_bytes(0x13000, &[97u8, 98, 99])?;
             for (slot, args) in [
                 (3u32, [0x14003u32, 0, 0]),
@@ -172,7 +174,7 @@ pub fn image_import_run() -> Result<(), i32> {
                 return Err(-3);
             }
         }
-        if mode[0] == 7 || mode[0] == 8 {
+        if mode[0] == 7 || mode[0] == 8 || mode[0] == 10 {
             ram.write_bytes(0x16000, &[75u8, 101, 121])?;
             ram.write_bytes(0x17000, &[80u8, 108, 97, 105, 110, 116, 101, 120, 116])?;
             ram.fill(0x18000, 0x0b, 20)?;
@@ -212,7 +214,7 @@ pub fn image_import_run() -> Result<(), i32> {
                 return Err(-3);
             }
         }
-        if mode[0] == 8 {
+        if mode[0] == 8 || mode[0] == 10 {
             let query_sp = sp - 64;
             for (index, expected) in [(8u32, 0x10000u32), (9, 0x10002)] {
                 state.esp = query_sp;
@@ -227,6 +229,67 @@ pub fn image_import_run() -> Result<(), i32> {
                     || ram.read_u32(0x1d000)? != 4
                     || ram.read_u32(0x1f000)? != 4
                 {
+                    return Err(-3);
+                }
+            }
+        }
+        if mode[0] == 10 {
+            let timer_sp = sp - 96;
+            for ordinal in [125u32, 126, 127, 128] {
+                state.esp = timer_sp;
+                ram.write_u32(timer_sp, 0x12345678)?;
+                ram.write_u32(timer_sp + 4, 0x1f010)?;
+                let before_cpu = state.encode();
+                let before = gamepkg::clock_sample()?;
+                calls_runtime::invoke_call(
+                    &mut state,
+                    &mut ram,
+                    0xfe000028 + (ordinal - 125) * 4,
+                    timer_sp,
+                )?;
+                let after = gamepkg::clock_sample()?;
+                let value = if ordinal == 128 {
+                    ram.read_u64(0x1f010)?
+                } else {
+                    u64::from(state.eax) | (u64::from(state.edx) << 32)
+                };
+                let low_base = if ordinal == 125 {
+                    before.uptime_ms
+                } else if ordinal == 126 {
+                    before.counter
+                } else if ordinal == 127 {
+                    before.frequency
+                } else {
+                    before.utc_100ns
+                };
+                let high_base = if ordinal == 125 {
+                    after.uptime_ms
+                } else if ordinal == 126 {
+                    after.counter
+                } else if ordinal == 127 {
+                    after.frequency
+                } else {
+                    after.utc_100ns
+                };
+                let low = kernel_pool::kernel_time_value(ordinal, low_base, before.frequency, 0)?;
+                let high = kernel_pool::kernel_time_value(ordinal, high_base, after.frequency, 0)?;
+                if value < low || value > high {
+                    return Err(-3);
+                }
+                let mut expected_cpu = std::vec::Vec::new();
+                expected_cpu.extend(before_cpu);
+                expected_cpu[..4].copy_from_slice(&u32::to_le_bytes(if ordinal == 128 {
+                    0
+                } else {
+                    value as u32
+                }));
+                if ordinal != 128 {
+                    expected_cpu[12..16].copy_from_slice(&u32::to_le_bytes((value >> 32) as u32));
+                }
+                expected_cpu[28..32].copy_from_slice(&u32::to_le_bytes(
+                    timer_sp + 4 + kernel_pool::kernel_supported(ordinal)?,
+                ));
+                if state.encode() != expected_cpu {
                     return Err(-3);
                 }
             }

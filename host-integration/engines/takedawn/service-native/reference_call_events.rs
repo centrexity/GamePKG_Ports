@@ -4,7 +4,7 @@ static ORIGINAL_EVENTS: Mutex<Vec<(u32,u32,Vec<u64>)>>=Mutex::new(Vec::new());
 static PORTED_EVENTS: Mutex<Vec<(u32,u32,Vec<u64>)>>=Mutex::new(Vec::new());
 static PORTED_BYTE_EVENTS: Mutex<Vec<(u32,u32,Vec<u8>)>>=Mutex::new(Vec::new());
 mod gamepkg {
-    pub use crate::client::{zeroize,local_call,local_memory_copy,local_memory_fill,local_memory_read_segments,local_memory_write_segments,local_record_create,local_record_snapshot,local_record_compare_exchange,local_record_release,local_task_status,local_task_finished,local_mailbox_create,local_mailbox_send,local_mailbox_receive,local_mailbox_release};
+    pub use crate::client::{clock_sample,performance_sample,zeroize,local_call,local_memory_copy,local_memory_fill,local_memory_read_segments,local_memory_write_segments,local_record_create,local_record_snapshot,local_record_compare_exchange,local_record_release,local_task_status,local_task_finished,local_mailbox_create,local_mailbox_send,local_mailbox_receive,local_mailbox_release};
     pub fn diagnostic_bytes(level:u32,code:u32,bytes:&[u8])->Result<u64,i32> {
         assert!(level<=3 && bytes.len()<=128*1024);
         let mut events=crate::PORTED_BYTE_EVENTS.lock().unwrap();events.push((level,code,bytes.to_vec()));Ok(events.len() as u64)

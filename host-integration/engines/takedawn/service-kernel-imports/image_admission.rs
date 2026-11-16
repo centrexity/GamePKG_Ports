@@ -157,7 +157,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
         }
         for pair in args[4..].chunks_exact(2) {
             let mode = pair[0].to_str().unwrap().parse::<u8>().unwrap();
-            assert!(mode <= 9);
+            assert!(mode <= 10);
             let selected = fs::File::open(&pair[1]).unwrap();
             let mut indexed =
                 gamepkg::xbox_disc::Disc::from_file(selected.try_clone().unwrap()).unwrap();
@@ -229,8 +229,10 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
             assert_eq!(summaries.len(), 1);
             let values = &summaries[0].values;
             assert_eq!(values[0], u64::from(mode));
-            if mode < 2 || mode == 6 || mode == 7 || mode == 8 {
-                let count = if mode == 8 {
+            if mode < 2 || mode == 6 || mode == 7 || mode == 8 || mode == 10 {
+                let count = if mode == 10 {
+                    14
+                } else if mode == 8 {
                     10
                 } else if mode == 7 {
                     9
@@ -253,7 +255,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
             for event in &events {
                 assert!([0x544b0f00, 0x544b0f10, 0x544b0fff, 0x544b1300].contains(&event.code));
                 if event.code == 0x544b1300 {
-                    assert_eq!(mode, 8);
+                    assert!(mode == 8 || mode == 10);
                     assert!(event.values == vec![8, 4] || event.values == vec![9, 4]);
                 }
                 if event.code == 0x544b0f10 {

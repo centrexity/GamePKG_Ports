@@ -1,0 +1,90 @@
+{
+  "schema": 1,
+  "production_ready": false,
+  "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+  "sources": {
+    "toolkit/src/kernel/kernel_bridge.c": {
+      "sha256": "bf62f8787a2e78a0abdb28e10ad8f79c5267dc655491353af231067747ce446e",
+      "functions": {
+        "bridge_KeQueryInterruptTime": {
+          "start": 237165,
+          "end": 237319,
+          "sha256": "3fef0f48a7a9b173b49c1e731a39123dd868c7373c7a4df0cde756a811b510b3"
+        },
+        "bridge_KeQueryPerformanceCounter": {
+          "start": 78772,
+          "end": 78952,
+          "sha256": "d015cfb62112bf7c9f95545462a57d689fa57718ff623e9c8a7f6d8aa856792f"
+        },
+        "bridge_KeQueryPerformanceFrequency": {
+          "start": 78954,
+          "end": 79138,
+          "sha256": "0937f942f033436c479f01f00170c5452edb07dd36da331f4260845c163e5fc8"
+        },
+        "bridge_KeQuerySystemTime": {
+          "start": 79255,
+          "end": 79408,
+          "sha256": "aee3cbd17c587ac7f7360d32740c686f6a8043245aaad78b8149506fdbaafa5d"
+        },
+        "stdcall_args_for_ordinal": {
+          "start": 370039,
+          "end": 392581,
+          "sha256": "9296186dab3e4cf69665559022afb261930e0efa09eea4b88f72ea723da76542"
+        },
+        "bridge_for_ordinal": {
+          "start": 392583,
+          "end": 417340,
+          "sha256": "105df98d229ad685ab70118227e48691621ea24d97bd3f9ccdae179ad4a3c85b"
+        }
+      }
+    },
+    "toolkit/src/kernel/kernel_hal.c": {
+      "sha256": "4e65affa22218adfd942c8f0460292358b055bacad5ede8faa3480eec268717e",
+      "functions": {
+        "anchor_system_time": {
+          "start": 40270,
+          "end": 40736,
+          "sha256": "540c48ed851c3b196e6e68b7bb95e732741bdc5e4fc0921edb09ef6db83f40c8"
+        },
+        "xbox_KeQueryInterruptTime": {
+          "start": 63506,
+          "end": 63880,
+          "sha256": "c705314eba1d7033e221d71c70776bbc74dc1f1d7ac0bb941ac59d03e1633440"
+        },
+        "xbox_KeQueryPerformanceCounter": {
+          "start": 39177,
+          "end": 39657,
+          "sha256": "87695f7d2fc72c66b5c25674f799356f0a95f641fc26303f31c1718b8abe04d7"
+        },
+        "xbox_KeQueryPerformanceFrequency": {
+          "start": 39659,
+          "end": 39804,
+          "sha256": "c8a6b5a5300a1429a711cbe20161c60ec39fcb4635597e43aca0921abe24788d"
+        },
+        "xbox_KeQuerySystemTime": {
+          "start": 40738,
+          "end": 42186,
+          "sha256": "fb3de06fe6ba2c40f64e6c74d7a9052c28d82711a24eaf78a3d3f91081531711"
+        }
+      }
+    }
+  },
+  "headers": {
+    "toolkit/src/kernel/kernel_hal.c": {
+      "sha256": "4e65affa22218adfd942c8f0460292358b055bacad5ede8faa3480eec268717e",
+      "definitions": {
+        "TIME_STATICS": {
+          "start": 40104,
+          "end": 40268,
+          "sha256": "bad1c5ed56efde4d6f0fd708f453e062c8971a069942ab0052c01e47f5764339"
+        }
+      }
+    }
+  },
+  "ordinals": {
+    "125": "bridge_KeQueryInterruptTime",
+    "126": "bridge_KeQueryPerformanceCounter",
+    "127": "bridge_KeQueryPerformanceFrequency",
+    "128": "bridge_KeQuerySystemTime"
+  }
+}

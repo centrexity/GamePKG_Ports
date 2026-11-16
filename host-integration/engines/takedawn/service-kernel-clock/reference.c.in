@@ -1,0 +1,46 @@
+/* Maintainer-only original-body oracle; never linked into admitted game code. */
+#include <stdint.h>
+#include <stddef.h>
+#include <string.h>
+#if !defined(_WIN32)
+#define __stdcall
+#endif
+#define CALLBACK
+#define VOID void
+#define BOOL int
+#define TRUE 1
+#define PVOID void*
+#define LONGLONG int64_t
+#define ULONGLONG uint64_t
+#define ULONG uint32_t
+#define INIT_ONCE int
+#define PINIT_ONCE int*
+#define INIT_ONCE_STATIC_INIT 0
+#define PLARGE_INTEGER LARGE_INTEGER*
+typedef union {struct {uint32_t LowPart;int32_t HighPart;};int64_t QuadPart;} LARGE_INTEGER;
+typedef struct {uint32_t dwLowDateTime,dwHighDateTime;} FILETIME;
+static uint64_t qpc,qpf,uptime,wall,guest_skew;
+static int QueryPerformanceCounter(LARGE_INTEGER *p){p->QuadPart=(int64_t)qpc;return 1;}
+static int QueryPerformanceFrequency(LARGE_INTEGER *p){p->QuadPart=(int64_t)qpf;return 1;}
+static uint64_t GetTickCount64(void){return uptime;}
+static uint64_t xbox_GuestSkewNs(void){return guest_skew;}
+static void GetSystemTimeAsFileTime(FILETIME *p){p->dwLowDateTime=(uint32_t)wall;p->dwHighDateTime=(uint32_t)(wall>>32);}
+static int InitOnceExecuteOnce(INIT_ONCE *once,BOOL (*fn)(PINIT_ONCE,PVOID,PVOID*),PVOID p,PVOID *c){if(!*once){fn(once,p,c);*once=1;}return 1;}
+/* PINNED_TIME_STATICS */
+/* PINNED_ANCHOR_SYSTEM_TIME */
+/* PINNED_XBOX_KEQUERYPERFORMANCECOUNTER */
+/* PINNED_XBOX_KEQUERYPERFORMANCEFREQUENCY */
+/* PINNED_XBOX_KEQUERYSYSTEMTIME */
+/* PINNED_XBOX_KEQUERYINTERRUPTTIME */
+static uint8_t *arena;
+static uint32_t g_eax,g_edx,g_esp;
+#define XBOX_TO_NATIVE(va) ((va)?(void*)(arena+(uint32_t)(va)):NULL)
+static uint32_t stack_arg(uint32_t n){uint32_t v;memcpy(&v,arena+g_esp+4+n*4,4);return v;}
+#define STACK_ARG(n) stack_arg(n)
+/* PINNED_BRIDGE_KEQUERYPERFORMANCECOUNTER */
+/* PINNED_BRIDGE_KEQUERYPERFORMANCEFREQUENCY */
+/* PINNED_BRIDGE_KEQUERYSYSTEMTIME */
+/* PINNED_BRIDGE_KEQUERYINTERRUPTTIME */
+/* PINNED_STDCALL_ARGS_FOR_ORDINAL */
+void clock_reference_reset(uint8_t *ram,const uint64_t *input){arena=ram;qpc=input[1];qpf=input[2];uptime=input[3];wall=input[4];guest_skew=input[5];s_time_once=0;s_time_anchor_100ns=0;s_time_anchor_counts=0;s_time_freq_counts=0;}
+void clock_reference_call(uint32_t ordinal,uint32_t *cpu){g_eax=cpu[0];g_edx=cpu[1];g_esp=cpu[2];switch(ordinal){case 125:bridge_KeQueryInterruptTime();break;case 126:bridge_KeQueryPerformanceCounter();break;case 127:bridge_KeQueryPerformanceFrequency();break;case 128:bridge_KeQuerySystemTime();break;}cpu[0]=g_eax;cpu[1]=g_edx;cpu[2]=g_esp+4+stdcall_args_for_ordinal(ordinal);}

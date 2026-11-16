@@ -1,4 +1,4 @@
-// Reviewed allocator and SHA bridges. No native handler pointers or OS calls.
+// Reviewed allocator, settings, clock and crypto bridges. No native handler pointers or OS calls.
 use crate::gamepkg;
 use crate::memory;
 use crate::registers;
@@ -19,6 +19,8 @@ fn pool_argument_bytes(ordinal: u32) -> Result<u32, i32> {
         336 | 338 | 339 => Ok(12),
         340 => Ok(28),
         24 | 166 => Ok(20),
+        125 | 126 | 127 => Ok(0),
+        128 => Ok(4),
         _ => Err(-5),
     }
 }
@@ -263,6 +265,36 @@ pub fn kernel_invoke(
         let _ = pool_word(&args, 4)?;
     }
     ram.kernel_set_caller(caller);
+    if ordinal >= 125 && ordinal <= 128 {
+        if ordinal == 128 {
+            if first != 0 {
+                let sample = gamepkg::clock_sample()?;
+                let values = kernel_service_values(ram)?;
+                let value = kernel_time_value(ordinal, sample.utc_100ns, 0, values[2])?;
+                ram.write_bytes(first, &u64::to_le_bytes(value))?;
+            }
+            state.eax = 0;
+        } else {
+            let value = if ordinal == 126 {
+                // Original counter bridge observes shared skew before QPC.
+                let values = kernel_service_values(ram)?;
+                let sample = gamepkg::performance_sample()?;
+                kernel_time_value(ordinal, sample.counter, sample.frequency, values[2])?
+            } else {
+                let sample = gamepkg::performance_sample()?;
+                if ordinal == 125 {
+                    let values = kernel_service_values(ram)?;
+                    kernel_time_value(ordinal, sample.uptime_ms, 0, values[2])?
+                } else {
+                    kernel_time_value(ordinal, sample.frequency, 0, 0)?
+                }
+            };
+            state.eax = value as u32;
+            state.edx = (value >> 32) as u32;
+        }
+        state.esp = end as u32;
+        return Ok(());
+    }
     if ordinal == 24 {
         let result = pool_nv_setting(ram, &args)?;
         state.eax = result;
@@ -756,7 +788,7 @@ pub fn kernel_service_values(ram: &memory::Memory) -> Result<[u64; 3], i32> {
     ])
 }
 pub fn kernel_requires_services(ordinal: u32) -> bool {
-    ordinal == 24
+    ordinal == 24 || ordinal == 125 || ordinal == 126 || ordinal == 128
 }
 pub fn kernel_services_initialize(
     ram: &memory::Memory,
@@ -895,4 +927,51 @@ fn pool_nv_setting(ram: &mut memory::Memory, args: &[u8]) -> Result<u32, i32> {
         }
     }
     Ok(0)
+}
+
+// Exact original unsigned interrupt-time wrap and split signed QPC scaling.
+// Refuse inputs outside the original C's defined signed arithmetic domain;
+// never turn signed-overflow undefined behavior into an invented guest value.
+pub fn kernel_time_value(ordinal: u32, base: u64, frequency: u64, skew: u64) -> Result<u64, i32> {
+    if ordinal < 125 || ordinal > 128 {
+        return Err(-5);
+    }
+    if ordinal == 125 {
+        return Ok(base.wrapping_mul(10000).wrapping_add(skew / 100));
+    }
+    if base > i64::MAX as u64 {
+        return Err(-1);
+    }
+    if ordinal == 127 {
+        return if base != 0 { Ok(base) } else { Err(-1) };
+    }
+    if ordinal == 128 {
+        let value = base.checked_add(skew / 100).ok_or(-1)?;
+        return if value <= i64::MAX as u64 {
+            Ok(value)
+        } else {
+            Err(-1)
+        };
+    }
+    if ordinal != 126 {
+        return Err(-5);
+    }
+    if frequency == 0 || frequency > i64::MAX as u64 {
+        return Err(-1);
+    }
+    let seconds = (skew / 1000000000).checked_mul(frequency).ok_or(-1)?;
+    let fraction = (skew % 1000000000).checked_mul(frequency).ok_or(-1)?;
+    if seconds > i64::MAX as u64 || fraction > i64::MAX as u64 {
+        return Err(-1);
+    }
+    let value = base
+        .checked_add(seconds)
+        .ok_or(-1)?
+        .checked_add(fraction / 1000000000)
+        .ok_or(-1)?;
+    if value > i64::MAX as u64 {
+        Err(-1)
+    } else {
+        Ok(value)
+    }
 }
