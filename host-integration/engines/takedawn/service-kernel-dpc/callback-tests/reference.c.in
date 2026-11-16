@@ -1,0 +1,55 @@
+/* Original callback calling convention with controlled native/profiler/IRQL providers. */
+#include <stdint.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <string.h>
+#include <assert.h>
+static uint32_t cpu[79],ram[131072];
+static int irql,profile_on,samples;
+#define BRIDGE_MEM32(va) ram[((uint32_t)(va)-0x740000u)/4u]
+#define g_esp cpu[7]
+typedef void (*recomp_func_t)(void);
+static void trace(uint32_t kind) {
+ uint32_t n=BRIDGE_MEM32(0x741000);assert(n<8);
+ uint32_t v[6]={kind,(uint32_t)irql,g_esp,cpu[60],BRIDGE_MEM32(0x741020),BRIDGE_MEM32(0x741024)};
+ memcpy((uint8_t *)ram+0x3000+n*24,v,24);BRIDGE_MEM32(0x741000)=n+1;
+}
+static void publish(int level) {irql=level;if(cpu[60])BRIDGE_MEM32(cpu[60]+0x24)=(BRIDGE_MEM32(cpu[60]+0x24)&0xffffff00u)|(uint32_t)level;}
+static int xbox_IrqlEnterInterrupt(int level) {int old=irql;if(irql!=level)publish(level);return old;}
+static void xbox_IrqlLeaveInterrupt(int saved) {if(irql!=saved)publish(saved);}
+static int xbox_ProfOn(void) {return profile_on;}
+static void *xbox_ProfBegin(int kind,uint32_t routine) {BRIDGE_MEM32(0x741020)=(uint32_t)kind;BRIDGE_MEM32(0x741024)=routine;trace(1);return (void *)(uintptr_t)1;}
+static long long xbox_ProfNowUs(void) {if(samples++==0)trace(2);return 100+(samples-1)*2;}
+static void xbox_ProfEnd(void *prev,long long elapsed) {assert((uintptr_t)prev==1 && elapsed==2);trace(4);}
+static void native(uint32_t routine) {
+ trace(3);assert(BRIDGE_MEM32(g_esp)==0);
+ uint32_t dpc=BRIDGE_MEM32(g_esp+4),context=BRIDGE_MEM32(g_esp+8),first=BRIDGE_MEM32(g_esp+12),second=BRIDGE_MEM32(g_esp+16);
+ assert(BRIDGE_MEM32(dpc+20)==first && BRIDGE_MEM32(dpc+24)==second);
+ cpu[0]^=routine^context;cpu[3]=first;cpu[4]=second;
+ cpu[56]=first;cpu[57]=second;cpu[58]=context;cpu[59]=dpc;
+ cpu[69]=routine;cpu[70]=context;cpu[61]^=0x844;cpu[62]=UINT32_MAX;cpu[11]=(cpu[11]&0xffff0000u)|0x4000;
+ uint32_t mode=BRIDGE_MEM32(0x741010);
+ if(mode>=2)cpu[60]=0x742000;
+ if(mode==1)publish(0);
+ if(mode==2)publish(4);
+ if(mode==3)publish(1);
+ BRIDGE_MEM32(0x744000)=cpu[0];g_esp+=20;
+}
+static void primary(void) {native(0x1100);}
+static void secondary(void) {native(0x2200);}
+static recomp_func_t recomp_lookup(uint32_t address) {return address==0x1100?primary:NULL;}
+static recomp_func_t recomp_lookup_manual(uint32_t address) {return address==0x2200?secondary:NULL;}
+/* PINNED_RUN */
+static void put32(uint8_t *out,uint32_t value) {for(unsigned i=0;i<4;i++)out[i]=(uint8_t)(value>>(8*i));}
+void callback_reference(uint32_t index,const uint8_t *initial,const uint32_t *params,uint8_t *out) {
+ memcpy(cpu,initial,316);memset(ram,0,sizeof(ram));samples=0;
+ static const int levels[4]={0,1,2,4};irql=levels[(index>>6)&3];profile_on=index&1;
+ BRIDGE_MEM32(0x74010c)=params[1];BRIDGE_MEM32(0x740110)=params[2];BRIDGE_MEM32(0x741004)=index&1;BRIDGE_MEM32(0x741010)=(index>>3)&3;
+ publish(irql);
+ int ran=kernel_run_dpc(params[0],params[3],params[4],(int32_t)params[5]);
+ memcpy(out,cpu,316);uint64_t hash=UINT64_C(14695981039346656037);
+ const uint8_t *bytes=(const uint8_t *)ram;
+ for(size_t i=0;i<sizeof(ram);i++)hash=(hash^bytes[i])*UINT64_C(1099511628211);
+ for(unsigned i=0;i<8;i++)out[316+i]=(uint8_t)(hash>>(8*i));
+ put32(out+324,(uint32_t)ran);put32(out+328,(uint32_t)irql);put32(out+332,BRIDGE_MEM32(0x741000));
+}

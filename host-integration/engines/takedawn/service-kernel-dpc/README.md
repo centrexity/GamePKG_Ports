@@ -134,6 +134,12 @@ IQL/raw gate, assigned queue consumer and existing host clock wake lane. It
 does not drain the queue, execute a DPC or replace the production timer worker.
 Its qualification is separate from the queue-only witnesses above.
 
+`callback.rs` supplies the native callback convention on the assigned timer's
+retained guest-stack lease, with explicit finite route/profiler interfaces,
+priority restoration and abort cleanup. See [CALLBACKS.md](CALLBACKS.md).
+Its original-C witnesses use synthetic native routines, not title callbacks.
+The real provider tables, queue drain and production timer remain unfinished.
+
 Connect the original gate/IRQL/CLI/STI and ISR safe points, deferred wake policy,
 native callback dispatch and guest stack/TIB, timer/event shadow records,
 statistics histogram/reporting, shutdown and reviewed production worker. Do not

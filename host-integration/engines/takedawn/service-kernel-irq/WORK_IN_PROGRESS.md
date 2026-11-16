@@ -22,6 +22,10 @@ Remaining required work:
    `../service-kernel-dpc/notify.rs`; see `NOTIFICATIONS.md` there for exact
    bindings, readiness and partial-error semantics. It does not connect the
    production observer or supply a callback drain automatically.
+   `../service-kernel-dpc/callback.rs` now supplies the checked native calling
+   convention; `CALLBACKS.md` defines finite routes, profiling, retained guest
+   stack ownership and partial-error cleanup. Its synthetic original-C
+   qualification is not real title callback or timer/drain integration.
 4. Initialize/share one IQL/stack/IRQ instance per title, attach every fresh Task
    view, and connect the full native thunk/context/bridge and entry paths. The
    existing four-ID native context has not automatically expanded to carry this
