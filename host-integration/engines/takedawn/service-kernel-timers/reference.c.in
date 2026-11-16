@@ -1,0 +1,80 @@
+/* Maintainer oracle only. Pinned original bodies, copied into this shell by check.py. */
+#include <stdint.h>
+#include <string.h>
+#include <assert.h>
+typedef uint64_t HANDLE;
+typedef struct { uint32_t timer_va,dpc_va;int64_t due_ms;int32_t period_ms; } XboxTimer;
+static XboxTimer g_timers[32];
+static int g_timer_lock,g_timer_started;
+static uint32_t g_eax;
+static int64_t test_now;
+static uint64_t reads, trace;
+static uint32_t operation, fired_timer;
+static int lock_depth;
+#define XBOX_MAX_TIMERS 32
+#define XBOX_PROF_DPC_TIMER 3
+#define CreateThread(...) 0
+#define CloseHandle(...) ((void)0)
+static void InitializeCriticalSection(int *lock){(void)lock;}
+static void EnterCriticalSection(int *lock){(void)lock;lock_depth++;}
+static void LeaveCriticalSection(int *lock){(void)lock;assert(lock_depth==1);lock_depth--;}
+static long long kernel_clock_ms(void){assert(lock_depth==1);reads++;return test_now;}
+static HANDLE ke_shadow_lookup(uint32_t va){(void)va;return 0;}
+static void ResetEvent(HANDLE h){(void)h;assert(0);}
+static void SetEvent(HANDLE h){(void)h;assert(0);}
+static uint32_t fake_mem[4];
+#define BRIDGE_MEM32(va) fake_mem[((va)>>2)&3]
+static void kernel_run_dpc(uint32_t dpc,uint32_t first,uint32_t second,int source);
+static void reference_fired(uint32_t va,uint32_t dpc);
+/* PINNED_SET */
+/* PINNED_CANCEL */
+/* PINNED_FIRE */
+static void put32(uint8_t *p,uint32_t v){for(int i=0;i<4;i++)p[i]=(uint8_t)(v>>(i*8));}
+static void put64(uint8_t *p,uint64_t v){for(int i=0;i<8;i++)p[i]=(uint8_t)(v>>(i*8));}
+static void slots(uint8_t *p){
+ for(int i=0;i<32;i++){
+  put32(p+i*24,g_timers[i].timer_va);put32(p+i*24+4,g_timers[i].dpc_va);
+  put64(p+i*24+8,(uint64_t)g_timers[i].due_ms);put32(p+i*24+16,(uint32_t)g_timers[i].period_ms);
+  put32(p+i*24+20,0);
+ }
+}
+static void hash_bytes(const uint8_t *p,int count){for(int i=0;i<count;i++)trace=(trace^p[i])*UINT64_C(1099511628211);}
+static void reference_fired(uint32_t va,uint32_t dpc){
+ uint8_t b[776];assert(lock_depth==0);fired_timer=va;put32(b,va);put32(b+4,dpc);slots(b+8);hash_bytes(b,776);
+}
+static void kernel_run_dpc(uint32_t dpc,uint32_t first,uint32_t second,int source){
+ (void)first;(void)second;(void)source;assert(lock_depth==0);
+ switch(operation%4){
+ case 0:kernel_set_timer(fired_timer,-50000,5,dpc);break;
+ case 1:xbox_kernel_cancel_timer(fired_timer+40);break;
+ case 2:kernel_set_timer(0x1300,0,0,dpc);break;
+ default:break;
+ }
+}
+void timer_reference(uint32_t index,const uint64_t *args,uint8_t *out){
+ if(!index){
+  memset(g_timers,0,sizeof(g_timers));g_timer_started=0;lock_depth=0;
+  assert(xbox_kernel_cancel_timer(0)==0);g_timer_started=1;
+  reads=0;trace=UINT64_C(14695981039346656037);
+ }
+ operation=index;test_now=(int64_t)args[5];uint64_t a=0,b=0;
+ if(args[0]==0){
+  int found=0;for(int i=0;i<32;i++)if(!g_timers[i].timer_va||g_timers[i].timer_va==(uint32_t)args[1])found=1;
+  kernel_set_timer((uint32_t)args[1],(int64_t)args[2],(int32_t)args[3],(uint32_t)args[4]);a=g_eax;b=(uint64_t)found;
+ }else if(args[0]==1){a=(uint64_t)xbox_kernel_cancel_timer((uint32_t)args[1]);}
+ else{long long next;a=(uint64_t)kernel_fire_timers(test_now,&next);b=(uint64_t)next;}
+ put64(out,a);put64(out+8,b);put64(out+16,reads);put64(out+24,trace);slots(out+32);
+}
+
+typedef struct { long long QuadPart; } LARGE_INTEGER;
+static uint64_t clock_counter,clock_frequency,clock_skew;
+static int QueryPerformanceFrequency(LARGE_INTEGER *p){p->QuadPart=(long long)clock_frequency;return 1;}
+static int QueryPerformanceCounter(LARGE_INTEGER *p){p->QuadPart=(long long)clock_counter;return 1;}
+static uint64_t GetTickCount64(void){return 0;}
+static uint64_t xbox_GuestSkewNs(void){return clock_skew;}
+/* Each original function instance retains its own cached frequency, as in a fresh runtime. */
+/* PINNED_CLOCKS */
+int64_t timer_clock_reference(uint32_t index,const uint64_t *args){
+ clock_counter=args[0];clock_frequency=args[1];clock_skew=args[2];
+ switch(index){/* CLOCK_CASES */default:assert(0);return 0;}
+}

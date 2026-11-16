@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+  "member": "toolkit/src/kernel/kernel_bridge.c",
+  "source_sha256": "bf62f8787a2e78a0abdb28e10ad8f79c5267dc655491353af231067747ce446e",
+  "functions": {
+    "set": {
+      "start": 155955,
+      "end": 157143,
+      "sha256": "c1023157290c682fc9861e4d6fb47079c2592333be46b8f9b13929f6529a4719"
+    },
+    "fire": {
+      "start": 145305,
+      "end": 146805,
+      "sha256": "9c3bf22e4015612f2540c6538139ec235a049148bf374856a7533c06e5d6bc6d"
+    },
+    "cancel": {
+      "start": 157710,
+      "end": 158096,
+      "sha256": "5b09fd3d4b44e985603c443ec7244e87a42822e8dd3bd42cf551c299f7c8d584"
+    },
+    "host_ms": {
+      "start": 115753,
+      "end": 116129,
+      "sha256": "dc21dfe1fdf13dad3c4c4ebc52466da53f297efc67e884171f46f2003e9abd41"
+    },
+    "guest_ms": {
+      "start": 116385,
+      "end": 116502,
+      "sha256": "3f94adba73eadaf490421a1bbee524bbca83c63624d85806d1959a613f581ba0"
+    }
+  },
+  "transforms": [
+    "Use explicit Xbox signed 32-bit period parameters on all maintainer targets.",
+    "Insert reference_fired(fired_va,dpc) after fired++ as a read-only table/order observation before the original callback."
+  ],
+  "scope": "Original timer-table operations with controlled callbacks; shadow lookup absent; not shadow-event or title gameplay qualification."
+}

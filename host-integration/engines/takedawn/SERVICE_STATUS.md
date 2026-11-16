@@ -473,3 +473,41 @@ and delayed-consumer checks plus drop/immediate-failure controls verify it.
 The installed app also native-builds signed 2048 and Arkanoo in a private test
 library and completes 120 headless frames each. Catalog metadata and all seven
 thumbnail hashes/notices pass. No gameplay or physical-device claim follows.
+
+
+## Original timer-table and shared-worker join checkpoint
+
+`service-kernel-timers/README.md` specifies the new checked port-owned `Timers`
+and `Scan` contracts. A fixed 32-slot table retains original set/cancel/ordered
+fire behavior and publishes periodic rearm or one-shot removal under its mutex
+before returning a firing to the caller. Callback execution belongs outside
+that lock. Production `clock.rs` preserves the separate original host-ms and
+skew-ms truncations using the existing host-owned counter/KSV3, rather than
+rounding a combined guest-nanosecond value.
+
+The existing DPC queue supplies a private-field `Joined` witness only after its
+actual consuming join. Multiple owners of the same timer/DPC worker can close
+without a second native join. Missing/premature or wrong root/queue/worker
+witnesses reject. This introduces no new SDK operation or native object; shared
+SDK identity remains `51d880fd16a9cfacef7fb2d9582be1e26e32728685082248ce8f83e510ab1606`
+and installed CLI/GUI identity remains `324b3c58fe2292b1`. Existing quotas,
+object/source checks, profile gates and the pinned ports submodule stay intact.
+
+The maintainer reference uses pinned original set/cancel/fire and host/guest
+clock bodies, explicit Xbox signed 32-bit period width, and an observational
+hook before controlled callbacks. The shadow lookup is absent. Tests compare
+all 768 slot bytes, results, clock-read counts and callback-order/state traces
+for 512 operations per target, plus 64 original clock cases. Invalid/reserved/
+stale/foreign metadata, a signaled event forged as the mutex, pre-start access,
+CAS interference, clock failures, aborted scans, exact single join and cleanup
+after KSV3 revocation are covered. Mutation controls must reject changed
+relative rounding, old-due periodic drift, null cancellation, missing firing
+publication, premature join witnesses and combined clock/skew truncation.
+
+This is timer-table readiness, not complete timer or title integration. Original
+shadow-map/initialize/reset/signal/cancel ordering, lazy first-set startup, actual
+DPC handlers/profiling and the retained worker's timer/vblank/spin/TIB/context
+loop remain required. No main import or generated source closure is enabled.
+Four target component tests and source/object builds, confined Linux fixtures
+and Windows Wine runs do not qualify real Windows confinement, title gameplay,
+physical controls, audible audio, graphics fidelity or measured frame pacing.

@@ -14,6 +14,34 @@ pub struct Queue {
     joined: bool,
     owned: bool,
 }
+// An actual consuming join, witnessed by the owning queue. Other components
+// borrowing the same timer worker can close without a second native join.
+pub struct Joined {
+    root: u64,
+    services: u64,
+    queue: u64,
+    worker: u64,
+    creator: u64,
+}
+impl Joined {
+    pub fn joined_for(
+        &self,
+        ram: &memory::Memory,
+        queue_identity: u64,
+        worker: u64,
+    ) -> Result<(), i32> {
+        if self.root != ram.call_handle()
+            || self.queue != queue_identity
+            || self.worker != worker
+            || worker == 0
+            || self.services == 0
+            || gamepkg::local_task_status()?.0 != self.creator
+        {
+            return Err(-4);
+        }
+        Ok(())
+    }
+}
 // A single assigned consumer's still-locked dequeue observation. No native
 // pointer, callback, new SDK object or permission is represented by this value.
 pub struct Take {
@@ -445,6 +473,26 @@ impl Queue {
         }
         self.joined = true;
         Ok(u64::from_le_bytes(reply))
+    }
+    pub fn queue_worker_binding(&self, ram: &memory::Memory) -> Result<[u64; 2], i32> {
+        let (_, bytes) = self.queue_snapshot(ram)?;
+        if queue_u64(&bytes, 40)? == 0 {
+            return Err(-5);
+        }
+        Ok([self.record, queue_u64(&bytes, 32)?])
+    }
+    pub fn queue_join_witness(&self, ram: &memory::Memory) -> Result<Joined, i32> {
+        self.queue_creator(ram)?;
+        if !self.joined || self.worker == 0 {
+            return Err(-2);
+        }
+        Ok(Joined {
+            root: self.root,
+            services: self.services,
+            queue: self.record,
+            worker: self.worker,
+            creator: self.creator,
+        })
     }
     pub fn queue_close(&mut self, ram: &memory::Memory) -> Result<(), i32> {
         if self.queue_closed() {

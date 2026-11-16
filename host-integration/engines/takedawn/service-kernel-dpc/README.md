@@ -161,3 +161,27 @@ the checked source kit, qualify its full receipt/build and complete the renderer
 media, input and actual gameplay paths. No engine/media bridge exception is
 permitted. Existing source/license provenance is in
 `../service-native/UPSTREAM_LICENSES.txt` and the pinned source kit.
+
+
+## Sharing the timer worker's actual join
+
+`queue_worker_binding(&Memory)` returns `[queue_record_id,actual_worker_id]`
+only after assignment, using the ordinary complete queue validation. The timer
+component binds those identities while the worker is still suspended.
+`queue_join_witness(&Memory)` is creator-only and returns Busy until the owning
+queue's consuming `queue_join` has actually succeeded. Borrowed queues cannot
+create this private-field `Joined` value. A second native join remains Invalid.
+
+`Joined::joined_for(&Memory, queue_identity, worker)` validates its root, queue,
+worker and current creator without another SDK call to join. Keep the value
+before closing the queue; it remains usable for closing another owner bound to
+that same worker afterward, including resource cleanup after KSV3 revocation.
+It neither extends any native resource lifetime nor grants cross-root or
+cross-worker authority. It is a checked Rust handoff, not a new host operation,
+serialization format, completion flag, dependency or admission bypass.
+
+The timer fixture in `../service-kernel-timers` tests missing/premature and wrong
+scope witnesses, actual single join, close after queue release and revoked-root
+cleanup. Its intentionally premature-join implementation must fail. The complete
+queue source/object matrix and original queue operations are also requalified;
+no existing ring/Inserted/notification/callback semantics change.
