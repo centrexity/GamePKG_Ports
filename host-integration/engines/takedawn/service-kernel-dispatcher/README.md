@@ -91,3 +91,9 @@ remain unqualified. The supplied ISO is read in place by the separate import
 check: 108 main functions remain unresolved. KeConnectInterrupt, DPC execution,
 timer/DPC/IRQ scheduling, complete generated graph, device/renderer/media and
 production title build/launch must migrate before enabling Burnout.
+
+Current admission compares 352-byte witnesses per initializer call: the complete
+CPU v5 record (316 bytes) plus the existing 36-byte RAM/state witness. The older
+fixed 280-byte admission expectation was corrected; no CPU bytes were truncated
+or native comparison weakened. The 768-call native/source/object/confined suite
+is requalified with the shared KPL4-compatible kernel source.

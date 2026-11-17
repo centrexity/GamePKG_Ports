@@ -2,6 +2,7 @@
 use crate::gamepkg;
 use crate::imports;
 use crate::kernel_data;
+use crate::kernel_pool;
 use crate::memory;
 use crate::xbe;
 fn image_import_word(bytes: &[u8], at: usize) -> Result<u32, i32> {
@@ -19,6 +20,25 @@ pub fn imports_image(
     data: &kernel_data::Data,
     remap: &[u16],
 ) -> Result<imports::Imports, i32> {
+    imports_image_inner(ram, image, data, remap, 0)
+}
+pub fn imports_image_with_context(
+    ram: &memory::Memory,
+    image: &xbe::Image,
+    data: &kernel_data::Data,
+    remap: &[u16],
+    context: &kernel_pool::KernelContext,
+) -> Result<imports::Imports, i32> {
+    context.kernel_context_registry(ram)?;
+    imports_image_inner(ram, image, data, remap, context.kernel_context_id())
+}
+fn imports_image_inner(
+    ram: &memory::Memory,
+    image: &xbe::Image,
+    data: &kernel_data::Data,
+    remap: &[u16],
+    context: u64,
+) -> Result<imports::Imports, i32> {
     ram.call_snapshot()?;
     let (_, record) = gamepkg::local_record_snapshot(ram.call_handle(), 288)?;
     let bounds = image.image_bounds();
@@ -29,7 +49,12 @@ pub fn imports_image(
     if data.data_base(ram)? != region.checked_add(0x40000).ok_or(-1)? {
         return Err(-1);
     }
-    let plan = imports::Imports::imports_scan(ram, image.image_thunk(), data, remap)?;
+    let plan = if context == 0 {
+        imports::Imports::imports_scan(ram, image.image_thunk(), data, remap)?
+    } else {
+        let bound = kernel_pool::KernelContext::kernel_context_borrow(ram, context)?;
+        imports::Imports::imports_scan_with_context(ram, image.image_thunk(), data, remap, &bound)?
+    };
     let shape = plan.imports_layout();
     if shape[0] < bounds[0] || u64::from(shape[0]) + u64::from(shape[1]) * 4 > u64::from(bounds[1])
     {

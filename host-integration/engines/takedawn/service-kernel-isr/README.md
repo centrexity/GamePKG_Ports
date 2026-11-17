@@ -12,6 +12,11 @@ is qualified against those inputs for this component. Full source-kit/import
 integration must retain the exact identities and pass its own complete source,
 object and confinement checks. Compilation alone is insufficient.
 
+The registry now has one definition in checked port `kernel_pool.rs`; this
+module reexports the identical type. Its bound import-ABI path and KIC1/KPL4
+formats are qualified in [the context contract](../service-kernel-context/README.md).
+This does not promote it to trusted host code or enable a complete native profile.
+
 ## Contracts
 
 `connections.rs` implements a root/KSV-bound 32-vector table of **guest u32
@@ -127,8 +132,8 @@ same cases. An unused maintainer reference shell in game source rejects.
 SDK remains `fe309935dd602e2cf098e50065f6035de33dac88b51d45a2bc1ba47cf026742f`.
 
 The literal ISR routes, profiler and IRQ hooks here are controlled fixtures,
-not real title/device/profiler implementations. Remaining: production shared
-registry/context publication, import-ABI wiring (including invalid-buffer policy
+not real title/device/profiler implementations. Remaining: production root-factory
+context adoption, further import-ABI wiring (including invalid-buffer policy
 and the separate disconnect review), actual finite generated handlers and NV2A
 register/ack behavior, APU/OHCI, timer/vblank/spin/pause/warp/wait integration,
 full generated source/build/launcher closure and actual gameplay/GPU/input/audio/

@@ -727,3 +727,34 @@ real generated ISR/profiler/device and NV2A ack/register paths, timer/IRQ loop a
 full source/build/launcher/gameplay closure remain required. Fixture handlers
 and synthetic-memory checks do not prove GPU fidelity, physical input, audible
 audio or measured pacing.
+
+
+## Bound native KeConnectInterrupt import path
+
+Ordinal 98 now has an actual checked native import handler using the same
+`Connections` type as ISR callers. Its single implementation remains ordinary
+checked port code in `kernel_pool.rs`, reexported by the ISR facade. KIC1 binds
+root/KSV/registry; KPL4 carries that context ID before its slots. Complete scan
+and authenticated-image adapters, worker four-ID transfer and native invocation
+validate that live binding. Context-free KPL2/KPL3 preparation/invocation cannot
+opt into 98; other unsupported functions still reject before patching. New
+maximum map size is 1548, within existing record budgets. See the context README.
+
+Three aligned/unaligned-lookbehind/maximum-map scenarios pass on actual SDK
+workers on four targets, five broken variants fail, all eight game objects per
+target are audited after complete source checks and actual confined Linux
+x64/i686 execution passes. Full-width ID alias attempts, malformed/foreign/
+revoked context, forged old maps and counter bounds reject without the prohibited
+CPU/pre-publication mutations. Authenticated synthetic image mode 11 reaches
+initialize/connect through the real native call dispatcher; old image cases
+remain valid. Windows component execution is Wine; image Windows scope is
+source/object/link qualification. Current initializer/clock/allocator/memory/
+complete-import and ISR regressions pass. Initializer admission now correctly
+retains the full v5 CPU witness size.
+
+SDK, root/KSV/CPU/four-ID formats, quotas, source/object/confinement rules and
+pinned submodule are unchanged; checked source identities and receipts change.
+No full title or other unsupported import is enabled. Production factory/source
+closure, real device/profiler/IRQ and NV2A ack/register paths, disconnect contract,
+whole timer loop and full build/launch/gameplay/GPU/input/audio/pacing validation
+remain required. Installed matching app SDK and user ROMs/saves are unchanged.

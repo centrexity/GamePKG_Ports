@@ -14,7 +14,7 @@ fn pool_long(bytes: &[u8], at: usize) -> Result<u64, i32> {
 }
 fn pool_argument_bytes(ordinal: u32) -> Result<u32, i32> {
     match ordinal {
-        14 | 17 | 23 | 165 | 171 | 180 | 335 => Ok(4),
+        14 | 17 | 23 | 98 | 165 | 171 | 180 | 335 => Ok(4),
         15 | 44 | 168 | 337 => Ok(8),
         107 | 336 | 338 | 339 => Ok(12),
         109 | 340 => Ok(28),
@@ -29,6 +29,9 @@ pub fn kernel_supported(ordinal: u32) -> Result<u32, i32> {
     pool_argument_bytes(ordinal)
 }
 // Only these five exports require the shared physical allocator owner.
+pub fn kernel_requires_context(ordinal: u32) -> bool {
+    ordinal == 98
+}
 pub fn kernel_physical(ordinal: u32) -> bool {
     ordinal == 165 || ordinal == 166 || ordinal == 168 || ordinal == 171 || ordinal == 180
 }
@@ -65,6 +68,9 @@ pub fn kernel_prepare(ram: &mut memory::Memory, table: u32, count: u32) -> Resul
         }
         let ordinal = thunk_word & 0x7fffffff;
         pool_argument_bytes(ordinal)?;
+        if kernel_requires_context(ordinal) {
+            return Err(-5);
+        }
         physical |= kernel_physical(ordinal);
         services |= kernel_requires_services(ordinal);
         record[24 + slot * 4..28 + slot * 4].copy_from_slice(&u32::to_le_bytes(ordinal));
@@ -91,13 +97,13 @@ pub fn kernel_prepare(ram: &mut memory::Memory, table: u32, count: u32) -> Resul
     }
     Ok(())
 }
-fn pool_snapshot(ram: &memory::Memory) -> Result<(u64, std::vec::Vec<u8>, u32), i32> {
+fn pool_snapshot(ram: &memory::Memory) -> Result<(u64, std::vec::Vec<u8>, u32, usize), i32> {
     ram.call_snapshot()?;
     let id = ram.kernel_handle();
     if id == 0 {
         return Err(-5);
     }
-    let (version, record) = gamepkg::local_record_snapshot(id, 1540)?;
+    let (version, record) = gamepkg::local_record_snapshot(id, 1548)?;
     if record.len() < 28 || pool_long(&record, 8)? != ram.call_handle() {
         return Err(-1);
     }
@@ -113,7 +119,7 @@ fn pool_snapshot(ram: &memory::Memory) -> Result<(u64, std::vec::Vec<u8>, u32), 
             return Err(-1);
         }
         count
-    } else if magic == 0x334c504b {
+    } else if magic == 0x334c504b || magic == 0x344c504b {
         if declared == 0 || declared > count || count > declared + 17 || count == declared + 1 {
             return Err(-1);
         }
@@ -121,45 +127,61 @@ fn pool_snapshot(ram: &memory::Memory) -> Result<(u64, std::vec::Vec<u8>, u32), 
     } else {
         return Err(-1);
     };
-    if count == 0
-        || count > 378
-        || record.len() != 28 + count as usize * 4
+    let routing_start = if magic == 0x344c504b {
+        32usize
+    } else {
+        24usize
+    };
+    if record.len() != routing_start + 4 + count as usize * 4
         || table < 65536
         || u64::from(table) + u64::from(main) * 4 > 67108864
-        || pool_word(&record, 24 + count as usize * 4)? > 8
+        || pool_word(&record, routing_start + count as usize * 4)? > 8
     {
         return Err(-1);
     }
-    if magic == 0x334c504b && count > main {
-        if pool_word(&record, 24 + main as usize * 4)? != 0
-            || pool_word(&record, 24 + (count as usize - 1) * 4)? == 0
+    if magic == 0x344c504b {
+        let bound_context = pool_long(&record, 24)?;
+        if bound_context == 0 {
+            return Err(-1);
+        }
+        KernelContext::kernel_context_borrow(ram, bound_context)?;
+    }
+    if magic != 0x324c504b && count > main {
+        if pool_word(&record, routing_start + main as usize * 4)? != 0
+            || pool_word(&record, routing_start + (count as usize - 1) * 4)? == 0
         {
             return Err(-1);
         }
         for slot in main + 1..count {
-            let ordinal = pool_word(&record, 24 + slot as usize * 4)?;
-            if ordinal != 0 && pool_argument_bytes(ordinal).is_err() {
+            let ordinal = pool_word(&record, routing_start + slot as usize * 4)?;
+            if ordinal != 0
+                && (pool_argument_bytes(ordinal).is_err()
+                    || kernel_requires_context(ordinal) && routing_start != 32)
+            {
                 return Err(-1);
             }
         }
     }
-    Ok((version, record, count))
+    Ok((version, record, count, routing_start))
 }
 pub fn kernel_ordinal(ram: &memory::Memory, slot: u32) -> Result<u32, i32> {
-    let (_, record, count) = pool_snapshot(ram)?;
+    let (_, record, count, routing_start) = pool_snapshot(ram)?;
     if slot >= count {
         return Err(-5);
     }
-    let ordinal = pool_word(&record, 24 + slot as usize * 4)?;
+    let ordinal = pool_word(&record, routing_start + slot as usize * 4)?;
     pool_argument_bytes(ordinal)?;
+    if kernel_requires_context(ordinal) && routing_start != 32 {
+        return Err(-5);
+    }
     Ok(ordinal)
 }
 // At most eight successful updates can compete, unlike the unbounded call
 // trace. The existing bounded CAS loop therefore needs no extra wait/queue.
 fn pool_refusal_ticket(ram: &memory::Memory) -> Result<bool, i32> {
     for _ in 0..64 {
-        let (version, mut record, count) = pool_snapshot(ram)?;
-        let at = 24 + count as usize * 4;
+        let (version, mut record, count, routing_start) = pool_snapshot(ram)?;
+        let at = routing_start + count as usize * 4;
         let observed = pool_word(&record, at)?;
         if observed == 8 {
             return Ok(false);
@@ -265,6 +287,31 @@ pub fn kernel_invoke(
         let _ = pool_word(&args, 4)?;
     }
     ram.kernel_set_caller(caller);
+    if ordinal == 98 {
+        let (_, record, _, routing_start) = pool_snapshot(ram)?;
+        if routing_start != 32 {
+            return Err(-5);
+        }
+        let context = KernelContext::kernel_context_borrow(ram, pool_long(&record, 24)?)?;
+        let registry = context.kernel_context_registry(ram)?;
+        let connected = registry.connection_connect(ram, first)?;
+        if connected[1] < 32 {
+            // Original connection report is best effort after publication.
+            let _ = gamepkg::diagnostic(
+                1,
+                0x544b3200,
+                &[
+                    u64::from(connected[1]),
+                    u64::from(first),
+                    u64::from(connected[2]),
+                    u64::from(connected[3]),
+                ],
+            );
+        }
+        state.eax = connected[0];
+        state.esp = end as u32;
+        return Ok(());
+    }
     if ordinal == 44 || ordinal == 107 || ordinal == 109 {
         let value = pool_dispatcher_initialize(ram, ordinal, &args)?;
         state.eax = value;
@@ -517,7 +564,7 @@ fn pool_sha(ram: &mut memory::Memory, ordinal: u32, args: &[u8]) -> Result<(), i
     let high = u32::to_be_bytes(ram.read_u32(context + 24)?);
     let low = u32::to_be_bytes(ram.read_u32(context + 20)?);
     pool_sha_byte(ram, context, 0x80)?;
-    // At most 63 zero bytes: modulo count uses the original low-word bits.
+    // At most 63 zero bytes: modulo count uses the original low-field_bytes bits.
     for _ in 0..64usize {
         if (ram.read_u32(context + 20)? >> 3) & 63 == 56 {
             break;
@@ -530,7 +577,7 @@ fn pool_sha(ram: &mut memory::Memory, ordinal: u32, args: &[u8]) -> Result<(), i
     for value in low {
         pool_sha_byte(ram, context, value)?;
     }
-    // Read each word afresh, matching original byte-store alias behavior even
+    // Read each field_bytes afresh, matching original byte-store alias behavior even
     // when Digest overlaps State. Callers must serialize updates to a context.
     for index in 0..5u32 {
         for byte in 0..4u32 {
@@ -804,6 +851,7 @@ pub fn kernel_service_values(ram: &memory::Memory) -> Result<[u64; 3], i32> {
 }
 pub fn kernel_requires_services(ordinal: u32) -> bool {
     ordinal == 24
+        || ordinal == 98
         || ordinal == 107
         || ordinal == 109
         || ordinal == 125
@@ -1153,4 +1201,259 @@ fn pool_dispatcher_initialize(
         ram.write_u32(first + 8, pool_word(args, 12)?)?;
     }
     Ok(0)
+}
+
+// Shared port-owned interrupt registry; this remains checked game code.
+pub struct Connections {
+    root: u64,
+    services: u64,
+    record: u64,
+    creator: u64,
+    owned: bool,
+}
+fn connection_word(b: &[u8], at: usize) -> Result<u64, i32> {
+    let s = b.get(at..at + 8).ok_or(-1)?;
+    Ok(u64::from_le_bytes([
+        s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7],
+    ]))
+}
+fn connection_live(ram: &memory::Memory, services: u64) -> Result<(), i32> {
+    if services == 0 || ram.services_handle()? != services {
+        return Err(-4);
+    }
+    let values = kernel_service_values(ram);
+    if ram.services_handle()? != services || gamepkg::local_task_status()?.1 {
+        return Err(-4);
+    }
+    values?;
+    Ok(())
+}
+impl Connections {
+    pub fn connections_new(ram: &memory::Memory) -> Result<Self, i32> {
+        let services = ram.services_handle()?;
+        connection_live(ram, services)?;
+        let creator = gamepkg::local_task_status()?.0;
+        let mut b = [0u8; 192];
+        for (at, value) in [
+            (0usize, 0x31525349u64),
+            (8, ram.call_handle()),
+            (16, services),
+        ] {
+            let field_bytes = u64::to_le_bytes(value);
+            for lane in 0..8usize {
+                b[at + lane] = field_bytes[lane];
+            }
+        }
+        let record = gamepkg::local_record_create(&b)?;
+        if let Err(code) = connection_live(ram, services) {
+            if gamepkg::local_record_release(record).is_err() {
+                return Err(-3);
+            }
+            return Err(code);
+        }
+        Ok(Self {
+            root: ram.call_handle(),
+            services,
+            record,
+            creator,
+            owned: true,
+        })
+    }
+    pub fn connections_id(&self) -> u64 {
+        self.record
+    }
+    pub fn connections_closed(&self) -> bool {
+        self.record == 0
+    }
+    pub fn connections_borrow(ram: &memory::Memory, record: u64) -> Result<Self, i32> {
+        let view = Self {
+            root: ram.call_handle(),
+            services: ram.services_handle()?,
+            record,
+            creator: 0,
+            owned: false,
+        };
+        view.connection_snapshot(ram)?;
+        Ok(view)
+    }
+    fn connection_snapshot(&self, ram: &memory::Memory) -> Result<(u64, std::vec::Vec<u8>), i32> {
+        if self.record == 0 || ram.call_handle() != self.root {
+            return Err(-4);
+        }
+        connection_live(ram, self.services)?;
+        let (version, b) = gamepkg::local_record_snapshot(self.record, 192)?;
+        if b.len() != 192 || connection_word(&b, 0)? != 0x31525349 {
+            return Err(-1);
+        }
+        if connection_word(&b, 8)? != self.root || connection_word(&b, 16)? != self.services {
+            return Err(-4);
+        }
+        for at in [24usize, 32, 40, 48, 56] {
+            if connection_word(&b, at)? != 0 {
+                return Err(-1);
+            }
+        }
+        connection_live(ram, self.services)?;
+        Ok((version, b))
+    }
+    pub fn connection_get(&self, ram: &memory::Memory, vector_index: u32) -> Result<u32, i32> {
+        let (_, b) = self.connection_snapshot(ram)?;
+        if vector_index >= 32 {
+            return Ok(0);
+        }
+        let at = 64 + vector_index as usize * 4;
+        Ok(u32::from_le_bytes([b[at], b[at + 1], b[at + 2], b[at + 3]]))
+    }
+    // The original reports connected even for null/out-of-range requests.
+    // [return value, vector_index or u32::MAX, routine, context] retains its log data.
+    pub fn connection_connect(&self, ram: &memory::Memory, guest: u32) -> Result<[u32; 4], i32> {
+        self.connection_snapshot(ram)?;
+        if guest == 0 {
+            return Ok([1, u32::MAX, 0, 0]);
+        }
+        let vector_index = ram.read_u32(guest.checked_add(8).ok_or(-1)?)?;
+        if vector_index >= 32 {
+            return Ok([1, vector_index, 0, 0]);
+        }
+        let at = 64 + vector_index as usize * 4;
+        let encoded = u32::to_le_bytes(guest);
+        for _ in 0..64u32 {
+            let (version, mut b) = self.connection_snapshot(ram)?;
+            for lane in 0..4usize {
+                b[at + lane] = encoded[lane];
+            }
+            match gamepkg::local_record_compare_exchange(self.record, version, &b) {
+                Ok(_) => {
+                    // Publication preceded these original diagnostic reads.
+                    let routine = ram.read_u32(guest)?;
+                    let context = ram.read_u32(guest.checked_add(4).ok_or(-1)?)?;
+                    connection_live(ram, self.services)?;
+                    return Ok([1, vector_index, routine, context]);
+                }
+                Err(-2) => memory::Memory::call_retry_pause()?,
+                Err(code) => return Err(code),
+            }
+        }
+        Err(-2)
+    }
+    pub fn connections_close(&mut self, ram: &memory::Memory) -> Result<(), i32> {
+        if ram.call_handle() != self.root || gamepkg::local_task_status()?.0 != self.creator {
+            return Err(-4);
+        }
+        if self.record == 0 {
+            return Ok(());
+        }
+        if !self.owned {
+            return Err(-4);
+        }
+        let validation = connection_live(ram, self.services);
+        gamepkg::local_record_release(self.record)?;
+        self.record = 0;
+        self.owned = false;
+        validation
+    }
+}
+
+// Explicit KIC1 copied context for context-dependent import calls. No host ABI.
+pub struct KernelContext {
+    root: u64,
+    services: u64,
+    record: u64,
+    creator: u64,
+    owned: bool,
+}
+impl KernelContext {
+    pub fn kernel_context_new(ram: &memory::Memory, registry: &Connections) -> Result<Self, i32> {
+        registry.connection_snapshot(ram)?;
+        let services = ram.services_handle()?;
+        let creator = gamepkg::local_task_status()?.0;
+        let mut b = [0u8; 64];
+        for (at, value) in [
+            (0usize, 0x3143494bu64),
+            (8, ram.call_handle()),
+            (16, services),
+            (24, registry.connections_id()),
+        ] {
+            let field_bytes = u64::to_le_bytes(value);
+            for lane in 0..8usize {
+                b[at + lane] = field_bytes[lane];
+            }
+        }
+        let record = gamepkg::local_record_create(&b)?;
+        let result = Self {
+            root: ram.call_handle(),
+            services,
+            record,
+            creator,
+            owned: true,
+        };
+        if let Err(code) = result.context_snapshot(ram) {
+            if gamepkg::local_record_release(record).is_err() {
+                return Err(-3);
+            }
+            return Err(code);
+        }
+        Ok(result)
+    }
+    pub fn kernel_context_id(&self) -> u64 {
+        self.record
+    }
+    pub fn kernel_context_closed(&self) -> bool {
+        self.record == 0
+    }
+    pub fn kernel_context_borrow(ram: &memory::Memory, record: u64) -> Result<Self, i32> {
+        let view = Self {
+            root: ram.call_handle(),
+            services: ram.services_handle()?,
+            record,
+            creator: 0,
+            owned: false,
+        };
+        view.context_snapshot(ram)?;
+        Ok(view)
+    }
+    fn context_snapshot(&self, ram: &memory::Memory) -> Result<u64, i32> {
+        if self.record == 0 || ram.call_handle() != self.root {
+            return Err(-4);
+        }
+        connection_live(ram, self.services)?;
+        let (_, b) = gamepkg::local_record_snapshot(self.record, 64)?;
+        if b.len() != 64 || pool_long(&b, 0)? != 0x3143494b {
+            return Err(-1);
+        }
+        if pool_long(&b, 8)? != self.root || pool_long(&b, 16)? != self.services {
+            return Err(-4);
+        }
+        for at in [32usize, 40, 48, 56] {
+            if pool_long(&b, at)? != 0 {
+                return Err(-1);
+            }
+        }
+        let registry = pool_long(&b, 24)?;
+        if registry == 0 {
+            return Err(-1);
+        }
+        Connections::connections_borrow(ram, registry)?;
+        connection_live(ram, self.services)?;
+        Ok(registry)
+    }
+    pub fn kernel_context_registry(&self, ram: &memory::Memory) -> Result<Connections, i32> {
+        Connections::connections_borrow(ram, self.context_snapshot(ram)?)
+    }
+    pub fn kernel_context_close(&mut self, ram: &memory::Memory) -> Result<(), i32> {
+        if ram.call_handle() != self.root || gamepkg::local_task_status()?.0 != self.creator {
+            return Err(-4);
+        }
+        if self.record == 0 {
+            return Ok(());
+        }
+        if !self.owned {
+            return Err(-4);
+        }
+        let validation = connection_live(ram, self.services);
+        gamepkg::local_record_release(self.record)?;
+        self.record = 0;
+        self.owned = false;
+        validation
+    }
 }

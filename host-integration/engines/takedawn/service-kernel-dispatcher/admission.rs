@@ -31,7 +31,7 @@ fn main() {
     let app = Path::new(&args[1]);
     let here = Path::new(&args[2]);
     let vectors = fs::read(&args[3]).unwrap();
-    assert_eq!(vectors.len(), 768 * 280);
+    assert_eq!(vectors.len(), 768 * (316 + 36));
     let root = tempfile::tempdir().unwrap();
     let source = root.path().join("package");
     fs::create_dir_all(source.join("source/src")).unwrap();
@@ -156,7 +156,7 @@ pub fn game_main(){let code=match probe::dispatcher_probe(){Ok(())=>0u64,Err(cod
         assert_eq!(events.last().unwrap().values, vec![0]);
         let mut actual: Vec<u8> = Vec::new();
         for e in events.iter().filter(|e| e.code == 0x544b1701) {
-            assert_eq!(e.bytes.as_ref().unwrap().len(), 64 * 280);
+            assert_eq!(e.bytes.as_ref().unwrap().len(), 64 * (316 + 36));
             actual.extend(e.bytes.as_ref().unwrap());
         }
         assert_eq!(actual, vectors);

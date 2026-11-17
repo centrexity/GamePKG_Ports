@@ -40,8 +40,8 @@ def main():
    ('suppress-profile-end-error',here/'call.rs','Ok(()) => ended','Ok(()) => { let _ = ended; Ok(()) }',1),
    ('skip-fatal-abort',here/'call.rs','if task.irql_abort(ram).is_err()','if false',1),
    ('omit-manual-route',here/'routes.rs','routine == 0x1100 || routine == 0x2200','routine == 0x1100 || routine == 0x1100',1),
-   ('drop-vector-31',here/'connections.rs','if vector >= 32 {','if vector >= 31 {',2),
-   ('borrowed-close-allowed',here/'connections.rs','if !self.owned {','if false {',1),
+   ('drop-vector-31',here/'../service-kernel-pool/kernel_pool.rs','if vector_index >= 32 {','if vector_index >= 31 {',2),
+   ('borrowed-close-allowed',here/'../service-kernel-pool/kernel_pool.rs','if !self.owned {','if false {',2),
   ]
   for name,path,old,new,count in replacements:
    original=path.read_text();assert original.count(old)==count,name

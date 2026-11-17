@@ -55,7 +55,7 @@ pub fn image_import_run() -> Result<(), i32> {
         &[],
         None,
     )?;
-    let services = if mode[0] == 4 || mode[0] == 8 || mode[0] == 10 {
+    let services = if mode[0] == 4 || mode[0] == 8 || mode[0] == 10 || mode[0] == 11 {
         Some(kernel_pool::kernel_services_initialize(
             &ram,
             0x10000,
@@ -81,7 +81,8 @@ pub fn image_import_run() -> Result<(), i32> {
             if current & 0x80000000 != 0 {
                 let ordinal = current & 0x7fffffff;
                 if data.data_address(&ram, ordinal)? == 0
-                    && kernel_pool::kernel_supported(ordinal).is_err()
+                    && (kernel_pool::kernel_supported(ordinal).is_err()
+                        || kernel_pool::kernel_requires_context(ordinal))
                 {
                     missing.extend([u64::from(ordinal)]);
                     if missing.len() == 32 {
@@ -95,8 +96,28 @@ pub fn image_import_run() -> Result<(), i32> {
             gamepkg::diagnostic(1, 0x544b0f10, &missing)?;
         }
     }
-    let planned = image_imports::imports_image(&ram, &image, &data, &[]);
-    if mode[0] >= 2 && mode[0] != 6 && mode[0] != 7 && mode[0] != 8 && mode[0] != 10 {
+    let mut registry = if mode[0] == 11 {
+        Some(kernel_pool::Connections::connections_new(&ram)?)
+    } else {
+        None
+    };
+    let mut binding = if let Some(owner) = registry.as_ref() {
+        Some(kernel_pool::KernelContext::kernel_context_new(&ram, owner)?)
+    } else {
+        None
+    };
+    let planned = if let Some(owner) = binding.as_ref() {
+        image_imports::imports_image_with_context(&ram, &image, &data, &[], owner)
+    } else {
+        image_imports::imports_image(&ram, &image, &data, &[])
+    };
+    if mode[0] >= 2
+        && mode[0] != 6
+        && mode[0] != 7
+        && mode[0] != 8
+        && mode[0] != 10
+        && mode[0] != 11
+    {
         let expected = if mode[0] == 3 || mode[0] == 5 { -1 } else { -5 };
         match planned {
             Err(code) => {
@@ -115,7 +136,9 @@ pub fn image_import_run() -> Result<(), i32> {
         gamepkg::diagnostic(1, 0x544b0f00, &[u64::from(mode[0]), expected as i64 as u64])?;
     } else {
         let prepared = planned?;
-        let count = if mode[0] == 10 {
+        let count = if mode[0] == 11 {
+            5
+        } else if mode[0] == 10 {
             14
         } else if mode[0] == 8 {
             10
@@ -144,6 +167,29 @@ pub fn image_import_run() -> Result<(), i32> {
             return Err(-3);
         }
         let allocation = state.eax;
+        if mode[0] == 11 {
+            for (slot, args) in [
+                (3u32, [0x1d000u32, 0x1100, 0x89abcdef, 3, 16, 1, 0]),
+                (4, [0x1d000, 0, 0, 0, 0, 0, 0]),
+            ] {
+                state.esp = sp;
+                ram.write_u32(sp, 0x12345678)?;
+                for at in 0..7usize {
+                    ram.write_u32(sp + 4 + at as u32 * 4, args[at])?;
+                }
+                calls_runtime::invoke_call(&mut state, &mut ram, 0xfe000000 + slot * 4, sp)?;
+                if state.eax != u32::from(slot == 4)
+                    || state.esp
+                        != sp + 4 + kernel_pool::kernel_supported(if slot == 3 { 109 } else { 98 })?
+                {
+                    return Err(-3);
+                }
+            }
+            if registry.as_ref().ok_or(-3)?.connection_get(&ram, 3)? != 0x1d000 {
+                return Err(-3);
+            }
+        }
+
         if mode[0] == 6 || mode[0] == 7 || mode[0] == 8 || mode[0] == 10 {
             ram.write_bytes(0x13000, &[97u8, 98, 99])?;
             for (slot, args) in [
@@ -305,6 +351,13 @@ pub fn image_import_run() -> Result<(), i32> {
                 u64::from(allocation),
             ],
         )?;
+    }
+    if let Some(owner) = binding.as_mut() {
+        ram.kernel_clear()?;
+        owner.kernel_context_close(&ram)?;
+    }
+    if let Some(owner) = registry.as_mut() {
+        owner.connections_close(&ram)?;
     }
     if let Some(owner) = services {
         owner.service_close(&ram)?;

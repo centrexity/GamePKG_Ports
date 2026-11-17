@@ -6,7 +6,9 @@ the finite allocator bridges. `image_imports.rs` binds that plan to the reviewed
 image/CPU setup. No native function pointer, OS protection call, success stub or
 engine exemption is introduced. **The title remains gated:** the 23 migrated functions
 (nine allocators, six SHA/RC4/HMAC, NV settings, four clocks, HAL vector query and
-two dispatcher initializers) and 24 data exports are available. See
+two dispatcher initializers) and 24 data exports are available without context.
+KeConnectInterrupt is additionally available only through the bound KPL4/KIC1
+context; see [the current contract](../service-kernel-context/README.md). See
 `../service-kernel-dispatcher/README.md` for the initializer contracts. A complete table
 containing any other function fails Unsupported before publication.
 
@@ -203,3 +205,13 @@ The current dispatcher extension registers only complete 44/107/109 behavior.
 independent. Actual private in-place image checks report 108 unresolved main
 functions and continue to reject before patching/title entry. No timer, IRQ,
 DPC-execution or renderer handler is made available by object initialization.
+
+
+## KPL4 context-dependent calls
+
+`imports_scan_with_context` and `imports_image_with_context` bind a live checked
+KIC1 registry context without changing complete-table/image validation. The new
+map starts slots at 32 and is at most 1548 bytes; KPL2/KPL3 retain their layouts.
+Ordinal 98 requires this binding; old context-free entry points still reject it.
+Current CPU/root sizes are 316/288 bytes and the four-ID context is unchanged.
+See `../service-kernel-context/README.md` for exact formats, APIs and scope.

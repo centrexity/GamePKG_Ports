@@ -15,6 +15,7 @@ pub struct Imports {
     pages: std::vec::Vec<[u64; 4]>,
     physical: bool,
     services: bool,
+    context: u64,
 }
 fn imports_word(bytes: &[u8], at: usize) -> Result<u32, i32> {
     let part = bytes.get(at..at + 4).ok_or(-1)?;
@@ -44,7 +45,29 @@ impl Imports {
         data: &kernel_data::Data,
         remap: &[u16],
     ) -> Result<Self, i32> {
+        Self::imports_scan_inner(ram, table, data, remap, 0)
+    }
+    pub fn imports_scan_with_context(
+        ram: &memory::Memory,
+        table: u32,
+        data: &kernel_data::Data,
+        remap: &[u16],
+        context: &kernel_pool::KernelContext,
+    ) -> Result<Self, i32> {
+        context.kernel_context_registry(ram)?;
+        Self::imports_scan_inner(ram, table, data, remap, context.kernel_context_id())
+    }
+    fn imports_scan_inner(
+        ram: &memory::Memory,
+        table: u32,
+        data: &kernel_data::Data,
+        remap: &[u16],
+        context: u64,
+    ) -> Result<Self, i32> {
         ram.call_snapshot()?;
+        if context != 0 {
+            kernel_pool::KernelContext::kernel_context_borrow(ram, context)?;
+        }
         if ram.kernel_handle() != 0 || table < 65536 || remap.len() > 65536 {
             return Err(-1);
         }
@@ -112,6 +135,9 @@ impl Imports {
                 continue;
             }
             kernel_pool::kernel_supported(ordinal)?;
+            if kernel_pool::kernel_requires_context(ordinal) && context == 0 {
+                return Err(-5);
+            }
             physical |= kernel_pool::kernel_physical(ordinal);
             services |= kernel_pool::kernel_requires_services(ordinal);
             imports_put(&mut patched, 64 + slot * 4, 0xfe000000 + slot as u32 * 4);
@@ -130,6 +156,9 @@ impl Imports {
             // Original lookbehind deliberately has neither remap nor data routing.
             let ordinal = current & 0x7fffffff;
             kernel_pool::kernel_supported(ordinal)?;
+            if kernel_pool::kernel_requires_context(ordinal) && context == 0 {
+                return Err(-5);
+            }
             physical |= kernel_pool::kernel_physical(ordinal);
             services |= kernel_pool::kernel_requires_services(ordinal);
             ordinals[slot as usize] = ordinal;
@@ -137,8 +166,19 @@ impl Imports {
             imports_put(&mut patched, at, 0xfe000000 + slot * 4);
         }
         let mut record = std::vec::Vec::new();
-        record.resize(28 + slots as usize * 4, 0u8);
-        imports_put(&mut record, 0, 0x334c504b);
+        let routing_start = if context == 0 { 24usize } else { 32usize };
+        record.resize(routing_start + 4 + slots as usize * 4, 0u8);
+        imports_put(
+            &mut record,
+            0,
+            if context == 0 { 0x334c504b } else { 0x344c504b },
+        );
+        if context != 0 {
+            let encoded = u64::to_le_bytes(context);
+            for lane in 0..8usize {
+                record[24 + lane] = encoded[lane];
+            }
+        }
         imports_put(&mut record, 4, slots);
         let root = u64::to_le_bytes(ram.call_handle());
         for index in 0..8usize {
@@ -147,7 +187,7 @@ impl Imports {
         imports_put(&mut record, 16, table);
         imports_put(&mut record, 20, count);
         for slot in 0..slots as usize {
-            imports_put(&mut record, 24 + slot * 4, ordinals[slot]);
+            imports_put(&mut record, routing_start + slot * 4, ordinals[slot]);
         }
         let mut pages = std::vec::Vec::new();
         let mut address = low & !4095u32;
@@ -183,6 +223,7 @@ impl Imports {
             pages,
             physical,
             services,
+            context,
         })
     }
     pub fn imports_layout(&self) -> [u32; 3] {
@@ -190,6 +231,9 @@ impl Imports {
     }
     fn imports_validate(&self, ram: &memory::Memory) -> Result<(), i32> {
         ram.call_snapshot()?;
+        if self.context != 0 {
+            kernel_pool::KernelContext::kernel_context_borrow(ram, self.context)?;
+        }
         if ram.call_handle() != self.root {
             return Err(-4);
         }
