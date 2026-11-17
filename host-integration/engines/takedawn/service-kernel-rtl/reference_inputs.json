@@ -1,0 +1,68 @@
+{
+  "schema": 1,
+  "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+  "members": {
+    "toolkit/src/kernel/kernel_rtl.c": {
+      "sha256": "0288004b67feb7fa608a38146a66530d4ca64e131ed2ddbe5e39de7620bed978",
+      "functions": {
+        "xbox_RtlEqualString": {
+          "start": 4455,
+          "end": 4851,
+          "sha256": "aec2eda8c658443f1bce900bd7181d6aabfa7363d4b70b71874623c294a5d362"
+        }
+      }
+    },
+    "toolkit/src/kernel/kernel_bridge.c": {
+      "sha256": "bf62f8787a2e78a0abdb28e10ad8f79c5267dc655491353af231067747ce446e",
+      "functions": {
+        "bridge_RtlCompareMemoryUlong": {
+          "start": 71594,
+          "end": 72025,
+          "sha256": "808bba5e9fa8ad1502c03ce0157d017c622357439eea7d9cabfaa2dd41b7767d"
+        },
+        "bridge_RtlEqualString": {
+          "start": 177510,
+          "end": 178228,
+          "sha256": "f6ccd3203da80efe406e2064b5cc5f866fb3e38a5cb4651b4c536a8d485e7d9a"
+        },
+        "bridge_RtlInitAnsiString": {
+          "start": 178230,
+          "end": 178895,
+          "sha256": "33959d407c586b6cea25158de8c57fc9de1da5350b9cc7a8d6847e8ece0388d9"
+        },
+        "bridge_RtlInitUnicodeString": {
+          "start": 242727,
+          "end": 243475,
+          "sha256": "3d59a26b0b8f9d43a64561f52caa04dcf8b3e75c4c398e2fed1a4d294ba96be1"
+        },
+        "bridge_RtlNtStatusToDosError": {
+          "start": 158938,
+          "end": 161678,
+          "sha256": "71297b215a6c0f045f86642f32b776017f8f84add9b988422db3129153086d61"
+        }
+      }
+    }
+  },
+  "ordinals": {
+    "269": {
+      "name": "RtlCompareMemoryUlong",
+      "argument_bytes": 12
+    },
+    "279": {
+      "name": "RtlEqualString",
+      "argument_bytes": 12
+    },
+    "289": {
+      "name": "RtlInitAnsiString",
+      "argument_bytes": 8
+    },
+    "290": {
+      "name": "RtlInitUnicodeString",
+      "argument_bytes": 8
+    },
+    "301": {
+      "name": "RtlNtStatusToDosError",
+      "argument_bytes": 4
+    }
+  }
+}

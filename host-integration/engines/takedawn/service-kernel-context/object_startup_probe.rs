@@ -327,6 +327,10 @@ pub fn object_startup_image(
         object_need(316, owner.startup_phase() == 2)?;
         if mode >= 69 {
             crate::sync_startup_probe::sync_startup_schema(ram, &owner, mode)?;
+            if mode == 81 {
+                let values = crate::rtl_image_probe::rtl_image_calls(ram, [10, 11, 12, 13, 14])?;
+                gamepkg::diagnostic(1, 0x544b3f00, &values)?;
+            }
             if mode == 70 {
                 let (table, _, semaphores) = owner.startup_sync_objects(ram)?;
                 crate::semaphore_import_probe::semaphore_import_controls(
@@ -512,7 +516,9 @@ pub fn object_startup_image(
         &[
             u64::from(mode),
             expected as i64 as u64,
-            if mode >= 69 {
+            if mode == 81 {
+                15
+            } else if mode >= 69 {
                 10
             } else if mode == 68 {
                 8

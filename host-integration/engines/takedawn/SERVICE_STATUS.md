@@ -1062,3 +1062,31 @@ integration and file/thread adapters remain required. KIC4's main-import gap sta
 102; the public source archive, app pin, defaults and native profile gates remain
 unchanged. Infrastructure/native-Wine/offscreen hardware checks establish no
 physical controls, audible audio, original game fidelity or measured frame pacing.
+
+## Checked RTL import batch
+
+The dependency-free `service-kernel-rtl` adapters implement actual ordinals 269,
+279, 289, 290 and 301 over the existing checked memory service; exact contracts,
+original-source pins, fault semantics and qualification commands are in
+[service-kernel-rtl/README.md](service-kernel-rtl/README.md). No new host service,
+crate, raw pointer or policy exemption is introduced. Complete source scanning
+still precedes SDK injection and every optimized game object is audited before
+trusted linking. A local name collision rejected by the full source corpus was
+fixed in the port, without changing the source checker.
+
+Authenticated KIC4 mode 81 invokes all five imports through the prepared plan,
+checks full CPU/caller/output behavior, and retains existing startup cleanup.
+The private main table contains four of them: KIC4's verified remaining import
+count is 98, KIC3 100 and KIC2 102 (KIC1 103; no-context 104). This is an import
+classification count, not proof of title execution. The public source kit,
+catalog, app ports pin, quotas, defaults and blocked native profiles remain
+unchanged. Shared SDK identity remains
+`9801f83896bc4dc53f135f9fe169f27305323fe82f1b8fae5f578092792745d8`;
+the existing local app installation already supplies it.
+
+Qualification distinguishes native components and actual confined Linux32/64
+startup from Windows components under Wine and Windows artifact-only admission.
+No physical controls, audible audio, original game rendering or frame pacing is
+claimed. NT waits/close and their typed owners/APC integration, file/thread
+adapters, complete generated source/handler/loop, renderer/media migration and
+Linux/Windows build/launcher/gameplay qualification remain required.

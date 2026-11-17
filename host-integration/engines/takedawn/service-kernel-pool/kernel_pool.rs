@@ -14,10 +14,10 @@ fn pool_long(bytes: &[u8], at: usize) -> Result<u64, i32> {
 }
 fn pool_argument_bytes(ordinal: u32) -> Result<u32, i32> {
     match ordinal {
-        14 | 17 | 23 | 98 | 165 | 171 | 180 | 335 => Ok(4),
-        15 | 44 | 113 | 168 | 225 | 337 => Ok(8),
+        14 | 17 | 23 | 98 | 165 | 171 | 180 | 301 | 335 => Ok(4),
+        15 | 44 | 113 | 168 | 225 | 289 | 290 | 337 => Ok(8),
         189 | 193 => Ok(16),
-        107 | 222 | 336 | 338 | 339 => Ok(12),
+        107 | 222 | 269 | 279 | 336 | 338 | 339 => Ok(12),
         109 | 340 => Ok(28),
         24 | 166 => Ok(20),
         125 | 126 | 127 => Ok(0),
@@ -302,6 +302,18 @@ pub fn kernel_invoke(
         let _ = pool_word(&args, 4)?;
     }
     ram.kernel_set_caller(caller);
+    if ordinal == 269 || ordinal == 279 || ordinal == 289 || ordinal == 290 || ordinal == 301 {
+        let result = match ordinal {
+            269 => rtl_compare_ulong(ram, first, pool_word(&args, 4)?, pool_word(&args, 8)?)?,
+            279 => rtl_equal_string(ram, first, pool_word(&args, 4)?, pool_word(&args, 8)?)?,
+            289 | 290 => rtl_init_string(ram, first, pool_word(&args, 4)?, ordinal == 290)?,
+            301 => rtl_status_error(first),
+            _ => return Err(-5),
+        };
+        state.eax = result;
+        state.esp = end as u32;
+        return Ok(());
+    }
     if ordinal == 193 || ordinal == 222 {
         let (_, record, _, routing_start) = pool_snapshot(ram)?;
         if routing_start != 32 {
@@ -5481,4 +5493,164 @@ fn pool_nt_release_semaphore(
             Ok(0)
         }
     }
+}
+
+// Pinned bridge semantics, expressed only over checked GamePKG guest memory.
+fn rtl_status_error(status: u32) -> u32 {
+    match status {
+        0 | 0x104 => 0,
+        0xc0000034 => 2,
+        0xc000003a => 3,
+        0xc0000022 => 5,
+        0xc0000008 => 6,
+        0xc0000017 => 8,
+        0xc000000d => 87,
+        0x103 => 997,
+        0x102 => 1460,
+        0x80000005 => 234,
+        0x80000006 => 18,
+        0xc0000011 => 38,
+        0xc0000023 => 122,
+        0xc0000035 => 183,
+        0xc00000bb => 50,
+        _ => 317,
+    }
+}
+fn rtl_lower_byte(value: u8) -> u8 {
+    if value >= 65 && value <= 90 {
+        value + 32
+    } else {
+        value
+    }
+}
+fn rtl_compare_ulong(
+    ram: &memory::Memory,
+    base: u32,
+    length: u32,
+    pattern: u32,
+) -> Result<u32, i32> {
+    if base == 0 {
+        return Ok(0);
+    }
+    let length = u64::from(length & !3u32);
+    let mut done = 0u64;
+    let mut block = [0u8; 256];
+    while done < length {
+        let address = u64::from(base).checked_add(done).ok_or(-1)?;
+        if address >= 4294967296 {
+            return Err(-1);
+        }
+        let count = ram.memory_read_chunk(
+            address as u32,
+            4,
+            &mut block[..(length - done).min(256) as usize],
+        )?;
+        let mut lane = 0usize;
+        while lane < count {
+            if pool_word(&block, lane)? != pattern {
+                return Ok((done + lane as u64) as u32);
+            }
+            lane += 4;
+        }
+        done += count as u64;
+    }
+    Ok(done as u32)
+}
+fn rtl_equal_string(
+    ram: &memory::Memory,
+    first: u32,
+    second: u32,
+    insensitive: u32,
+) -> Result<u32, i32> {
+    if first == 0 || second == 0 {
+        return Ok(0);
+    }
+    let mut a = [0u8; 8];
+    let mut b = [0u8; 8];
+    ram.read_bytes(first, &mut a)?;
+    ram.read_bytes(second, &mut b)?;
+    let left = pool_word(&a, 4)?;
+    let right = pool_word(&b, 4)?;
+    if left == 0 || right == 0 {
+        return Ok(0);
+    }
+    let length = u16::from_le_bytes([a[0], a[1]]);
+    if length != u16::from_le_bytes([b[0], b[1]]) {
+        return Ok(0);
+    }
+    let mut done = 0u64;
+    let mut aa = [0u8; 256];
+    let mut bb = [0u8; 256];
+    let insensitive = insensitive as u8 != 0;
+    while done < u64::from(length) {
+        let ap = u64::from(left) + done;
+        let bp = u64::from(right) + done;
+        if ap >= 4294967296 || bp >= 4294967296 {
+            return Err(-1);
+        }
+        let requested = (u64::from(length) - done).min(256) as usize;
+        let first_count = ram.memory_read_chunk(ap as u32, 1, &mut aa[..requested])?;
+        let count = ram.memory_read_chunk(bp as u32, 1, &mut bb[..first_count])?;
+        for lane in 0..count {
+            let av = aa[lane];
+            let bv = bb[lane];
+            let ac = if insensitive { rtl_lower_byte(av) } else { av };
+            let bc = if insensitive { rtl_lower_byte(bv) } else { bv };
+            if ac != bc {
+                return Ok(0);
+            }
+            if av == 0 {
+                return Ok(1);
+            }
+        }
+        done += count as u64;
+    }
+    Ok(1)
+}
+fn rtl_string_bytes(ram: &memory::Memory, source: u32, wide: bool) -> Result<u64, i32> {
+    let mut done = 0u64;
+    let mut block = [0u8; 256];
+    while done < 4294967296 {
+        let address = u64::from(source).checked_add(done).ok_or(-1)?;
+        if address >= 4294967296 {
+            return Err(-1);
+        }
+        let count = ram.memory_read_chunk(address as u32, if wide { 2 } else { 1 }, &mut block)?;
+        let mut lane = 0usize;
+        while lane < count {
+            let rtl_terminator = block[lane] == 0 && (!wide || block[lane + 1] == 0);
+            if rtl_terminator {
+                return Ok(done + lane as u64);
+            }
+            lane += if wide { 2 } else { 1 };
+        }
+        done += count as u64;
+    }
+    Err(-1)
+}
+fn rtl_init_string(
+    ram: &mut memory::Memory,
+    destination: u32,
+    source: u32,
+    wide: bool,
+) -> Result<u32, i32> {
+    if destination == 0 {
+        return Ok(0);
+    }
+    let bytes = if source == 0 {
+        0
+    } else {
+        rtl_string_bytes(ram, source, wide)?.min(65534) as u16
+    };
+    let maximum = if source == 0 {
+        0
+    } else {
+        bytes.wrapping_add(if wide { 2 } else { 1 })
+    };
+    // Preserve each accepted field store; a later protected/overflowing field
+    // is a fatal prefix, not invented struct-wide rollback or CPU success.
+    ram.write_u16(destination, bytes)?;
+    ram.write_u16(destination.checked_add(2).ok_or(-1)?, maximum)?;
+    ram.write_u32(destination.checked_add(4).ok_or(-1)?, source)?;
+    Ok(0)
 }

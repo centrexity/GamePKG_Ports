@@ -430,6 +430,39 @@ impl Memory {
         let (window, offset) = self.resolve(address, u64::from(length), true)?;
         gamepkg::local_memory_fill(window, offset, u64::from(length), value)
     }
+    // Read whole scalar units within one known span/host page. A boundary
+    // shorter than one required unit uses the ordinary segmented exact read.
+    // This is not a lease: actual host read/protection/revocation errors always
+    // propagate and must never be treated as a reason to retry a smaller read.
+    pub fn memory_read_chunk(
+        &self,
+        address: u32,
+        unit: u32,
+        output: &mut [u8],
+    ) -> Result<usize, i32> {
+        self.call_snapshot()?;
+        if (unit != 1 && unit != 2 && unit != 4)
+            || output.is_empty()
+            || output.len() > 4096
+            || output.len() % unit as usize != 0
+        {
+            return Err(-1);
+        }
+        let position = u64::from(address);
+        for span in &self.spans {
+            let low = u64::from(span.guest);
+            let high = low + span.bytes;
+            if position >= low && position < high {
+                let offset = span.offset + position - low;
+                let available = (high - position).min(4096 - (offset & 4095));
+                let count = ((output.len() as u64).min(available) & !(u64::from(unit) - 1))
+                    .max(u64::from(unit));
+                self.read_bytes(address, &mut output[..count as usize])?;
+                return Ok(count as usize);
+            }
+        }
+        Err(-4)
+    }
     pub fn read_bytes(&self, address: u32, output: &mut [u8]) -> Result<(), i32> {
         if output.len() > 1048576 {
             return Err(-1);
