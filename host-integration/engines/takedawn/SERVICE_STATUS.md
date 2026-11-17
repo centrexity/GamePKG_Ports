@@ -939,3 +939,14 @@ playback, graphics/physical input/audible audio or measured pacing is establishe
 SDK/quotas/public source archive/defaults/catalog/pinned submodule/blocked profiles
 are unchanged. Complete source/import/handler/loop/renderer/media/build/launcher
 and gameplay qualification remain required; the host installation needs no update.
+
+## Shared scratch service prerequisite
+
+The app now offers opt-in bounded scratch memory and atomic copied byte updates
+without increasing opaque-record quotas. Exact API, namespace, ownership and
+migration requirements are in [SCRATCH_HANDOFF.md](service-kernel-context/SCRATCH_HANDOFF.md).
+The dense record-backed handle prototype did not pass the real SDK's 4 KiB/64 KiB
+record bounds and is preserved privately. It is not admitted port code. Full
+scratch-backed handles, native event/object adapters and import/context/startup
+wiring remain required. No title profile, archive, catalog, default or pinned
+submodule is enabled or changed by this prerequisite. Main import gap stays 106.

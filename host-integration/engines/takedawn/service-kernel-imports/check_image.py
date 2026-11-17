@@ -138,6 +138,10 @@ def main():
   if a.evidence:
    files={str(path.relative_to(a.evidence)):hashlib.sha256(path.read_bytes()).hexdigest() for path in sorted(a.evidence.iterdir())}
    sources={str(path.relative_to(here.parent)):hashlib.sha256(path.read_bytes()).hexdigest() for path in [here/'check_image.py',here/'image_admission.rs',here/'image_probe.rs',here/'../service-kernel-context/startup.rs',here/'../service-kernel-context/startup_probe.rs',here/'../service-kernel-context/tick_startup.rs',here/'../service-kernel-context/tick_probe.rs',here/'../service-kernel-tick/tick.rs',here/'../service-kernel-context/startup.rs',here/'../service-kernel-context/timer_startup.rs',here/'../service-kernel-context/timer_probe.rs',here/'../service-kernel-dpc/queue.rs',here/'../service-kernel-pacing/shared.rs',here/'../service-kernel-timers/timers.rs']}
-   (a.evidence/'qualification.json').write_text(json.dumps({'schema':1,'sdk':'fe309935dd602e2cf098e50065f6035de33dac88b51d45a2bc1ba47cf026742f','status':'authenticated-image-owned-shadow-KIC2-timer-import-worker-and-retained-launch-lifetimes-not-title-entry','files':files,'sources':sources,'required_failing_variants':21 if a.mutations else 0,'windows':'source/object/link only','linux':'actual confined x64/i686 children','profile_admission':'blocked'},indent=2)+'\n')
+   receipts=[json.loads(path.read_text()) for path in sorted(a.evidence.glob('receipt-*.json'))]
+   assert len(receipts)==4
+   sdk_ids={receipt['game']['sdk'] for receipt in receipts};assert len(sdk_ids)==1
+   sdk=sdk_ids.pop();assert len(sdk)==64 and all(ch in '0123456789abcdef' for ch in sdk)
+   (a.evidence/'qualification.json').write_text(json.dumps({'schema':1,'sdk':sdk,'status':'authenticated-image-owned-shadow-KIC2-timer-import-worker-and-retained-launch-lifetimes-not-title-entry','files':files,'sources':sources,'required_failing_variants':21 if a.mutations else 0,'windows':'source/object/link only','linux':'actual confined x64/i686 children','profile_admission':'blocked'},indent=2)+'\n')
  print('Image/import infrastructure only; private title remains rejected until all actual kernel calls and native entry migrate.')
 if __name__=='__main__':main()
