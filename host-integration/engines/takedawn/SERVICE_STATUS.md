@@ -4,7 +4,18 @@ This is tested integration work, **not a playable Burnout release**. The legacy
 profile remains blocked. No source pin, signature, cached executable or engine
 exception may bypass that block. The source kit and catalog URLs are unchanged.
 
-## Latest checkpoint: actual native event creation and signaling imports
+## Latest shared capability: counted semaphores; port adapter pending
+
+The GamePKG SDK now provides typed create/release/wait/state semaphore helpers,
+sharing the existing 128-object synchronization budget. Exact interface and next
+port requirements: [SHARED_SEMAPHORE_HANDOFF.md](SHARED_SEMAPHORE_HANDOFF.md).
+Runtime/ABI/malformed-reply checks cover all four targets (Windows through Wine);
+signed source/object preparation and confined Linux workers are qualified. Existing
+event imports and authenticated KIC3 startup are rebuilt against the changed SDK.
+This adds no NT semaphore import or ownership adapter. The main gap remains
+**104 with KIC3**; full title admission stays blocked.
+
+## Earlier checkpoint: actual native event creation and signaling imports
 
 KIC3 now routes 189 NtCreateEvent and 225 NtSetEvent through the same checked
 owned event domain used by standalone callers. Original-C/native SDK comparisons,
