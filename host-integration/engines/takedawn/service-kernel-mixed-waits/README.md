@@ -2,9 +2,10 @@
 
 This is dependency-free port code over GamePKG's existing atomic mixed-wait SDK.
 It owns neither platform access nor a new trusted host implementation. Actual NT
-wait/close imports and full title admission remain blocked. No quota or SDK
-identity changes; use SDK
-`9801f83896bc4dc53f135f9fe169f27305323fe82f1b8fae5f578092792745d8`.
+wait/close imports and full title admission remain blocked. Quotas and wait
+records are unchanged. Current SDK for the typed EVD2/SSD1 retirement consumer is
+`49a313ff062e83e3bcbaadb125f4ace190847b0321cc25877e45f92023f0234a`;
+old waitset-only SDK receipts must be rebuilt. See `../SHARED_MUTEX_HANDOFF.md`.
 
 ## API and ownership contract
 

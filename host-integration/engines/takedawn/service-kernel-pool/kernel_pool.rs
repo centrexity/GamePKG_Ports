@@ -3922,9 +3922,10 @@ impl Events {
         if events_word(&b, 64 + row * 16)? != id || events_word(&b, 72 + row * 16)? != 3 {
             return Err(-4);
         }
-        match gamepkg::local_event_state(id) {
-            Ok(_) => events_release(id)?,
-            Err(-4) => {}
+        // A cancelled state query can deny a still-live object. Retire the
+        // journal-owned ID through the actual typed cleanup operation instead.
+        match gamepkg::local_sync_release(id, 1) {
+            Ok(()) | Err(-4) => {}
             Err(code) => return Err(code),
         }
         for (index, item) in guard.handle_guard_slots(ram)?.iter().enumerate() {
@@ -4933,9 +4934,10 @@ impl Semaphores {
         if semaphores_word(&b, 64 + row * 16)? != id || semaphores_word(&b, 72 + row * 16)? != 3 {
             return Err(-4);
         }
-        match gamepkg::local_semaphore_state(id) {
-            Ok(_) => semaphores_release(id)?,
-            Err(-4) => {}
+        // A cancelled state query can deny a still-live object. Retire the
+        // journal-owned ID through the actual typed cleanup operation instead.
+        match gamepkg::local_sync_release(id, 3) {
+            Ok(()) | Err(-4) => {}
             Err(code) => return Err(code),
         }
         for (index, item) in guard.handle_guard_slots(ram)?.iter().enumerate() {

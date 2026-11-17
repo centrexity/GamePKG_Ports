@@ -92,7 +92,11 @@ pub fn game_main(){let code=match run(){Ok(())=>0u64,Err(c)=>c as i64 as u64};le
     gamepkg::pack::pack(&source, &package, &[188; 32]).unwrap();
     let checked =
         CheckedSources::verify(&mut gamepkg::archive::Package::open(&package).unwrap()).unwrap();
-    for forbidden in ["runtime.rs", "fault_runtime.rs"] {
+    for forbidden in [
+        "runtime.rs",
+        "fault_runtime.rs",
+        "../service-kernel-retirement/runtime.rs",
+    ] {
         fs::copy(here.join(forbidden), source.join("source/src/unused.rs")).unwrap();
         assert!(
             gamepkg::pack::pack(&source, &root.path().join("denied.gamepkg"), &[188; 32]).is_err()

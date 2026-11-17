@@ -2,8 +2,9 @@
 
 GamePKG's audited host local runtime now provides the missing atomic multi-object
 wait primitive. SDK identity:
-`9801f83896bc4dc53f135f9fe169f27305323fe82f1b8fae5f578092792745d8`.
-This invalidates previous SDK receipts (including 7baf...); source/object/link
+`49a313ff062e83e3bcbaadb125f4ace190847b0321cc25877e45f92023f0234a`.
+This includes typed cleanup from `SHARED_MUTEX_HANDOFF.md` and invalidates prior
+SDK receipts (including waitset-only 9801... and 7baf...); source/object/link
 qualification must be rebuilt. No game code moves into the trusted runtime.
 The public source kit/catalog, app submodule pin, launch defaults and title gates
 remain unchanged. This handoff does not enable actual NT waits or generic close.

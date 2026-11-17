@@ -1123,3 +1123,22 @@ quotas, 98 pending KIC4 imports and blocked title policy are unchanged. See the
 mixed-wait README for exact APIs and qualification scope. Actual NT timeout and
 status/CPU conversion, alert/APC integration, mutex/file/thread owners and full
 media/build/launcher/gameplay migration remain required.
+
+## Shared mutex state/typed retirement handoff
+
+GamePKG SDK `49a313ff062e83e3bcbaadb125f4ace190847b0321cc25877e45f92023f0234a`
+adds non-consuming actual mutex state (local op 48) and typed event/mutex/semaphore
+retirement (49), including cancelled-task cleanup without falsely treating query
+denial as native retirement. See `SHARED_MUTEX_HANDOFF.md` for exact contracts,
+limits, errors and required adapter work. Old SDK receipts need rebuilding.
+This does not establish typed port mutex ownership or admit NT waits/close.
+The toolkit's 192/221 mutant bridges are not direct current main imports; focus
+active file/thread/async and alert/APC paths rather than equating unused-export
+coverage with gameplay. Main KIC4 pending count stays 98; full title is blocked.
+
+EVD2/SSD1 now consume typed retirement for journal-owned retiring native IDs.
+The creator-cancellation false-completion gap is covered by
+`service-kernel-retirement`: actual public cancellation after cleanup-guard
+acquisition, observed Denied close, actual join and precise native absence.
+Native root/table cleanup after creator cancellation still belongs to outer
+runtime teardown; this is not full title/session shutdown qualification.
