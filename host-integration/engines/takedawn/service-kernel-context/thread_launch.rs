@@ -80,7 +80,7 @@ impl ThreadLaunch {
         owner: &mut kernel_startup::Startup,
         ram: &mut memory::Memory,
         cpu: &mut registers::Registers,
-        route: [u32; 2],
+        reviewed_thread_route: [u32; 2],
         tls: [u32; 2],
     ) -> Result<(), i32> {
         self.thread_check_owner(ram)?;
@@ -109,7 +109,8 @@ impl ThreadLaunch {
         if system_request_word(&frame, 8)? != 0
             || system_request_word(&frame, 16)? != tls[1]
             || system_request_word(&frame, 36)? != 0
-            || target != route[1]
+            || target != reviewed_thread_route[1]
+            || !dispatch::routine_available(target)
             || targets::original_target(target) >> 24 != 1
         {
             return Err(-5);
@@ -155,7 +156,7 @@ impl ThreadLaunch {
             launch.extend(u64::to_le_bytes(item));
         }
         self.argument = gamepkg::local_record_create(&launch)?;
-        self.task = owner.startup_spawn(ram, route[0], self.argument)?;
+        self.task = owner.startup_spawn(ram, reviewed_thread_route[0], self.argument)?;
         let (version, _) = gamepkg::local_record_snapshot(self.argument, 88)?;
         let bound = u64::to_le_bytes(self.task);
         for index in 0..8 {
@@ -292,7 +293,7 @@ pub fn system_thread_execute(argument: u64) -> Result<u32, i32> {
         kernel_pool::KernelContext::kernel_context_borrow(&ram, system_record_word(&record, 6)?)?;
     bound.kernel_context_registry(&ram)?;
     let target = system_record_value(&record, 7)?;
-    if targets::original_target(target) >> 24 != 1 {
+    if targets::original_target(target) >> 24 != 1 || !dispatch::routine_available(target) {
         return Err(-5);
     }
     let stack_top = system_record_value(&record, 8)?;
@@ -361,7 +362,7 @@ pub fn system_thread_fixture(
     ram: &mut memory::Memory,
 ) -> Result<(), i32> {
     let target = 0x155c0;
-    let route = [8, target];
+    let reviewed_thread_route = [8, target];
     let parent_stack = ram.read_u32(0x4008)?.checked_add(0x6000).ok_or(-1)?;
     let output = parent_stack + 64;
     let thread_id = output + 4;
@@ -386,14 +387,25 @@ pub fn system_thread_fixture(
     ram.write_u32(parent_stack + 40, target + 1)?;
     system_fixture_need(
         1060,
-        launch.thread_launch_frame(owner, ram, &mut cpu, route, tls) == Err(-5)
+        launch.thread_launch_frame(owner, ram, &mut cpu, reviewed_thread_route, tls) == Err(-5)
             && owner.startup_jobs() == job_count
             && ram.read_u32(output)? == 0xfaabcc13
             && cpu.esp == parent_stack
             && cpu.eax == 0x977d12f3,
     )?;
+    let absent_routine = 0x001d1818;
+    ram.write_u32(parent_stack + 40, absent_routine)?;
+    system_fixture_need(
+        1068,
+        targets::original_target(absent_routine) >> 24 == 1
+            && !dispatch::routine_available(absent_routine)
+            && launch.thread_launch_frame(owner, ram, &mut cpu, [8, absent_routine], tls)
+                == Err(-5)
+            && owner.startup_jobs() == job_count
+            && ram.read_u32(output)? == 0xfaabcc13,
+    )?;
     ram.write_u32(parent_stack + 40, target)?;
-    launch.thread_launch_frame(owner, ram, &mut cpu, route, tls)?;
+    launch.thread_launch_frame(owner, ram, &mut cpu, reviewed_thread_route, tls)?;
     let token = ram.read_u32(output)?;
     let job = u64::from(ram.read_u32(thread_id)?);
     let tib = launch.allocation + 65536;
@@ -440,7 +452,7 @@ pub fn system_thread_fixture(
     let mut immediate = ThreadLaunch::thread_launch_new(ram)?;
     cpu.esp = parent_stack;
     ram.write_u32(parent_stack + 32, 0)?;
-    immediate.thread_launch_frame(owner, ram, &mut cpu, route, tls)?;
+    immediate.thread_launch_frame(owner, ram, &mut cpu, reviewed_thread_route, tls)?;
     system_fixture_need(
         1066,
         immediate.resumed && system_fixture_drain(&mut immediate, owner, ram)? == 1,
@@ -449,7 +461,7 @@ pub fn system_thread_fixture(
     let mut cancelled = ThreadLaunch::thread_launch_new(ram)?;
     cpu.esp = parent_stack;
     ram.write_u32(parent_stack + 32, 1)?;
-    cancelled.thread_launch_frame(owner, ram, &mut cpu, route, tls)?;
+    cancelled.thread_launch_frame(owner, ram, &mut cpu, reviewed_thread_route, tls)?;
     let suspended_job = cancelled.task;
     system_fixture_need(
         1067,

@@ -631,7 +631,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                     0x544b0f00, 0x544b0f10, 0x544b0fff, 0x544b1300, 0x544b3200, 0x544b1710,
                     0x544b1800, 0x544b1801, 0x544b3b00, 0x544b3900, 0x544b3c00, 0x544b3d00,
                     0x544b3f00, 0x544b4100, 0x544b4300, 0x544b4500, 0x544b4600, 0x544b4700,
-                    0x544b4800, 0x544b4900, 0x544b4a00, 0x544b4b00, 0x544b4c00
+                    0x544b4800, 0x544b4900, 0x544b4a00, 0x544b4b00, 0x544b4c00, 0x544b4d00
                 ]
                 .contains(&event.code));
                 if event.code == 0x544b1300 {
@@ -729,6 +729,16 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                     assert!(disk_calls.is_empty());
                     assert_eq!(fs::read_dir(directory).unwrap().count(), 0);
                 }
+            }
+            let original_create_cell: Vec<_> = events
+                .iter()
+                .filter(|event| event.code == 0x544b4d00)
+                .collect();
+            if mode == 96 {
+                assert_eq!(original_create_cell.len(), 1);
+                assert_eq!(original_create_cell[0].values, [0x0036b89c, 255]);
+            } else {
+                assert!(original_create_cell.is_empty());
             }
             let system_calls: Vec<_> = events
                 .iter()

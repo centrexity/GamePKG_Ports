@@ -122,20 +122,25 @@ impl VisitMut for Remap<'_> {
         visit_mut::visit_expr_path_mut(self, expression);
     }
 }
-fn branch(first: usize, last: usize, addresses: &[u32], nodes: &mut Vec<String>) -> String {
+fn branch(first: usize, last: usize, addresses: &[u32], nodes: &mut Vec<String>) -> [String; 2] {
     if last - first == 1 {
-        return format!("crate::game::unit_{first:04}::route(native_state,guest_ram,address)");
+        return [
+            format!("crate::game::unit_{first:04}::route(native_state,guest_ram,address)"),
+            format!("crate::game::unit_{first:04}::has_routine(address)"),
+        ];
     }
     let middle = first + (last - first) / 2;
-    let left = branch(first, middle, addresses, nodes);
-    let right = branch(middle, last, addresses, nodes);
+    let [run_left, probe_left] = branch(first, middle, addresses, nodes);
+    let [run_right, probe_right] = branch(middle, last, addresses, nodes);
     let id = nodes.len();
     let bound = addresses[middle];
-    nodes.push(format!("pub fn branch_{id}(native_state:&mut crate::registers::Registers,guest_ram:&mut crate::memory::Memory,address:u32)->Result<(),i32>{{if address<{bound}u32{{{left}}}else{{{right}}}}}"));
-    format!(
-        "crate::dispatch::nodes_{:04}::branch_{id}(native_state,guest_ram,address)",
-        id / 128
-    )
+    nodes.push(format!("pub fn branch_{id}(native_state:&mut crate::registers::Registers,guest_ram:&mut crate::memory::Memory,address:u32)->Result<(),i32>{{if address<{bound}u32{{{run_left}}}else{{{run_right}}}}}
+pub fn membership_{id}(address:u32)->bool{{if address<{bound}u32{{{probe_left}}}else{{{probe_right}}}}}"));
+    let module = id / 128;
+    [
+        format!("crate::dispatch::nodes_{module:04}::branch_{id}(native_state,guest_ram,address)"),
+        format!("crate::dispatch::nodes_{module:04}::membership_{id}(address)"),
+    ]
 }
 fn token_count(tokens: proc_macro2::TokenStream) -> usize {
     let mut pending = vec![tokens];
@@ -217,6 +222,7 @@ fn emit_closed(
             "// Maintainer candidate from the pinned Takedawn kit; not an admitted game.\n",
         );
         let mut arms = String::new();
+        let mut present = Vec::new();
         for name in chunk {
             let mut function: syn::ItemFn = syn::parse_str(&accepted[*name].code)?;
             Remap(&mapping).visit_item_fn_mut(&mut function);
@@ -224,8 +230,13 @@ fn emit_closed(
             body.push('\n');
             let address = route_address(name).ok_or("unreviewed native route")?;
             arms.push_str(&format!("{address}u32=>{name}(native_state,guest_ram),"));
+            present.push(format!("{address}u32"));
         }
         body.push_str(&format!("pub fn route(native_state:&mut crate::registers::Registers,guest_ram:&mut crate::memory::Memory,address:u32)->Result<(),i32>{{match address{{{arms}_=>Err(-5)}}}}"));
+        body.push_str(&format!(
+            "pub fn has_routine(address:u32)->bool{{match address{{{}=>true,_=>false}}}}",
+            present.join("|")
+        ));
         if body.len() > 1024 * 1024 {
             return Err(
                 format!("candidate unit {index} exceeds its byte bound after remapping").into(),
@@ -235,12 +246,15 @@ fn emit_closed(
     }
     files.insert("game.rs".into(), game);
     let mut nodes = Vec::new();
-    let root = branch(0, addresses.len(), &addresses, &mut nodes);
+    let [root, membership_root] = branch(0, addresses.len(), &addresses, &mut nodes);
     let mut dispatch = String::new();
     for (index, chunk) in nodes.chunks(128).enumerate() {
         dispatch.push_str(&format!("pub mod nodes_{index:04};\n"));
         files.insert(format!("dispatch/nodes_{index:04}.rs"), chunk.join("\n"));
     }
+    dispatch.push_str(&format!(
+        "pub fn routine_available(address:u32)->bool{{{membership_root}}}"
+    ));
     dispatch.push_str(&format!("pub fn invoke(native_state:&mut crate::registers::Registers,guest_ram:&mut crate::memory::Memory,address:u32)->Result<(),i32>{{if !native_state.valid(){{return Err(-1);}}{root}}}"));
     dispatch.push_str(&format!(
         "pub fn entry_available()->bool{{{}}}",
@@ -438,7 +452,10 @@ mod game;mod dispatch;
 mod memory{pub struct Memory;}
 mod registers{pub struct Registers{pub value:u32}impl Registers{pub fn valid(&self)->bool{true}}}
 fn main(){let mut state=registers::Registers{value:0};let mut ram=memory::Memory;
-assert!(dispatch::entry_available());assert_eq!(dispatch::invoke(&mut state,&mut ram,0x1d2807),Ok(()));assert_eq!(state.value,78);
+assert!(dispatch::entry_available());
+for address in [0x100,0x107,0x1d2807,0xf00000,0xf00007]{assert!(dispatch::routine_available(address));}
+for address in [0,0xff,0x108,0x1d2806,0x1d2808,0xefffff,0xf00008,u32::MAX]{assert!(!dispatch::routine_available(address));}
+assert_eq!(dispatch::invoke(&mut state,&mut ram,0x1d2807),Ok(()));assert_eq!(state.value,78);
 assert_eq!(dispatch::invoke(&mut state,&mut ram,0x100),Ok(()));assert_eq!(state.value,79);
 assert_eq!(dispatch::invoke(&mut state,&mut ram,0x1d2806),Err(-5));assert_eq!(dispatch::invoke(&mut state,&mut ram,0x1d2808),Err(-5));assert_eq!(state.value,79);
 assert_eq!(dispatch::invoke(&mut state,&mut ram,0xf00007),Ok(()));assert_eq!(state.value,80);}

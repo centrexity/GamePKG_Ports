@@ -1539,10 +1539,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .collect::<Vec<_>>();
         routes.push(quote!(fn #router(native_state:&mut crate::registers::Registers,guest_ram:&mut crate::memory::Memory,address:u32)->Result<(),i32>{match address{#(#addresses=>crate::game::#names(native_state,guest_ram),)*_=>Err(-5)}}));
     }
+    let available = accepted
+        .keys()
+        .map(|name| u32::from_str_radix(&name[4..], 16).unwrap())
+        .collect::<Vec<_>>();
     let route_names = (0..routes.len())
         .map(|i| format_ident!("route_{i}"))
         .collect::<Vec<_>>();
-    let dispatch = quote!(#(#routes)* pub fn entry_available()->bool{false} pub fn invoke(native_state:&mut crate::registers::Registers,guest_ram:&mut crate::memory::Memory,address:u32)->Result<(),i32>{if !native_state.valid(){return Err(-1);}#(match #route_names(native_state,guest_ram,address){Err(-5)=>{},result=>return result})*Err(-5)});
+    let dispatch = quote!(#(#routes)* pub fn entry_available()->bool{false} pub fn routine_available(address:u32)->bool{match address{#(#available => true,)* _ => false}} pub fn invoke(native_state:&mut crate::registers::Registers,guest_ram:&mut crate::memory::Memory,address:u32)->Result<(),i32>{if !native_state.valid(){return Err(-1);}#(match #route_names(native_state,guest_ram,address){Err(-5)=>{},result=>return result})*Err(-5)});
     fs::write(output.join("dispatch.rs"), dispatch.to_string())?;
     let functions = accepted.values().map(|(f, _)| f).collect::<Vec<_>>();
     fs::write(

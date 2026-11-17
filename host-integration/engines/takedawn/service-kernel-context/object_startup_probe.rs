@@ -315,6 +315,20 @@ pub fn object_startup_image(
         }
     }
 
+    if mode == 96 {
+        // The pinned generated parent reads this import cell when preparing
+        // its first system-thread request. Inspect the authenticated original
+        // thunk before the fail-closed preparation attempts to bind anything.
+        let create_cell = 0x0036b89c;
+        let import_base = image.image_thunk();
+        object_need(
+            1069,
+            create_cell >= import_base
+                && create_cell - import_base < 378 * 4
+                && ram.read_u32(create_cell)? == 0x800000ff,
+        )?;
+        gamepkg::diagnostic(1, 0x544b4d00, &[u64::from(create_cell), 255])?;
+    }
     let mut bound_regular = None;
     let result = if mode >= 90 && mode != 91 {
         let regular_profile = mode == 94 || mode == 96;

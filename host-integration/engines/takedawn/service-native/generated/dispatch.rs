@@ -60,6 +60,43 @@ fn route_2(
 pub fn entry_available() -> bool {
     false
 }
+pub fn routine_available(address: u32) -> bool {
+    match address {
+        80848u32 => true,
+        80912u32 => true,
+        80992u32 => true,
+        81056u32 => true,
+        81168u32 => true,
+        81488u32 => true,
+        81680u32 => true,
+        87296u32 => true,
+        87312u32 => true,
+        87344u32 => true,
+        87408u32 => true,
+        87440u32 => true,
+        87456u32 => true,
+        87472u32 => true,
+        87488u32 => true,
+        87504u32 => true,
+        87520u32 => true,
+        87536u32 => true,
+        87552u32 => true,
+        87568u32 => true,
+        87600u32 => true,
+        87616u32 => true,
+        87632u32 => true,
+        87648u32 => true,
+        87664u32 => true,
+        87680u32 => true,
+        87696u32 => true,
+        87712u32 => true,
+        87728u32 => true,
+        87744u32 => true,
+        87760u32 => true,
+        87776u32 => true,
+        _ => false,
+    }
+}
 pub fn invoke(
     native_state: &mut crate::registers::Registers,
     guest_ram: &mut crate::memory::Memory,

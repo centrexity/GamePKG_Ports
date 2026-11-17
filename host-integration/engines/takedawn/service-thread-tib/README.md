@@ -106,3 +106,22 @@ outputs, and parent register preservation. It runs a short existing translated
 stdcall body. The real Burnout system routine and import routing remain to be
 connected. General guest wait, suspend, close and termination are separate
 integration work. The full title import gate remains closed.
+
+## First owned-image system-thread route
+
+The pinned translated parent reaches the system-thread wrapper through
+sub_001D18B0. In the authenticated image its import cell at guest address
+0x0036b89c contains the raw ordinal 255 thunk. The parent passes
+0x001D1818 as the system routine and 0x001D2793 as the guest start context.
+The image fixture reports the original cell before import publication.
+It does not execute the parent or the requested routine.
+
+The prepared graph retains the parent and sub_001D18B0. It excludes
+sub_001D1818 because of pointer-based operations still outside the lowering
+rules. It excludes sub_001D2793 because sub_001D3F2F still has unreviewed
+CLI/STI lowering and pointer types. A recognized guest address therefore
+does not establish that the call can run. The generator now emits
+routine_available from the same accepted address partitions used for
+direct dispatch. Both the launcher and the actual worker require that
+proof. The confined fixture submits the known but absent 0x001D1818 route
+and verifies that no task is created and the guest outputs remain untouched.

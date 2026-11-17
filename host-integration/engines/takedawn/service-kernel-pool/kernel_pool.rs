@@ -227,19 +227,19 @@ pub fn kernel_file_ordinal(
     if slot_bytes & 3 != 0 {
         return Err(-5);
     }
-    let (_, route, count, start) = pool_snapshot(ram)?;
-    if start != 32 || context == 0 || pool_long(&route, 24)? != context {
+    let (_, active_imports, count, start) = pool_snapshot(ram)?;
+    if start != 32 || context == 0 || pool_long(&active_imports, 24)? != context {
         return Err(-4);
     }
     let slot = slot_bytes / 4;
-    if slot >= count || slot >= pool_word(&route, 20)? {
+    if slot >= count || slot >= pool_word(&active_imports, 20)? {
         return Err(-5);
     }
-    let ordinal = pool_word(&route, start + slot as usize * 4)?;
+    let ordinal = pool_word(&active_imports, start + slot as usize * 4)?;
     if !kernel_scoped_file_supported(ordinal, file_profile) {
         return Err(-5);
     }
-    let table = pool_word(&route, 16)?;
+    let table = pool_word(&active_imports, 16)?;
     let cell = table.checked_add(slot_bytes).ok_or(-1)?;
     if ram.read_u32(cell)? != marker {
         return Err(-4);
