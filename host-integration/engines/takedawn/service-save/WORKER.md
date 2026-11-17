@@ -51,6 +51,7 @@ packing or pointers appear in the protocol.
 | 9 SHUTDOWN | empty | final status record; Busy if work/errors remain |
 | 10 OPEN_FILE | flags u32, disposition u32, relative UTF-8 path | opened handle u64 and disposition information u32 |
 | 11 QUERY_FILE | opened handle u64 | 52 defined bytes of Xbox class-34 file information |
+| 12 FLUSH_FILE | opened writable handle u64 | empty. The staged file remains unpublished |
 
 `OPEN_FILE` accepts `FILE_OPEN` (1), `FILE_CREATE` (2) or `FILE_OPEN_IF`
 (3). Flags bit 0 grants a guarded writable handle and bit 1 requests
@@ -67,7 +68,8 @@ probing for presence. Additional writers see the current shadow. Read-only
 opens retain the previous published/pending read behavior. A failed probe
 does not become a successful create.
 
-Write-through flushes the checked file handle before acknowledging an open,
+Explicit flush checks worker ownership and uses the same checked sync as
+write-through. Write-through flushes the checked file handle before acknowledging an open,
 write or resize. Mutation stays in the shadow until the final close and
 atomic publication. If a write or resize succeeds before a flush error,
 the staged change can still be present. The failure is reported and stays
@@ -140,11 +142,11 @@ join; the engine must explicitly shut it down or terminate its containing proces
 
 ## Validation and remaining integration
 
-Ten real-file worker tests cover close-before-publication, flush failure,
+Eleven real-file worker tests cover close-before-publication, flush failure,
 complete title history, read/write limits, malformed paths/messages/handles,
 failed pending redirection and the original warning threshold, history quota
 failure, startup ordering, and post-publication uncertainty without source retry.
-Together the suite has 31 actual-file/service tests and 18 transition tests,
+Together the suite has 32 actual-file/service tests and 18 transition tests,
 including 4096 pinned-C policy events.
 
 Exact production modules including the worker pass source checks, isolated

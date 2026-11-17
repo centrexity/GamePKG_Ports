@@ -230,7 +230,8 @@ impl<'a> RegularFiles<'a> {
             187 => 8,
             190 => 40,
             202 => 28,
-            211 => 24,
+            198 => 12,
+            211 | 226 => 24,
             219 | 236 => 36,
             _ => return Err(-5),
         };
@@ -243,6 +244,7 @@ impl<'a> RegularFiles<'a> {
                 0
             }
             190 | 202 => self.regular_files_open(ram, table, &frame, ordinal == 190)?,
+            198 | 226 => self.regular_files_control(ram, table, &frame, ordinal == 198)?,
             211 => self.regular_files_query(ram, table, &frame)?,
             219 | 236 => self.regular_files_transfer(ram, table, &frame, ordinal == 236)?,
             _ => return Err(-5),
@@ -432,16 +434,26 @@ impl<'a> RegularFiles<'a> {
         let token = kernel_file::rom_kernel_word(frame, 4)?;
         let iosb = kernel_file::rom_kernel_word(frame, 8)?;
         let output_address = kernel_file::rom_kernel_word(frame, 12)?;
-        if kernel_file::rom_kernel_word(frame, 16)? < 56
-            || kernel_file::rom_kernel_word(frame, 20)? != 34
-            || iosb == 0
-            || output_address == 0
-        {
+        let required = match kernel_file::rom_kernel_word(frame, 20)? {
+            14 => 8,
+            34 => 56,
+            _ => return Err(-5),
+        };
+        if kernel_file::rom_kernel_word(frame, 16)? < required || iosb == 0 || output_address == 0 {
             return Err(-5);
         }
         ram.memory_check_write(iosb, 8)?;
-        ram.memory_check_write(output_address, 56)?;
+        ram.memory_check_write(output_address, required)?;
         let regular_index = self.regular_files_checked(ram, table, token)?;
+        if required == 8 {
+            ram.memory_write_pair(
+                output_address,
+                &u64::to_le_bytes(self.entries[regular_index].offset),
+                iosb,
+                &u64::to_le_bytes(regular_status(0, 8)),
+            )?;
+            return Ok(0);
+        }
         let request = u64::to_le_bytes(self.entries[regular_index].file);
         let reply = self
             .session
@@ -458,6 +470,69 @@ impl<'a> RegularFiles<'a> {
         Ok(0)
     }
 
+    fn regular_files_control(
+        &mut self,
+        ram: &mut memory::Memory,
+        table: &kernel_pool::Handles,
+        frame: &[u8],
+        flush_requested: bool,
+    ) -> Result<u32, i32> {
+        let token = kernel_file::rom_kernel_word(frame, 4)?;
+        let iosb = kernel_file::rom_kernel_word(frame, 8)?;
+        if iosb == 0 {
+            return Err(-5);
+        }
+        ram.memory_check_write(iosb, 8)?;
+        let regular_index = self.regular_files_checked(ram, table, token)?;
+        let file = &mut self.entries[regular_index];
+        let control_class = if flush_requested {
+            0
+        } else {
+            kernel_file::rom_kernel_word(frame, 20)?
+        };
+        let mut value = 0;
+        if !flush_requested {
+            if (control_class != 14 && control_class != 20)
+                || kernel_file::rom_kernel_word(frame, 16)? != 8
+            {
+                return Err(-5);
+            }
+            let input_address = kernel_file::rom_kernel_word(frame, 12)?;
+            if input_address == 0 {
+                return Err(-1);
+            }
+            let signed_value = ram.read_i64(input_address)?;
+            if signed_value < 0 {
+                return Err(-1);
+            }
+            value = signed_value as u64;
+        }
+        if control_class == 14 {
+            ram.write_u64(iosb, 0)?;
+            file.offset = value;
+            return Ok(0);
+        }
+        if file.access & 2 == 0 {
+            return Err(-4);
+        }
+        let reply = if flush_requested {
+            self.session
+                .regular_session_request(save_worker::FLUSH_FILE, &u64::to_le_bytes(file.file))?
+        } else {
+            let resize_request = [u64::to_le_bytes(file.file), u64::to_le_bytes(value)].concat();
+            self.session
+                .regular_session_request(save_worker::RESIZE, &resize_request)?
+        };
+        if !reply.is_empty() {
+            self.session.failed = true;
+            return Err(-3);
+        }
+        if let Err(code) = ram.write_u64(iosb, 0) {
+            self.session.failed = true;
+            return Err(code);
+        }
+        Ok(0)
+    }
     fn regular_files_transfer(
         &mut self,
         ram: &mut memory::Memory,

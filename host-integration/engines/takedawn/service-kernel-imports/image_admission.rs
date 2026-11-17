@@ -557,7 +557,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                     &[
                         code,
                         if mode == 94 || mode == 95 {
-                            19
+                            21
                         } else if mode == 92 {
                             18
                         } else if mode == 90 || mode == 91 {
@@ -685,7 +685,12 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                     .flat_map(|e| &e.values)
                     .copied()
                     .collect();
-                assert_eq!(unresolved.len(), if mode == 96 { 86 } else { 88 });
+                assert_eq!(unresolved.len(), if mode == 96 { 84 } else { 88 });
+                if mode == 96 {
+                    for ordinal in [198, 211, 226, 236] {
+                        assert!(!unresolved.contains(&ordinal));
+                    }
+                }
                 for ordinal in [187, 190, 202, 218, 219, 233, 234] {
                     assert!(!unresolved.contains(&ordinal));
                 }
@@ -720,7 +725,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                 .collect();
             if mode == 94 {
                 assert_eq!(regular_calls.len(), 1);
-                assert_eq!(regular_calls[0].values, [5, 0x24, 16384]);
+                assert_eq!(regular_calls[0].values, [5, 0x24, 16384, 2, 7]);
                 let scope = fs::read_dir(private_state.path().join("port-state"))
                     .unwrap()
                     .next()

@@ -17,6 +17,7 @@ pub const STAMP: u32 = 8;
 pub const SHUTDOWN: u32 = 9;
 pub const OPEN_FILE: u32 = 10;
 pub const QUERY_FILE: u32 = 11;
+pub const FLUSH_FILE: u32 = 12;
 
 pub struct Reply {
     pub sequence: u64,
@@ -271,14 +272,32 @@ impl SaveWorker {
     fn flush_write_through(&mut self, file: u64) -> Result<(), i32> {
         for written_handle in &self.writes {
             if written_handle[0] == file && written_handle[1] == 1 {
-                let flushed = gamepkg::file_sync(file);
-                if let Err(error) = flushed {
-                    self.io_error = error;
-                }
-                return flushed;
+                return self.sync_save_writer(file);
             }
         }
         Ok(())
+    }
+
+    fn sync_save_writer(&mut self, file: u64) -> Result<(), i32> {
+        let flushed = gamepkg::file_sync(file);
+        if let Err(error) = flushed {
+            self.io_error = error;
+        }
+        flushed
+    }
+
+    fn flush_save_handle(&mut self, payload: &[u8]) -> Result<std::vec::Vec<u8>, i32> {
+        if payload.len() != 8 {
+            return Err(-1);
+        }
+        let file = worker_u64(payload)?;
+        for registered in &self.writes {
+            if registered[0] == file {
+                self.sync_save_writer(file)?;
+                return Ok(std::vec::Vec::new());
+            }
+        }
+        Err(-4)
     }
 
     fn open_file_message(&mut self, payload: &[u8]) -> Result<std::vec::Vec<u8>, i32> {
@@ -368,6 +387,7 @@ impl SaveWorker {
             }
             OPEN_FILE => self.open_file_message(payload),
             QUERY_FILE => self.regular_file_information(payload),
+            FLUSH_FILE => self.flush_save_handle(payload),
             WRITE => {
                 if payload.len() < 16 {
                     return Err(-1);
@@ -629,7 +649,7 @@ impl Connection {
         if self.waiting.is_some() {
             return Err(-2);
         }
-        if payload.len() > 65524 || !(1..=QUERY_FILE).contains(&operation) {
+        if payload.len() > 65524 || !(1..=FLUSH_FILE).contains(&operation) {
             return Err(-1);
         }
         if operation == SHUTDOWN && !payload.is_empty() {

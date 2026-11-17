@@ -135,7 +135,12 @@ pub fn rom_startup_calls(
         if regular_enabled {
             let query_marker = ram.read_u32(image.image_thunk() + 68)?;
             let write_marker = ram.read_u32(image.image_thunk() + 72)?;
-            rom_startup_need([query_marker, write_marker] == [0xfe000044, 0xfe000048])?;
+            let flush_marker = ram.read_u32(image.image_thunk() + 76)?;
+            let control_marker = ram.read_u32(image.image_thunk() + 80)?;
+            rom_startup_need(
+                [query_marker, write_marker, flush_marker, control_marker]
+                    == [0xfe000044, 0xfe000048, 0xfe00004c, 0xfe000050],
+            )?;
             rom_startup_need(kernel_pool::kernel_ordinal(ram, 17) == Err(-5))?;
             regular_startup_calls(
                 &mut routed,
@@ -148,6 +153,8 @@ pub fn rom_startup_calls(
                     write_marker,
                     read_marker,
                     close_marker,
+                    flush_marker,
+                    control_marker,
                 ],
                 token,
             )?;
@@ -360,11 +367,12 @@ fn regular_startup_calls(
     routed: &mut startup_file::StartupFiles,
     ram: &mut memory::Memory,
     frame: [u32; 7],
-    slots: [u32; 6],
+    slots: [u32; 8],
     optical_token: u32,
 ) -> Result<(), i32> {
     let [stack, obj, name_address, text_address, handle_address, io_address, query_output] = frame;
-    let [create_marker, open_marker, query_marker, write_marker, read_marker, close_marker] = slots;
+    let [create_marker, open_marker, query_marker, write_marker, read_marker, close_marker, flush_marker, control_marker] =
+        slots;
     save_startup_name(
         ram,
         name_address,
@@ -413,6 +421,43 @@ fn regular_startup_calls(
             && ram.read_u32(query_output + 48)? == 0x24
             && ram.read_u32(query_output + 52)? == 0x8a6bedcc,
     )?;
+    let position_query = [regular_token, io_address, query_output, 8, 14];
+    rom_startup_need(rom_startup_call(routed, ram, query_marker, stack, &position_query)? == 0)?;
+    rom_startup_need(ram.read_u64(query_output)? == 5 && ram.read_u64(io_address)? == 8u64 << 32)?;
+    let control_input = query_output + 64;
+    let seek_call = [regular_token, io_address, control_input, 8, 14];
+    ram.write_u64(control_input, u64::MAX)?;
+    rom_startup_need(rom_startup_call(routed, ram, control_marker, stack, &seek_call) == Err(-1))?;
+    ram.write_u64(control_input, 2)?;
+    rom_startup_need(rom_startup_call(routed, ram, control_marker, stack, &seek_call)? == 0)?;
+    rom_startup_need(ram.read_u64(io_address)? == 0)?;
+    let eof_call = [regular_token, io_address, control_input, 8, 20];
+    ram.write_u64(control_input, 7)?;
+    rom_startup_need(rom_startup_call(routed, ram, control_marker, stack, &eof_call)? == 0)?;
+    rom_startup_need(
+        rom_startup_call(routed, ram, query_marker, stack, &query_file)? == 0
+            && ram.read_u64(query_output + 40)? == 7,
+    )?;
+    ram.write_u64(control_input, 5)?;
+    rom_startup_need(rom_startup_call(routed, ram, control_marker, stack, &eof_call)? == 0)?;
+    rom_startup_need(
+        rom_startup_call(routed, ram, query_marker, stack, &position_query)? == 0
+            && ram.read_u64(query_output)? == 2,
+    )?;
+    let flush_call = [regular_token, io_address];
+    rom_startup_need(
+        rom_startup_call(routed, ram, flush_marker, stack, &flush_call)? == 0
+            && ram.read_u64(io_address)? == 0,
+    )?;
+    rom_startup_need(
+        rom_startup_call(
+            routed,
+            ram,
+            flush_marker,
+            stack,
+            &[optical_token, io_address],
+        ) == Err(-4),
+    )?;
     rom_startup_need(rom_startup_call(routed, ram, close_marker, stack, &[regular_token])? == 0)?;
     rom_startup_need(rom_startup_call(routed, ram, query_marker, stack, &query_file) == Err(-4))?;
     save_startup_name(
@@ -438,7 +483,18 @@ fn regular_startup_calls(
     ram.read_bytes(query_output, &mut verified_bytes)?;
     rom_startup_need(&verified_bytes == b"meta!" && ram.read_u64(io_address)? == 5u64 << 32)?;
     rom_startup_need(rom_startup_call(routed, ram, read_marker, stack, &read_file)? == 0xc0000011)?;
+    rom_startup_need(
+        rom_startup_call(
+            routed,
+            ram,
+            flush_marker,
+            stack,
+            &[reader_token, io_address],
+        ) == Err(-4),
+    )?;
+    let reader_eof = [reader_token, io_address, control_input, 8, 20];
+    rom_startup_need(rom_startup_call(routed, ram, control_marker, stack, &reader_eof) == Err(-4))?;
     // Leave the reader open to establish that the startup router drains it.
-    gamepkg::diagnostic(1, 0x544b4700, &[5, 0x24, 16384])?;
+    gamepkg::diagnostic(1, 0x544b4700, &[5, 0x24, 16384, 2, 7])?;
     Ok(())
 }

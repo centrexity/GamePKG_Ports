@@ -258,3 +258,28 @@ fn first_save_closes_cleanly_without_advertising_an_empty_history() {
     assert_eq!(std::fs::read(root.path().join("UDATA/12345678/profile")).unwrap(), b"new-save");
     assert_eq!(std::fs::read_dir(root.path().join("save-history")).unwrap().count(), 0);
 }
+
+#[test]
+fn explicit_flush_checks_the_writer_and_preserves_publication_order() {
+    let root = tempfile::tempdir().unwrap();
+    worker_setup(root.path());
+    let (grant, harness) = connect(root.path(), 1048576, false, false);
+    let mut actor = save_worker::SaveWorker::new(grant, "12345678", "20261114-120000").unwrap();
+    let writer = worker_open(&mut actor);
+    let reader = actor.save_actor_command(save_worker::OPEN_READ, b"UDATA/12345678/profile").unwrap();
+    assert_eq!(actor.save_actor_command(save_worker::FLUSH_FILE, &reader), Err(-4));
+    assert_eq!(actor.save_actor_command(save_worker::FLUSH_FILE, &[0; 9]), Err(-1));
+    worker_write(&mut actor, writer);
+    harness.fail_sync.store(1, Ordering::SeqCst);
+    assert_eq!(actor.save_actor_command(save_worker::FLUSH_FILE, &writer.to_le_bytes()), Err(-3));
+    assert_eq!(actor.io_error, -3);
+    assert_eq!(actor.save_actor_command(save_worker::FLUSH_FILE, &writer.to_le_bytes()).unwrap(), [0u8; 0]);
+    assert_eq!(std::fs::read(root.path().join("UDATA/12345678/profile")).unwrap(), b"old-save");
+    assert_eq!(harness.publications.load(Ordering::SeqCst), 0);
+    actor.save_actor_command(save_worker::CLOSE, &reader).unwrap();
+    actor.save_actor_command(save_worker::CLOSE, &writer.to_le_bytes()).unwrap();
+    assert_eq!(actor.save_actor_command(save_worker::FLUSH_FILE, &writer.to_le_bytes()), Err(-4));
+    worker_drain(&mut actor);
+    assert_eq!(std::fs::read(root.path().join("UDATA/12345678/profile")).unwrap(), b"new-save");
+    assert_eq!(actor.io_error, -3);
+}

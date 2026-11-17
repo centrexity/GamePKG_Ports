@@ -96,14 +96,18 @@ callbacks and asynchronous save I/O remain refused.
 | Ordinal | Regular file operation |
 | --- | --- |
 | 190 / 202 | Synchronous non-alertable OPEN, CREATE or OPEN_IF with the reviewed read/write, sharing, portable creation attributes and write-through flags. The worker owns each staged write. |
-| 211 | Class 34 query on the exact opened file. Writes 52 defined bytes into the 56-byte guest buffer, preserves its padding, and publishes the eight-byte status last. |
+| 198 | Flushes an owned writable file's staged contents through the save worker. Durability of the published save still requires close and replacement. |
+| 211 | Class 14 reports the handle's current byte position. Class 34 writes 52 defined bytes into the 56-byte opened-file metadata buffer and preserves its padding. Both publish the eight-byte status last. |
+| 226 | Class 14 sets a nonnegative byte position. Class 20 resizes a writable staged file through the worker without moving the current position. Both take one eight-byte signed value. |
 | 219 / 236 | Synchronous read or write with at most 65,508 bytes per call. Uses the signed offset, the current cursor when no offset or −2 is provided, or EOF for a write with offset −1. A successful transfer advances the handle's cursor by the bytes transferred. |
 | 187 | Closes the worker's title handle. A close does not by itself acknowledge durable publication. |
 
 Authenticated fixture mode 94 sends the recorded TitleMeta.xbx creation
 shape through the real service marker, queries its timestamps and SYSTEM
-attribute, writes data, and reopens it under a different case. It checks
+attribute, writes data, seeks, resizes, flushes, and reopens it under a different case. It checks
 sharing, cross-domain and closed-token rejection, EOF, and the worker join
 requirement. Mode 95 verifies that a directory-only profile rejects the
 new regular imports. Optional mode 96 measures the remaining imports
-against the authenticated user image in place and still refuses launch.
+against the authenticated user image in place and still refuses launch. Use
+`--private-regular-only` with `--iso` to run that profile while retaining all
+synthetic controls.
