@@ -147,11 +147,11 @@ impl RomKernel {
         let offset = if offset_va == 0 {
             None
         } else {
-            let signed = ram.read_i64(offset_va)?;
-            if signed < 0 {
+            let rom_offset = ram.read_i64(offset_va)?;
+            if rom_offset < 0 {
                 None
             } else {
-                Some(signed as u64)
+                Some(rom_offset as u64)
             }
         };
         self.publish_cursor = false;

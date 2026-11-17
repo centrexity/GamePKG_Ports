@@ -123,6 +123,22 @@ fn main() {
             here.join("../service-kernel-mixed-waits/image_probe.rs"),
         ),
         (
+            "kernel_file.rs",
+            here.join("../service-rom-handles/kernel_file.rs"),
+        ),
+        (
+            "rom_handles.rs",
+            here.join("../service-rom-handles/rom_handles.rs"),
+        ),
+        (
+            "startup_file.rs",
+            here.join("../service-rom-handles/startup_file.rs"),
+        ),
+        (
+            "rom_startup_probe.rs",
+            here.join("../service-rom-handles/startup_probe.rs"),
+        ),
+        (
             "critical_image_probe.rs",
             here.join("../service-critical/image_probe.rs"),
         ),
@@ -282,7 +298,7 @@ fn main() {
         fs::write(path, data).unwrap();
     }
     fs::write(source.join("source/src/lib.rs"),r#"
-pub mod handles;pub mod typed_events;mod event_import_probe;mod semaphore_import_probe;mod rtl_image_probe;mod mixed_image_probe;mod critical_image_probe;mod sync_startup_probe;mod object_startup_probe;mod layout;mod memory;mod registers;mod call_state;mod calls_runtime;mod vector;mod scalar;mod debug;mod heap;mod contiguous;mod heap_service;mod kernel_pool;mod kernel_data;mod signature;mod imports;mod cases;mod probe;mod controls;mod game;mod dispatch;mod targets;mod disc;mod sha256;mod xbe;mod bootstrap;mod image_imports;mod image_probe;mod kernel_startup;mod startup_probe;mod tick_service;mod tick_startup;mod tick_probe;mod wait_service;mod gate;mod irql;mod queue;mod callback;mod drain;mod dpc_clock;mod stacks;mod shadow;mod events;mod timers;mod firing;mod timer_clock;mod production_clock;mod thread_tib;mod worker_setup;mod dispatching;mod dpc_observer;mod irq_hooks;mod dpc_routes;mod pacing;mod schedule;mod timer_startup;mod timer_probe;
+pub mod handles;pub mod typed_events;mod event_import_probe;mod semaphore_import_probe;mod rtl_image_probe;mod mixed_image_probe;mod critical_image_probe;mod kernel_file;mod rom_handles;mod startup_file;mod rom_startup_probe;mod sync_startup_probe;mod object_startup_probe;mod layout;mod memory;mod registers;mod call_state;mod calls_runtime;mod vector;mod scalar;mod debug;mod heap;mod contiguous;mod heap_service;mod kernel_pool;mod kernel_data;mod signature;mod imports;mod cases;mod probe;mod controls;mod game;mod dispatch;mod targets;mod disc;mod sha256;mod xbe;mod bootstrap;mod image_imports;mod image_probe;mod kernel_startup;mod startup_probe;mod tick_service;mod tick_startup;mod tick_probe;mod wait_service;mod gate;mod irql;mod queue;mod callback;mod drain;mod dpc_clock;mod stacks;mod shadow;mod events;mod timers;mod firing;mod timer_clock;mod production_clock;mod thread_tib;mod worker_setup;mod dispatching;mod dpc_observer;mod irq_hooks;mod dpc_routes;mod pacing;mod schedule;mod timer_startup;mod timer_probe;
 pub fn object_worker(arg:u64)->u64{object_startup_probe::object_worker(arg)}
 pub fn sync_worker(arg:u64)->u64{sync_startup_probe::sync_startup_worker(arg)}
 pub fn heap_worker(arg:u64)->u64{heap_service::heap_serve(arg)}
@@ -409,7 +425,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
         }
         for pair in args[cases_start..].chunks_exact(2) {
             let mode = pair[0].to_str().unwrap().parse::<u8>().unwrap();
-            assert!(mode <= 85);
+            assert!(mode <= 88);
             assert_eq!(objects_layout, mode >= 51);
             let selected = fs::File::open(&pair[1]).unwrap();
             let mut indexed =
@@ -493,7 +509,13 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                     (-4i64) as u64
                 } else if mode == 54 || (mode >= 55 && mode <= 61) || (mode >= 76 && mode <= 78) {
                     (-2i64) as u64
-                } else if mode == 67 || mode == 79 || mode == 84 || mode == 85 {
+                } else if mode == 67
+                    || mode == 79
+                    || mode == 84
+                    || mode == 85
+                    || mode == 87
+                    || mode == 88
+                {
                     (-5i64) as u64
                 } else {
                     0
@@ -502,7 +524,9 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                     &values[1..],
                     &[
                         code,
-                        if mode == 83 || mode == 85 {
+                        if mode == 88 {
+                            14
+                        } else if mode == 83 || mode == 85 || mode == 86 || mode == 87 {
                             13
                         } else if mode == 81 {
                             15
@@ -556,7 +580,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                 assert!([
                     0x544b0f00, 0x544b0f10, 0x544b0fff, 0x544b1300, 0x544b3200, 0x544b1710,
                     0x544b1800, 0x544b1801, 0x544b3b00, 0x544b3900, 0x544b3c00, 0x544b3d00,
-                    0x544b3f00, 0x544b4100, 0x544b4300
+                    0x544b3f00, 0x544b4100, 0x544b4300, 0x544b4500
                 ]
                 .contains(&event.code));
                 if event.code == 0x544b1300 {
@@ -611,6 +635,11 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                         .sum::<usize>(),
                     95
                 );
+            }
+            if mode == 86 {
+                let calls: Vec<_> = events.iter().filter(|e| e.code == 0x544b4500).collect();
+                assert_eq!(calls.len(), 1);
+                assert_eq!(calls[0].values, [1, 4, 1]);
             }
             if mode == 83 {
                 let calls: Vec<_> = events.iter().filter(|e| e.code == 0x544b4300).collect();

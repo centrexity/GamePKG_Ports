@@ -20,7 +20,7 @@ pub fn imports_image(
     data: &kernel_data::Data,
     remap: &[u16],
 ) -> Result<imports::Imports, i32> {
-    imports_image_inner(ram, image, data, remap, 0)
+    imports_image_inner(ram, image, data, remap, 0, false)
 }
 pub fn imports_image_with_context(
     ram: &memory::Memory,
@@ -30,7 +30,17 @@ pub fn imports_image_with_context(
     context: &kernel_pool::KernelContext,
 ) -> Result<imports::Imports, i32> {
     context.kernel_context_registry(ram)?;
-    imports_image_inner(ram, image, data, remap, context.kernel_context_id())
+    imports_image_inner(ram, image, data, remap, context.kernel_context_id(), false)
+}
+pub fn imports_image_with_rom(
+    ram: &memory::Memory,
+    image: &xbe::Image,
+    data: &kernel_data::Data,
+    remap: &[u16],
+    context: &kernel_pool::KernelContext,
+) -> Result<imports::Imports, i32> {
+    context.kernel_context_criticals(ram)?;
+    imports_image_inner(ram, image, data, remap, context.kernel_context_id(), true)
 }
 fn imports_image_inner(
     ram: &memory::Memory,
@@ -38,6 +48,7 @@ fn imports_image_inner(
     data: &kernel_data::Data,
     remap: &[u16],
     context: u64,
+    scoped_rom: bool,
 ) -> Result<imports::Imports, i32> {
     ram.call_snapshot()?;
     let (_, record) = gamepkg::local_record_snapshot(ram.call_handle(), 288)?;
@@ -53,7 +64,17 @@ fn imports_image_inner(
         imports::Imports::imports_scan(ram, image.image_thunk(), data, remap)?
     } else {
         let bound = kernel_pool::KernelContext::kernel_context_borrow(ram, context)?;
-        imports::Imports::imports_scan_with_context(ram, image.image_thunk(), data, remap, &bound)?
+        if scoped_rom {
+            imports::Imports::imports_scan_with_rom(ram, image.image_thunk(), data, remap, &bound)?
+        } else {
+            imports::Imports::imports_scan_with_context(
+                ram,
+                image.image_thunk(),
+                data,
+                remap,
+                &bound,
+            )?
+        }
     };
     let shape = plan.imports_layout();
     if shape[0] < bounds[0] || u64::from(shape[0]) + u64::from(shape[1]) * 4 > u64::from(bounds[1])

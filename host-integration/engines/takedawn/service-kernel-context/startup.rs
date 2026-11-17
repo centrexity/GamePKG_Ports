@@ -24,6 +24,7 @@ pub struct Startup {
     critical_shadow: Option<kernel_pool::Shadow>,
     criticals: Option<kernel_pool::Criticals>,
     map: u64,
+    rom_key: Option<(u64, [u8; 32])>,
     jobs: std::vec::Vec<u64>,
 }
 impl Startup {
@@ -53,6 +54,7 @@ impl Startup {
             critical_shadow: None,
             criticals: None,
             map: 0,
+            rom_key: None,
             jobs: std::vec::Vec::new(),
         })
     }
@@ -187,6 +189,31 @@ impl Startup {
             [scratch, offset, 2],
         )
     }
+    pub fn startup_prepare_with_rom(
+        &mut self,
+        ram: &mut memory::Memory,
+        image: &xbe::Image,
+        data: &kernel_data::Data,
+        remap: &[u16],
+        video: u32,
+        speakers: u32,
+        scratch: u64,
+        offset: u64,
+    ) -> Result<(), i32> {
+        if scratch == 0 {
+            return Err(-1);
+        }
+        self.startup_prepare_mode(
+            ram,
+            image,
+            data,
+            remap,
+            video,
+            speakers,
+            true,
+            [scratch, offset, 3],
+        )
+    }
     fn startup_prepare_mode(
         &mut self,
         ram: &mut memory::Memory,
@@ -255,12 +282,12 @@ impl Startup {
                 ram,
                 self.handles.as_ref().ok_or(-3)?,
             )?);
-            if objects[2] == 1 || objects[2] == 2 {
+            if objects[2] >= 1 {
                 self.semaphores = Some(kernel_pool::Semaphores::semaphores_new(
                     ram,
                     self.handles.as_ref().ok_or(-3)?,
                 )?);
-                if objects[2] == 2 {
+                if objects[2] >= 2 {
                     self.critical_shadow = Some(kernel_pool::Shadow::shadow_new(ram)?);
                     self.criticals = Some(kernel_pool::Criticals::criticals_new(
                         ram,
@@ -311,17 +338,19 @@ impl Startup {
                 self.registry.as_ref().ok_or(-3)?,
             )?)
         };
-        let plan = image_imports::imports_image_with_context(
-            ram,
-            image,
-            data,
-            remap,
-            self.context.as_ref().ok_or(-3)?,
-        )?;
+        let context = self.context.as_ref().ok_or(-3)?;
+        let plan = if objects[2] == 3 {
+            image_imports::imports_image_with_rom(ram, image, data, remap, context)?
+        } else {
+            image_imports::imports_image_with_context(ram, image, data, remap, context)?
+        };
         plan.imports_publish(ram)?;
         self.map = ram.kernel_handle();
         if self.map == 0 {
             return Err(-3);
+        }
+        if objects[2] == 3 {
+            self.rom_key = Some((image.image_rom_grant(), image.image_digest()));
         }
         Ok(())
     }
@@ -453,6 +482,31 @@ impl Startup {
             .as_ref()
             .ok_or(-4)?
             .kernel_context_criticals(ram)
+    }
+    pub fn startup_rom_table(
+        &self,
+        ram: &memory::Memory,
+        image: &xbe::Image,
+    ) -> Result<&handles::Handles, i32> {
+        self.startup_ids(ram)?;
+        if self.rom_key != Some((image.image_rom_grant(), image.image_digest())) {
+            return Err(-5);
+        }
+        self.handles.as_ref().ok_or(-4)
+    }
+
+    pub fn startup_rom_ordinal(
+        &self,
+        ram: &memory::Memory,
+        image: &xbe::Image,
+        marker: u32,
+    ) -> Result<u32, i32> {
+        self.startup_rom_table(ram, image)?;
+        kernel_pool::kernel_rom_ordinal(
+            ram,
+            self.context.as_ref().ok_or(-4)?.kernel_context_id(),
+            marker,
+        )
     }
     // Register every subsystem job before its shared owners can be closed. A
     // completion snapshot, including true, does not replace a consuming join.

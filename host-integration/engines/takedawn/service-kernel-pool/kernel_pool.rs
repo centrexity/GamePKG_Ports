@@ -194,6 +194,30 @@ pub fn kernel_ordinal(ram: &memory::Memory, slot: u32) -> Result<u32, i32> {
     )?;
     Ok(ordinal)
 }
+pub fn kernel_rom_ordinal(ram: &memory::Memory, context: u64, marker: u32) -> Result<u32, i32> {
+    let slot_bytes = marker.checked_sub(0xfe000000).ok_or(-5)?;
+    if slot_bytes & 3 != 0 {
+        return Err(-5);
+    }
+    let (_, route, count, start) = pool_snapshot(ram)?;
+    if start != 32 || context == 0 || pool_long(&route, 24)? != context {
+        return Err(-4);
+    }
+    let slot = slot_bytes / 4;
+    if slot >= count || slot >= pool_word(&route, 20)? {
+        return Err(-5);
+    }
+    let ordinal = pool_word(&route, start + slot as usize * 4)?;
+    if ordinal != 187 && ordinal != 202 && ordinal != 219 {
+        return Err(-5);
+    }
+    let table = pool_word(&route, 16)?;
+    let cell = table.checked_add(slot_bytes).ok_or(-1)?;
+    if ram.read_u32(cell)? != marker {
+        return Err(-4);
+    }
+    Ok(ordinal)
+}
 // At most eight successful updates can compete, unlike the unbounded call
 // trace. The existing bounded CAS loop therefore needs no extra wait/queue.
 fn pool_refusal_ticket(ram: &memory::Memory) -> Result<bool, i32> {

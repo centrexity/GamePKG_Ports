@@ -45,7 +45,7 @@ impl Imports {
         data: &kernel_data::Data,
         remap: &[u16],
     ) -> Result<Self, i32> {
-        Self::imports_scan_inner(ram, table, data, remap, 0)
+        Self::imports_scan_inner(ram, table, data, remap, 0, false)
     }
     pub fn imports_scan_with_context(
         ram: &memory::Memory,
@@ -55,7 +55,17 @@ impl Imports {
         context: &kernel_pool::KernelContext,
     ) -> Result<Self, i32> {
         context.kernel_context_registry(ram)?;
-        Self::imports_scan_inner(ram, table, data, remap, context.kernel_context_id())
+        Self::imports_scan_inner(ram, table, data, remap, context.kernel_context_id(), false)
+    }
+    pub fn imports_scan_with_rom(
+        ram: &memory::Memory,
+        table: u32,
+        data: &kernel_data::Data,
+        remap: &[u16],
+        context: &kernel_pool::KernelContext,
+    ) -> Result<Self, i32> {
+        context.kernel_context_criticals(ram)?;
+        Self::imports_scan_inner(ram, table, data, remap, context.kernel_context_id(), true)
     }
     fn imports_scan_inner(
         ram: &memory::Memory,
@@ -63,6 +73,7 @@ impl Imports {
         data: &kernel_data::Data,
         remap: &[u16],
         context: u64,
+        scoped_rom: bool,
     ) -> Result<Self, i32> {
         ram.call_snapshot()?;
         if context != 0 {
@@ -134,10 +145,14 @@ impl Imports {
                 imports_put(&mut patched, 64 + slot * 4, address);
                 continue;
             }
-            kernel_pool::kernel_supported(ordinal)?;
-            kernel_pool::kernel_context_ready(ram, context, ordinal)?;
-            physical |= kernel_pool::kernel_physical(ordinal);
-            services |= kernel_pool::kernel_requires_services(ordinal);
+            if scoped_rom && (ordinal == 187 || ordinal == 202 || ordinal == 219) {
+                services = true;
+            } else {
+                kernel_pool::kernel_supported(ordinal)?;
+                kernel_pool::kernel_context_ready(ram, context, ordinal)?;
+                physical |= kernel_pool::kernel_physical(ordinal);
+                services |= kernel_pool::kernel_requires_services(ordinal);
+            }
             imports_put(&mut patched, 64 + slot * 4, 0xfe000000 + slot as u32 * 4);
         }
         let mut slots = count;

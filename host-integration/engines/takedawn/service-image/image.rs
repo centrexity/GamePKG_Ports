@@ -199,6 +199,14 @@ impl<'a> Image<'a> {
             code_high,
         })
     }
+    pub fn image_rom_source(&self) -> &disc::Disc {
+        self.file.disc_file_source()
+    }
+
+    pub fn image_rom_grant(&self) -> u64 {
+        self.file.disc_file_grant()
+    }
+
     pub fn image_digest(&self) -> [u8; 32] {
         self.digest
     }

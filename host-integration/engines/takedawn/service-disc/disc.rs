@@ -339,6 +339,14 @@ impl Disc {
     }
 }
 impl DiscFile<'_> {
+    pub fn disc_file_source(&self) -> &Disc {
+        self.disc
+    }
+
+    pub fn disc_file_grant(&self) -> u64 {
+        self.disc.handle
+    }
+
     // Transfer a separately closeable ID to the caller's handle owner. The
     // host retains only a bounded range on the original revocable ROM grant.
     pub fn disc_file_open_handle(&self) -> Result<u64, i32> {

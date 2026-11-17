@@ -79,3 +79,26 @@ disc. The general kernel import planner still rejects these ordinals without
 a broader file context. Connecting the dispatcher to authenticated startup
 and covering asynchronous completion, save paths and other file types are
 required before enabling the general imports.
+
+## Authenticated startup routing
+
+`Startup::startup_prepare_with_rom` opts in after creating the KIC5 object
+context. The image planner can then publish main-table markers for 187,
+202 and 219. The planner still checks every other import and rejects
+unsupported ordinals before publishing any markers. The default planner
+and generic kernel dispatcher continue to decline these file ordinals.
+Lookbehind file imports remain unsupported.
+
+`StartupFiles` borrows the ready startup and authenticated image. Each
+call checks the ROM grant, image digest, live context, marker alignment,
+main-table bounds and the marker still stored at that slot. The adapter
+reads only the disc that supplied the authenticated image. The startup
+creator must drain its file handles after file users have joined and before
+closing the kernel startup owner.
+
+The image checks exercise this route under Linux32 and Linux64 with a
+synthetic authenticated XBE. Mode 86 opens, reads and closes a file through
+the published markers. Mode 87 verifies that ordinary KIC5 rejects the
+same file imports. Mode 88 includes an unsupported create-file import and
+verifies that the explicit optical path also rejects the entire table.
+The private image is still checked through the ordinary gate.
