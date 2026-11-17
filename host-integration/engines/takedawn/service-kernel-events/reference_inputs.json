@@ -1,0 +1,17 @@
+{
+  "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+  "members": {
+    "toolkit/src/kernel/kernel_sync.c": {
+      "sha256": "8fcdcccb4c21e70eb7c836ffb5acac45e7af861df24ca9c76940604afa5f472a",
+      "start": 3539,
+      "end": 4500,
+      "function_sha256": "7f9ef051fb334950c21e66b72e237df977b336ce9d0094eb05be262248c71d10"
+    },
+    "toolkit/src/kernel/kernel_bridge.c": {
+      "sha256": "bf62f8787a2e78a0abdb28e10ad8f79c5267dc655491353af231067747ce446e",
+      "start": 79808,
+      "end": 80732,
+      "function_sha256": "a10b6cf170ad3b8c8fabccce0f688186a607df82491a7db2de2b7a32d2558029"
+    }
+  }
+}

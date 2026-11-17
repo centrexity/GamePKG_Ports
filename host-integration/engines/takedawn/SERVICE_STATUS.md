@@ -4,7 +4,16 @@ This is tested integration work, **not a playable Burnout release**. The legacy
 profile remains blocked. No source pin, signature, cached executable or engine
 exception may bypass that block. The source kit and catalog URLs are unchanged.
 
-## Latest checkpoint: scratch-backed tagged handle metadata
+## Latest checkpoint: typed SDK event ownership
+
+The new checked event domain owns real SDK events, shared aliases, null-output
+orphans and partial publication/cleanup prefixes. Four-target native/Wine and
+actual confined Linux checks retain the unchanged budgets and admission rules.
+Exact contracts: [service-kernel-events](service-kernel-events/README.md).
+Wait/pulse/status and context/import/startup integration remain required; this
+component does not enable playback. The main import gap remains 106.
+
+## Earlier checkpoint: scratch-backed tagged handle metadata
 
 The checked table preserves all 16,383 tagged slots with bounded scratch memory.
 It is not yet a native object owner or kernel-import bridge. Exact contracts and
