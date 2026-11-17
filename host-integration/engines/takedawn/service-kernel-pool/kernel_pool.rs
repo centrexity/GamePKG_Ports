@@ -14,10 +14,10 @@ fn pool_long(bytes: &[u8], at: usize) -> Result<u64, i32> {
 }
 fn pool_argument_bytes(ordinal: u32) -> Result<u32, i32> {
     match ordinal {
-        14 | 17 | 23 | 98 | 165 | 171 | 180 | 277 | 291 | 294 | 301 | 335 => Ok(4),
+        14 | 17 | 23 | 98 | 165 | 171 | 179 | 180 | 277 | 291 | 294 | 301 | 335 => Ok(4),
         15 | 44 | 113 | 168 | 225 | 289 | 290 | 337 => Ok(8),
         189 | 193 => Ok(16),
-        107 | 222 | 269 | 279 | 336 | 338 | 339 => Ok(12),
+        107 | 182 | 222 | 269 | 279 | 336 | 338 | 339 => Ok(12),
         109 | 340 => Ok(28),
         24 | 166 => Ok(20),
         125 | 126 | 127 => Ok(0),
@@ -351,6 +351,18 @@ pub fn kernel_invoke(
     let first = pool_word(&args, 0)?;
     if ordinal == 15 {
         let _ = pool_word(&args, 4)?;
+    }
+    if ordinal == 179 || ordinal == 182 {
+        let result = if ordinal == 179 {
+            ram.memory_guest_protection(first)?
+        } else {
+            ram.memory_set_guest_protection(first, pool_word(&args, 4)?, pool_word(&args, 8)?)?;
+            0
+        };
+        ram.kernel_set_caller(caller);
+        state.eax = result;
+        state.esp = end as u32;
+        return Ok(());
     }
     ram.kernel_set_caller(caller);
     if ordinal == 269 || ordinal == 279 || ordinal == 289 || ordinal == 290 || ordinal == 301 {

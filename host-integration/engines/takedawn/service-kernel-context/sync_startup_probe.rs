@@ -3,6 +3,7 @@ use crate::gamepkg;
 use crate::kernel_pool;
 use crate::kernel_startup;
 use crate::memory;
+use crate::registers;
 fn sync_startup_need(stage: i32, value: bool) -> Result<(), i32> {
     if value {
         Ok(())
@@ -246,5 +247,110 @@ pub fn sync_startup_before_close(
         let services = ram.services_handle()?;
         ram.services_link(services, 0)?;
     }
+    Ok(())
+}
+
+fn protection_fixture_invoke(
+    ram: &mut memory::Memory,
+    stack: u32,
+    slot: u32,
+    args: &[u32],
+    failure: i32,
+) -> Result<u32, i32> {
+    let mut cpu = registers::Registers::new();
+    cpu.esp = stack;
+    cpu.eax = 0x12345678;
+    cpu.edx = 0xfacade;
+    ram.write_u32(stack, 0x87654321)?;
+    for (index, arg) in args.iter().enumerate() {
+        ram.write_u32(stack + 4 + index as u32 * 4, *arg)?;
+    }
+    ram.kernel_set_caller(0xabcd);
+    let invocation = kernel_pool::kernel_invoke(&mut cpu, ram, slot);
+    if failure != 0 {
+        sync_startup_need(
+            1023,
+            invocation == Err(failure)
+                && cpu.esp == stack
+                && cpu.eax == 0x12345678
+                && cpu.edx == 0xfacade
+                && ram.kernel_caller() == 0xabcd,
+        )?;
+    } else {
+        invocation?;
+        sync_startup_need(
+            1024,
+            cpu.esp == stack + 4 + args.len() as u32 * 4
+                && cpu.edx == 0xfacade
+                && ram.kernel_caller() == 0x87654321,
+        )?;
+    }
+    Ok(cpu.eax)
+}
+
+pub fn protection_fixture(ram: &mut memory::Memory, slots: [u32; 2]) -> Result<(), i32> {
+    let [query, set] = slots;
+    sync_startup_need(
+        1025,
+        kernel_pool::kernel_ordinal(ram, query)? == 179
+            && kernel_pool::kernel_ordinal(ram, set)? == 182,
+    )?;
+    let stack = ram.read_u32(0x4008)?.checked_add(0x2000).ok_or(-1)?;
+    let first = 0x01800000;
+    let alias = 0x05800000;
+    let next = first + 4096;
+    let edge = 0x03ffffff;
+    let hole = 0xfd000000;
+    let reserved = 0xff010000;
+    sync_startup_need(
+        1026,
+        protection_fixture_invoke(ram, stack, query, &[first], 0)? == 4
+            && protection_fixture_invoke(ram, stack, query, &[reserved], 0)? == 0
+            && protection_fixture_invoke(ram, stack, query, &[hole], 0)? == 1,
+    )?;
+    let original = ram.read_u8(next)?;
+    protection_fixture_invoke(ram, stack, set, &[alias + 4095, 2, 2], 0)?;
+    sync_startup_need(
+        1027,
+        protection_fixture_invoke(ram, stack, query, &[first + 1], 0)? == 2
+            && protection_fixture_invoke(ram, stack, query, &[next], 0)? == 2
+            && ram.write_u8(next, 0x51) == Err(-4)
+            && ram.read_u8(next)? == original,
+    )?;
+    protection_fixture_invoke(ram, stack, set, &[next + 1, 1, 1], 0)?;
+    sync_startup_need(
+        1028,
+        protection_fixture_invoke(ram, stack, query, &[alias + 4096], 0)? == 1
+            && ram.read_u8(next) == Err(-4),
+    )?;
+    for rejected in [
+        (first, 1, 0x40, -5),
+        (first, 1, 0x104, -5),
+        (first, 0, 4, -1),
+        (u32::MAX, 2, 4, -1),
+        (edge, 2, 4, -4),
+        (hole, 1, 4, -4),
+        (reserved, 1, 4, -4),
+    ] {
+        protection_fixture_invoke(
+            ram,
+            stack,
+            set,
+            &[rejected.0, rejected.1, rejected.2],
+            rejected.3,
+        )?;
+    }
+    sync_startup_need(
+        1029,
+        protection_fixture_invoke(ram, stack, query, &[first], 0)? == 2
+            && protection_fixture_invoke(ram, stack, query, &[reserved], 0)? == 0,
+    )?;
+    protection_fixture_invoke(ram, stack, set, &[first, 8192, 4], 0)?;
+    sync_startup_need(
+        1030,
+        protection_fixture_invoke(ram, stack, query, &[alias + 4096], 0)? == 4
+            && ram.read_u8(next)? == original,
+    )?;
+    gamepkg::diagnostic(1, 0x544b4900, &[179, 182, 8192, 7])?;
     Ok(())
 }

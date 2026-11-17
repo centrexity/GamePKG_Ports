@@ -561,7 +561,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                     &[
                         code,
                         if mode == 94 || mode == 95 {
-                            26
+                            28
                         } else if mode == 92 {
                             18
                         } else if mode == 90 || mode == 91 {
@@ -625,7 +625,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                     0x544b0f00, 0x544b0f10, 0x544b0fff, 0x544b1300, 0x544b3200, 0x544b1710,
                     0x544b1800, 0x544b1801, 0x544b3b00, 0x544b3900, 0x544b3c00, 0x544b3d00,
                     0x544b3f00, 0x544b4100, 0x544b4300, 0x544b4500, 0x544b4600, 0x544b4700,
-                    0x544b4800
+                    0x544b4800, 0x544b4900
                 ]
                 .contains(&event.code));
                 if event.code == 0x544b1300 {
@@ -660,7 +660,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                         .filter(|e| e.code == 0x544b0f10)
                         .map(|e| e.values.len())
                         .sum::<usize>(),
-                    100
+                    98
                 );
             }
             if mode == 79 {
@@ -670,7 +670,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                         .filter(|e| e.code == 0x544b0f10)
                         .map(|e| e.values.len())
                         .sum::<usize>(),
-                    98
+                    96
                 );
             }
             if mode == 84 {
@@ -680,7 +680,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                         .filter(|e| e.code == 0x544b0f10)
                         .map(|e| e.values.len())
                         .sum::<usize>(),
-                    95
+                    93
                 );
             }
             if mode == 93 || mode == 96 {
@@ -690,13 +690,13 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                     .flat_map(|e| &e.values)
                     .copied()
                     .collect();
-                assert_eq!(unresolved.len(), if mode == 96 { 79 } else { 88 });
+                assert_eq!(unresolved.len(), if mode == 96 { 77 } else { 86 });
                 if mode == 96 {
                     for ordinal in [67, 69, 198, 203, 210, 211, 215, 226, 236] {
                         assert!(!unresolved.contains(&ordinal));
                     }
                 }
-                for ordinal in [187, 190, 202, 218, 219, 233, 234] {
+                for ordinal in [179, 182, 187, 190, 202, 218, 219, 233, 234] {
                     assert!(!unresolved.contains(&ordinal));
                 }
             }
@@ -723,6 +723,16 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                     assert!(disk_calls.is_empty());
                     assert_eq!(fs::read_dir(directory).unwrap().count(), 0);
                 }
+            }
+            let protection_calls: Vec<_> = events
+                .iter()
+                .filter(|event| event.code == 0x544b4900)
+                .collect();
+            if mode == 94 {
+                assert_eq!(protection_calls.len(), 1);
+                assert_eq!(protection_calls[0].values, [179, 182, 8192, 7]);
+            } else {
+                assert!(protection_calls.is_empty());
             }
             let link_calls: Vec<_> = events
                 .iter()

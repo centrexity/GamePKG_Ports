@@ -112,3 +112,30 @@ same three-bank aliases and do not map scratch. A matching guest number still
 resolves to its checked guest backing, never to a host address. Caller-owned
 commit and partial resource cleanup contracts are described in
 [OBJECT_STARTUP.md](../service-kernel-context/OBJECT_STARTUP.md).
+
+## Guest page protection imports
+
+The checked import dispatcher binds MmQueryAddressProtect (179, one 32-bit
+argument) and MmSetAddressProtect (182, three 32-bit arguments). The pinned
+source-kit reference is toolkit/src/kernel/kernel_memory.c. These adapters use
+the same GamePKG local pages as ordinary guest reads and writes.
+
+Query takes a guest virtual address and returns the current backing page's
+Xbox protection flag. Reserved backing reports 0, no-access and unmapped
+addresses report 1, read-only reports 2, and read/write reports 4. Runtime
+revocation and service errors propagate.
+
+Set accepts a guest address, positive byte length, and exactly one of
+PAGE_NOACCESS, PAGE_READONLY, or PAGE_READWRITE. It rounds the guest range
+outward to 4 KiB boundaries and applies one checked request to a single
+translated backing span. Aliases of those pages observe the change immediately.
+A range crossing a span boundary is explicitly unsupported by the adapter.
+Wrapping, unmapped or uncommitted ranges are rejected before modifying any
+page. Executable, guard, and cache attributes are unsupported, and no host
+address or executable mapping is exposed. The checked dispatcher advances
+the guest stack and records the caller only after a successful operation.
+
+The authenticated startup fixture covers read/write, read-only, no-access and
+reserved queries, a two-page unaligned change through an alias, content
+retention, and refusals for invalid flags and ranges. The real disc check
+prepares imports in place. Full title execution remains gated.

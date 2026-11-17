@@ -325,6 +325,64 @@ impl Memory {
         }
         Ok([window, offset])
     }
+    // Xbox page flags for a translated guest address. Reserved backing
+    // reports zero, while a hole has no accessible mapping.
+    pub fn memory_guest_protection(&self, address: u32) -> Result<u32, i32> {
+        self.call_snapshot()?;
+        let (window, offset) = match self.resolve(address & !4095, 4096, false) {
+            Ok(backing) => backing,
+            Err(-4) => return Ok(1),
+            Err(code) => return Err(code),
+        };
+        let states = gamepkg::local_memory_page_states(window, offset, 1)?;
+        match states.as_slice() {
+            [0] => Ok(0),
+            [1] => Ok(1),
+            [2] => Ok(2),
+            [3] => Ok(4),
+            _ => Err(-3),
+        }
+    }
+
+    // Round outward in the guest address space, then request a single
+    // checked protection change on the complete translated backing extent.
+    // Never split a mutation between independent or wrapping alias spans.
+    pub fn memory_set_guest_protection(
+        &self,
+        address: u32,
+        bytes: u32,
+        flags: u32,
+    ) -> Result<(), i32> {
+        let protection = match flags {
+            1 => 0,
+            2 => 1,
+            4 => 2,
+            _ => return Err(-5),
+        };
+        self.call_snapshot()?;
+        let start = address & !4095;
+        let end = u64::from(address) + u64::from(bytes);
+        if bytes == 0 || end > 4294967296 {
+            return Err(-1);
+        }
+        let rounded = (end + 4095) & !4095u64;
+        let size = rounded - u64::from(start);
+        let (window, offset) = self.resolve(start, size, true)?;
+        if offset & 4095 != 0 {
+            return Err(-1);
+        }
+        let request = [
+            u64::to_le_bytes(window).as_slice(),
+            &u64::to_le_bytes(offset),
+            &u64::to_le_bytes(size),
+            &u32::to_le_bytes(protection),
+        ]
+        .concat();
+        if gamepkg::local_call(3, &request, &mut [])? != 0 {
+            return Err(-3);
+        }
+        Ok(())
+    }
     // Capture only one writable guest word, never a host address. The view's
     // write permission is checked here; the local runtime checks page access
     // again on every write. Copying this tuple is not a lease on the backing.
