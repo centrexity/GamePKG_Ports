@@ -16,6 +16,7 @@ pub const STATUS: u32 = 7;
 pub const STAMP: u32 = 8;
 pub const SHUTDOWN: u32 = 9;
 pub const OPEN_FILE: u32 = 10;
+pub const QUERY_FILE: u32 = 11;
 
 pub struct Reply {
     pub sequence: u64,
@@ -286,7 +287,7 @@ impl SaveWorker {
         }
         let flags = u32::from_le_bytes([payload[0], payload[1], payload[2], payload[3]]);
         let disposition = u32::from_le_bytes([payload[4], payload[5], payload[6], payload[7]]);
-        if flags > 3 {
+        if flags & !0x2603 != 0 {
             return Err(-1);
         }
         let writable = flags & 1 != 0;
@@ -298,7 +299,7 @@ impl SaveWorker {
         }
         let (file, information) =
             self.guard
-                .open_regular(real, disposition, writable, write_through)?;
+                .open_regular(real, disposition, writable, write_through, flags >> 8)?;
         if file != 0 {
             if writable {
                 self.writes.push([file, u64::from(write_through)]);
@@ -311,6 +312,33 @@ impl SaveWorker {
             &u32::to_le_bytes(information),
         ]
         .concat())
+    }
+
+    fn regular_file_information(&self, payload: &[u8]) -> Result<std::vec::Vec<u8>, i32> {
+        if payload.len() != 8 {
+            return Err(-1);
+        }
+        let observed_file = worker_u64(payload)?;
+        let mut owned_file = self.reads.contains(&observed_file);
+        for write_slot in &self.writes {
+            owned_file |= write_slot[0] == observed_file;
+        }
+        if !owned_file {
+            return Err(-4);
+        }
+        let info = gamepkg::save_file_info(observed_file)?;
+        let allocation = info.length.checked_add(16383).ok_or(-1)? & !16383u64;
+        if allocation > i64::MAX as u64 {
+            return Err(-1);
+        }
+        let mut reported = std::vec::Vec::new();
+        for stamp in info.times {
+            reported.extend(u64::to_le_bytes(stamp));
+        }
+        reported.extend(u64::to_le_bytes(allocation));
+        reported.extend(u64::to_le_bytes(info.length));
+        reported.extend(u32::to_le_bytes(info.attributes));
+        Ok(reported)
     }
 
     pub fn command(&mut self, operation: u32, payload: &[u8]) -> Result<std::vec::Vec<u8>, i32> {
@@ -335,6 +363,7 @@ impl SaveWorker {
                 Ok(u64::to_le_bytes(handle).to_vec())
             }
             OPEN_FILE => self.open_file_message(payload),
+            QUERY_FILE => self.regular_file_information(payload),
             WRITE => {
                 if payload.len() < 16 {
                     return Err(-1);
@@ -591,7 +620,7 @@ impl Connection {
         if self.waiting.is_some() {
             return Err(-2);
         }
-        if payload.len() > 65524 || !(1..=OPEN_FILE).contains(&operation) {
+        if payload.len() > 65524 || !(1..=QUERY_FILE).contains(&operation) {
             return Err(-1);
         }
         if operation == SHUTDOWN && !payload.is_empty() {

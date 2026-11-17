@@ -50,10 +50,15 @@ packing or pointers appear in the protocol.
 | 8 STAMP | YYYYMMDD-HHMMSS bytes[15] | empty; Busy during an extracted job |
 | 9 SHUTDOWN | empty | final status record; Busy if work/errors remain |
 | 10 OPEN_FILE | flags u32, disposition u32, relative UTF-8 path | opened handle u64 and disposition information u32 |
+| 11 QUERY_FILE | opened handle u64 | 52 defined bytes of Xbox class-34 file information |
 
 `OPEN_FILE` accepts `FILE_OPEN` (1), `FILE_CREATE` (2) or `FILE_OPEN_IF`
 (3). Flags bit 0 grants a guarded writable handle and bit 1 requests
-write-through on that handle. Read-only opens accept `FILE_OPEN` only.
+write-through on that handle. Bits 8–15 carry the portable creation attribute
+bits (hidden, system and archive). A new save receives the requested bits and
+archive. Open-or-create ignores the creation bits when the logical file already
+exists. A seeded replacement retains the existing portable attributes. The
+attribute effects occur on the shadow. Read-only opens accept `FILE_OPEN` only.
 Successful information is 1 (opened) or 2 (created). A zero handle with
 information 4 means a create collided with the existing logical file.
 Information 5 means a requested existing file was absent. Other failures
@@ -69,6 +74,14 @@ the staged change can still be present. The failure is reported and stays
 visible in worker status. A later close can commit that shadow after a
 successful flush. The caller must not infer rollback or durable shutdown
 from the failed acknowledgement.
+
+`QUERY_FILE` accepts a live handle owned by this worker. It returns four
+100 ns UTC times, logical allocation and end-of-file lengths as u64s, then
+the portable attributes as u32. The allocation is the logical file length
+rounded up to the 16 KiB volume unit. The Xbox kernel bridge will write these
+52 bytes into a 56-byte class-34 buffer and leave its four padding bytes alone.
+The observer uses the already-opened file and propagates unavailable
+timestamps or unsupported attributes.
 
 Read handles may be read through the SDK. Both read and title handles must be
 closed through the worker so it can track shutdown correctly. Writes/resize/
@@ -125,11 +138,11 @@ join; the engine must explicitly shut it down or terminate its containing proces
 
 ## Validation and remaining integration
 
-Eight real-file worker tests cover close-before-publication, flush failure,
+Nine real-file worker tests cover close-before-publication, flush failure,
 complete title history, read/write limits, malformed paths/messages/handles,
 failed pending redirection and the original warning threshold, history quota
 failure, startup ordering, and post-publication uncertainty without source retry.
-Together the suite has 29 actual-file/service tests and 18 transition tests,
+Together the suite has 30 actual-file/service tests and 18 transition tests,
 including 4096 pinned-C policy events.
 
 Exact production modules including the worker pass source checks, isolated
@@ -145,8 +158,7 @@ compilation/audit only; generic mailbox tests ran under Wine separately.
 
 Remaining: the actual clock/date provider (labels are supplied explicitly here),
 retention/import/history UI, original Windows rename retry timing, generated
-kernel/title connection, persistent file attributes and complete opened-file
-metadata, and engine/media/renderer migration. Physical
+kernel/title connection and engine/media/renderer migration. Physical
 controls, audible audio, graphics fidelity and measured game frame pacing remain
 unqualified. Legacy build/cache gates remain enabled; these components provide
 no engine/media exception or permission to publish an unfinished source kit.

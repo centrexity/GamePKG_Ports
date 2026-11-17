@@ -96,7 +96,14 @@ fn fixture_regular_files(connection: &mut worker::Connection, grant: u64) -> Res
     }
     fixture_ok(connection, worker::CLOSE, &u64::to_le_bytes(old_reader))?;
 
-    let writer = fixture_regular_open(connection, 3, 3, new_path, 2)?;
+    let writer = fixture_regular_open(connection, 0x403, 3, new_path, 2)?;
+    let first_info = fixture_ok(connection, worker::QUERY_FILE, &u64::to_le_bytes(writer))?;
+    if first_info.len() != 52
+        || first_info[32..48] != [0; 16]
+        || first_info[48..52] != [0x24, 0, 0, 0]
+    {
+        return Err(-3);
+    }
     fixture_regular_open(connection, 1, 2, new_path, 4)?;
     fixture_regular_open(connection, 0, 1, new_path, 5)?;
     let peer = fixture_regular_open(connection, 1, 3, new_path, 1)?;
@@ -114,8 +121,20 @@ fn fixture_regular_files(connection: &mut worker::Connection, grant: u64) -> Res
     }
     let new_length = [u64::to_le_bytes(writer), u64::to_le_bytes(5)].concat();
     fixture_ok(connection, worker::RESIZE, &new_length)?;
+    let resized_info = fixture_ok(connection, worker::QUERY_FILE, &u64::to_le_bytes(writer))?;
+    if resized_info.len() != 52
+        || resized_info[..8] != first_info[..8]
+        || resized_info[32..40] != u64::to_le_bytes(16384)
+        || resized_info[40..48] != u64::to_le_bytes(5)
+        || resized_info[48..52] != [0x24, 0, 0, 0]
+    {
+        return Err(-3);
+    }
     fixture_ok(connection, worker::CLOSE, &u64::to_le_bytes(peer))?;
     fixture_ok(connection, worker::CLOSE, &u64::to_le_bytes(writer))?;
+    if fixture_call(connection, worker::QUERY_FILE, &u64::to_le_bytes(writer))?.status != -4 {
+        return Err(-3);
+    }
     Ok(())
 }
 

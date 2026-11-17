@@ -77,12 +77,34 @@ pub fn copy_shadow(grant: u64, real: &str) -> Result<u64, i32> {
 // Pending data may be the seed for a subsequent partial write. Destination is
 // always real.~new, never the real file or an arbitrary caller-selected path.
 pub fn copy_seed(grant: u64, source: &str, real: &str) -> Result<u64, i32> {
+    copy_seed_with_attributes(grant, source, real, false)
+}
+pub fn copy_seed_with_attributes(
+    grant: u64,
+    source: &str,
+    real: &str,
+    preserve_attributes: bool,
+) -> Result<u64, i32> {
     let mut shadow = real.to_owned();
     shadow.push_str(".~new");
     if source == shadow {
         return Err(-1);
     }
     let input = gamepkg::file_open(grant, false, source)?;
+    let inherited = if preserve_attributes {
+        match gamepkg::save_file_info(input) {
+            Ok(info) if info.attributes & 1 == 0 => Some(info.attributes & 0x26),
+            metadata_result => {
+                gamepkg::file_close(input)?;
+                return Err(match metadata_result {
+                    Ok(_) => -4,
+                    Err(code) => code,
+                });
+            }
+        }
+    } else {
+        None
+    };
     let output = match gamepkg::file_open(grant, true, &shadow) {
         Ok(handle) => handle,
         Err(error) => {
@@ -90,7 +112,16 @@ pub fn copy_seed(grant: u64, source: &str, real: &str) -> Result<u64, i32> {
             return Err(error);
         }
     };
-    let copied = copy_open(input, output);
+    let copied = match copy_open(input, output) {
+        Ok(bytes) => match inherited {
+            Some(flags) => match gamepkg::save_file_set_attributes(output, flags) {
+                Ok(()) => Ok(bytes),
+                Err(code) => Err(code),
+            },
+            None => Ok(bytes),
+        },
+        Err(code) => Err(code),
+    };
     let input_closed = gamepkg::file_close(input);
     let output_closed = gamepkg::file_close(output);
     let result = match copied {

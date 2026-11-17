@@ -186,3 +186,58 @@ fn guarded_regular_open_reports_disposition_and_write_through_errors() {
     assert_eq!(std::fs::read(root.path().join(profile)).unwrap(), b"written!");
     assert_eq!(actor.io_error, -3);
 }
+
+#[test]
+fn worker_queries_exact_opened_file_and_preserves_created_attributes_across_replacement() {
+    let root = tempfile::tempdir().unwrap();
+    worker_setup(root.path());
+    let (grant, _harness) = connect(root.path(), 1048576, false, false);
+    let mut actor = worker::SaveWorker::new(grant, "12345678", "20261114-120000").unwrap();
+    let path = "UDATA/12345678/TitleMeta.xbx";
+    let open_file = |actor: &mut worker::SaveWorker, flags: u32, disposition: u32| {
+        let body = [flags.to_le_bytes().as_slice(), &disposition.to_le_bytes(), path.as_bytes()].concat();
+        let reply = actor.command(worker::OPEN_FILE, &body).unwrap();
+        (u64::from_le_bytes(reply[..8].try_into().unwrap()), u32::from_le_bytes(reply[8..].try_into().unwrap()))
+    };
+    let verify_info = |actor: &mut worker::SaveWorker, id: u64, length: u64| {
+        let body = actor.command(worker::QUERY_FILE, &id.to_le_bytes()).unwrap();
+        assert_eq!(body.len(), 52);
+        for timestamp in body[..32].chunks_exact(8) {
+            assert!(u64::from_le_bytes(timestamp.try_into().unwrap()) > 116_444_736_000_000_000);
+        }
+        assert_eq!(&body[32..40], &if length == 0 { 0u64 } else { 16384u64 }.to_le_bytes());
+        assert_eq!(&body[40..48], &length.to_le_bytes());
+        assert_eq!(&body[48..], &0x24u32.to_le_bytes());
+    };
+
+    let escaped = gamepkg::file_create_new(grant, "unregistered").unwrap();
+    assert_eq!(actor.command(worker::QUERY_FILE, &escaped.to_le_bytes()), Err(-4));
+    assert_eq!(actor.command(worker::QUERY_FILE, &[0; 9]), Err(-1));
+    gamepkg::file_close(escaped).unwrap();
+
+    let (file, information) = open_file(&mut actor, 0x403, 3);
+    assert_eq!(information, 2);
+    verify_info(&mut actor, file, 0);
+    assert!(!root.path().join(path).exists());
+    let body = [file.to_le_bytes().as_slice(), &0u64.to_le_bytes(), b"new"].concat();
+    actor.command(worker::WRITE, &body).unwrap();
+    actor.command(worker::CLOSE, &file.to_le_bytes()).unwrap();
+    worker_drain(&mut actor);
+    assert_eq!(actor.command(worker::QUERY_FILE, &file.to_le_bytes()), Err(-4));
+    let (reader, result) = open_file(&mut actor, 0, 1);
+    assert_eq!(result, 1);
+    verify_info(&mut actor, reader, 3);
+    actor.command(worker::CLOSE, &reader.to_le_bytes()).unwrap();
+
+    let (existing, result) = open_file(&mut actor, 0x203, 3);
+    assert_eq!(result, 1);
+    verify_info(&mut actor, existing, 3);
+    let update = [existing.to_le_bytes().as_slice(), &3u64.to_le_bytes(), b"!"].concat();
+    actor.command(worker::WRITE, &update).unwrap();
+    actor.command(worker::CLOSE, &existing.to_le_bytes()).unwrap();
+    worker_drain(&mut actor);
+    let (final_reader, _) = open_file(&mut actor, 0, 1);
+    verify_info(&mut actor, final_reader, 4);
+    actor.command(worker::CLOSE, &final_reader.to_le_bytes()).unwrap();
+    assert_eq!(std::fs::read(root.path().join(path)).unwrap(), b"new!");
+}

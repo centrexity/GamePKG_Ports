@@ -44,6 +44,15 @@ pub fn clean_obsolete(grant: u64, cleanup: state::Cleanup) -> Result<(), i32> {
     }
     Ok(())
 }
+fn regular_open_prepare(handle: u64, attributes: Option<u32>, through: bool) -> Result<(), i32> {
+    if let Some(flag_bits) = attributes {
+        gamepkg::save_file_set_attributes(handle, flag_bits)?;
+    }
+    if through {
+        gamepkg::file_sync(handle)?;
+    }
+    Ok(())
+}
 impl SaveGuard {
     pub fn new(grant: u64) -> Self {
         Self {
@@ -84,14 +93,20 @@ impl SaveGuard {
     pub fn recovered_pending(&mut self, real: &str, pending: &str, code: i32) -> Result<(), i32> {
         self.core.recovered_pending(real, pending, code)
     }
-    fn seed_shadow(&mut self, real: &str, plan: &state::OpenPlan) -> Result<(), i32> {
+    fn seed_shadow(
+        &mut self,
+        real: &str,
+        plan: &state::OpenPlan,
+        preserve_attributes: bool,
+    ) -> Result<(), i32> {
         let seed = match &plan.seed {
             Some(seed) => seed,
             None => return Ok(()),
         };
         if gamepkg::file_exists(self.grant, seed)? {
             if seed != &plan.shadow {
-                let _ = files::copy_seed(self.grant, seed, real)?;
+                let _ =
+                    files::copy_seed_with_attributes(self.grant, seed, real, preserve_attributes)?;
             }
             return Ok(());
         }
@@ -99,7 +114,11 @@ impl SaveGuard {
             self.core.pending_missing(real)?;
         }
         if gamepkg::file_exists(self.grant, real)? {
-            let _ = files::copy_shadow(self.grant, real)?;
+            if preserve_attributes {
+                files::copy_seed_with_attributes(self.grant, real, real, true)?;
+            } else {
+                files::copy_shadow(self.grant, real)?;
+            }
             return Ok(());
         }
         let file = gamepkg::file_open(self.grant, true, &plan.shadow)?;
@@ -113,11 +132,17 @@ impl SaveGuard {
         clean_obsolete(self.grant, cleanup)
     }
     pub fn open_write(&mut self, real: &str) -> Result<u64, i32> {
-        self.open_guarded_write(real, false)
+        self.open_guarded_write(real, false, false, None)
     }
-    fn open_guarded_write(&mut self, real: &str, write_through: bool) -> Result<u64, i32> {
+    fn open_guarded_write(
+        &mut self,
+        real: &str,
+        write_through: bool,
+        preserve_attributes: bool,
+        new_attributes: Option<u32>,
+    ) -> Result<u64, i32> {
         let plan = self.core.prepare_write(real)?;
-        if let Err(error) = self.seed_shadow(real, &plan) {
+        if let Err(error) = self.seed_shadow(real, &plan, preserve_attributes) {
             let _ = self.failed_open(&plan.ticket);
             return Err(error);
         }
@@ -128,14 +153,12 @@ impl SaveGuard {
                 return Err(error);
             }
         };
-        if write_through {
-            if let Err(error) = gamepkg::file_sync(file) {
-                let sync_open_close_result = gamepkg::file_close(file);
-                let cleanup = self.failed_open(&plan.ticket);
-                sync_open_close_result?;
-                cleanup?;
-                return Err(error);
-            }
+        if let Err(error) = regular_open_prepare(file, new_attributes, write_through) {
+            let sync_open_close_result = gamepkg::file_close(file);
+            let cleanup = self.failed_open(&plan.ticket);
+            sync_open_close_result?;
+            cleanup?;
+            return Err(error);
         }
         if let Err(error) = self.core.opened(&plan.ticket, Some(file)) {
             let _ = gamepkg::file_close(file);
@@ -166,8 +189,13 @@ impl SaveGuard {
         disposition: u32,
         writable: bool,
         write_through: bool,
+        creation_flags: u32,
     ) -> Result<(u64, u32), i32> {
-        if !(1..=3).contains(&disposition) || (!writable && (disposition != 1 || write_through)) {
+        if !(1..=3).contains(&disposition)
+            || (!writable && (disposition != 1 || write_through))
+            || creation_flags & !0x26 != 0
+            || (creation_flags != 0 && disposition == 1)
+        {
             return Err(-1);
         }
         let shadow = if writable {
@@ -191,7 +219,12 @@ impl SaveGuard {
             return Ok((0, 5));
         }
         let file = if writable {
-            self.open_guarded_write(real, write_through)?
+            let initial_flags = if present || creation_flags == 0 {
+                None
+            } else {
+                Some(creation_flags | 0x20)
+            };
+            self.open_guarded_write(real, write_through, true, initial_flags)?
         } else {
             gamepkg::file_open(self.grant, false, &key)?
         };
