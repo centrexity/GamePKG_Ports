@@ -49,12 +49,18 @@ fn trigger(guard: &mut Guard, value: u64) {
 fn shared_shadow_last_close_queue_and_commit_preserve_the_original_transition_order() {
     let mut guard = Guard::new();
     guard.set_history(true);
+    assert_eq!(guard.opened_write_path("UDATA/profile"), Ok(None));
     let first = guard.prepare_write("UDATA/profile").unwrap();
+    assert_eq!(guard.opened_write_path("UDATA/profile"), Err(-2));
     assert_eq!(first.seed.as_deref(), Some("UDATA/profile"));
     assert_eq!(first.shadow, "UDATA/profile.~new");
     assert!(!first.preserve_shadow);
     assert_eq!(guard.busy(), 1);
     guard.opened(&first.ticket, Some(10)).unwrap();
+    assert_eq!(
+        guard.opened_write_path("UDATA/profile").unwrap().as_deref(),
+        Some("UDATA/profile.~new")
+    );
     assert_eq!(guard.busy(), 0);
     let second = guard.prepare_write("UDATA/profile").unwrap();
     assert!(second.seed.is_none());
@@ -67,6 +73,7 @@ fn shared_shadow_last_close_queue_and_commit_preserve_the_original_transition_or
     assert_eq!(guard.last_handle(11), Ok(true));
     guard.closed(11, Some(12)).unwrap();
     assert_eq!(guard.read_path("UDATA/profile"), Err(-2));
+    assert_eq!(guard.opened_write_path("UDATA/profile"), Err(-2));
     assert!(matches!(guard.prepare_write("UDATA/profile"), Err(-2)));
     let job = work(&mut guard);
     assert!(!job.retry && !job.deleted && job.history);

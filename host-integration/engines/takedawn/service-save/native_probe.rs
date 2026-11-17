@@ -199,7 +199,7 @@ fn main() {
             );
             assert!(!base.join("UDATA/12345678/profile.~new").exists());
         }
-        for phase in 10..=19u8 {
+        for phase in 10..=20u8 {
             let data = tempfile::tempdir().unwrap();
             let controls = tempfile::tempdir().unwrap();
             fs::write(controls.path().join("phase"), [phase]).unwrap();
@@ -243,6 +243,13 @@ fn main() {
                     "worker phase {phase}"
                 );
             }
+            if phase == 20 {
+                assert_eq!(
+                    fs::read(base.join("UDATA/12345678/TitleMeta.xbx")).unwrap(),
+                    b"conte"
+                );
+                assert!(!base.join("UDATA/12345678/TitleMeta.xbx.~new").exists());
+            }
             let snapshot = base.join("save-history/20261114-120000");
             if phase == 10 || phase == 16 {
                 assert!(snapshot.join("save-export.txt").is_file());
@@ -271,7 +278,7 @@ fn main() {
                 assert!(!base.join("UDATA/12345678/profile.~new").exists());
             }
         }
-        println!("PASS {target:?}: ten real reviewed-worker scenarios, including asynchronous saves/history, cancellation, unfinished shutdown, startup recovery, quota cleanup on failed spawn and malformed requests; dummy output only");
+        println!("PASS {target:?}: eleven real reviewed-worker scenarios, including asynchronous saves/history, cancellation, unfinished shutdown, startup recovery, quota cleanup on failed spawn, malformed requests and checked open dispositions; dummy output only");
         println!("PASS {target:?}: five real process terminations and five confined startup recoveries; dummy output only");
     }
     println!("Actual native processes/temporary saves, not power-loss, real game saves, Windows runtime or gameplay qualification");

@@ -59,6 +59,66 @@ fn fixture_finish(connection: &mut worker::Connection, expected: u64) -> Result<
         let _ = gamepkg::wait_until(now.saturating_add(1000000), generation)?;
     }
 }
+fn fixture_regular_open(
+    connection: &mut worker::Connection,
+    flags: u32,
+    disposition: u32,
+    filename: &[u8],
+    expected_information: u32,
+) -> Result<u64, i32> {
+    let fields = [
+        u32::to_le_bytes(flags).as_slice(),
+        &u32::to_le_bytes(disposition),
+        filename,
+    ]
+    .concat();
+    let reply = fixture_ok(connection, worker::OPEN_FILE, &fields)?;
+    if reply.len() != 12 || reply[8..] != u32::to_le_bytes(expected_information) {
+        return Err(-3);
+    }
+    let id = fixture_u64(&reply[..8])?;
+    if (id == 0) != (expected_information >= 4) {
+        return Err(-3);
+    }
+    Ok(id)
+}
+
+fn fixture_regular_files(connection: &mut worker::Connection, grant: u64) -> Result<(), i32> {
+    let profile_path = b"UDATA/12345678/profile";
+    let new_path = b"UDATA/12345678/TitleMeta.xbx";
+    fixture_regular_open(connection, 0, 1, new_path, 5)?;
+    fixture_regular_open(connection, 1, 1, new_path, 5)?;
+    fixture_regular_open(connection, 1, 2, profile_path, 4)?;
+    let old_reader = fixture_regular_open(connection, 0, 1, profile_path, 1)?;
+    let mut bytes = [0u8; 8];
+    if gamepkg::file_read(old_reader, 0, &mut bytes) != Ok(8) || &bytes != b"old-save" {
+        return Err(-3);
+    }
+    fixture_ok(connection, worker::CLOSE, &u64::to_le_bytes(old_reader))?;
+
+    let writer = fixture_regular_open(connection, 3, 3, new_path, 2)?;
+    fixture_regular_open(connection, 1, 2, new_path, 4)?;
+    fixture_regular_open(connection, 0, 1, new_path, 5)?;
+    let peer = fixture_regular_open(connection, 1, 3, new_path, 1)?;
+    let write = [
+        u64::to_le_bytes(writer).as_slice(),
+        &u64::to_le_bytes(0),
+        b"contents",
+    ]
+    .concat();
+    fixture_ok(connection, worker::WRITE, &write)?;
+    if gamepkg::file_size(peer) != Ok(8)
+        || gamepkg::file_exists(grant, "UDATA/12345678/TitleMeta.xbx") != Ok(false)
+    {
+        return Err(-3);
+    }
+    let new_length = [u64::to_le_bytes(writer), u64::to_le_bytes(5)].concat();
+    fixture_ok(connection, worker::RESIZE, &new_length)?;
+    fixture_ok(connection, worker::CLOSE, &u64::to_le_bytes(peer))?;
+    fixture_ok(connection, worker::CLOSE, &u64::to_le_bytes(writer))?;
+    Ok(())
+}
+
 pub fn exercise(grant: u64, phase: u8) -> Result<(), i32> {
     if phase == 14 {
         for _ in 0..20 {
@@ -149,6 +209,9 @@ pub fn exercise(grant: u64, phase: u8) -> Result<(), i32> {
         if phase != 12 {
             let _ = fixture_ok(&mut connection, worker::CLOSE, &u64::to_le_bytes(handle))?;
         }
+    }
+    if phase == 20 {
+        fixture_regular_files(&mut connection, grant)?;
     }
     let final_packet = fixture_call(&mut connection, worker::SHUTDOWN, &[])?;
     if final_packet.bytes.len() != 68 {

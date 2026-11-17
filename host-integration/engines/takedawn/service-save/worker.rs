@@ -15,6 +15,7 @@ pub const DELETE_ON_CLOSE: u32 = 6;
 pub const STATUS: u32 = 7;
 pub const STAMP: u32 = 8;
 pub const SHUTDOWN: u32 = 9;
+pub const OPEN_FILE: u32 = 10;
 
 pub struct Reply {
     pub sequence: u64,
@@ -38,7 +39,7 @@ pub struct SaveWorker {
     active: Option<adapter::Job>,
     obsolete: Option<std::string::String>,
     reads: std::vec::Vec<u64>,
-    writes: std::vec::Vec<u64>,
+    writes: std::vec::Vec<[u64; 2]>,
     pub history_error: i32,
     pub io_error: i32,
     pub recovery_report: recovery::Report,
@@ -76,7 +77,7 @@ fn worker_string(bytes: &[u8]) -> Result<&str, i32> {
     gamepkg::text_from_utf8(bytes)
 }
 
-fn worker_remove_handle(items: &mut std::vec::Vec<u64>, index: usize) -> Result<(), i32> {
+fn worker_remove_handle<T>(items: &mut std::vec::Vec<T>, index: usize) -> Result<(), i32> {
     if index >= items.len() {
         return Err(-1);
     }
@@ -266,6 +267,52 @@ impl SaveWorker {
     pub fn has_work(&self) -> bool {
         self.active.is_some() || self.obsolete.is_some() || self.guard.busy() != 0
     }
+    fn flush_write_through(&mut self, file: u64) -> Result<(), i32> {
+        for written_handle in &self.writes {
+            if written_handle[0] == file && written_handle[1] == 1 {
+                let flushed = gamepkg::file_sync(file);
+                if let Err(error) = flushed {
+                    self.io_error = error;
+                }
+                return flushed;
+            }
+        }
+        Ok(())
+    }
+
+    fn open_file_message(&mut self, payload: &[u8]) -> Result<std::vec::Vec<u8>, i32> {
+        if payload.len() < 9 {
+            return Err(-1);
+        }
+        let flags = u32::from_le_bytes([payload[0], payload[1], payload[2], payload[3]]);
+        let disposition = u32::from_le_bytes([payload[4], payload[5], payload[6], payload[7]]);
+        if flags > 3 {
+            return Err(-1);
+        }
+        let writable = flags & 1 != 0;
+        let write_through = flags & 2 != 0;
+        let real = worker_string(&payload[8..])?;
+        self.check_path(real)?;
+        if !writable && self.reads.len() >= 64 {
+            return Err(-2);
+        }
+        let (file, information) =
+            self.guard
+                .open_regular(real, disposition, writable, write_through)?;
+        if file != 0 {
+            if writable {
+                self.writes.push([file, u64::from(write_through)]);
+            } else {
+                self.reads.push(file);
+            }
+        }
+        Ok([
+            u64::to_le_bytes(file).as_slice(),
+            &u32::to_le_bytes(information),
+        ]
+        .concat())
+    }
+
     pub fn command(&mut self, operation: u32, payload: &[u8]) -> Result<std::vec::Vec<u8>, i32> {
         if self.closing && operation != STATUS {
             return Err(-4);
@@ -277,7 +324,7 @@ impl SaveWorker {
                 let handle;
                 if operation == OPEN_WRITE {
                     handle = self.guard.open_write(path)?;
-                    self.writes.push(handle);
+                    self.writes.push([handle, 0]);
                 } else {
                     if self.reads.len() >= 64 {
                         return Err(-2);
@@ -287,6 +334,7 @@ impl SaveWorker {
                 }
                 Ok(u64::to_le_bytes(handle).to_vec())
             }
+            OPEN_FILE => self.open_file_message(payload),
             WRITE => {
                 if payload.len() < 16 {
                     return Err(-1);
@@ -294,14 +342,16 @@ impl SaveWorker {
                 let handle = worker_u64(payload)?;
                 let offset = worker_u64(&payload[8..])?;
                 self.guard.write_at(handle, offset, &payload[16..])?;
+                self.flush_write_through(handle)?;
                 Ok(std::vec::Vec::new())
             }
             RESIZE => {
                 if payload.len() != 16 {
                     return Err(-1);
                 }
-                self.guard
-                    .resize(worker_u64(payload)?, worker_u64(&payload[8..])?)?;
+                let target = worker_u64(payload)?;
+                self.guard.resize(target, worker_u64(&payload[8..])?)?;
+                self.flush_write_through(target)?;
                 Ok(std::vec::Vec::new())
             }
             CLOSE => {
@@ -323,7 +373,7 @@ impl SaveWorker {
                     self.guard.close(handle)?;
                     let mut position = 0usize;
                     while position < self.writes.len() {
-                        if self.writes[position] == handle {
+                        if self.writes[position][0] == handle {
                             worker_remove_handle(&mut self.writes, position)?;
                             break;
                         }
@@ -541,7 +591,7 @@ impl Connection {
         if self.waiting.is_some() {
             return Err(-2);
         }
-        if payload.len() > 65524 || !(1..=9).contains(&operation) {
+        if payload.len() > 65524 || !(1..=OPEN_FILE).contains(&operation) {
             return Err(-1);
         }
         if operation == SHUTDOWN && !payload.is_empty() {

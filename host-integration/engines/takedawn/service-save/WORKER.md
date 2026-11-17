@@ -49,6 +49,26 @@ packing or pointers appear in the protocol.
 | 7 STATUS | empty | 68-byte status record |
 | 8 STAMP | YYYYMMDD-HHMMSS bytes[15] | empty; Busy during an extracted job |
 | 9 SHUTDOWN | empty | final status record; Busy if work/errors remain |
+| 10 OPEN_FILE | flags u32, disposition u32, relative UTF-8 path | opened handle u64 and disposition information u32 |
+
+`OPEN_FILE` accepts `FILE_OPEN` (1), `FILE_CREATE` (2) or `FILE_OPEN_IF`
+(3). Flags bit 0 grants a guarded writable handle and bit 1 requests
+write-through on that handle. Read-only opens accept `FILE_OPEN` only.
+Successful information is 1 (opened) or 2 (created). A zero handle with
+information 4 means a create collided with the existing logical file.
+Information 5 means a requested existing file was absent. Other failures
+return the usual negative service status. Pending redirection is used before
+probing for presence. Additional writers see the current shadow. Read-only
+opens retain the previous published/pending read behavior. A failed probe
+does not become a successful create.
+
+Write-through flushes the checked file handle before acknowledging an open,
+write or resize. Mutation stays in the shadow until the final close and
+atomic publication. If a write or resize succeeds before a flush error,
+the staged change can still be present. The failure is reported and stays
+visible in worker status. A later close can commit that shadow after a
+successful flush. The caller must not infer rollback or durable shutdown
+from the failed acknowledgement.
 
 Read handles may be read through the SDK. Both read and title handles must be
 closed through the worker so it can track shutdown correctly. Writes/resize/
@@ -105,27 +125,28 @@ join; the engine must explicitly shut it down or terminate its containing proces
 
 ## Validation and remaining integration
 
-Seven new real-file worker tests cover close-before-publication, flush failure,
+Eight real-file worker tests cover close-before-publication, flush failure,
 complete title history, read/write limits, malformed paths/messages/handles,
 failed pending redirection and the original warning threshold, history quota
 failure, startup ordering, and post-publication uncertainty without source retry.
-Together the suite has 28 actual-file/service tests and 18 transition tests,
+Together the suite has 29 actual-file/service tests and 18 transition tests,
 including 4096 pinned-C policy events.
 
 Exact production modules including the worker pass source checks, isolated
 optimized object audits and trusted linking on Linux64/Linux32/Windows64/
-Windows32. Each Linux width executes ten actual confined worker scenarios:
+Windows32. Each Linux width executes eleven actual confined worker scenarios:
 normal save/history, cooperative cancellation, shutdown with an open write,
 rejected bootstrap grant, twenty failed-spawn cleanup iterations followed by a
 valid launch, newer pending recovery, older pending history, deletion, unchanged
-save, and invalid requests. The previous five process terminations and five
+save, invalid requests, and regular file dispositions with write-through. The previous five process terminations and five
 startup recoveries per width also pass. Output is recorded in memory; no sound,
 window, real game saves or user media is involved. Windows worker evidence is
 compilation/audit only; generic mailbox tests ran under Wine separately.
 
 Remaining: the actual clock/date provider (labels are supplied explicitly here),
 retention/import/history UI, original Windows rename retry timing, generated
-kernel/title connection and complete engine/media/renderer migration. Physical
+kernel/title connection, persistent file attributes and complete opened-file
+metadata, and engine/media/renderer migration. Physical
 controls, audible audio, graphics fidelity and measured game frame pacing remain
 unqualified. Legacy build/cache gates remain enabled; these components provide
 no engine/media exception or permission to publish an unfinished source kit.

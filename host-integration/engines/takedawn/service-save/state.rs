@@ -460,6 +460,24 @@ impl Guard {
         }
         Ok(())
     }
+    // An already opened write sees its shared shadow, including a newly
+    // created file which still has no published name.
+    pub fn opened_write_path(&self, real: &str) -> Result<Option<std::string::String>, i32> {
+        if !title_path(real) {
+            return Err(-1);
+        }
+        if self.retrying(real) {
+            return Err(-2);
+        }
+        if let Some(index) = self.entry_path(real) {
+            let entry = &self.entries[index];
+            if entry.phase != OPEN {
+                return Err(-2);
+            }
+            return Ok(Some(copy_path(&entry.shadow)));
+        }
+        Ok(None)
+    }
     pub fn read_path(&self, real: &str) -> Result<std::string::String, i32> {
         if !title_path(real) {
             return Err(-1);

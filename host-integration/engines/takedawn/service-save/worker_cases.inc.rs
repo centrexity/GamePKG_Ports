@@ -147,3 +147,42 @@ fn save_worker_durability_uncertainty_is_reported_without_retrying_consumed_shad
     assert!(!root.path().join("UDATA/12345678/profile.~pend").exists());
     assert_eq!(harness.publications.load(Ordering::SeqCst),2);
 }
+
+#[test]
+fn guarded_regular_open_reports_disposition_and_write_through_errors() {
+    let root = tempfile::tempdir().unwrap();
+    worker_setup(root.path());
+    let (grant, harness) = connect(root.path(), 1048576, false, false);
+    let mut actor = worker::SaveWorker::new(grant, "12345678", "20261114-120000").unwrap();
+    let profile = "UDATA/12345678/profile";
+    let missing = "UDATA/12345678/absent";
+    let open = |actor: &mut worker::SaveWorker, flags: u32, disposition: u32, name: &str| {
+        let payload = [flags.to_le_bytes().as_slice(), &disposition.to_le_bytes(), name.as_bytes()].concat();
+        actor.command(worker::OPEN_FILE, &payload).map(|reply| {
+            assert_eq!(reply.len(), 12);
+            (u64::from_le_bytes(reply[..8].try_into().unwrap()), u32::from_le_bytes(reply[8..].try_into().unwrap()))
+        })
+    };
+    for (flags, disposition) in [(4, 1), (2, 1), (1, 4), (0, 3), (3, 0)] {
+        assert_eq!(open(&mut actor, flags, disposition, profile), Err(-1));
+    }
+    assert_eq!(open(&mut actor, 3, 1, missing), Ok((0, 5)));
+    assert_eq!(open(&mut actor, 3, 2, profile), Ok((0, 4)));
+    assert!(!root.path().join("UDATA/12345678/profile.~new").exists());
+
+    harness.fail_sync.store(1, Ordering::SeqCst);
+    assert_eq!(open(&mut actor, 3, 3, profile), Err(-3));
+    assert!(!root.path().join("UDATA/12345678/profile.~new").exists());
+    let (handle, information) = open(&mut actor, 3, 3, profile).unwrap();
+    assert_eq!(information, 1);
+    harness.fail_sync.store(1, Ordering::SeqCst);
+    let written = [handle.to_le_bytes().as_slice(), &0u64.to_le_bytes(), b"written!"].concat();
+    assert_eq!(actor.command(worker::WRITE, &written), Err(-3));
+    assert_eq!(actor.io_error, -3);
+    assert_eq!(std::fs::read(root.path().join(profile)).unwrap(), b"old-save");
+    assert_eq!(std::fs::read(root.path().join("UDATA/12345678/profile.~new")).unwrap(), b"written!");
+    actor.command(worker::CLOSE, &handle.to_le_bytes()).unwrap();
+    worker_drain(&mut actor);
+    assert_eq!(std::fs::read(root.path().join(profile)).unwrap(), b"written!");
+    assert_eq!(actor.io_error, -3);
+}

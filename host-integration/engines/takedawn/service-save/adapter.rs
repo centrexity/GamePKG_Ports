@@ -113,6 +113,9 @@ impl SaveGuard {
         clean_obsolete(self.grant, cleanup)
     }
     pub fn open_write(&mut self, real: &str) -> Result<u64, i32> {
+        self.open_guarded_write(real, false)
+    }
+    fn open_guarded_write(&mut self, real: &str, write_through: bool) -> Result<u64, i32> {
         let plan = self.core.prepare_write(real)?;
         if let Err(error) = self.seed_shadow(real, &plan) {
             let _ = self.failed_open(&plan.ticket);
@@ -125,6 +128,15 @@ impl SaveGuard {
                 return Err(error);
             }
         };
+        if write_through {
+            if let Err(error) = gamepkg::file_sync(file) {
+                let sync_open_close_result = gamepkg::file_close(file);
+                let cleanup = self.failed_open(&plan.ticket);
+                sync_open_close_result?;
+                cleanup?;
+                return Err(error);
+            }
+        }
         if let Err(error) = self.core.opened(&plan.ticket, Some(file)) {
             let _ = gamepkg::file_close(file);
             let _ = self.failed_open(&plan.ticket);
@@ -132,13 +144,58 @@ impl SaveGuard {
         }
         Ok(file)
     }
-    pub fn open_read(&mut self, real: &str) -> Result<u64, i32> {
+    fn guarded_read_name(&mut self, real: &str) -> Result<std::string::String, i32> {
         let path = self.core.read_path(real)?;
         if path != real && !gamepkg::file_exists(self.grant, &path)? {
             self.core.pending_missing(real)?;
-            return gamepkg::file_open(self.grant, false, real);
+            return Ok(owned_path(real));
         }
+        Ok(path)
+    }
+    pub fn open_read(&mut self, real: &str) -> Result<u64, i32> {
+        let path = self.guarded_read_name(real)?;
         gamepkg::file_open(self.grant, false, &path)
+    }
+
+    // Return the Xbox disposition information with a handle, or a zero
+    // handle and the exact refused disposition. Only the worker calls this
+    // protocol under the host's exclusive per-title save grant.
+    pub fn open_regular(
+        &mut self,
+        real: &str,
+        disposition: u32,
+        writable: bool,
+        write_through: bool,
+    ) -> Result<(u64, u32), i32> {
+        if !(1..=3).contains(&disposition) || (!writable && (disposition != 1 || write_through)) {
+            return Err(-1);
+        }
+        let shadow = if writable {
+            self.core.opened_write_path(real)?
+        } else {
+            None
+        };
+        let (present, key) = if let Some(open_shadow) = shadow {
+            if !gamepkg::file_exists(self.grant, &open_shadow)? {
+                return Err(-3);
+            }
+            (true, open_shadow)
+        } else {
+            let selected = self.guarded_read_name(real)?;
+            (gamepkg::file_exists(self.grant, &selected)?, selected)
+        };
+        if present && disposition == 2 {
+            return Ok((0, 4));
+        }
+        if !present && disposition == 1 {
+            return Ok((0, 5));
+        }
+        let file = if writable {
+            self.open_guarded_write(real, write_through)?
+        } else {
+            gamepkg::file_open(self.grant, false, &key)?
+        };
+        Ok((file, if present { 1 } else { 2 }))
     }
     pub fn write_at(&mut self, handle: u64, offset: u64, bytes: &[u8]) -> Result<(), i32> {
         if !self.core.owns_handle(handle) {
