@@ -44,7 +44,29 @@ It runs under confinement on Linux32 and Linux64. Windows32 and Windows64
 compile and audit the same fixture. These are synthetic CPU frames, with
 no original title entry, saves, graphics, physical controls or audio.
 
-The authenticated title dispatcher still needs to select this adapter
-alongside the optical and regular save adapters. Regular files must route
-through the save worker and retain its guarded close, flush and replace.
-The default title admission gate continues to refuse unsupported imports.
+## Authenticated startup
+
+The reviewed coordinator calls
+`Startup::startup_prepare_with_private_files(..., [scratch, offset, grant])`
+with a live private save grant. It verifies the grant before planning any
+markers and binds the selected grant to the same startup owner as the
+authenticated optical image. The ordinary and optical-only profiles do
+not admit the volume query.
+
+`StartupFiles::startup_files_call` checks the live startup context and the
+marker in its original main-table slot. Opens for the reviewed hard disk
+partition route by the counted name. A close routes by the directory
+owner's typed token, and the volume query accepts an owned directory token.
+The optical route uses the original ROM grant, and its read and wait
+operations refuse directory tokens. Close and drain both adapters before
+closing the startup owner. Regular save files still require the save
+worker route with guarded close, flush and replace.
+
+Run `service-kernel-imports/check_sync.py` to check the combined path.
+Mode 90 opens the root, queries quota geometry and creates and reopens both
+title trees while also exercising the optical path. Mode 91 checks rejection
+of the volume import under the optical-only profile, even with a private
+save grant present. Mode 92 checks that an unsupported import prevents any
+marker publication with both adapters selected. Optional mode 93 checks the
+actual image in place with both adapters selected and verifies that all
+remaining unsupported imports still prevent launch.

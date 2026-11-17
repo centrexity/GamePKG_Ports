@@ -1,7 +1,7 @@
 // Focused maintainer admission; complete generated-kit qualification is separate.
 use gamepkg::port_host::{
     admission::CheckedSources,
-    owner::{Grants, Owner},
+    owner::{Grants, Owner, SaveGrant},
     preparation::{self, LocalLayout, Plan, Target},
     Backend, Error, Frame, Result, WindowCommand,
 };
@@ -133,6 +133,10 @@ fn main() {
         (
             "startup_file.rs",
             here.join("../service-rom-handles/startup_file.rs"),
+        ),
+        (
+            "kernel_directories.rs",
+            here.join("../service-save/kernel_directories.rs"),
         ),
         (
             "rom_startup_probe.rs",
@@ -298,7 +302,7 @@ fn main() {
         fs::write(path, data).unwrap();
     }
     fs::write(source.join("source/src/lib.rs"),r#"
-pub mod handles;pub mod typed_events;mod event_import_probe;mod semaphore_import_probe;mod rtl_image_probe;mod mixed_image_probe;mod critical_image_probe;mod kernel_file;mod rom_handles;mod startup_file;mod rom_startup_probe;mod sync_startup_probe;mod object_startup_probe;mod layout;mod memory;mod registers;mod call_state;mod calls_runtime;mod vector;mod scalar;mod debug;mod heap;mod contiguous;mod heap_service;mod kernel_pool;mod kernel_data;mod signature;mod imports;mod cases;mod probe;mod controls;mod game;mod dispatch;mod targets;mod disc;mod sha256;mod xbe;mod bootstrap;mod image_imports;mod image_probe;mod kernel_startup;mod startup_probe;mod tick_service;mod tick_startup;mod tick_probe;mod wait_service;mod gate;mod irql;mod queue;mod callback;mod drain;mod dpc_clock;mod stacks;mod shadow;mod events;mod timers;mod firing;mod timer_clock;mod production_clock;mod thread_tib;mod worker_setup;mod dispatching;mod dpc_observer;mod irq_hooks;mod dpc_routes;mod pacing;mod schedule;mod timer_startup;mod timer_probe;
+pub mod handles;pub mod typed_events;mod event_import_probe;mod semaphore_import_probe;mod rtl_image_probe;mod mixed_image_probe;mod critical_image_probe;mod kernel_file;mod rom_handles;mod startup_file;mod kernel_directories;mod rom_startup_probe;mod sync_startup_probe;mod object_startup_probe;mod layout;mod memory;mod registers;mod call_state;mod calls_runtime;mod vector;mod scalar;mod debug;mod heap;mod contiguous;mod heap_service;mod kernel_pool;mod kernel_data;mod signature;mod imports;mod cases;mod probe;mod controls;mod game;mod dispatch;mod targets;mod disc;mod sha256;mod xbe;mod bootstrap;mod image_imports;mod image_probe;mod kernel_startup;mod startup_probe;mod tick_service;mod tick_startup;mod tick_probe;mod wait_service;mod gate;mod irql;mod queue;mod callback;mod drain;mod dpc_clock;mod stacks;mod shadow;mod events;mod timers;mod firing;mod timer_clock;mod production_clock;mod thread_tib;mod worker_setup;mod dispatching;mod dpc_observer;mod irq_hooks;mod dpc_routes;mod pacing;mod schedule;mod timer_startup;mod timer_probe;
 pub fn object_worker(arg:u64)->u64{object_startup_probe::object_worker(arg)}
 pub fn sync_worker(arg:u64)->u64{sync_startup_probe::sync_startup_worker(arg)}
 pub fn heap_worker(arg:u64)->u64{heap_service::heap_serve(arg)}
@@ -311,6 +315,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
     let mut manifest =
         gamepkg::manifest::Manifest::parse(&fs::read(source.join("manifest.toml")).unwrap())
             .unwrap();
+    manifest.permissions.save = true;
     manifest.limits.hard_memory_bytes = 384 * 1024 * 1024;
     fs::write(
         source.join("manifest.toml"),
@@ -425,7 +430,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
         }
         for pair in args[cases_start..].chunks_exact(2) {
             let mode = pair[0].to_str().unwrap().parse::<u8>().unwrap();
-            assert!(mode <= 89);
+            assert!(mode <= 93);
             assert_eq!(objects_layout, mode >= 51);
             let selected = fs::File::open(&pair[1]).unwrap();
             let mut indexed =
@@ -436,6 +441,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                 || mode == 67
                 || mode == 79
                 || mode == 84
+                || mode == 93
             {
                 let checked = indexed.verify_takedawn().unwrap();
                 assert_eq!(checked.verified_files, 716);
@@ -455,11 +461,18 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
             let assets = tempfile::tempdir().unwrap();
             fs::write(assets.path().join("expected-sha256"), expected).unwrap();
             fs::write(assets.path().join("mode"), [mode]).unwrap();
+            let private_state = tempfile::tempdir().unwrap();
+            let private_saves = if mode >= 90 {
+                Some(SaveGrant::open(private_state.path(), checked.manifest(), 65536).unwrap())
+            } else {
+                None
+            };
             let mut owner = Owner::start(
                 &artifact,
                 Silent,
                 Grants {
                     roms: vec![selected],
+                    saves: private_saves,
                     assets: Some(
                         cap_std::fs::Dir::open_ambient_dir(
                             assets.path(),
@@ -515,6 +528,9 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                     || mode == 85
                     || mode == 87
                     || mode == 88
+                    || mode == 91
+                    || mode == 92
+                    || mode == 93
                 {
                     (-5i64) as u64
                 } else {
@@ -524,7 +540,11 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                     &values[1..],
                     &[
                         code,
-                        if mode == 89 {
+                        if mode == 92 {
+                            18
+                        } else if mode == 90 || mode == 91 {
+                            17
+                        } else if mode == 89 {
                             16
                         } else if mode == 88 {
                             14
@@ -582,7 +602,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                 assert!([
                     0x544b0f00, 0x544b0f10, 0x544b0fff, 0x544b1300, 0x544b3200, 0x544b1710,
                     0x544b1800, 0x544b1801, 0x544b3b00, 0x544b3900, 0x544b3c00, 0x544b3d00,
-                    0x544b3f00, 0x544b4100, 0x544b4300, 0x544b4500
+                    0x544b3f00, 0x544b4100, 0x544b4300, 0x544b4500, 0x544b4600
                 ]
                 .contains(&event.code));
                 if event.code == 0x544b1300 {
@@ -601,6 +621,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                             || mode == 67
                             || mode == 79
                             || mode == 84
+                            || mode == 93
                     );
                     println!(
                         "PRIVATE mode {mode} pending canonical kernel ordinals: {:?}",
@@ -638,10 +659,41 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                     95
                 );
             }
-            if mode == 86 || mode == 89 {
+            if mode == 93 {
+                let unresolved: Vec<_> = events
+                    .iter()
+                    .filter(|e| e.code == 0x544b0f10)
+                    .flat_map(|e| &e.values)
+                    .copied()
+                    .collect();
+                assert_eq!(unresolved.len(), 88);
+                for ordinal in [187, 190, 202, 218, 219, 233, 234] {
+                    assert!(!unresolved.contains(&ordinal));
+                }
+            }
+            if mode == 86 || mode == 89 || mode == 90 {
                 let calls: Vec<_> = events.iter().filter(|e| e.code == 0x544b4500).collect();
                 assert_eq!(calls.len(), 1);
-                assert_eq!(calls[0].values, [1, 4, if mode == 89 { 3 } else { 1 }]);
+                assert_eq!(calls[0].values, [1, 4, if mode >= 89 { 3 } else { 1 }]);
+            }
+            if mode >= 90 {
+                let disk_calls: Vec<_> = events.iter().filter(|e| e.code == 0x544b4600).collect();
+                let directory = fs::read_dir(private_state.path().join("port-state"))
+                    .unwrap()
+                    .next()
+                    .unwrap()
+                    .unwrap()
+                    .path()
+                    .join("files");
+                if mode == 90 {
+                    assert_eq!(disk_calls.len(), 1);
+                    assert_eq!(disk_calls[0].values, [4, 4, 16384]);
+                    assert!(directory.join("UDATA/4541005b").is_dir());
+                    assert!(directory.join("TDATA/4541005b").is_dir());
+                } else {
+                    assert!(disk_calls.is_empty());
+                    assert_eq!(fs::read_dir(directory).unwrap().count(), 0);
+                }
             }
             if mode == 83 {
                 let calls: Vec<_> = events.iter().filter(|e| e.code == 0x544b4300).collect();

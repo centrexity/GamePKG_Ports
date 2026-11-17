@@ -45,7 +45,7 @@ impl Imports {
         data: &kernel_data::Data,
         remap: &[u16],
     ) -> Result<Self, i32> {
-        Self::imports_scan_inner(ram, table, data, remap, 0, false)
+        Self::imports_scan_inner(ram, table, data, remap, 0, 0)
     }
     pub fn imports_scan_with_context(
         ram: &memory::Memory,
@@ -55,7 +55,7 @@ impl Imports {
         context: &kernel_pool::KernelContext,
     ) -> Result<Self, i32> {
         context.kernel_context_registry(ram)?;
-        Self::imports_scan_inner(ram, table, data, remap, context.kernel_context_id(), false)
+        Self::imports_scan_inner(ram, table, data, remap, context.kernel_context_id(), 0)
     }
     pub fn imports_scan_with_rom(
         ram: &memory::Memory,
@@ -63,9 +63,17 @@ impl Imports {
         data: &kernel_data::Data,
         remap: &[u16],
         context: &kernel_pool::KernelContext,
+        private_directories: bool,
     ) -> Result<Self, i32> {
         context.kernel_context_criticals(ram)?;
-        Self::imports_scan_inner(ram, table, data, remap, context.kernel_context_id(), true)
+        Self::imports_scan_inner(
+            ram,
+            table,
+            data,
+            remap,
+            context.kernel_context_id(),
+            if private_directories { 2 } else { 1 },
+        )
     }
     fn imports_scan_inner(
         ram: &memory::Memory,
@@ -73,7 +81,7 @@ impl Imports {
         data: &kernel_data::Data,
         remap: &[u16],
         context: u64,
-        scoped_rom: bool,
+        file_profile: u32,
     ) -> Result<Self, i32> {
         ram.call_snapshot()?;
         if context != 0 {
@@ -145,13 +153,8 @@ impl Imports {
                 imports_put(&mut patched, 64 + slot * 4, address);
                 continue;
             }
-            if scoped_rom
-                && (ordinal == 187
-                    || ordinal == 190
-                    || ordinal == 202
-                    || ordinal == 219
-                    || ordinal == 233
-                    || ordinal == 234)
+            if file_profile != 0
+                && kernel_pool::kernel_scoped_file_supported(ordinal, file_profile == 2)
             {
                 services = true;
             } else {

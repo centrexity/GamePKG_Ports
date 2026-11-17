@@ -25,6 +25,7 @@ pub struct Startup {
     criticals: Option<kernel_pool::Criticals>,
     map: u64,
     rom_key: Option<(u64, [u8; 32])>,
+    private_save: u64,
     jobs: std::vec::Vec<u64>,
 }
 impl Startup {
@@ -55,6 +56,7 @@ impl Startup {
             criticals: None,
             map: 0,
             rom_key: None,
+            private_save: 0,
             jobs: std::vec::Vec::new(),
         })
     }
@@ -214,6 +216,36 @@ impl Startup {
             [scratch, offset, 3],
         )
     }
+    pub fn startup_prepare_with_private_files(
+        &mut self,
+        ram: &mut memory::Memory,
+        image: &xbe::Image,
+        data: &kernel_data::Data,
+        remap: &[u16],
+        video: u32,
+        speakers: u32,
+        storage: [u64; 3],
+    ) -> Result<(), i32> {
+        self.startup_owner(ram)?;
+        if self.phase != 0 || storage[0] == 0 {
+            return Err(-1);
+        }
+        if gamepkg::local_task_status()?.1 || gamepkg::save_directory(storage[2], "", false)? != 1 {
+            return Err(-4);
+        }
+        self.startup_prepare_mode(
+            ram,
+            image,
+            data,
+            remap,
+            video,
+            speakers,
+            true,
+            [storage[0], storage[1], 4],
+        )?;
+        self.private_save = storage[2];
+        Ok(())
+    }
     fn startup_prepare_mode(
         &mut self,
         ram: &mut memory::Memory,
@@ -339,8 +371,15 @@ impl Startup {
             )?)
         };
         let context = self.context.as_ref().ok_or(-3)?;
-        let plan = if objects[2] == 3 {
-            image_imports::imports_image_with_rom(ram, image, data, remap, context)?
+        let plan = if objects[2] >= 3 {
+            image_imports::imports_image_with_rom(
+                ram,
+                image,
+                data,
+                remap,
+                context,
+                objects[2] == 4,
+            )?
         } else {
             image_imports::imports_image_with_context(ram, image, data, remap, context)?
         };
@@ -349,7 +388,7 @@ impl Startup {
         if self.map == 0 {
             return Err(-3);
         }
-        if objects[2] == 3 {
+        if objects[2] >= 3 {
             self.rom_key = Some((image.image_rom_grant(), image.image_digest()));
         }
         Ok(())
@@ -495,6 +534,14 @@ impl Startup {
         self.handles.as_ref().ok_or(-4)
     }
 
+    pub fn startup_private_save(
+        &self,
+        ram: &memory::Memory,
+        image: &xbe::Image,
+    ) -> Result<u64, i32> {
+        self.startup_rom_table(ram, image)?;
+        Ok(self.private_save)
+    }
     pub fn startup_rom_ordinal(
         &self,
         ram: &memory::Memory,
@@ -502,10 +549,11 @@ impl Startup {
         marker: u32,
     ) -> Result<u32, i32> {
         self.startup_rom_table(ram, image)?;
-        kernel_pool::kernel_rom_ordinal(
+        kernel_pool::kernel_file_ordinal(
             ram,
             self.context.as_ref().ok_or(-4)?.kernel_context_id(),
             marker,
+            self.private_save != 0,
         )
     }
     // Register every subsystem job before its shared owners can be closed. A

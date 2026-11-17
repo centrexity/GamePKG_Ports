@@ -226,6 +226,10 @@ impl SaveDirectories {
         self.save_directory_unlock(ram)
     }
 
+    pub fn save_directory_owns(&self, token: u32) -> bool {
+        token != 0 && self.save_directory_index(token).is_ok()
+    }
+
     fn save_directory_index(&self, token: u32) -> Result<usize, i32> {
         for (directory_index, pair) in self.entries.iter().enumerate() {
             if pair[0] == u64::from(token) {

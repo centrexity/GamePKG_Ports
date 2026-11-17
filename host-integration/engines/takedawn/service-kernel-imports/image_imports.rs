@@ -20,7 +20,7 @@ pub fn imports_image(
     data: &kernel_data::Data,
     remap: &[u16],
 ) -> Result<imports::Imports, i32> {
-    imports_image_inner(ram, image, data, remap, 0, false)
+    imports_image_inner(ram, image, data, remap, 0, 0)
 }
 pub fn imports_image_with_context(
     ram: &memory::Memory,
@@ -30,7 +30,7 @@ pub fn imports_image_with_context(
     context: &kernel_pool::KernelContext,
 ) -> Result<imports::Imports, i32> {
     context.kernel_context_registry(ram)?;
-    imports_image_inner(ram, image, data, remap, context.kernel_context_id(), false)
+    imports_image_inner(ram, image, data, remap, context.kernel_context_id(), 0)
 }
 pub fn imports_image_with_rom(
     ram: &memory::Memory,
@@ -38,9 +38,17 @@ pub fn imports_image_with_rom(
     data: &kernel_data::Data,
     remap: &[u16],
     context: &kernel_pool::KernelContext,
+    private_directories: bool,
 ) -> Result<imports::Imports, i32> {
     context.kernel_context_criticals(ram)?;
-    imports_image_inner(ram, image, data, remap, context.kernel_context_id(), true)
+    imports_image_inner(
+        ram,
+        image,
+        data,
+        remap,
+        context.kernel_context_id(),
+        if private_directories { 2 } else { 1 },
+    )
 }
 fn imports_image_inner(
     ram: &memory::Memory,
@@ -48,7 +56,7 @@ fn imports_image_inner(
     data: &kernel_data::Data,
     remap: &[u16],
     context: u64,
-    scoped_rom: bool,
+    file_profile: u32,
 ) -> Result<imports::Imports, i32> {
     ram.call_snapshot()?;
     let (_, record) = gamepkg::local_record_snapshot(ram.call_handle(), 288)?;
@@ -64,8 +72,15 @@ fn imports_image_inner(
         imports::Imports::imports_scan(ram, image.image_thunk(), data, remap)?
     } else {
         let bound = kernel_pool::KernelContext::kernel_context_borrow(ram, context)?;
-        if scoped_rom {
-            imports::Imports::imports_scan_with_rom(ram, image.image_thunk(), data, remap, &bound)?
+        if file_profile != 0 {
+            imports::Imports::imports_scan_with_rom(
+                ram,
+                image.image_thunk(),
+                data,
+                remap,
+                &bound,
+                file_profile == 2,
+            )?
         } else {
             imports::Imports::imports_scan_with_context(
                 ram,

@@ -254,13 +254,27 @@ pub fn object_startup_image(
         -4
     } else if mode == 54 || (mode >= 55 && mode <= 61) || mode >= 76 && mode <= 78 {
         -2
-    } else if mode == 67 || mode == 79 || mode == 84 || mode == 85 || mode == 87 || mode == 88 {
+    } else if mode == 67
+        || mode == 79
+        || mode == 84
+        || mode == 85
+        || mode == 87
+        || mode == 88
+        || mode == 91
+        || mode == 92
+        || mode == 93
+    {
         -5
     } else {
         0
     };
     let before = ram.read_u32(image.image_thunk())?;
-    if mode == 67 || mode == 79 || mode == 84 {
+    let mut original_file_imports = std::vec::Vec::new();
+    if mode >= 91 {
+        original_file_imports.resize(64 + 379 * 4, 0u8);
+        ram.read_bytes(image.image_thunk() - 64, &mut original_file_imports)?;
+    }
+    if mode == 67 || mode == 79 || mode == 84 || mode == 93 {
         let mut missing = std::vec::Vec::new();
         for index in 0..378u32 {
             let value = ram.read_u32(image.image_thunk() + index * 4)?;
@@ -270,9 +284,12 @@ pub fn object_startup_image(
             if value & 0x80000000 != 0 {
                 let ordinal = value & 0x7fffffff;
                 if data.data_address(ram, ordinal)? == 0
+                    && (mode != 93 || !kernel_pool::kernel_scoped_file_supported(ordinal, true))
                     && (kernel_pool::kernel_supported(ordinal).is_err()
                         || mode == 67 && (ordinal == 193 || ordinal == 222)
-                        || mode != 84 && (ordinal == 277 || ordinal == 291 || ordinal == 294))
+                        || mode != 84
+                            && mode != 93
+                            && (ordinal == 277 || ordinal == 291 || ordinal == 294))
                 {
                     missing.push(u64::from(ordinal));
                     if missing.len() == 32 {
@@ -287,7 +304,37 @@ pub fn object_startup_image(
         }
     }
 
-    let result = if mode == 86 || mode == 88 || mode == 89 {
+    let result = if mode == 90 || mode == 92 || mode == 93 {
+        let mut boot_save_grant = 0;
+        for item in gamepkg::grants()? {
+            if item.kind == 2 {
+                boot_save_grant = item.id;
+            }
+        }
+        object_need(
+            924,
+            owner.startup_prepare_with_private_files(
+                ram,
+                image,
+                data,
+                &[],
+                0x10000,
+                2,
+                [scratch, 0, image.image_rom_grant()],
+            ) == Err(-4)
+                && owner.startup_phase() == 0
+                && ram.kernel_handle() == 0,
+        )?;
+        owner.startup_prepare_with_private_files(
+            ram,
+            image,
+            data,
+            &[],
+            0x10000,
+            2,
+            [scratch, 0, boot_save_grant],
+        )
+    } else if mode == 86 || mode == 88 || mode == 89 || mode == 91 {
         owner.startup_prepare_with_rom(ram, image, data, &[], 0x10000, 2, scratch, 0)
     } else if mode == 83 || mode == 84 || mode == 87 {
         owner.startup_prepare_with_criticals(ram, image, data, &[], 0x10000, 2, scratch, 0)
@@ -340,9 +387,9 @@ pub fn object_startup_image(
                 critical_owned = [values[2], values[3], values[4]];
                 gamepkg::diagnostic(1, 0x544b4300, &[values[0], values[1], 1, 1, 1])?;
             }
-            if mode == 86 || mode == 89 {
+            if mode == 86 || mode == 89 || mode == 90 {
                 let values =
-                    crate::rom_startup_probe::rom_startup_calls(ram, &owner, image, mode == 89)?;
+                    crate::rom_startup_probe::rom_startup_calls(ram, &owner, image, mode != 86)?;
                 gamepkg::diagnostic(1, 0x544b4500, &values)?;
             }
             if mode == 81 {
@@ -429,6 +476,15 @@ pub fn object_startup_image(
                 && owner.startup_ids(ram).is_err()
                 && owner.startup_objects(ram).is_err()
                 && ram.read_u32(image.image_thunk())? == before,
+        )?;
+    }
+    if mode >= 91 {
+        let mut rejected_file_imports = std::vec::Vec::new();
+        rejected_file_imports.resize(64 + 379 * 4, 0u8);
+        ram.read_bytes(image.image_thunk() - 64, &mut rejected_file_imports)?;
+        object_need(
+            925,
+            original_file_imports == rejected_file_imports && ram.kernel_handle() == 0,
         )?;
     }
     if mode >= 69 && expected == 0 {
@@ -545,7 +601,11 @@ pub fn object_startup_image(
         &[
             u64::from(mode),
             expected as i64 as u64,
-            if mode == 89 {
+            if mode == 92 {
+                18
+            } else if mode == 90 || mode == 91 {
+                17
+            } else if mode == 89 {
                 16
             } else if mode == 88 {
                 14
