@@ -221,6 +221,7 @@ impl<'a> RegularFiles<'a> {
         table: &kernel_pool::Handles,
         cpu: &mut registers::Registers,
         ordinal: u32,
+        resolved_name: Option<&str>,
     ) -> Result<(), i32> {
         if !cpu.valid() || cpu.esp == 0 || gamepkg::local_task_status()?.1 {
             return Err(-1);
@@ -243,9 +244,11 @@ impl<'a> RegularFiles<'a> {
                 self.regular_files_close(ram, table, kernel_file::rom_kernel_word(&frame, 4)?)?;
                 0
             }
-            190 | 202 => self.regular_files_open(ram, table, &frame, ordinal == 190)?,
+            190 | 202 => {
+                self.regular_files_open(ram, table, &frame, ordinal == 190, resolved_name)?
+            }
             198 | 226 => self.regular_files_control(ram, table, &frame, ordinal == 198)?,
-            210 => self.regular_files_query_path(ram, &frame)?,
+            210 => self.regular_files_query_path(ram, &frame, resolved_name)?,
             211 => self.regular_files_query(ram, table, &frame)?,
             219 | 236 => self.regular_files_transfer(ram, table, &frame, ordinal == 236)?,
             _ => return Err(-5),
@@ -306,6 +309,7 @@ impl<'a> RegularFiles<'a> {
         table: &kernel_pool::Handles,
         frame: &[u8],
         create: bool,
+        resolved_name: Option<&str>,
     ) -> Result<u32, i32> {
         let handle_address = kernel_file::rom_kernel_word(frame, 4)?;
         let requested = kernel_file::rom_kernel_word(frame, 8)?;
@@ -355,14 +359,16 @@ impl<'a> RegularFiles<'a> {
         let opaque_name = kernel_file::rom_kernel_name(ram, object_address)?;
         ram.memory_check_write(handle_address, 4)?;
         ram.memory_check_write(iosb, 8)?;
-        let granted_name =
-            match regular_name(self.session.grant, gamepkg::text_from_utf8(&opaque_name)?)? {
-                Some(resolved) => resolved,
-                None => {
-                    ram.write_u64(iosb, regular_status(0xc000003a, 0))?;
-                    return Ok(0xc000003a);
-                }
-            };
+        let granted_name = match regular_name(
+            self.session.grant,
+            resolved_name.unwrap_or(gamepkg::text_from_utf8(&opaque_name)?),
+        )? {
+            Some(resolved) => resolved,
+            None => {
+                ram.write_u64(iosb, regular_status(0xc000003a, 0))?;
+                return Ok(0xc000003a);
+            }
+        };
         let write_mode = u32::from(writable)
             | (options & 2)
             | (if disposition == 1 {
@@ -436,6 +442,7 @@ impl<'a> RegularFiles<'a> {
         &mut self,
         ram: &mut memory::Memory,
         frame: &[u8],
+        resolved_name: Option<&str>,
     ) -> Result<u32, i32> {
         let object_address = kernel_file::rom_kernel_word(frame, 4)?;
         let output_address = kernel_file::rom_kernel_word(frame, 8)?;
@@ -450,7 +457,7 @@ impl<'a> RegularFiles<'a> {
         ram.memory_check_write(output_address, 56)?;
         let selected_name = match regular_name(
             self.session.grant,
-            gamepkg::text_from_utf8(&counted_save_name)?,
+            resolved_name.unwrap_or(gamepkg::text_from_utf8(&counted_save_name)?),
         )? {
             Some(resolved) => resolved,
             None => return Ok(0xc000003a),

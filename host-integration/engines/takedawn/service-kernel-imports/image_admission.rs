@@ -135,6 +135,10 @@ fn main() {
             here.join("../service-rom-handles/startup_file.rs"),
         ),
         (
+            "kernel_drive.rs",
+            here.join("../service-rom-handles/kernel_drive.rs"),
+        ),
+        (
             "kernel_regular.rs",
             here.join("../service-save/kernel_regular.rs"),
         ),
@@ -313,7 +317,7 @@ fn main() {
         fs::write(path, data).unwrap();
     }
     fs::write(source.join("source/src/lib.rs"),r#"
-pub mod handles;pub mod typed_events;mod event_import_probe;mod semaphore_import_probe;mod rtl_image_probe;mod mixed_image_probe;mod critical_image_probe;mod kernel_file;mod rom_handles;mod startup_file;mod kernel_directories;mod kernel_regular;mod save_worker;mod save_adapter;mod save_files;mod save_paths;mod save_history;mod save_recovery;mod save_state;mod rom_startup_probe;mod sync_startup_probe;mod object_startup_probe;mod layout;mod memory;mod registers;mod call_state;mod calls_runtime;mod vector;mod scalar;mod debug;mod heap;mod contiguous;mod heap_service;mod kernel_pool;mod kernel_data;mod signature;mod imports;mod cases;mod probe;mod controls;mod game;mod dispatch;mod targets;mod disc;mod sha256;mod xbe;mod bootstrap;mod image_imports;mod image_probe;mod kernel_startup;mod startup_probe;mod tick_service;mod tick_startup;mod tick_probe;mod wait_service;mod gate;mod irql;mod queue;mod callback;mod drain;mod dpc_clock;mod stacks;mod shadow;mod events;mod timers;mod firing;mod timer_clock;mod production_clock;mod thread_tib;mod worker_setup;mod dispatching;mod dpc_observer;mod irq_hooks;mod dpc_routes;mod pacing;mod schedule;mod timer_startup;mod timer_probe;
+pub mod handles;pub mod typed_events;mod event_import_probe;mod semaphore_import_probe;mod rtl_image_probe;mod mixed_image_probe;mod critical_image_probe;mod kernel_file;mod kernel_drive;mod rom_handles;mod startup_file;mod kernel_directories;mod kernel_regular;mod save_worker;mod save_adapter;mod save_files;mod save_paths;mod save_history;mod save_recovery;mod save_state;mod rom_startup_probe;mod sync_startup_probe;mod object_startup_probe;mod layout;mod memory;mod registers;mod call_state;mod calls_runtime;mod vector;mod scalar;mod debug;mod heap;mod contiguous;mod heap_service;mod kernel_pool;mod kernel_data;mod signature;mod imports;mod cases;mod probe;mod controls;mod game;mod dispatch;mod targets;mod disc;mod sha256;mod xbe;mod bootstrap;mod image_imports;mod image_probe;mod kernel_startup;mod startup_probe;mod tick_service;mod tick_startup;mod tick_probe;mod wait_service;mod gate;mod irql;mod queue;mod callback;mod drain;mod dpc_clock;mod stacks;mod shadow;mod events;mod timers;mod firing;mod timer_clock;mod production_clock;mod thread_tib;mod worker_setup;mod dispatching;mod dpc_observer;mod irq_hooks;mod dpc_routes;mod pacing;mod schedule;mod timer_startup;mod timer_probe;
 pub fn save_worker_entry(arg:u64)->u64{save_worker::run(arg)}
 pub fn object_worker(arg:u64)->u64{object_startup_probe::object_worker(arg)}
 pub fn sync_worker(arg:u64)->u64{sync_startup_probe::sync_startup_worker(arg)}
@@ -557,7 +561,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                     &[
                         code,
                         if mode == 94 || mode == 95 {
-                            22
+                            24
                         } else if mode == 92 {
                             18
                         } else if mode == 90 || mode == 91 {
@@ -685,9 +689,9 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                     .flat_map(|e| &e.values)
                     .copied()
                     .collect();
-                assert_eq!(unresolved.len(), if mode == 96 { 83 } else { 88 });
+                assert_eq!(unresolved.len(), if mode == 96 { 81 } else { 88 });
                 if mode == 96 {
-                    for ordinal in [198, 210, 211, 226, 236] {
+                    for ordinal in [67, 69, 198, 210, 211, 226, 236] {
                         assert!(!unresolved.contains(&ordinal));
                     }
                 }

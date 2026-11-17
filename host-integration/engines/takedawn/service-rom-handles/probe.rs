@@ -297,6 +297,7 @@ fn call_guest_file(
         &mut fixture.ram,
         &mut cpu,
         ordinal,
+        None,
     );
     match outcome {
         Ok(code) => {

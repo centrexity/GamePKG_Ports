@@ -122,3 +122,32 @@ verifies that the explicit optical path also rejects the entire table.
 Mode 89 exercises NtCreateFile, both event-backed and eventless Pending
 returns, and the two single-object ROM waits through the published markers.
 The private image is still checked through the ordinary gate.
+
+## Scoped DOS drive links
+
+The authenticated regular-save profile supports ordinals 67 and 69. The
+arguments are pointers to Xbox counted ANSI names with little-endian length,
+capacity, and buffer address. Create reads both complete names before
+publishing anything. Delete reads the complete alias before changing it.
+Accepted aliases have the form \??\X: for an ASCII letter and are compared
+case-insensitively. Each file router owns 26 independent slots and clears them
+at teardown. Create returns STATUS_OBJECT_NAME_COLLISION for a duplicate.
+Delete returns STATUS_OBJECT_NAME_NOT_FOUND for an absent entry.
+
+Targets are the disc device, private partition, and the approved TDATA and UDATA
+directories and title roots. Relative targets, other Xbox partitions, other
+title IDs, link chains and host paths return the explicit unsupported result.
+The router expands X:\... or \??\X:\... for file open/create and private
+path metadata queries. The expanded counted name is capped at 528 bytes and
+undergoes the existing destination service's checks. Unbound and relative
+drive forms return the unsupported result in this profile. Existing file
+handles remain valid after deletion. Legacy optical-only and directory-only
+profiles retain their existing path contracts. No native symbolic link,
+new storage capability, or guest-memory rewriting is involved.
+
+The synthetic startup fixture checks malformed descriptors, denied targets,
+case-insensitive collisions and deletion, optical reads after deletion, and
+regular save reopen and metadata through a drive alias. It verifies continued
+rejection of an unmigrated startup profile. Real-media validation prepares the
+import table in place. Original title execution and symbolic-link object
+open/query are outside this checkpoint.

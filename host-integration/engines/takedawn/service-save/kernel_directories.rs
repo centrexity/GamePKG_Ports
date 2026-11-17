@@ -50,6 +50,7 @@ impl SaveDirectories {
         ram: &mut memory::Memory,
         cpu: &mut registers::Registers,
         ordinal: u32,
+        resolved_name: Option<&str>,
     ) -> Result<(), i32> {
         let bytes = match ordinal {
             187 => 8u32,
@@ -74,7 +75,9 @@ impl SaveDirectories {
                 self.save_directory_close(ram, table, kernel_file::rom_kernel_word(&frame, 4)?)?;
                 0
             }
-            190 | 202 => self.save_directory_open(ram, table, &frame, ordinal == 190)?,
+            190 | 202 => {
+                self.save_directory_open(ram, table, &frame, ordinal == 190, resolved_name)?
+            }
             218 => self.save_directory_volume(ram, table, &frame)?,
             _ => return Err(-5),
         };
@@ -131,6 +134,7 @@ impl SaveDirectories {
         table: &kernel_pool::Handles,
         frame: &[u8],
         ensure: bool,
+        resolved_name: Option<&str>,
     ) -> Result<u32, i32> {
         let handle_va = kernel_file::rom_kernel_word(frame, 4)?;
         let access = kernel_file::rom_kernel_word(frame, 8)?;
@@ -158,7 +162,8 @@ impl SaveDirectories {
             return Err(-5);
         }
         let counted_name = kernel_file::rom_kernel_name(ram, object_va)?;
-        let portable = save_directory_name(gamepkg::text_from_utf8(&counted_name)?)?;
+        let portable =
+            save_directory_name(resolved_name.unwrap_or(gamepkg::text_from_utf8(&counted_name)?))?;
         if portable.is_empty() && ensure {
             return Err(-5);
         }

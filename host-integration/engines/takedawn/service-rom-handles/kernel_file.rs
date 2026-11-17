@@ -38,6 +38,7 @@ impl RomKernel {
         ram: &mut memory::Memory,
         cpu: &mut registers::Registers,
         ordinal: u32,
+        resolved_name: Option<&str>,
     ) -> Result<(), i32> {
         let length = match ordinal {
             187 => 4u32,
@@ -63,7 +64,9 @@ impl RomKernel {
                     .rom_close(ram, table, rom_kernel_word(&stack, 4)?)?;
                 0
             }
-            190 | 202 => self.rom_kernel_open(image, table, ram, &stack, ordinal == 190)?,
+            190 | 202 => {
+                self.rom_kernel_open(image, table, ram, &stack, ordinal == 190, resolved_name)?
+            }
             219 => self.rom_kernel_read(table, rom_events, ram, &stack)?,
             233 | 234 => self.rom_kernel_wait(table, ram, &stack, ordinal == 234)?,
             _ => return Err(-5),
@@ -81,6 +84,7 @@ impl RomKernel {
         ram: &mut memory::Memory,
         stack: &[u8],
         create: bool,
+        resolved_name: Option<&str>,
     ) -> Result<u32, i32> {
         let output_va = rom_kernel_word(stack, 4)?;
         let access = rom_kernel_word(stack, 8)?;
@@ -112,7 +116,7 @@ impl RomKernel {
             return Err(-1);
         }
         let raw = rom_kernel_name(ram, attributes)?;
-        let path = rom_kernel_path(gamepkg::text_from_utf8(&raw)?)?;
+        let path = rom_kernel_path(resolved_name.unwrap_or(gamepkg::text_from_utf8(&raw)?))?;
         ram.memory_check_write(output_va, 4)?;
         ram.memory_check_write(status_va, 8)?;
         if image.disc_find(path) == Err(-5) {
@@ -334,8 +338,18 @@ pub fn rom_kernel_name(ram: &memory::Memory, attributes: u32) -> Result<std::vec
     if name_va == 0 {
         return Err(-1);
     }
+    rom_kernel_counted_name(ram, name_va)
+}
+
+pub fn rom_kernel_counted_name(
+    ram: &memory::Memory,
+    descriptor: u32,
+) -> Result<std::vec::Vec<u8>, i32> {
+    if descriptor == 0 {
+        return Err(-1);
+    }
     let mut name = [0u8; 8];
-    ram.read_bytes(name_va, &mut name)?;
+    ram.read_bytes(descriptor, &mut name)?;
     let length = usize::from(u16::from_le_bytes([name[0], name[1]]));
     let maximum = usize::from(u16::from_le_bytes([name[2], name[3]]));
     let buffer = rom_kernel_word(&name, 4)?;

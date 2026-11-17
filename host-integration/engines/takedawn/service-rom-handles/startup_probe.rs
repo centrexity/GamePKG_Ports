@@ -79,6 +79,18 @@ pub fn rom_startup_calls(
         [open_marker, read_marker, close_marker] == [0xfe000028, 0xfe00002c, 0xfe000030],
     )?;
 
+    let optical_open = [token_va, 0x80100080, attrib_va, status_va, 1, 0x60];
+    if regular_enabled {
+        let create_link = ram.read_u32(image.image_thunk() + 88)?;
+        let delete_link = ram.read_u32(image.image_thunk() + 92)?;
+        rom_startup_need([create_link, delete_link] == [0xfe000058, 0xfe00005c])?;
+        rom_startup_need(kernel_pool::kernel_ordinal(ram, 22) == Err(-5))?;
+        rom_startup_need(
+            rom_startup_call(&mut routed, ram, open_marker, stack_va, &optical_open) == Err(-5),
+        )?;
+        rom_drive_startup(&mut routed, ram, stack_va, create_link, delete_link)?;
+    }
+
     let mut rejected = registers::Registers::new();
     let before = rejected.encode();
     rom_startup_need(
@@ -97,6 +109,21 @@ pub fn rom_startup_calls(
     )?;
     let token = ram.read_u32(token_va)?;
     rom_startup_need(token != 0 && ram.read_u64(status_va)? == 0x100000000)?;
+    if regular_enabled {
+        let delete_link = ram.read_u32(image.image_thunk() + 92)?;
+        let symbol = stack_va + 672;
+        save_startup_name(ram, symbol, stack_va + 704, b"\\??\\d:")?;
+        rom_startup_need(
+            rom_startup_call(&mut routed, ram, delete_link, stack_va, &[symbol])? == 0,
+        )?;
+        rom_startup_need(
+            rom_startup_call(&mut routed, ram, delete_link, stack_va, &[symbol])? == 0xc0000034,
+        )?;
+        rom_startup_need(
+            rom_startup_call(&mut routed, ram, open_marker, stack_va, &optical_open) == Err(-5),
+        )?;
+        rom_startup_need(ram.read_u32(token_va)? == token)?;
+    }
     rom_startup_need(
         rom_startup_call(
             &mut routed,
@@ -166,9 +193,12 @@ pub fn rom_startup_calls(
                 token,
             )?;
         }
-        ram.write_u16(name_va, path.len() as u16)?;
-        ram.write_u16(name_va + 2, path.len() as u16)?;
-        ram.write_bytes(path_va, path)?;
+        let event_path = if regular_enabled {
+            b"\\Device\\CdRom0\\default.xbe".as_slice()
+        } else {
+            path.as_slice()
+        };
+        save_startup_name(ram, name_va, path_va, event_path)?;
     }
     rom_startup_need(rom_startup_call(&mut routed, ram, close_marker, stack_va, &[token])? == 0)?;
     if with_event {
@@ -271,6 +301,7 @@ fn save_startup_name(
 ) -> Result<(), i32> {
     ram.write_u16(string_descriptor, disk_name.len() as u16)?;
     ram.write_u16(string_descriptor + 2, disk_name.len() as u16)?;
+    ram.write_u32(string_descriptor + 4, path_address)?;
     ram.write_bytes(path_address, disk_name)
 }
 
@@ -367,6 +398,55 @@ fn save_startup_calls(
     }
     rom_startup_need(gamepkg::save_volume(storage_grant) == Ok([65536, 65536]))?;
     gamepkg::diagnostic(1, 0x544b4600, &[4, 4, 16384])?;
+    Ok(())
+}
+
+fn rom_drive_startup(
+    routed: &mut startup_file::StartupFiles,
+    ram: &mut memory::Memory,
+    stack: u32,
+    create_link: u32,
+    delete_link: u32,
+) -> Result<(), i32> {
+    let symbol = stack + 672;
+    let target = stack + 688;
+    let symbol_text = stack + 704;
+    let target_text = stack + 768;
+    save_startup_name(ram, symbol, symbol_text, b"\\??\\D:")?;
+    for rejected_target in [
+        b"\\Device\\CdRom0\\..".as_slice(),
+        b"\\??\\D:",
+        b"\\Device\\Harddisk0\\partition2",
+        b"\\Device\\Harddisk0\\partition1\\UDATA\\4541005c",
+    ] {
+        save_startup_name(ram, target, target_text, rejected_target)?;
+        rom_startup_need(
+            rom_startup_call(routed, ram, create_link, stack, &[symbol, target]) == Err(-5),
+        )?;
+    }
+    save_startup_name(ram, target, target_text, b"\\Device\\CdRom0")?;
+    ram.write_u16(target + 2, 1)?;
+    rom_startup_need(
+        rom_startup_call(routed, ram, create_link, stack, &[symbol, target]) == Err(-1),
+    )?;
+    rom_startup_need(rom_startup_call(routed, ram, delete_link, stack, &[symbol])? == 0xc0000034)?;
+    ram.write_u16(target + 2, 15)?;
+    rom_startup_need(rom_startup_call(routed, ram, create_link, stack, &[symbol, target])? == 0)?;
+
+    save_startup_name(ram, symbol, symbol_text, b"\\??\\d:")?;
+    save_startup_name(ram, target, target_text, b"\\Device\\Harddisk0\\partition1")?;
+    rom_startup_need(
+        rom_startup_call(routed, ram, create_link, stack, &[symbol, target])? == 0xc0000035,
+    )?;
+
+    save_startup_name(ram, symbol, symbol_text, b"\\??\\U:")?;
+    save_startup_name(
+        ram,
+        target,
+        target_text,
+        b"\\Device\\Harddisk0\\partition1\\UDATA\\4541005b",
+    )?;
+    rom_startup_need(rom_startup_call(routed, ram, create_link, stack, &[symbol, target])? == 0)?;
     Ok(())
 }
 
@@ -491,12 +571,7 @@ fn regular_startup_calls(
     )?;
     rom_startup_need(rom_startup_call(routed, ram, close_marker, stack, &[regular_token])? == 0)?;
     rom_startup_need(rom_startup_call(routed, ram, query_marker, stack, &query_file) == Err(-4))?;
-    save_startup_name(
-        ram,
-        name_address,
-        text_address,
-        b"\\Device\\Harddisk0\\partition1\\UDATA\\4541005b\\titlemeta.XBX",
-    )?;
+    save_startup_name(ram, name_address, text_address, b"\\??\\u:\\titlemeta.XBX")?;
     let reopen = [handle_address, 0x80100000, obj, io_address, 3, 0x20];
     let mut result = Err(-2);
     for _ in 0..4096 {
@@ -532,6 +607,15 @@ fn regular_startup_calls(
     let reader_eof = [reader_token, io_address, control_input, 8, 20];
     rom_startup_need(rom_startup_call(routed, ram, control_marker, stack, &reader_eof) == Err(-4))?;
     // Leave the reader open to establish that the startup router drains it.
+    save_startup_name(
+        ram,
+        name_address,
+        text_address,
+        b"U:\\..\\4541005c\\TitleMeta.xbx",
+    )?;
+    rom_startup_need(
+        rom_startup_call(routed, ram, path_query_marker, stack, &path_query) == Err(-1),
+    )?;
     gamepkg::diagnostic(1, 0x544b4700, &[5, 0x24, 16384, 2, 7, 210])?;
     Ok(())
 }

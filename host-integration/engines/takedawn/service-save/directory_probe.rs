@@ -40,6 +40,7 @@ fn directory_guest_call(
         &mut file_fixture.ram,
         &mut cpu,
         ordinal,
+        None,
     );
     match expected {
         Ok(status) => {

@@ -1,6 +1,7 @@
 // Checked marker entrypoint for a startup which opted into file services.
 use crate::gamepkg;
 use crate::kernel_directories;
+use crate::kernel_drive;
 use crate::kernel_file;
 use crate::kernel_regular;
 use crate::kernel_startup;
@@ -12,6 +13,7 @@ pub struct StartupFiles<'a, 'b> {
     owner: &'a kernel_startup::Startup,
     image: &'a xbe::Image<'b>,
     rom_adapter: kernel_file::RomKernel,
+    drive_links: kernel_drive::DriveLinks,
     private_directories: Option<kernel_directories::SaveDirectories>,
     regular_files: Option<kernel_regular::RegularFiles<'a>>,
 }
@@ -67,6 +69,7 @@ impl<'a, 'b> StartupFiles<'a, 'b> {
             owner,
             image,
             rom_adapter,
+            drive_links: kernel_drive::DriveLinks::drive_links_new(),
             private_directories,
             regular_files,
         })
@@ -83,11 +86,35 @@ impl<'a, 'b> StartupFiles<'a, 'b> {
         if !cpu.valid() || cpu.esp == 0 {
             return Err(-1);
         }
+        if (ordinal == 67 || ordinal == 69) && self.regular_files.is_some() {
+            return self.drive_links.drive_links_call(ram, cpu, ordinal);
+        }
+        let mut expanded_name = [0u8; 528];
+        let resolved_name = if self.regular_files.is_some()
+            && (ordinal == 190 || ordinal == 202 || ordinal == 210)
+        {
+            let attribute_offset = if ordinal == 210 { 4 } else { 12 };
+            let attributes = ram.read_u32(cpu.esp.checked_add(attribute_offset).ok_or(-1)?)?;
+            let source = kernel_file::rom_kernel_name(ram, attributes)?;
+            match self
+                .drive_links
+                .drive_links_resolve(&source, &mut expanded_name)?
+            {
+                Some(size) => Some(gamepkg::text_from_utf8(&expanded_name[..size])?),
+                None => None,
+            }
+        } else {
+            None
+        };
         let token_at = cpu.esp.checked_add(4).ok_or(-1)?;
         let route = match ordinal {
-            190 | 202 if self.private_directories.is_some() => {
-                startup_open_route(ram, cpu, ordinal, self.regular_files.is_some())?
-            }
+            190 | 202 if self.private_directories.is_some() => startup_open_route(
+                ram,
+                cpu,
+                ordinal,
+                self.regular_files.is_some(),
+                resolved_name,
+            )?,
             198 | 210 | 211 | 226 | 236 => 2,
             218 => 1,
             187 | 219 => {
@@ -98,7 +125,7 @@ impl<'a, 'b> StartupFiles<'a, 'b> {
                             .regular_files
                             .as_mut()
                             .ok_or(-5)?
-                            .regular_files_invoke(ram, table, cpu, ordinal);
+                            .regular_files_invoke(ram, table, cpu, ordinal, None);
                     }
                 }
                 match self.private_directories.as_ref() {
@@ -117,14 +144,16 @@ impl<'a, 'b> StartupFiles<'a, 'b> {
                 .private_directories
                 .as_mut()
                 .ok_or(-5)?
-                .save_directory_invoke(table, ram, cpu, ordinal);
+                .save_directory_invoke(table, ram, cpu, ordinal, resolved_name);
         }
         if route == 2 {
-            return self
-                .regular_files
-                .as_mut()
-                .ok_or(-5)?
-                .regular_files_invoke(ram, table, cpu, ordinal);
+            return self.regular_files.as_mut().ok_or(-5)?.regular_files_invoke(
+                ram,
+                table,
+                cpu,
+                ordinal,
+                resolved_name,
+            );
         }
         let (_, rom_events) = self.owner.startup_objects(ram)?;
         self.rom_adapter.rom_kernel_invoke(
@@ -134,6 +163,7 @@ impl<'a, 'b> StartupFiles<'a, 'b> {
             ram,
             cpu,
             ordinal,
+            resolved_name,
         )
     }
 
@@ -146,7 +176,9 @@ impl<'a, 'b> StartupFiles<'a, 'b> {
         if let Some(directories) = self.private_directories.as_mut() {
             directories.save_directories_drain(ram, table)?;
         }
-        self.rom_adapter.rom_kernel_drain(ram, table)
+        self.rom_adapter.rom_kernel_drain(ram, table)?;
+        self.drive_links = kernel_drive::DriveLinks::drive_links_new();
+        Ok(())
     }
 }
 
@@ -155,10 +187,11 @@ fn startup_open_route(
     cpu: &registers::Registers,
     ordinal: u32,
     has_regular: bool,
+    resolved_name: Option<&str>,
 ) -> Result<u32, i32> {
     let attributes = ram.read_u32(cpu.esp.checked_add(12).ok_or(-1)?)?;
     let counted_path = kernel_file::rom_kernel_name(ram, attributes)?;
-    let path = gamepkg::text_from_utf8(&counted_path)?;
+    let path = resolved_name.unwrap_or(gamepkg::text_from_utf8(&counted_path)?);
     let partition = "\\Device\\Harddisk0\\partition1\\";
     if let Some(prefix) = path.get(..partition.len()) {
         if prefix.eq_ignore_ascii_case(partition) {

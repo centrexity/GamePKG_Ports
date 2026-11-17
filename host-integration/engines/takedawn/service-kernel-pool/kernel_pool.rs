@@ -203,7 +203,9 @@ pub fn kernel_scoped_file_supported(ordinal: u32, file_profile: u32) -> bool {
         || ordinal == 234
         || (file_profile >= 2 && ordinal == 218)
         || (file_profile == 3
-            && (ordinal == 198
+            && (ordinal == 67
+                || ordinal == 69
+                || ordinal == 198
                 || ordinal == 210
                 || ordinal == 211
                 || ordinal == 226
