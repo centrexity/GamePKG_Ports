@@ -107,6 +107,46 @@ fn partial_reads_zero_reads_overreply_and_revocation_are_explicit() {
     SOURCE.lock().unwrap().as_mut().unwrap().overreply = true;
     assert!(matches!(disc::Disc::disc_open(7), Err(-3)));
 }
+#[test]
+fn streams_keep_independent_cursors_and_never_cross_the_file_extent() {
+    install(image());
+    let disc = disc::Disc::disc_open(7).unwrap();
+    let mut first = disc.disc_open_file("x").unwrap();
+    let mut second = disc.disc_open_entry(0).unwrap();
+    let mut bytes = [0u8; 8];
+    assert_eq!(first.disc_file_read(&mut bytes), Ok(8));
+    assert_eq!(first.disc_file_position(), 8);
+    assert_eq!(second.disc_file_position(), 0);
+    let size = u64::from(first.disc_file_size());
+    bytes.fill(0xa5);
+    assert_eq!(first.disc_file_read_at(size - 2, &mut bytes), Ok(2));
+    assert_eq!(&bytes[..2], &[182, 219]);
+    assert_eq!(&bytes[2..], &[0xa5; 6]);
+    assert_eq!(first.disc_file_read_at(u64::MAX, &mut bytes), Ok(0));
+    assert_eq!(first.disc_file_position(), 8);
+    assert_eq!(
+        first.disc_file_read_at(size, &mut vec![0; 1048577]),
+        Err(-1)
+    );
+    assert_eq!(second.disc_file_read(&mut bytes), Ok(8));
+
+    // The provider allows a short prefix and then unexpectedly hits physical
+    // EOF, before the indexed logical end. The failed request must not advance.
+    SOURCE
+        .lock()
+        .unwrap()
+        .as_mut()
+        .unwrap()
+        .data
+        .truncate(50 * 2048 + 10);
+    assert_eq!(first.disc_file_read(&mut bytes), Err(-3));
+    assert_eq!(first.disc_file_position(), 8);
+    SOURCE.lock().unwrap().as_mut().unwrap().denied = true;
+    assert_eq!(first.disc_file_read_at(size, &mut []), Err(-4));
+    assert_eq!(first.disc_file_read(&mut bytes), Err(-4));
+    assert_eq!(first.disc_file_position(), 8);
+    assert_eq!(disc.disc_open_file("x").err(), Some(-4));
+}
 fn image_for_short() -> Vec<u8> {
     let mut b = image();
     b.truncate(82000);

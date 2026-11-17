@@ -11,8 +11,8 @@
   "minimum_app_commit": "7f6b19cdbf38b594a244326951abd309da595471",
   "native_sdk": "f9b87d0fde634662",
   "reused_sources": {
-    "../service-disc/disc.rs": "ec4218694786afff82b5e22ebc9c8dad4b1e2a05a6f9c29f62eb4782b30eb21e",
-    "../service-native/memory.rs": "ea59287ecbc1cb09fde9c950c3dd288cff97254b9ff29fe098d38ed298b352b1",
+    "../service-disc/disc.rs": "11fa9e4707c73e99ad1d494a5cf08f5beaff10f9d7fc890c813f0e72b2ffb456",
+    "../service-native/memory.rs": "db2392c096fdde9be171e87604a640aa43bfeff15db7cc1e0885e991c88604b5",
     "../service-native/call_state.rs": "7a925e401949870413751e32dc7bc20d903f0ca4c4279165844d05d41d4f1df3"
   }
 }

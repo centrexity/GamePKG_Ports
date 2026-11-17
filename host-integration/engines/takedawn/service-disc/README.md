@@ -4,7 +4,6 @@ This port-owned component indexes XDVDFS using only GamePKG file-size and
 positional-read services. It has no crates, macros, aliases, raw pointers,
 callbacks, filesystem/device imports or direct platform calls. It is not an
 executable loader or playable source kit and does not enable a legacy profile.
-The app and canonical ports worktree remain unchanged.
 
 ## Contract
 
@@ -28,6 +27,28 @@ Short positive reads are retried; unexpected zero or oversized replies fail
 (-3), never spin or report success. Service denial/revocation (-4) propagates.
 Even valid empty file reads validate the live capability. Cached names remain cached after
 revocation; no new data is available from a revoked handle.
+
+For sequential I/O, `disc_open_entry(index)` and `disc_open_file(path)`
+return an opened `DiscFile` that borrows the already indexed image. They
+reject directories and validate the live read grant before returning. Each
+open has an independent cursor at zero. Dropping a stream leaves the
+caller-owned ROM grant open. Size and cursor are cached metadata.
+
+- `disc_file_read(&mut self, output)` reads from the cursor and advances it
+  only after a successful transfer.
+- `disc_file_read_at(&self, offset, output)` keeps the cursor fixed. Both reads
+  clamp to the file extent and return the transferred byte count. A read at or
+  beyond logical EOF returns zero after validating the grant. Only the returned
+  prefix of the buffer is written on success.
+- `disc_file_exact(&self, offset, output)` retains strict extent checking for
+  file-format reads. All transfers retain the same one MiB request and 64 KiB
+  per-service-call limits. Unexpected physical EOF is Failed. A failed transfer
+  can leave a partial output buffer and leaves sequential state intact.
+
+The XBE loader uses the stream for its section-plan snapshot, independently
+validates the file digest, and checks the grant again before publishing
+the loaded image to guest memory. Guest handles, asynchronous completion and
+save writes require their own integration.
 
 The seven known partition bases are tested in order, with both volume magic
 strings required. All fields use explicit LE decoding and checked u64 extents.
@@ -61,7 +82,7 @@ are audited before trusted runtime linking on Linux32/64 and Windows32/64.
 An accidentally included unused unsafe/direct-filesystem reference is rejected.
 
 `reference.rs`, `admission.rs` and `check.py` are maintainer tests, never game or
-host SDK code. The four standalone tests execute on Linux32/64 and Windows32/64
+host SDK code. The five standalone tests execute on Linux32/64 and Windows32/64
 under Wine, covering partial/zero/invalid replies, revocation, empty reads,
 overflow/caps, exact 8,192/8,193-entry limits, 32/33-level depth and 511/512-byte
 UTF-8 path boundaries. Sixteen malformed synthetic images execute in the actual

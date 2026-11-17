@@ -39,7 +39,22 @@ fn disc_probe(handle: u64) -> Result<(), i32> {
             }
             let mut first = [0u8; 64];
             let length = item.size.min(64) as usize;
-            image.disc_read(number, 0, &mut first[..length])?;
+            let mut stream = image.disc_open_file(gamepkg::text_from_utf8(name)?)?;
+            if stream.disc_file_size() != item.size
+                || stream.disc_file_read(&mut first[..length])? != length
+                || stream.disc_file_position() != length as u64
+            {
+                return Err(-3);
+            }
+            let mut tail = [0u8; 2];
+            let tail_length = usize::from(item.size != 0);
+            if stream.disc_file_read_at(u64::from(item.size.saturating_sub(1)), &mut tail)?
+                != tail_length
+                || stream.disc_file_position() != length as u64
+                || stream.disc_file_read_at(u64::MAX, &mut tail)? != 0
+            {
+                return Err(-3);
+            }
             // Data witnesses only: lengths and a simple non-security checksum.
             // Integrity admission must use the independently pinned hashes.
             let mut checksum = 0u64;
@@ -82,6 +97,9 @@ fn disc_probe(handle: u64) -> Result<(), i32> {
     for number in 0..image.disc_count() {
         let item = image.disc_entry(number)?;
         if !item.directory {
+            if image.disc_open_entry(number).err() != Some(-4) {
+                return Err(-3);
+            }
             let mut bytes = [0u8; 1];
             if item.size != 0 && image.disc_read(number, 0, &mut bytes) != Err(-4) {
                 return Err(-3);

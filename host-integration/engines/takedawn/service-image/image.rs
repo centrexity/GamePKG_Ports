@@ -10,8 +10,7 @@ struct Section {
     raw_bytes: u32,
 }
 pub struct Image<'a> {
-    source: &'a disc::Disc,
-    file: u32,
+    file: disc::DiscFile<'a>,
     bytes: std::vec::Vec<u8>,
     headers: u32,
     sections: std::vec::Vec<Section>,
@@ -47,13 +46,13 @@ impl<'a> Image<'a> {
     // The immutable bounded file snapshot is held only in process memory.
     // It prevents a later section read from silently mixing changed file data.
     pub fn image_plan(source: &'a disc::Disc, file: u32, expected: [u8; 32]) -> Result<Self, i32> {
-        let item = source.disc_entry(file)?;
-        let length = item.size;
-        if item.directory || length < 0x178 || length > 16777216 {
+        let mut file = source.disc_open_entry(file)?;
+        let length = file.disc_file_size();
+        if length < 0x178 || length > 16777216 {
             return Err(-1);
         }
         let mut prefix = [0u8; 0x178];
-        source.disc_read(file, 0, &mut prefix)?;
+        file.disc_file_exact(0, &mut prefix)?;
         if prefix[..4] != *b"XBEH" || xbe_word(&prefix, 0x104)? != 0x10000 {
             return Err(-1);
         }
@@ -77,11 +76,11 @@ impl<'a> Image<'a> {
         let mut done = 0u32;
         while done < length {
             let part = (length - done).min(65536);
-            source.disc_read(
-                file,
-                u64::from(done),
-                &mut bytes[done as usize..(done + part) as usize],
-            )?;
+            if file.disc_file_read(&mut bytes[done as usize..(done + part) as usize])?
+                != part as usize
+            {
+                return Err(-3);
+            }
             done += part;
         }
         if bytes[..0x178] != prefix {
@@ -186,7 +185,6 @@ impl<'a> Image<'a> {
         }
         let tls = xbe_word(&bytes, 0x12c)?;
         Ok(Self {
-            source,
             file,
             bytes,
             headers,
@@ -227,7 +225,7 @@ impl<'a> Image<'a> {
     pub fn image_load(&self, ram: &mut memory::Memory) -> Result<(), i32> {
         // Revocation remains effective before publication even though the file
         // snapshot is immutable. Cached bytes do not confer a new I/O grant.
-        self.source.disc_read(self.file, 0, &mut [])?;
+        self.file.disc_file_exact(0, &mut [])?;
         ram.write_bytes(0x10000, &self.bytes[..self.headers as usize])?;
         for section in &self.sections {
             ram.fill(section.address, 0, section.virtual_bytes)?;

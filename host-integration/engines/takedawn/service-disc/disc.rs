@@ -21,6 +21,13 @@ pub struct Disc {
     base: u64,
     entries: std::vec::Vec<Entry>,
 }
+// An opened regular extent tied to the indexed image lifetime. Opening a
+// second stream on the same entry creates independent sequential state.
+pub struct DiscFile<'a> {
+    disc: &'a Disc,
+    entry: &'a Entry,
+    position: u64,
+}
 fn disc_word(bytes: &[u8], at: u32) -> u32 {
     let index = at as usize;
     u32::from_le_bytes([
@@ -308,12 +315,62 @@ impl Disc {
         }
         Err(-5)
     }
-    pub fn disc_read(&self, index: u32, offset: u64, bytes: &mut [u8]) -> Result<(), i32> {
-        let item = self.disc_entry(index)?;
-        if item.directory {
+    fn disc_stream(&self, index: u32) -> Result<DiscFile<'_>, i32> {
+        let entry = self.disc_entry(index)?;
+        if entry.directory {
             return Err(-1);
         }
-        disc_extent(offset, bytes.len() as u64, u64::from(item.size))?;
-        disc_exact(self.handle, self.length, item.offset + offset, bytes)
+        Ok(DiscFile {
+            disc: self,
+            entry,
+            position: 0,
+        })
+    }
+    pub fn disc_open_entry(&self, index: u32) -> Result<DiscFile<'_>, i32> {
+        let file = self.disc_stream(index)?;
+        file.disc_file_exact(0, &mut [])?;
+        Ok(file)
+    }
+    pub fn disc_open_file(&self, path: &str) -> Result<DiscFile<'_>, i32> {
+        self.disc_open_entry(self.disc_find(path)?)
+    }
+    pub fn disc_read(&self, index: u32, offset: u64, bytes: &mut [u8]) -> Result<(), i32> {
+        self.disc_stream(index)?.disc_file_exact(offset, bytes)
+    }
+}
+impl DiscFile<'_> {
+    pub fn disc_file_size(&self) -> u32 {
+        self.entry.size
+    }
+
+    pub fn disc_file_position(&self) -> u64 {
+        self.position
+    }
+
+    pub fn disc_file_exact(&self, offset: u64, bytes: &mut [u8]) -> Result<(), i32> {
+        disc_extent(offset, bytes.len() as u64, u64::from(self.entry.size))?;
+        let absolute = self.entry.offset.checked_add(offset).ok_or(-1)?;
+        disc_exact(self.disc.handle, self.disc.length, absolute, bytes)
+    }
+
+    // Report short requests at logical EOF without touching the next extent.
+    // Even an empty or EOF read must validate that the grant remains live.
+    pub fn disc_file_read_at(&self, offset: u64, bytes: &mut [u8]) -> Result<usize, i32> {
+        if bytes.len() > 1048576 {
+            return Err(-1);
+        }
+        let end = u64::from(self.entry.size);
+        let start = offset.min(end);
+        let count = (end - start).min(bytes.len() as u64) as usize;
+        self.disc_file_exact(start, &mut bytes[..count])?;
+        Ok(count)
+    }
+
+    // A failed service read can leave a partial buffer but never advances the
+    // cursor. Retrying remains the caller's decision.
+    pub fn disc_file_read(&mut self, bytes: &mut [u8]) -> Result<usize, i32> {
+        let count = self.disc_file_read_at(self.position, bytes)?;
+        self.position += count as u64;
+        Ok(count)
     }
 }
