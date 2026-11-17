@@ -10,6 +10,7 @@ fn disc_probe(handle: u64) -> Result<(), i32> {
     )?;
     let mut record = std::vec::Vec::new();
     record.resize(532, 0u8);
+    let mut retained_view = None;
     for number in 0..image.disc_count() {
         let item = image.disc_entry(number)?;
         let name = item.disc_path_bytes();
@@ -55,6 +56,16 @@ fn disc_probe(handle: u64) -> Result<(), i32> {
             {
                 return Err(-3);
             }
+            let view = stream.disc_file_open_handle()?;
+            let valid = disc_probe_view(view, item.size, &first[..length]);
+            if retained_view.is_none() {
+                retained_view = Some(view);
+                valid?;
+            } else {
+                let closed = gamepkg::file_close(view);
+                valid?;
+                closed?;
+            }
             // Data witnesses only: lengths and a simple non-security checksum.
             // Integrity admission must use the independently pinned hashes.
             let mut checksum = 0u64;
@@ -94,6 +105,14 @@ fn disc_probe(handle: u64) -> Result<(), i32> {
     if reason != 1 || gamepkg::file_size(handle) != Err(-4) {
         return Err(-3);
     }
+    if let Some(view) = retained_view {
+        if gamepkg::file_size(view) != Err(-4)
+            || gamepkg::file_read(view, 0, &mut []) != Err(-4)
+            || gamepkg::file_close(view) != Err(-4)
+        {
+            return Err(-3);
+        }
+    }
     for number in 0..image.disc_count() {
         let item = image.disc_entry(number)?;
         if !item.directory {
@@ -112,6 +131,24 @@ fn disc_probe(handle: u64) -> Result<(), i32> {
     match disc::Disc::disc_open(handle) {
         Err(-4) => {}
         _ => return Err(-3),
+    }
+    Ok(())
+}
+fn disc_probe_view(view: u64, size: u32, prefix: &[u8]) -> Result<(), i32> {
+    let mut bytes = [0u8; 64];
+    let mut filled = 0usize;
+    while filled < prefix.len() {
+        let count = gamepkg::file_read(view, filled as u64, &mut bytes[filled..prefix.len()])?;
+        if count == 0 || count > prefix.len() - filled {
+            return Err(-3);
+        }
+        filled += count;
+    }
+    if &bytes[..filled] != prefix
+        || gamepkg::file_size(view)? != u64::from(size)
+        || gamepkg::file_read(view, u64::from(size), &mut bytes)? != 0
+    {
+        return Err(-3);
     }
     Ok(())
 }

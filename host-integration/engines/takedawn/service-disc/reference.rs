@@ -13,6 +13,12 @@ struct Source {
 }
 static SOURCE: Mutex<Option<Source>> = Mutex::new(None);
 mod gamepkg {
+    // This fixture tests the parser and cursor with a synthetic reader.
+    // The admitted probe exercises open/close on the real broker.
+    pub fn file_rom_view(_: u64, _: u64, _: u64) -> Result<u64, i32> {
+        Err(-5)
+    }
+
     pub fn file_size(handle: u64) -> Result<u64, i32> {
         let source = crate::SOURCE.lock().unwrap();
         let s = source.as_ref().unwrap();

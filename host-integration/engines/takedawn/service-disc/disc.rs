@@ -339,6 +339,16 @@ impl Disc {
     }
 }
 impl DiscFile<'_> {
+    // Transfer a separately closeable ID to the caller's handle owner. The
+    // host retains only a bounded range on the original revocable ROM grant.
+    pub fn disc_file_open_handle(&self) -> Result<u64, i32> {
+        gamepkg::file_rom_view(
+            self.disc.handle,
+            self.entry.offset,
+            u64::from(self.entry.size),
+        )
+    }
+
     pub fn disc_file_size(&self) -> u32 {
         self.entry.size
     }

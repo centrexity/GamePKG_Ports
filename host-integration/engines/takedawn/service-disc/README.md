@@ -45,6 +45,13 @@ caller-owned ROM grant open. Size and cursor are cached metadata.
   per-service-call limits. Unexpected physical EOF is Failed. A failed transfer
   can leave a partial output buffer and leaves sequential state intact.
 
+An owner that needs an opaque ID can call `disc_file_open_handle()`. This
+opens a separately closeable read-only host range over the file's validated
+extent using SDK operation 19. The caller must close it, or hand it to a
+handle owner that will close it. The original ROM grant can revoke all such
+ranges together. The admitted reader probe compares each range with its
+stream and keeps one open through the revocation checkpoint.
+
 The XBE loader uses the stream for its section-plan snapshot, independently
 validates the file digest, and checks the grant again before publishing
 the loaded image to guest memory. Guest handles, asynchronous completion and
