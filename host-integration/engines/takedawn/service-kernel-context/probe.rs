@@ -79,6 +79,9 @@ fn context_actor(record: u64) -> Result<(), i32> {
     let mapping = layout::Layout::layout_current(&source)?;
     let mut ram = mapping.layout_view(&source)?;
     let mode = context_word(&b, 32)? as u32;
+    if mode == 3 {
+        return context_timer_actor(&mut ram, context_word(&b, 40)?);
+    }
     let mut cpu = registers::Registers::new();
     cpu.ebx = 0xabcdef01;
     cpu.eflags = 0x202;
@@ -249,6 +252,9 @@ fn context_sample(mode: u32) -> Result<std::vec::Vec<u8>, i32> {
     let services = kernel_pool::kernel_services_initialize(&ram, 0x10000, 2)?;
     let mut registry = kernel_pool::Connections::connections_new(&ram)?;
     let mut bound = kernel_pool::KernelContext::kernel_context_new(&ram, &registry)?;
+    if mode == 0 {
+        context_timer_sample(&mut ram, &data, &registry, &bound)?;
+    }
     let table = if mode == 1 { 0x120003u32 } else { 0x120000 };
     let count = if mode == 2 { 378u32 } else { 3 };
     ram.fill(table - 64, 0, 64 + count * 4 + 4)?;
@@ -372,4 +378,126 @@ pub fn context_probe() -> Result<std::vec::Vec<u8>, i32> {
         out.extend(context_sample(mode)?);
     }
     Ok(out)
+}
+
+fn context_timer_actor(ram: &mut memory::Memory, reply: u64) -> Result<(), i32> {
+    let (_, plan_bytes) = gamepkg::local_record_snapshot(ram.kernel_handle(), 1548)?;
+    let bound =
+        kernel_pool::KernelContext::kernel_context_borrow(ram, context_word(&plan_bytes, 24)?)?;
+    let map = bound.kernel_context_shadow(ram)?;
+    let mut cpu = registers::Registers::new();
+    cpu.ebx = 0xabcdef01;
+    cpu.eflags = 0x202;
+    cpu.mm3 = [0x11223344, 0xfedcba98];
+    for kind in [0u32, 1, 2, 0xffffffff] {
+        let guest = 0x750000u32;
+        ram.fill(guest - 1, 0xa5, 42)?;
+        context_need(context_call(ram, &mut cpu, 0, &[guest, kind], 0)? == 12)?;
+        let mut header = [0u8; 40];
+        ram.read_bytes(guest, &mut header)?;
+        context_need(header[0] == 8 + (kind & 1) as u8 && header[2] == 40)?;
+        for at in 0..40usize {
+            if at != 0 && at != 2 {
+                context_need(header[at] == 0)?;
+            }
+        }
+        context_need(ram.read_u8(guest - 1)? == 0xa5 && ram.read_u8(guest + 40)? == 0xa5)?;
+        let event_id = kernel_pool::event_lookup(&map, ram, guest)?.ok_or(-3)?;
+        let event_state = gamepkg::local_event_state(event_id)?;
+        context_need(event_state.manual == (kind == 0) && !event_state.signaled)?;
+        context_need(kernel_pool::event_set(&map, ram, guest)?)?;
+        kernel_pool::event_wait(&map, ram, guest, 0)?;
+        context_need(
+            kernel_pool::event_wait(&map, ram, guest, 0)
+                == if kind == 0 { Ok(()) } else { Err(-2) },
+        )?;
+        context_need(kernel_pool::event_remove(&map, ram, guest)?)?;
+    }
+    context_need(context_call(ram, &mut cpu, 0, &[0, 0], 0)? == 12)?;
+    gamepkg::local_mailbox_send(reply, &[0u8; 64])
+}
+fn context_timer_sample(
+    ram: &mut memory::Memory,
+    data: &kernel_data::Data,
+    registry: &kernel_pool::Connections,
+    legacy: &kernel_pool::KernelContext,
+) -> Result<(), i32> {
+    let table = 0x130000u32;
+    ram.fill(table - 64, 0, 72)?;
+    ram.write_u32(table, 0x80000071)?;
+    context_need(kernel_pool::kernel_supported(113) == Ok(8))?;
+    context_need(
+        imports::Imports::imports_scan_with_context(ram, table, data, &[], legacy).err()
+            == Some(-5),
+    )?;
+    context_need(kernel_pool::kernel_prepare(ram, table, 1) == Err(-5))?;
+    context_need(ram.read_u32(table)? == 0x80000071 && ram.kernel_handle() == 0)?;
+    let mut map = kernel_pool::Shadow::shadow_new(ram)?;
+    let mut bound =
+        kernel_pool::KernelContext::kernel_context_new_with_shadow(ram, registry, &map)?;
+    // Strict full-width identity and reserved fields, never reinterpret KIC1.
+    let (_, original) = gamepkg::local_record_snapshot(bound.kernel_context_id(), 72)?;
+    for at in [32usize, 40, 48, 56, 64] {
+        let (version, mut changed) = gamepkg::local_record_snapshot(bound.kernel_context_id(), 72)?;
+        if at == 32 {
+            let high = u64::to_le_bytes(map.shadow_id() | 0x100000000);
+            for lane in 0..8usize {
+                changed[at + lane] = high[lane];
+            }
+        } else {
+            changed[at] = 1;
+        }
+        gamepkg::local_record_compare_exchange(bound.kernel_context_id(), version, &changed)?;
+        context_need(
+            kernel_pool::KernelContext::kernel_context_borrow(ram, bound.kernel_context_id()).err()
+                == Some(if at == 32 { -4 } else { -1 }),
+        )?;
+        let (version, _) = gamepkg::local_record_snapshot(bound.kernel_context_id(), 72)?;
+        gamepkg::local_record_compare_exchange(bound.kernel_context_id(), version, &original)?;
+    }
+    let prepared = imports::Imports::imports_scan_with_context(ram, table, data, &[], &bound)?;
+    prepared.imports_publish(ram)?;
+    let (_, saved) = gamepkg::local_record_snapshot(ram.kernel_handle(), 1548)?;
+    // A forged legacy binding must fail before even changing the CPU's caller state.
+    let (version, mut changed) = gamepkg::local_record_snapshot(ram.kernel_handle(), 1548)?;
+    let legacy_id = u64::to_le_bytes(legacy.kernel_context_id());
+    for lane in 0..8usize {
+        changed[24 + lane] = legacy_id[lane];
+    }
+    gamepkg::local_record_compare_exchange(ram.kernel_handle(), version, &changed)?;
+    let mut cpu = registers::Registers::new();
+    cpu.esp = 0x760000;
+    let before = cpu.encode();
+    context_need(
+        kernel_pool::kernel_invoke(&mut cpu, ram, 0) == Err(-5) && cpu.encode() == before,
+    )?;
+    let (version, _) = gamepkg::local_record_snapshot(ram.kernel_handle(), 1548)?;
+    gamepkg::local_record_compare_exchange(ram.kernel_handle(), version, &saved)?;
+    let reply = gamepkg::local_mailbox_create(64, 1)?;
+    let mut setup = std::vec::Vec::new();
+    for id in ram.thread_context() {
+        setup.extend(u64::to_le_bytes(id));
+    }
+    setup.extend(u64::to_le_bytes(3));
+    setup.extend(u64::to_le_bytes(reply));
+    let record = gamepkg::local_record_create(&setup)?;
+    let job = context_spawn(1, record)?;
+    let mut result = [1u8; 64];
+    context_need(
+        gamepkg::local_mailbox_receive(reply, 1000, &mut result)? == 64 && result == [0u8; 64],
+    )?;
+    context_join(job)?;
+    gamepkg::local_record_release(record)?;
+    gamepkg::local_mailbox_release(reply)?;
+    ram.kernel_clear()?;
+    ram.write_u32(table, 0x80000071)?;
+    let prepared = imports::Imports::imports_scan_with_context(ram, table, data, &[], &bound)?;
+    map.shadow_close(ram)?;
+    context_need(
+        prepared.imports_publish(ram) == Err(-4)
+            && ram.kernel_handle() == 0
+            && ram.read_u32(table)? == 0x80000071,
+    )?;
+    bound.kernel_context_close(ram)?;
+    Ok(())
 }

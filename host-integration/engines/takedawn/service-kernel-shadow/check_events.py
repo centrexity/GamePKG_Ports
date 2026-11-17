@@ -27,7 +27,8 @@ def main():
    subprocess.run(cmd,check=True)
    if 'windows' not in target:subprocess.run([str(exe),str(root/'vectors')],check=True,timeout=120)
    elif a.wine:subprocess.run(['wine',str(exe)],check=True,timeout=120,env=dict(os.environ,WINEDEBUG='-all',WINEPREFIX='/tmp/gamepkg-port-replace-wine'))
-  text=(here/'events.rs').read_text()
+  mutated_path=here/'../service-kernel-pool/kernel_pool.rs'
+  text=mutated_path.read_text()
   for name,old,new in [
    ('noncanonical-timer-kind', 'event_replace(map, ram, guest, kind == 0, false)?;', 'event_replace(map, ram, guest, kind & 1 == 0, false)?;'),
    ('leak-replaced-event', 'event_release(old)?;', 'let _ = old;'),
@@ -35,7 +36,7 @@ def main():
    ('publish-before-signal', 'event_signal(id, true)?;\n            ram.write_u32(guest.checked_add(4).ok_or(-1)?, 1)?;', 'ram.write_u32(guest.checked_add(4).ok_or(-1)?, 1)?;\n            event_signal(id, true)?;'),
   ]:
    assert text.count(old)==1,name
-   bad=root/(name+'.rs');bad.write_text(text.replace(old,new));driver=root/(name+'-main.rs');driver.write_text(source.read_text().replace(json.dumps(str(here/'events.rs')),json.dumps(str(bad))))
+   bad=root/(name+'.rs');bad.write_text(text.replace(old,new));driver=root/(name+'-main.rs');driver.write_text(source.read_text().replace(json.dumps(str(mutated_path)),json.dumps(str(bad))))
    exe=root/name;subprocess.run(['rustc','--edition=2021','-D','warnings','-O',str(driver),'-C','link-arg='+str(root/'x86_64-unknown-linux-gnu.o'),'-o',str(exe)],check=True)
    result=subprocess.run([str(exe)],capture_output=True,text=True,timeout=120)
    assert result.returncode!=0 and ('event case' in result.stderr or 'on an `Err` value: -3' in result.stderr),(name,result.stderr)

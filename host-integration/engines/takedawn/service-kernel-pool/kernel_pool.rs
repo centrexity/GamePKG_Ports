@@ -15,7 +15,7 @@ fn pool_long(bytes: &[u8], at: usize) -> Result<u64, i32> {
 fn pool_argument_bytes(ordinal: u32) -> Result<u32, i32> {
     match ordinal {
         14 | 17 | 23 | 98 | 165 | 171 | 180 | 335 => Ok(4),
-        15 | 44 | 168 | 337 => Ok(8),
+        15 | 44 | 113 | 168 | 337 => Ok(8),
         107 | 336 | 338 | 339 => Ok(12),
         109 | 340 => Ok(28),
         24 | 166 => Ok(20),
@@ -28,9 +28,9 @@ fn pool_argument_bytes(ordinal: u32) -> Result<u32, i32> {
 pub fn kernel_supported(ordinal: u32) -> Result<u32, i32> {
     pool_argument_bytes(ordinal)
 }
-// Only these five exports require the shared physical allocator owner.
+// Context-dependent imports require a live typed binding, not classification alone.
 pub fn kernel_requires_context(ordinal: u32) -> bool {
-    ordinal == 98
+    ordinal == 98 || ordinal == 113
 }
 pub fn kernel_physical(ordinal: u32) -> bool {
     ordinal == 165 || ordinal == 166 || ordinal == 168 || ordinal == 171 || ordinal == 180
@@ -174,6 +174,15 @@ pub fn kernel_ordinal(ram: &memory::Memory, slot: u32) -> Result<u32, i32> {
     if kernel_requires_context(ordinal) && routing_start != 32 {
         return Err(-5);
     }
+    kernel_context_ready(
+        ram,
+        if routing_start == 32 {
+            pool_long(&record, 24)?
+        } else {
+            0
+        },
+        ordinal,
+    )?;
     Ok(ordinal)
 }
 // At most eight successful updates can compete, unlike the unbounded call
@@ -287,6 +296,18 @@ pub fn kernel_invoke(
         let _ = pool_word(&args, 4)?;
     }
     ram.kernel_set_caller(caller);
+    if ordinal == 113 {
+        let (_, record, _, routing_start) = pool_snapshot(ram)?;
+        if routing_start != 32 {
+            return Err(-5);
+        }
+        let context = KernelContext::kernel_context_borrow(ram, pool_long(&record, 24)?)?;
+        let map = context.kernel_context_shadow(ram)?;
+        timer_initialize(&map, ram, first, pool_word(&args, 4)?)?;
+        state.eax = 0;
+        state.esp = end as u32;
+        return Ok(());
+    }
     if ordinal == 98 {
         let (_, record, _, routing_start) = pool_snapshot(ram)?;
         if routing_start != 32 {
@@ -852,6 +873,7 @@ pub fn kernel_service_values(ram: &memory::Memory) -> Result<[u64; 3], i32> {
 pub fn kernel_requires_services(ordinal: u32) -> bool {
     ordinal == 24
         || ordinal == 98
+        || ordinal == 113
         || ordinal == 107
         || ordinal == 109
         || ordinal == 125
@@ -1354,7 +1376,7 @@ impl Connections {
     }
 }
 
-// Explicit KIC1 copied context for context-dependent import calls. No host ABI.
+// Explicit KIC1/KIC2 copied context for context-dependent import calls. No host ABI.
 pub struct KernelContext {
     root: u64,
     services: u64,
@@ -1373,6 +1395,45 @@ impl KernelContext {
             (8, ram.call_handle()),
             (16, services),
             (24, registry.connections_id()),
+        ] {
+            let field_bytes = u64::to_le_bytes(value);
+            for lane in 0..8usize {
+                b[at + lane] = field_bytes[lane];
+            }
+        }
+        let record = gamepkg::local_record_create(&b)?;
+        let result = Self {
+            root: ram.call_handle(),
+            services,
+            record,
+            creator,
+            owned: true,
+        };
+        if let Err(code) = result.context_snapshot(ram) {
+            if gamepkg::local_record_release(record).is_err() {
+                return Err(-3);
+            }
+            return Err(code);
+        }
+        Ok(result)
+    }
+    pub fn kernel_context_new_with_shadow(
+        ram: &memory::Memory,
+        registry: &Connections,
+        map: &Shadow,
+    ) -> Result<Self, i32> {
+        registry.connection_snapshot(ram)?;
+        map.shadow_snapshot(ram)?;
+        Shadow::shadow_borrow(ram, map.shadow_id())?;
+        let services = ram.services_handle()?;
+        let creator = gamepkg::local_task_status()?.0;
+        let mut b = [0u8; 72];
+        for (at, value) in [
+            (0usize, 0x3243494bu64),
+            (8, ram.call_handle()),
+            (16, services),
+            (24, registry.connections_id()),
+            (32, map.shadow_id()),
         ] {
             let field_bytes = u64::to_le_bytes(value);
             for lane in 0..8usize {
@@ -1417,14 +1478,19 @@ impl KernelContext {
             return Err(-4);
         }
         connection_live(ram, self.services)?;
-        let (_, b) = gamepkg::local_record_snapshot(self.record, 64)?;
-        if b.len() != 64 || pool_long(&b, 0)? != 0x3143494b {
+        let (_, b) = gamepkg::local_record_snapshot(self.record, 72)?;
+        let extended = b.len() == 72 && pool_long(&b, 0)? == 0x3243494b;
+        if !extended && (b.len() != 64 || pool_long(&b, 0)? != 0x3143494b) {
             return Err(-1);
         }
         if pool_long(&b, 8)? != self.root || pool_long(&b, 16)? != self.services {
             return Err(-4);
         }
-        for at in [32usize, 40, 48, 56] {
+        for at in if extended {
+            [40usize, 48, 56, 64]
+        } else {
+            [32usize, 40, 48, 56]
+        } {
             if pool_long(&b, at)? != 0 {
                 return Err(-1);
             }
@@ -1434,11 +1500,26 @@ impl KernelContext {
             return Err(-1);
         }
         Connections::connections_borrow(ram, registry)?;
+        if extended {
+            let map = pool_long(&b, 32)?;
+            if map == 0 {
+                return Err(-1);
+            }
+            Shadow::shadow_borrow(ram, map)?;
+        }
         connection_live(ram, self.services)?;
         Ok(registry)
     }
     pub fn kernel_context_registry(&self, ram: &memory::Memory) -> Result<Connections, i32> {
         Connections::connections_borrow(ram, self.context_snapshot(ram)?)
+    }
+    pub fn kernel_context_shadow(&self, ram: &memory::Memory) -> Result<Shadow, i32> {
+        self.context_snapshot(ram)?;
+        let (_, b) = gamepkg::local_record_snapshot(self.record, 72)?;
+        if b.len() != 72 || pool_long(&b, 0)? != 0x3243494b {
+            return Err(-5);
+        }
+        Shadow::shadow_borrow(ram, pool_long(&b, 32)?)
     }
     pub fn kernel_context_close(&mut self, ram: &memory::Memory) -> Result<(), i32> {
         if ram.call_handle() != self.root || gamepkg::local_task_status()?.0 != self.creator {
@@ -1456,4 +1537,862 @@ impl KernelContext {
         self.owned = false;
         validation
     }
+}
+
+// Port-owned 4096-entry guest-to-opaque-token map. Tokens confer no native authority.
+pub struct Shadow {
+    root: u64,
+    services: u64,
+    record: u64,
+    lock: u64,
+    creator: u64,
+    owned: bool,
+    cleaning: bool,
+    pages: std::vec::Vec<u64>,
+}
+pub struct Guard {
+    root: u64,
+    services: u64,
+    record: u64,
+    lock: u64,
+    task: u64,
+    held: bool,
+    cleanup: bool,
+}
+fn shadow_word(bytes: &[u8], at: usize) -> Result<u64, i32> {
+    let b = bytes.get(at..at + 8).ok_or(-1)?;
+    Ok(u64::from_le_bytes([
+        b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7],
+    ]))
+}
+fn shadow_u32(bytes: &[u8], at: usize) -> Result<u32, i32> {
+    let b = bytes.get(at..at + 4).ok_or(-1)?;
+    Ok(u32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+}
+fn shadow_put(bytes: &mut [u8], at: usize, value: u64) -> Result<(), i32> {
+    if at.checked_add(8).ok_or(-1)? > bytes.len() {
+        return Err(-1);
+    }
+    let encoded = u64::to_le_bytes(value);
+    for lane in 0..8usize {
+        bytes[at + lane] = encoded[lane];
+    }
+    Ok(())
+}
+fn shadow_put32(bytes: &mut [u8], at: usize, value: u32) -> Result<(), i32> {
+    if at.checked_add(4).ok_or(-1)? > bytes.len() {
+        return Err(-1);
+    }
+    let encoded = u32::to_le_bytes(value);
+    for lane in 0..4usize {
+        bytes[at + lane] = encoded[lane];
+    }
+    Ok(())
+}
+fn shadow_owner(ram: &memory::Memory, services: u64) -> Result<(), i32> {
+    if services == 0 || ram.services_handle()? != services {
+        return Err(-4);
+    }
+    let values = kernel_service_values(ram);
+    if ram.services_handle()? != services {
+        return Err(-4);
+    }
+    values?;
+    if gamepkg::local_task_status()?.1 {
+        return Err(-4);
+    }
+    Ok(())
+}
+fn shadow_root(
+    record: u64,
+    root: u64,
+    services: u64,
+    lock: u64,
+) -> Result<(u64, std::vec::Vec<u8>), i32> {
+    let (version, bytes) = gamepkg::local_record_snapshot(record, 152)?;
+    if bytes.len() != 152 || shadow_word(&bytes, 0)? != 0x3153484b || shadow_word(&bytes, 40)? > 1 {
+        return Err(-1);
+    }
+    if shadow_word(&bytes, 8)? != root
+        || shadow_word(&bytes, 16)? != services
+        || shadow_word(&bytes, 24)? != lock
+        || root == 0
+        || services == 0
+        || lock == 0
+    {
+        return Err(-4);
+    }
+    let mut absent = false;
+    for index in 0..13usize {
+        let id = shadow_word(&bytes, 48 + index * 8)?;
+        if id == 0 {
+            absent = true;
+        } else {
+            if absent {
+                return Err(-1);
+            }
+            for previous in 0..index {
+                if shadow_word(&bytes, 48 + previous * 8)? == id {
+                    return Err(-1);
+                }
+            }
+        }
+    }
+    Ok((version, bytes))
+}
+fn shadow_publish(record: u64, version: u64, bytes: &[u8]) -> Result<(), i32> {
+    match gamepkg::local_record_compare_exchange(record, version, bytes) {
+        Ok(_) => Ok(()),
+        Err(-2) => Err(-3),
+        Err(code) => Err(code),
+    }
+}
+fn shadow_page(record: u64, page: u64, index: usize) -> Result<(u64, std::vec::Vec<u8>), i32> {
+    if index >= 13 || page == 0 {
+        return Err(-1);
+    }
+    let count = if index == 12 { 16usize } else { 340 };
+    let (version, bytes) = gamepkg::local_record_snapshot(page, 4096)?;
+    if bytes.len() != 16 + count * 12
+        || shadow_u32(&bytes, 0)? != 0x3150534b
+        || shadow_u32(&bytes, 4)? != index as u32
+    {
+        return Err(-1);
+    }
+    if shadow_word(&bytes, 8)? != record {
+        return Err(-4);
+    }
+    for slot in 0..count {
+        if (shadow_u32(&bytes, 16 + slot * 12)? == 0) != (shadow_word(&bytes, 20 + slot * 12)? == 0)
+        {
+            return Err(-1);
+        }
+    }
+    Ok((version, bytes))
+}
+fn shadow_unlock(lock: u64) -> Result<(), i32> {
+    if gamepkg::local_call(24, &u64::to_le_bytes(lock), &mut [])? != 0 {
+        return Err(-3);
+    }
+    Ok(())
+}
+impl Shadow {
+    pub fn shadow_new(ram: &memory::Memory) -> Result<Self, i32> {
+        let services = ram.services_handle()?;
+        shadow_owner(ram, services)?;
+        let creator = gamepkg::local_task_status()?.0;
+        let mut out = [0u8; 8];
+        if gamepkg::local_call(21, &[], &mut out)? != 8 {
+            return Err(-3);
+        }
+        let lock = u64::from_le_bytes(out);
+        let mut bytes = std::vec::Vec::new();
+        bytes.resize(152, 0);
+        for (at, value) in [
+            (0usize, 0x3153484bu64),
+            (8, ram.call_handle()),
+            (16, services),
+            (24, lock),
+        ] {
+            shadow_put(&mut bytes, at, value)?;
+        }
+        let record = match gamepkg::local_record_create(&bytes) {
+            Ok(value) => value,
+            Err(code) => {
+                let _ = gamepkg::local_call(25, &u64::to_le_bytes(lock), &mut []);
+                return Err(code);
+            }
+        };
+        Ok(Self {
+            root: ram.call_handle(),
+            services,
+            record,
+            lock,
+            creator,
+            owned: true,
+            cleaning: false,
+            pages: std::vec::Vec::new(),
+        })
+    }
+    pub fn shadow_id(&self) -> u64 {
+        self.record
+    }
+    pub fn shadow_closed(&self) -> bool {
+        self.record == 0 && self.lock == 0
+    }
+    pub fn shadow_borrow(ram: &memory::Memory, record: u64) -> Result<Self, i32> {
+        let (_, bytes) = gamepkg::local_record_snapshot(record, 152)?;
+        if bytes.len() != 152 {
+            return Err(-1);
+        }
+        let view = Self {
+            root: ram.call_handle(),
+            services: ram.services_handle()?,
+            record,
+            lock: shadow_word(&bytes, 24)?,
+            creator: 0,
+            owned: false,
+            cleaning: false,
+            pages: std::vec::Vec::new(),
+        };
+        view.shadow_snapshot(ram)?;
+        match gamepkg::local_mutex_lock(view.lock, 0) {
+            Ok(()) => shadow_unlock(view.lock)?,
+            Err(-2) => {}
+            Err(code) => return Err(code),
+        }
+        Ok(view)
+    }
+    fn shadow_snapshot(&self, ram: &memory::Memory) -> Result<(u64, std::vec::Vec<u8>), i32> {
+        if self.record == 0 || self.root != ram.call_handle() {
+            return Err(-4);
+        }
+        shadow_owner(ram, self.services)?;
+        let result = shadow_root(self.record, self.root, self.services, self.lock)?;
+        if shadow_word(&result.1, 40)? != 0 {
+            return Err(-4);
+        }
+        Ok(result)
+    }
+    pub fn shadow_lock(&self, ram: &memory::Memory) -> Result<Guard, i32> {
+        self.shadow_snapshot(ram)?;
+        let task = gamepkg::local_task_status()?.0;
+        gamepkg::local_mutex_lock(self.lock, 1000)?;
+        let result = self.shadow_enter(ram);
+        match result {
+            Ok(()) => Ok(Guard {
+                root: self.root,
+                services: self.services,
+                record: self.record,
+                lock: self.lock,
+                task,
+                held: true,
+                cleanup: false,
+            }),
+            Err(code) => {
+                let _ = shadow_unlock(self.lock);
+                Err(code)
+            }
+        }
+    }
+    // Creator-only deletion lane after service revocation. It cannot insert
+    // tokens and still requires the actual mutex and root/schema identities.
+    pub fn shadow_cleanup_lock(&self, ram: &memory::Memory) -> Result<Guard, i32> {
+        let (task, cancelled) = gamepkg::local_task_status()?;
+        if !self.owned || self.root != ram.call_handle() || self.creator != task || cancelled {
+            return Err(-4);
+        }
+        gamepkg::local_mutex_lock(self.lock, 1000)?;
+        let result = self.shadow_cleanup_enter();
+        match result {
+            Ok(()) => Ok(Guard {
+                root: self.root,
+                services: self.services,
+                record: self.record,
+                lock: self.lock,
+                task,
+                held: true,
+                cleanup: true,
+            }),
+            Err(code) => {
+                let _ = shadow_unlock(self.lock);
+                Err(code)
+            }
+        }
+    }
+    fn shadow_cleanup_enter(&self) -> Result<(), i32> {
+        let (version, mut bytes) = shadow_root(self.record, self.root, self.services, self.lock)?;
+        if shadow_word(&bytes, 40)? != 0 {
+            return Err(-4);
+        }
+        let active = shadow_word(&bytes, 32)?.checked_add(1).ok_or(-2)?;
+        shadow_put(&mut bytes, 32, active)?;
+        shadow_publish(self.record, version, &bytes)
+    }
+    fn shadow_enter(&self, ram: &memory::Memory) -> Result<(), i32> {
+        let (version, mut bytes) = self.shadow_snapshot(ram)?;
+        let active = shadow_word(&bytes, 32)?.checked_add(1).ok_or(-2)?;
+        shadow_put(&mut bytes, 32, active)?;
+        shadow_publish(self.record, version, &bytes)
+    }
+    pub fn shadow_close(&mut self, ram: &memory::Memory) -> Result<(), i32> {
+        if self.shadow_closed() {
+            return Ok(());
+        }
+        let (task, cancelled) = gamepkg::local_task_status()?;
+        if !self.owned || self.root != ram.call_handle() || task != self.creator || cancelled {
+            return Err(-4);
+        }
+        let validation = shadow_owner(ram, self.services);
+        gamepkg::local_mutex_lock(self.lock, 0)?;
+        let result = self.shadow_cleanup();
+        let unlocked = shadow_unlock(self.lock);
+        result?;
+        unlocked?;
+        gamepkg::local_call(25, &u64::to_le_bytes(self.lock), &mut [])?;
+        self.lock = 0;
+        self.owned = false;
+        validation?;
+        Ok(())
+    }
+    fn shadow_cleanup(&mut self) -> Result<(), i32> {
+        if !self.cleaning {
+            let (version, mut bytes) =
+                shadow_root(self.record, self.root, self.services, self.lock)?;
+            if shadow_word(&bytes, 32)? != 0 {
+                return Err(-2);
+            }
+            if shadow_word(&bytes, 40)? != 0 {
+                return Err(-4);
+            }
+            let mut pages = std::vec::Vec::new();
+            for index in 0..13usize {
+                let page = shadow_word(&bytes, 48 + index * 8)?;
+                if page != 0 {
+                    let (_, contents) = shadow_page(self.record, page, index)?;
+                    for slot in 0..if index == 12 { 16usize } else { 340 } {
+                        if shadow_u32(&contents, 16 + slot * 12)? != 0 {
+                            return Err(-2);
+                        }
+                    }
+                    pages.push(page);
+                }
+            }
+            shadow_put(&mut bytes, 40, 1)?;
+            shadow_publish(self.record, version, &bytes)?;
+            self.pages = pages;
+            self.cleaning = true;
+        }
+        for page in &mut self.pages {
+            if *page != 0 {
+                match gamepkg::local_record_release(*page) {
+                    Ok(()) | Err(-4) => *page = 0,
+                    Err(code) => return Err(code),
+                }
+            }
+        }
+        if self.record != 0 {
+            match gamepkg::local_record_release(self.record) {
+                Ok(()) | Err(-4) => self.record = 0,
+                Err(code) => return Err(code),
+            }
+        }
+        Ok(())
+    }
+}
+impl Guard {
+    fn shadow_guard_owner(&self, ram: &memory::Memory) -> Result<(), i32> {
+        if !self.held
+            || self.root != ram.call_handle()
+            || gamepkg::local_task_status()?.0 != self.task
+        {
+            return Err(-4);
+        }
+        Ok(())
+    }
+    fn shadow_guard_snapshot(&self, ram: &memory::Memory) -> Result<(u64, std::vec::Vec<u8>), i32> {
+        self.shadow_guard_owner(ram)?;
+        if !self.cleanup {
+            shadow_owner(ram, self.services)?;
+        }
+        let result = shadow_root(self.record, self.root, self.services, self.lock)?;
+        if shadow_word(&result.1, 40)? != 0 || shadow_word(&result.1, 32)? == 0 {
+            return Err(-4);
+        }
+        Ok(result)
+    }
+    // [page index, slot index, old token]. A zero old token is the first free slot.
+    fn shadow_find(&self, ram: &memory::Memory, guest: u32) -> Result<[u64; 3], i32> {
+        self.shadow_guard_snapshot(ram)?;
+        if guest == 0 {
+            return Err(-1);
+        }
+        let (_, root) = shadow_root(self.record, self.root, self.services, self.lock)?;
+        let mut free = [13u64, 0, 0];
+        for index in 0..13usize {
+            let page = shadow_word(&root, 48 + index * 8)?;
+            if page == 0 {
+                if free[0] == 13 {
+                    free = [index as u64, 0, 0];
+                }
+                continue;
+            }
+            let (_, bytes) = shadow_page(self.record, page, index)?;
+            for slot in 0..if index == 12 { 16usize } else { 340 } {
+                let va = shadow_u32(&bytes, 16 + slot * 12)?;
+                if va == guest {
+                    return Ok([
+                        index as u64,
+                        slot as u64,
+                        shadow_word(&bytes, 20 + slot * 12)?,
+                    ]);
+                }
+                if va == 0 && free[0] == 13 {
+                    free = [index as u64, slot as u64, 0];
+                }
+            }
+        }
+        Ok(free)
+    }
+    pub fn shadow_lookup(&self, ram: &memory::Memory, guest: u32) -> Result<Option<u64>, i32> {
+        self.shadow_guard_snapshot(ram)?;
+        if guest == 0 {
+            return Ok(None);
+        }
+        let found = self.shadow_find(ram, guest)?;
+        if found[2] == 0 {
+            Ok(None)
+        } else {
+            Ok(Some(found[2]))
+        }
+    }
+    // This only publishes port metadata. The typed caller closes a displaced
+    // resource before publication, while this guard remains held.
+    pub fn shadow_insert(
+        &self,
+        ram: &memory::Memory,
+        guest: u32,
+        token: u64,
+    ) -> Result<Option<u64>, i32> {
+        if self.cleanup {
+            return Err(-4);
+        }
+        if token == 0 {
+            return Err(-1);
+        }
+        let found = self.shadow_find(ram, guest)?;
+        if found[0] == 13 {
+            return Err(-2);
+        }
+        let index = found[0] as usize;
+        let slot = found[1] as usize;
+        let (root_version, mut root) = self.shadow_guard_snapshot(ram)?;
+        let mut page = shadow_word(&root, 48 + index * 8)?;
+        if page == 0 {
+            let mut bytes = std::vec::Vec::new();
+            bytes.resize(if index == 12 { 208 } else { 4096 }, 0);
+            shadow_put32(&mut bytes, 0, 0x3150534b)?;
+            shadow_put32(&mut bytes, 4, index as u32)?;
+            shadow_put(&mut bytes, 8, self.record)?;
+            page = gamepkg::local_record_create(&bytes)?;
+            shadow_put(&mut root, 48 + index * 8, page)?;
+            if let Err(code) = shadow_publish(self.record, root_version, &root) {
+                let _ = gamepkg::local_record_release(page);
+                return Err(code);
+            }
+        }
+        let (version, mut bytes) = shadow_page(self.record, page, index)?;
+        if shadow_u32(&bytes, 16 + slot * 12)? != if found[2] == 0 { 0 } else { guest }
+            || shadow_word(&bytes, 20 + slot * 12)? != found[2]
+        {
+            return Err(-3);
+        }
+        shadow_put32(&mut bytes, 16 + slot * 12, guest)?;
+        shadow_put(&mut bytes, 20 + slot * 12, token)?;
+        shadow_publish(page, version, &bytes)?;
+        if found[2] == 0 {
+            Ok(None)
+        } else {
+            Ok(Some(found[2]))
+        }
+    }
+    pub fn shadow_remove(&self, ram: &memory::Memory, guest: u32) -> Result<Option<u64>, i32> {
+        self.shadow_guard_snapshot(ram)?;
+        if guest == 0 {
+            return Ok(None);
+        }
+        let found = self.shadow_find(ram, guest)?;
+        if found[2] == 0 {
+            return Ok(None);
+        }
+        let (_, root) = self.shadow_guard_snapshot(ram)?;
+        let index = found[0] as usize;
+        let slot = found[1] as usize;
+        let page = shadow_word(&root, 48 + index * 8)?;
+        let (version, mut bytes) = shadow_page(self.record, page, index)?;
+        if shadow_u32(&bytes, 16 + slot * 12)? != guest
+            || shadow_word(&bytes, 20 + slot * 12)? != found[2]
+        {
+            return Err(-3);
+        }
+        shadow_put32(&mut bytes, 16 + slot * 12, 0)?;
+        shadow_put(&mut bytes, 20 + slot * 12, 0)?;
+        shadow_publish(page, version, &bytes)?;
+        Ok(Some(found[2]))
+    }
+    pub fn shadow_entries(&self, ram: &memory::Memory) -> Result<std::vec::Vec<[u64; 2]>, i32> {
+        let (_, root) = self.shadow_guard_snapshot(ram)?;
+        let mut result = std::vec::Vec::new();
+        for index in 0..13usize {
+            let page = shadow_word(&root, 48 + index * 8)?;
+            if page == 0 {
+                continue;
+            }
+            let (_, bytes) = shadow_page(self.record, page, index)?;
+            for slot in 0..if index == 12 { 16usize } else { 340 } {
+                let guest = shadow_u32(&bytes, 16 + slot * 12)?;
+                if guest != 0 {
+                    result.push([u64::from(guest), shadow_word(&bytes, 20 + slot * 12)?]);
+                }
+            }
+        }
+        Ok(result)
+    }
+    // Copied slot order, including holes. Values are port metadata, not
+    // permission to use an arbitrary SDK handle or native address.
+    pub fn shadow_slots(&self, ram: &memory::Memory) -> Result<std::vec::Vec<[u64; 2]>, i32> {
+        let (_, root) = self.shadow_guard_snapshot(ram)?;
+        let mut result = std::vec::Vec::new();
+        for index in 0..13usize {
+            let count = if index == 12 { 16usize } else { 340 };
+            let page = shadow_word(&root, 48 + index * 8)?;
+            if page == 0 {
+                for _ in 0..count {
+                    result.push([0, 0]);
+                }
+            } else {
+                let (_, bytes) = shadow_page(self.record, page, index)?;
+                for slot in 0..count {
+                    result.push([
+                        u64::from(shadow_u32(&bytes, 16 + slot * 12)?),
+                        shadow_word(&bytes, 20 + slot * 12)?,
+                    ]);
+                }
+            }
+        }
+        Ok(result)
+    }
+    pub fn shadow_guard_close(&mut self, ram: &memory::Memory) -> Result<(), i32> {
+        if !self.held {
+            return Ok(());
+        }
+        self.shadow_guard_owner(ram)?;
+        let result = self.shadow_leave();
+        let unlocked = shadow_unlock(self.lock);
+        if unlocked.is_ok() {
+            self.held = false;
+        }
+        result?;
+        unlocked?;
+        Ok(())
+    }
+    fn shadow_leave(&self) -> Result<(), i32> {
+        let (version, mut root) = shadow_root(self.record, self.root, self.services, self.lock)?;
+        let active = shadow_word(&root, 32)?;
+        if active == 0 {
+            return Err(-3);
+        }
+        shadow_put(&mut root, 32, active - 1)?;
+        shadow_publish(self.record, version, &root)
+    }
+    pub fn shadow_guard_closed(&self) -> bool {
+        !self.held
+    }
+}
+
+// Port-owned event/timer headers and shadow order. Native events remain SDK-owned.
+fn event_signal(id: u64, signal: bool) -> Result<(), i32> {
+    if gamepkg::local_call(
+        22,
+        &[
+            u64::to_le_bytes(id).as_slice(),
+            &u32::to_le_bytes(u32::from(signal)),
+        ]
+        .concat(),
+        &mut [],
+    )? != 0
+    {
+        return Err(-3);
+    }
+    Ok(())
+}
+fn event_release(id: u64) -> Result<(), i32> {
+    if gamepkg::local_call(25, &u64::to_le_bytes(id), &mut [])? != 0 {
+        return Err(-3);
+    }
+    Ok(())
+}
+fn event_native_new(manual: bool, signal: bool) -> Result<u64, i32> {
+    let mut out = [0u8; 8];
+    if gamepkg::local_call(
+        20,
+        &[
+            u32::to_le_bytes(u32::from(manual)),
+            u32::to_le_bytes(u32::from(signal)),
+        ]
+        .concat(),
+        &mut out,
+    )? != 8
+    {
+        return Err(-3);
+    }
+    let id = u64::from_le_bytes(out);
+    Ok(id)
+}
+fn event_create_locked(
+    guard: &Guard,
+    ram: &memory::Memory,
+    guest: u32,
+    manual: bool,
+    signal: bool,
+) -> Result<u64, i32> {
+    let id = event_native_new(manual, signal)?;
+    let result = event_publish_locked(guard, ram, guest, id);
+    if let Err(code) = result {
+        let _ = event_release(id);
+        return Err(code);
+    }
+    Ok(id)
+}
+fn event_publish_locked(
+    guard: &Guard,
+    ram: &memory::Memory,
+    guest: u32,
+    id: u64,
+) -> Result<(), i32> {
+    if let Some(old) = guard.shadow_lookup(ram, guest)? {
+        // Never close an unrelated mutex/task token presented as an event.
+        gamepkg::local_event_state(old)?;
+        event_release(old)?;
+    }
+    // A failure here is an explicit fatal partial prefix: an old event may
+    // already be revoked. The caller must stop/report, not blindly retry.
+    guard.shadow_insert(ram, guest, id)?;
+    Ok(())
+}
+pub fn event_replace(
+    map: &Shadow,
+    ram: &memory::Memory,
+    guest: u32,
+    manual: bool,
+    signal: bool,
+) -> Result<u64, i32> {
+    if guest == 0 {
+        return Err(-1);
+    }
+    // The original initializer creates before acquiring the shadow-table lock.
+    let id = event_native_new(manual, signal)?;
+    let mut guard = match map.shadow_lock(ram) {
+        Ok(value) => value,
+        Err(code) => {
+            let _ = event_release(id);
+            return Err(code);
+        }
+    };
+    let result = event_publish_locked(&guard, ram, guest, id);
+    let closed = guard.shadow_guard_close(ram);
+    if let Err(code) = result {
+        let _ = event_release(id);
+        return Err(code);
+    }
+    closed?;
+    Ok(id)
+}
+
+pub fn event_lookup(map: &Shadow, ram: &memory::Memory, guest: u32) -> Result<Option<u64>, i32> {
+    let mut guard = map.shadow_lock(ram)?;
+    let result = guard.shadow_lookup(ram, guest);
+    let closed = guard.shadow_guard_close(ram);
+    let value = result?;
+    closed?;
+    if let Some(id) = value {
+        gamepkg::local_event_state(id)?;
+    }
+    Ok(value)
+}
+pub fn event_for(map: &Shadow, ram: &memory::Memory, guest: u32) -> Result<Option<u64>, i32> {
+    if let Some(id) = event_lookup(map, ram, guest)? {
+        return Ok(Some(id));
+    }
+    if guest == 0 {
+        return Ok(None);
+    }
+    let mut header = [0u8; 16];
+    ram.read_bytes(guest, &mut header)?;
+    let kind = header[0];
+    if kind > 1 {
+        return Ok(None);
+    }
+    let mut guard = map.shadow_lock(ram)?;
+    let result = event_lazy_locked(&guard, ram, guest, kind);
+    let closed = guard.shadow_guard_close(ram);
+    let id = result?;
+    closed?;
+    Ok(Some(id))
+}
+fn event_lazy_locked(
+    guard: &Guard,
+    ram: &memory::Memory,
+    guest: u32,
+    kind: u8,
+) -> Result<u64, i32> {
+    if let Some(id) = guard.shadow_lookup(ram, guest)? {
+        gamepkg::local_event_state(id)?;
+        return Ok(id);
+    }
+    // Original Type is sampled before taking the map lock; SignalState is read
+    // only here. Recheck the mapping so concurrent first users share one event.
+    let signal = ram.read_u32(guest.checked_add(4).ok_or(-1)?)? != 0;
+    event_create_locked(guard, ram, guest, kind == 0, signal)
+}
+pub fn event_initialize(
+    map: &Shadow,
+    ram: &mut memory::Memory,
+    guest: u32,
+    kind: u32,
+    initial: u32,
+) -> Result<(), i32> {
+    if guest == 0 || guest.checked_add(15).is_none() {
+        return Err(-1);
+    }
+    event_replace(map, ram, guest, kind == 0, initial != 0)?;
+    // The mapping is published before the original guest-header writes.
+    ram.write_u8(guest, u8::from(kind != 0))?;
+    ram.write_u8(guest + 1, 0)?;
+    ram.write_u8(guest + 2, 16)?;
+    ram.write_u8(guest + 3, 1)?;
+    ram.write_u32(guest + 4, u32::from(initial != 0))?;
+    ram.write_u32(guest + 8, 0)?;
+    ram.write_u32(guest + 12, 0)?;
+    Ok(())
+}
+pub fn timer_initialize(
+    map: &Shadow,
+    ram: &mut memory::Memory,
+    guest: u32,
+    kind: u32,
+) -> Result<(), i32> {
+    if guest == 0 {
+        return Ok(());
+    }
+    if guest.checked_add(39).is_none() {
+        return Err(-1);
+    }
+    // Original timer bridge writes its 40-byte guest object before allocating
+    // an event. A failed allocation leaves that prefix and any old mapping.
+    ram.fill(guest, 0, 40)?;
+    ram.write_u8(guest, 8 + (kind & 1) as u8)?;
+    ram.write_u8(guest + 2, 40)?;
+    event_replace(map, ram, guest, kind == 0, false)?;
+    Ok(())
+}
+pub fn event_set(map: &Shadow, ram: &memory::Memory, guest: u32) -> Result<bool, i32> {
+    match event_for(map, ram, guest)? {
+        Some(id) => {
+            event_signal(id, true)?;
+            Ok(true)
+        }
+        None => Ok(false),
+    }
+}
+pub fn event_reset(map: &Shadow, ram: &memory::Memory, guest: u32) -> Result<bool, i32> {
+    match event_for(map, ram, guest)? {
+        Some(id) => {
+            event_signal(id, false)?;
+            Ok(true)
+        }
+        None => Ok(false),
+    }
+}
+pub fn event_wait(
+    map: &Shadow,
+    ram: &memory::Memory,
+    guest: u32,
+    milliseconds: u32,
+) -> Result<(), i32> {
+    let id = event_for(map, ram, guest)?.ok_or(-5)?;
+    gamepkg::local_event_wait(id, milliseconds)
+}
+pub fn timer_reset_after_set(map: &Shadow, ram: &memory::Memory, guest: u32) -> Result<bool, i32> {
+    match event_lookup(map, ram, guest)? {
+        Some(id) => {
+            event_signal(id, false)?;
+            Ok(true)
+        }
+        None => Ok(false),
+    }
+}
+pub fn timer_signal_after_callback(
+    map: &Shadow,
+    ram: &mut memory::Memory,
+    guest: u32,
+) -> Result<bool, i32> {
+    match event_lookup(map, ram, guest)? {
+        Some(id) => {
+            event_signal(id, true)?;
+            ram.write_u32(guest.checked_add(4).ok_or(-1)?, 1)?;
+            Ok(true)
+        }
+        None => Ok(false),
+    }
+}
+// Ordinary removal is available to live port callers. Owner-only shutdown
+// below retains a deletion lane after KSV3 revocation; neither bypasses kind checks.
+pub fn event_remove(map: &Shadow, ram: &memory::Memory, guest: u32) -> Result<bool, i32> {
+    let mut guard = map.shadow_lock(ram)?;
+    let result = event_remove_locked(&guard, ram, guest);
+    let closed = guard.shadow_guard_close(ram);
+    let value = result?;
+    closed?;
+    Ok(value)
+}
+fn event_remove_locked(guard: &Guard, ram: &memory::Memory, guest: u32) -> Result<bool, i32> {
+    let id = match guard.shadow_lookup(ram, guest)? {
+        Some(id) => id,
+        None => return Ok(false),
+    };
+    let missing = match gamepkg::local_event_state(id) {
+        Ok(_) => false,
+        Err(-4) => true,
+        Err(code) => return Err(code),
+    };
+    if !missing {
+        event_release(id)?;
+    }
+    if guard.shadow_remove(ram, guest)? != Some(id) {
+        return Err(-3);
+    }
+    if missing {
+        return Err(-4);
+    }
+    Ok(true)
+}
+pub fn event_close_all(map: &Shadow, ram: &memory::Memory) -> Result<(), i32> {
+    let mut guard = map.shadow_cleanup_lock(ram)?;
+    let result = event_close_locked(&guard, ram);
+    let closed = guard.shadow_guard_close(ram);
+    result?;
+    closed?;
+    Ok(())
+}
+fn event_close_locked(guard: &Guard, ram: &memory::Memory) -> Result<(), i32> {
+    let entries = guard.shadow_entries(ram)?;
+    let mut missing = false;
+    for entry in entries {
+        match event_remove_locked(guard, ram, entry[0] as u32) {
+            Ok(true) => {}
+            Err(-4) => missing = true,
+            Ok(false) => return Err(-3),
+            Err(code) => return Err(code),
+        }
+    }
+    if missing {
+        return Err(-4);
+    }
+    Ok(())
+}
+
+// Classification is deliberately separate from per-import binding readiness.
+pub fn kernel_context_ready(ram: &memory::Memory, context: u64, ordinal: u32) -> Result<(), i32> {
+    if !kernel_requires_context(ordinal) {
+        return Ok(());
+    }
+    if context == 0 {
+        return Err(-5);
+    }
+    let bound = KernelContext::kernel_context_borrow(ram, context)?;
+    if ordinal == 113 {
+        bound.kernel_context_shadow(ram)?;
+    }
+    Ok(())
 }

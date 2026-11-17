@@ -856,3 +856,57 @@ unchanged; source-kit/receipt identities change. The private bound-context main
 gap stays 107, and complete generated-source closure is not requalified by this
 fixture. Full import/source/handler/loop/renderer/media/build/launch/gameplay work
 remains required; no engine/media source or object exemption is introduced.
+
+## Explicit timer-initializer import binding (KIC2)
+
+Checked port code now classifies ordinal **113 KeInitializeTimerEx** as eight
+argument bytes and invokes the existing checked `timer_initialize` operation.
+It requires `KernelContext::kernel_context_new_with_shadow(&Memory,&Connections,
+&Shadow)`. The new KIC2 record is exactly 72 bytes: little-endian u64 magic
+`0x3243494b`, root, KSV3, ISR1 registry, shadow-map ID, then four reserved zero
+words at 40/48/56/64. The existing strict KIC1/64 layout stays unchanged and
+cannot admit 113. `kernel_context_shadow(&Memory)` returns a borrowed map;
+it cannot close its owner. Stop and join all users before owner release.
+
+`kernel_context_ready(&Memory,context_id,ordinal)` separates classification
+from actual per-import readiness. Main-table and lookbehind planning use it
+before patching, and invocation rechecks it before caller/CPU mutation. KPL4,
+worker four-ID, CPU v5/316, SDK, host quotas and admission policies are unchanged.
+A prepared plan revalidates the live map through its context before publication;
+these copied IDs are not leases or an atomic lifetime transaction.
+
+The one checked `Shadow`/`Guard` and event implementation now lives alongside
+`Connections` in port `service-kernel-pool/kernel_pool.rs`. The old shadow path
+reexports `Shadow`, and event functions forward to that implementation. No game
+engine code enters the trusted host; no SDK operation or dependency is added.
+The original map and event mutation tests now mutate that actual implementation.
+
+The timer bridge reads both u32 arguments, retains the original 40-byte zeroed
+header/type/size writes before event allocation, selects manual reset only for
+kind exactly zero, and uses the same event map as other timer callers. A null
+timer returns success without allocation. Success sets EAX=0 and advances ESP by
+12; all other CPU bytes remain unchanged. Allocation, RAM, kind/lifetime and
+publication failures remain explicit, with accepted guest/event prefixes retained;
+callers must stop/report rather than retry or invent CPU success.
+
+The actual four-ID worker fixture checks kinds 0/1/2/0xffffffff, exact header and
+boundary sentinels, event signal consumption, null input, legacy-context planning
+refusal, forged KPL4 legacy binding, full-u64 shadow identity, reserved fields and
+shadow revocation between planning/publication. Seven required-failing context
+copies include missing-shadow readiness and truncated-ID mutations. Linux32/64
+run the admitted confined child; Windows32/64 component execution is Wine, with
+separate source/object/link admission on all four targets. Map/event, timer-table
+and retained timer/dispatch regressions pass on these exact sources. Legacy pool
+and complete-import comparisons also pass. None is title gameplay, real Windows
+confinement, device input, audible audio, graphics or measured frame pacing.
+
+The authenticated Startup factory still creates KIC1. It must explicitly own or
+bind the shared map and coordinate its event cleanup before using this new path;
+raw-table component qualification does not migrate that factory. Its private
+main-import gap remains 107 (108 without context); ordinal 113 remains a readiness
+gap there despite its implemented classification. Complete generated-source,
+handler/loop, renderer/media, builder/launcher and actual gameplay qualification
+remain required. Both title profiles, catalog recipes, public source archive,
+pinned submodule and launch defaults remain unchanged and blocked. Rebuild checked
+source kits and receipts for the changed exact game-source/object identities.
+The installed matching host SDK does not require a binary update for these APIs.

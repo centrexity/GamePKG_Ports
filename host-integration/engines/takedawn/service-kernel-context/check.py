@@ -27,6 +27,8 @@ def main():
    ('drop-context-root-check',here/'../service-kernel-pool/kernel_pool.rs','pool_long(&b, 8)? != self.root || pool_long(&b, 16)? != self.services','pool_long(&b, 8)? != pool_long(&b, 8)? || pool_long(&b, 16)? != self.services',1),
    ('drop-context-reserved-check',here/'../service-kernel-pool/kernel_pool.rs','if pool_long(&b, at)? != 0 {','if pool_long(&b, at)? != pool_long(&b, at)? {',1),
    ('stale-publish-context',here/'../service-kernel-imports/imports.rs','if self.context != 0 {','if false {',1),
+   ('allow-timer-without-shadow',here/'../service-kernel-pool/kernel_pool.rs','bound.kernel_context_shadow(ram)?;','let _ = &bound;',1),
+   ('truncate-shadow-identity',here/'../service-kernel-pool/kernel_pool.rs','let map = pool_long(&b, 32)?;','let map = (pool_long(&b, 32)? as u32) as u64;',1),
    ('drop-context-services-check',here/'../service-kernel-pool/kernel_pool.rs','pool_long(&b, 16)? != self.services','pool_long(&b, 16)? != pool_long(&b, 16)?',1),
   ]:
    original=path.read_text();assert original.count(old)==count,name
@@ -45,7 +47,7 @@ def main():
     record=json.loads(path.read_text());assert len(record['game']['objects'])==len(record['raw_objects'])==8
     name=path.parent.name+'.json';shutil.copyfile(path,a.evidence/name);receipts[name]=digest(path)
    assert len(receipts)==4
-   report={'schema':1,'status':'complete-import-KPL4-context-and-actual-worker-ABI-component-not-title-gameplay','sources':{name:digest(path) for name,path in modules},'receipts':receipts,'vectors_sha256':digest(root/'vectors'),'rustc':subprocess.check_output(['rustc','-vV'],text=True),'windows':'Wine components' if a.wine else 'compile-only','profile_admission':'blocked'}
+   report={'schema':1,'status':'complete-import-KPL4-KIC1-KIC2-timer-context-and-actual-worker-ABI-component-not-title-gameplay','sources':{name:digest(path) for name,path in modules},'receipts':receipts,'vectors_sha256':digest(root/'vectors'),'rustc':subprocess.check_output(['rustc','-vV'],text=True),'windows':'Wine components' if a.wine else 'compile-only','profile_admission':'blocked','negative_controls':7,'timer_import':113,'timer_kinds':[0,1,2,4294967295],'timer_checks':['exact-316-byte-cpu-result','40-byte-header-and-sentinels','event-kind-and-consumption','null-timer','legacy-context-refused-before-patch','forged-legacy-plan','full-u64-shadow-identity','reserved-fields','shadow-revocation-before-publication']}
    (a.evidence/'qualification.json').write_text(json.dumps(report,indent=2)+'\n')
  print('Actual KPL4/context/import ABI composition only; full generated/native runtime/device/build/launcher/title qualification remains required.')
 if __name__=='__main__':main()

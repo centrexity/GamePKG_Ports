@@ -27,14 +27,15 @@ def main():
    subprocess.run(cmd,check=True)
    if 'windows' not in target:subprocess.run([str(exe),str(root/'vectors')],check=True,timeout=120)
    elif a.wine:subprocess.run(['wine',str(exe)],check=True,timeout=120,env=dict(os.environ,WINEDEBUG='-all',WINEPREFIX='/tmp/gamepkg-port-replace-wine'))
-  text=(here/'shadow.rs').read_text()
+  mutated_path=here/'../service-kernel-pool/kernel_pool.rs'
+  text=mutated_path.read_text()
   for name,old,new in [
    ('early-close', 'if shadow_word(&bytes, 32)? != 0 {', 'if false {'),
    ('wrong-page-owner', 'if shadow_word(&bytes, 8)? != record {', 'if record == 0 {'),
    ('missing-slot-removal', 'shadow_put32(&mut bytes, 16 + slot * 12, 0)?;', 'shadow_put32(&mut bytes, 16 + slot * 12, guest)?;'),
   ]:
    assert text.count(old)==1,name
-   bad=root/(name+'.rs');bad.write_text(text.replace(old,new));driver=root/(name+'-main.rs');driver.write_text(source.read_text().replace(json.dumps(str(here/'shadow.rs')),json.dumps(str(bad))))
+   bad=root/(name+'.rs');bad.write_text(text.replace(old,new));driver=root/(name+'-main.rs');driver.write_text(source.read_text().replace(json.dumps(str(mutated_path)),json.dumps(str(bad))))
    exe=root/name;subprocess.run(['rustc','--edition=2021','-D','warnings','-O',str(driver),'-C','link-arg='+str(root/'x86_64-unknown-linux-gnu.o'),'-o',str(exe)],check=True)
    result=subprocess.run([str(exe)],capture_output=True,text=True,timeout=120)
    assert result.returncode!=0 and 'on an `Err` value:' in result.stderr,(name,result.stderr)

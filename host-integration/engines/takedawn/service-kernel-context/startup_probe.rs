@@ -214,7 +214,10 @@ pub fn startup_image(
             if current & 0x80000000 != 0 {
                 let ordinal = current & 0x7fffffff;
                 if data.data_address(ram, ordinal)? == 0
-                    && kernel_pool::kernel_supported(ordinal).is_err()
+                    // This startup still creates KIC1: timer initialization
+                    // needs the explicit KIC2 shadow binding, even though its
+                    // argument classification is now implemented.
+                    && (kernel_pool::kernel_supported(ordinal).is_err() || ordinal == 113)
                 {
                     missing.push(u64::from(ordinal));
                     if missing.len() == 32 {

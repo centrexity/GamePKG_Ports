@@ -135,9 +135,7 @@ impl Imports {
                 continue;
             }
             kernel_pool::kernel_supported(ordinal)?;
-            if kernel_pool::kernel_requires_context(ordinal) && context == 0 {
-                return Err(-5);
-            }
+            kernel_pool::kernel_context_ready(ram, context, ordinal)?;
             physical |= kernel_pool::kernel_physical(ordinal);
             services |= kernel_pool::kernel_requires_services(ordinal);
             imports_put(&mut patched, 64 + slot * 4, 0xfe000000 + slot as u32 * 4);
@@ -156,9 +154,7 @@ impl Imports {
             // Original lookbehind deliberately has neither remap nor data routing.
             let ordinal = current & 0x7fffffff;
             kernel_pool::kernel_supported(ordinal)?;
-            if kernel_pool::kernel_requires_context(ordinal) && context == 0 {
-                return Err(-5);
-            }
+            kernel_pool::kernel_context_ready(ram, context, ordinal)?;
             physical |= kernel_pool::kernel_physical(ordinal);
             services |= kernel_pool::kernel_requires_services(ordinal);
             ordinals[slot as usize] = ordinal;
