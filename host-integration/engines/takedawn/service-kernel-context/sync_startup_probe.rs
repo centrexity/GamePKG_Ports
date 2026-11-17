@@ -355,12 +355,52 @@ pub fn protection_fixture(ram: &mut memory::Memory, slots: [u32; 2]) -> Result<(
     Ok(())
 }
 
-pub fn virtual_startup_fixture(ram: &mut memory::Memory, slots: [u32; 2]) -> Result<(), i32> {
-    let [allocate, free] = slots;
+fn virtual_query_fixture(
+    ram: &mut memory::Memory,
+    stack: u32,
+    query: u32,
+    address: u32,
+    expected: [u32; 7],
+) -> Result<(), i32> {
+    let output = stack + 108;
+    ram.write_u32(output - 4, 0x0badcafe)?;
+    ram.write_u32(output + 28, 0x0badcafe)?;
+    sync_startup_need(
+        1043,
+        protection_fixture_invoke(ram, stack, query, &[address, output], 0)? == 0,
+    )?;
+    for (index, expected_value) in expected.iter().enumerate() {
+        sync_startup_need(
+            1044,
+            ram.read_u32(output + (index as u32) * 4)? == *expected_value,
+        )?;
+    }
+    sync_startup_need(
+        1045,
+        ram.read_u32(output - 4)? == 0x0badcafe && ram.read_u32(output + 28)? == 0x0badcafe,
+    )
+}
+
+pub fn virtual_startup_fixture(ram: &mut memory::Memory, slots: [u32; 3]) -> Result<(), i32> {
+    let [allocate, free, query] = slots;
     let stack = ram.read_u32(0x4008)?.checked_add(0x2200).ok_or(-1)?;
     let base_at = stack + 80;
     let size_at = stack + 84;
     let allocate_args = [base_at, 0, size_at, 0x2000, 4];
+    let arena_start = 0x03800000;
+    virtual_query_fixture(
+        ram,
+        stack,
+        query,
+        arena_start + 333,
+        [arena_start, 0, 0, 8388608, 0x10000, 1, 0],
+    )?;
+    sync_startup_need(
+        1046,
+        protection_fixture_invoke(ram, stack, query, &[arena_start, 0], 0)? == 0xc000000d
+            && kernel_pool::kernel_ordinal(&ram.call_view(), query) == Err(-5),
+    )?;
+    protection_fixture_invoke(ram, stack, query, &[0x10000, stack + 108], -5)?;
     ram.write_u32(base_at, 0)?;
     ram.write_u32(size_at, 1048576)?;
     sync_startup_need(
@@ -369,6 +409,13 @@ pub fn virtual_startup_fixture(ram: &mut memory::Memory, slots: [u32; 2]) -> Res
     )?;
     let region = ram.read_u32(base_at)?;
     let alias = region + 0x04000000;
+    virtual_query_fixture(
+        ram,
+        stack,
+        query,
+        alias + 8193,
+        [alias + 8192, alias, 4, 1048576 - 8192, 0x2000, 0, 0x20000],
+    )?;
     sync_startup_need(
         1032,
         region == 0x03800000
@@ -390,6 +437,26 @@ pub fn virtual_startup_fixture(ram: &mut memory::Memory, slots: [u32; 2]) -> Res
             && ram.read_u32(region)? == 0
             && ram.read_u32(region + 4096) == Err(-4),
     )?;
+    virtual_query_fixture(
+        ram,
+        stack,
+        query,
+        alias + 8,
+        [alias, alias, 4, 4096, 0x1000, 4, 0x20000],
+    )?;
+    virtual_query_fixture(
+        ram,
+        stack,
+        query,
+        region + 4097,
+        [region + 4096, region, 4, 1048576 - 4096, 0x2000, 0, 0x20000],
+    )?;
+    let boundary = (stack & !4095) + 4096;
+    ram.write_u32(boundary - 4, 0x4abcde98)?;
+    ram.memory_set_guest_protection(boundary, 1, 2)?;
+    protection_fixture_invoke(ram, stack, query, &[region, boundary - 4], -4)?;
+    sync_startup_need(1047, ram.read_u32(boundary - 4)? == 0x4abcde98)?;
+    ram.memory_set_guest_protection(boundary, 1, 4)?;
     ram.write_u32(region, 0x76755452)?;
     ram.write_u32(region + 8, region)?;
     let free_from_region = [alias + 8, size_at, 0x4000];
@@ -404,6 +471,28 @@ pub fn virtual_startup_fixture(ram: &mut memory::Memory, slots: [u32; 2]) -> Res
             && ram.read_u32(alias)? == 0x76755452
             && ram.read_u32(region + 4096)? == 0
             && ram.write_u32(region, 0) == Err(-4),
+    )?;
+    virtual_query_fixture(
+        ram,
+        stack,
+        query,
+        region,
+        [region, region, 4, 8192, 0x1000, 2, 0x20000],
+    )?;
+    ram.memory_set_guest_protection(region + 4096, 1, 1)?;
+    virtual_query_fixture(
+        ram,
+        stack,
+        query,
+        region,
+        [region, region, 4, 4096, 0x1000, 2, 0x20000],
+    )?;
+    virtual_query_fixture(
+        ram,
+        stack,
+        query,
+        alias + 4096,
+        [alias + 4096, alias, 4, 4096, 0x1000, 1, 0x20000],
     )?;
     let decommit = [base_at, size_at, 0x4000];
     sync_startup_need(
@@ -444,6 +533,28 @@ pub fn virtual_startup_fixture(ram: &mut memory::Memory, slots: [u32; 2]) -> Res
             && ram.read_u32(high + 8192)? == 0
             && protection_fixture_invoke(ram, stack, allocate, &commit_first, 0)? == 0xc0000018,
     )?;
+    virtual_query_fixture(
+        ram,
+        stack,
+        query,
+        high + 4096,
+        [high + 4096, 0, 0, 4096, 0x10000, 1, 0],
+    )?;
+    virtual_query_fixture(
+        ram,
+        stack,
+        query,
+        high + 8192,
+        [
+            high + 8192,
+            high + 8192,
+            4,
+            1048576 - 8192,
+            0x1000,
+            4,
+            0x20000,
+        ],
+    )?;
     for fragment in [high, high + 8192] {
         ram.write_u32(base_at, fragment)?;
         ram.write_u32(size_at, 0)?;
@@ -453,5 +564,6 @@ pub fn virtual_startup_fixture(ram: &mut memory::Memory, slots: [u32; 2]) -> Res
         )?;
     }
     gamepkg::diagnostic(1, 0x544b4a00, &[184, 199, 1048576, 8192])?;
+    gamepkg::diagnostic(1, 0x544b4b00, &[217, 28, 4096, 8388608])?;
     Ok(())
 }

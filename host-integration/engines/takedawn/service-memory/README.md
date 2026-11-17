@@ -169,10 +169,34 @@ overlap the affected backing, including mirrored addresses. A recoverable
 page-operation failure restores the original outputs and any earlier
 changes to the page runs. If recovery itself fails, subsequent VM calls
 refuse the poisoned arena. This protocol is for startup-owner dispatch.
-Shared concurrent VM mutations, NtQueryVirtualMemory, and full retail flag
-and failure coverage remain separate work.
+Shared concurrent VM mutations and full retail flag and failure coverage
+remain separate work.
 
 The confined fixture exercises the observed 1 MiB reservation and first
 4 KiB commit, plus mixed recommit, retained bytes through aliases, refusing
 overlapping outputs, decommit, top-down allocation, and partial release.
 The ISO import inspection leaves the title entry gated.
+
+### Virtual-memory queries
+
+NtQueryVirtualMemory (217) takes the guest address to inspect and a guest
+output pointer. For the startup arena it returns the 28-byte Xbox
+MEMORY_BASIC_INFORMATION record as seven little-endian words in order:
+BaseAddress, AllocationBase, AllocationProtect, RegionSize, State, Protect
+and Type. It rounds the queried address down and reports the forward run of
+pages with the same state and access, stopping at an allocation boundary. The
+current protection comes from GamePKG's actual page-state service. Reserve
+protection is retained across commits, protection changes and partial release.
+Mirrored queries report addresses in the requested guest view.
+
+Free gaps report MEM_FREE, zero allocation fields, PAGE_NOACCESS and zero
+type. A reserved run reports MEM_RESERVE, zero current protection and
+MEM_PRIVATE. A committed run reports MEM_COMMIT, actual protection and
+MEM_PRIVATE. Queries into an unrelated mapping remain unsupported because
+this arena has no allocation metadata for it. A null output returns the guest
+invalid-parameter status. An inaccessible output fails before any of its bytes
+change. The same startup-owner restriction applies to queries and mutations.
+
+The authenticated fixture checks free and reserved runs, mixed protections,
+mirrored views, fragment boundaries, a refused non-owner view, and a result
+spanning a read-only page. It opens no game window.

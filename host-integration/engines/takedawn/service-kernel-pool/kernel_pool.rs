@@ -15,7 +15,7 @@ fn pool_long(bytes: &[u8], at: usize) -> Result<u64, i32> {
 fn pool_argument_bytes(ordinal: u32) -> Result<u32, i32> {
     match ordinal {
         14 | 17 | 23 | 98 | 165 | 171 | 179 | 180 | 277 | 291 | 294 | 301 | 335 => Ok(4),
-        15 | 44 | 113 | 168 | 225 | 289 | 290 | 337 => Ok(8),
+        15 | 44 | 113 | 168 | 217 | 225 | 289 | 290 | 337 => Ok(8),
         189 | 193 => Ok(16),
         107 | 182 | 199 | 222 | 269 | 279 | 336 | 338 | 339 => Ok(12),
         109 | 340 => Ok(28),
@@ -43,7 +43,7 @@ pub fn kernel_requires_context(ordinal: u32) -> bool {
         || ordinal == 222
 }
 pub fn kernel_vm_ordinal(ordinal: u32) -> bool {
-    ordinal == 184 || ordinal == 199
+    ordinal == 184 || ordinal == 199 || ordinal == 217
 }
 pub fn kernel_physical(ordinal: u32) -> bool {
     ordinal == 165 || ordinal == 166 || ordinal == 168 || ordinal == 171 || ordinal == 180

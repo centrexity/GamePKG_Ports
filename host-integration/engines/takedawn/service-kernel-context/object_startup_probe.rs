@@ -428,7 +428,7 @@ pub fn object_startup_image(
         if mode >= 69 {
             if mode == 94 {
                 crate::sync_startup_probe::protection_fixture(ram, [26, 27])?;
-                crate::sync_startup_probe::virtual_startup_fixture(ram, [28, 29])?;
+                crate::sync_startup_probe::virtual_startup_fixture(ram, [28, 29, 30])?;
             }
             if mode < 83 {
                 crate::sync_startup_probe::sync_startup_schema(ram, &owner, mode)?;
@@ -684,7 +684,7 @@ pub fn object_startup_image(
             u64::from(mode),
             expected as i64 as u64,
             if mode == 94 || mode == 95 {
-                30
+                31
             } else if mode == 92 {
                 18
             } else if mode == 90 || mode == 91 {

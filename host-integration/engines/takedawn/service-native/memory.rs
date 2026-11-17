@@ -19,7 +19,7 @@ struct GuestArena {
     task: u64,
     backing: u64,
     origin: u64,
-    reservations: std::vec::Vec<[u32; 2]>,
+    reservations: std::vec::Vec<[u32; 3]>,
     poisoned: bool,
 }
 
@@ -105,6 +105,49 @@ impl GuestArena {
             }
         }
         Ok(())
+    }
+
+    fn vm_query(&self, ram: &mut Memory, address: u32, output: u32) -> Result<u32, i32> {
+        if output == 0 {
+            return Ok(VM_INVALID);
+        }
+        let page = address & !4095;
+        let (window, offset) = ram.resolve(page, 4096, false)?;
+        if window != self.backing
+            || offset < self.origin
+            || offset >= self.origin + u64::from(VM_HIGH - VM_LOW)
+            || offset & 4095 != 0
+        {
+            return Err(-5);
+        }
+        let canonical = VM_LOW + (offset - self.origin) as u32;
+        let information = if let Some(index) = self.vm_find(canonical, 1) {
+            let [allocation, limit, allocation_protection] = self.reservations[index];
+            let [size, access] = vm_query_run(window, offset, limit - canonical)?;
+            [
+                page,
+                page.checked_sub(canonical - allocation).ok_or(-1)?,
+                allocation_protection,
+                size,
+                if access == 0 { 0x2000 } else { 0x1000 },
+                vm_xbox_page_flag(access)?,
+                0x20000,
+            ]
+        } else {
+            let mut limit = VM_HIGH;
+            for entry in &self.reservations {
+                if entry[1] != 0 && entry[0] > canonical {
+                    limit = limit.min(entry[0]);
+                }
+            }
+            [page, 0, 0, limit - canonical, 0x10000, 1, 0]
+        };
+        let mut bytes = std::vec::Vec::new();
+        for value in information {
+            bytes.extend(u32::to_le_bytes(value));
+        }
+        ram.write_bytes(output, &bytes)?;
+        Ok(0)
     }
 
     fn vm_empty_slot(&self) -> Option<usize> {
@@ -261,7 +304,7 @@ impl GuestArena {
             if flags & 0x1000 == 0 { 0 } else { 2 },
             mode,
         )?;
-        self.reservations[available] = [selected, selected + size];
+        self.reservations[available] = [selected, selected + size, protection];
         Ok(0)
     }
 
@@ -302,17 +345,45 @@ impl GuestArena {
         self.vm_apply(ram, pointers, old, [base, size], 4, 0)?;
         if flags == 0x8000 {
             self.reservations[entry] = if base > reservation[0] {
-                [reservation[0], base]
+                [reservation[0], base, reservation[2]]
             } else if end < reservation[1] {
-                [end, reservation[1]]
+                [end, reservation[1], reservation[2]]
             } else {
-                [0; 2]
+                [0; 3]
             };
             if let Some(slot) = split {
-                self.reservations[slot] = [end, reservation[1]];
+                self.reservations[slot] = [end, reservation[1], reservation[2]];
             }
         }
         Ok(0)
+    }
+}
+
+fn vm_query_run(window: u64, start: u64, bytes: u32) -> Result<[u32; 2], i32> {
+    let mut length = 0;
+    let mut first = 0;
+    while length < bytes {
+        let count = ((bytes - length) / 4096).min(256);
+        let states = gamepkg::local_memory_page_states(window, start + u64::from(length), count)?;
+        for state in states {
+            let access = u32::from(state);
+            if length == 0 {
+                first = access;
+            }
+            if access != first {
+                return Ok([length, first]);
+            }
+            length += 4096;
+        }
+    }
+    Ok([length, first])
+}
+
+fn vm_xbox_page_flag(access: u32) -> Result<u32, i32> {
+    match access {
+        0..=2 => Ok(access),
+        3 => Ok(4),
+        _ => Err(-3),
     }
 }
 
@@ -379,7 +450,7 @@ impl Memory {
             return Err(-4);
         }
         let mut reservations = std::vec::Vec::new();
-        reservations.resize(128, [0; 2]);
+        reservations.resize(128, [0; 3]);
         vm_page_service(4, backing, origin, VM_HIGH - VM_LOW, 0)?;
         self.vm_arena = Some(GuestArena {
             task,
@@ -406,6 +477,7 @@ impl Memory {
         let result = match ordinal {
             184 => arena.vm_allocate(self, args),
             199 => arena.vm_free(self, [args[0], args[1], args[2]]),
+            217 => arena.vm_query(self, args[0], args[1]),
             _ => Err(-5),
         };
         self.vm_arena = Some(arena);
@@ -707,13 +779,7 @@ impl Memory {
             Err(code) => return Err(code),
         };
         let states = gamepkg::local_memory_page_states(window, offset, 1)?;
-        match states.as_slice() {
-            [0] => Ok(0),
-            [1] => Ok(1),
-            [2] => Ok(2),
-            [3] => Ok(4),
-            _ => Err(-3),
-        }
+        vm_xbox_page_flag(u32::from(states[0]))
     }
 
     // Round outward in the guest address space, then request a single
