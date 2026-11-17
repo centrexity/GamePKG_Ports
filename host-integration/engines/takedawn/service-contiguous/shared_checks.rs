@@ -152,7 +152,31 @@ fn combined_protocol(
         return Err(-3);
     }
     if combined_raw(inbox, reply, 2, 14, 8, ordinary_response[1], 0, &[], 2)?[..2] != [0, 0]
-        || combined_raw(inbox, reply, 1, 6, 9, 0, 0, &[], 1)?[..2] != [0, 0]
+        || combined_raw(
+            inbox,
+            reply,
+            2,
+            19,
+            9,
+            window as u32,
+            (window >> 32) as u32,
+            &[],
+            2,
+        )?[0] as i32
+            != -4
+        || combined_raw(
+            inbox,
+            reply,
+            1,
+            19,
+            10,
+            window as u32,
+            (window >> 32) as u32,
+            &[],
+            1,
+        )?[0] as i32
+            != -1
+        || combined_raw(inbox, reply, 1, 6, 11, 0, 0, &[], 1)?[..2] != [0, 0]
     {
         return Err(-3);
     }

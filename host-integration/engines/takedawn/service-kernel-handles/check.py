@@ -60,8 +60,8 @@ def main():
    elif name=='ignore-stale-memory':
     start=text.index('fn handles_replace(');end=text.index('fn handles_decode(',start);old=text[start:end];assert old.count('Err(-3)')==1;mutated=text.replace(old,old.replace('Err(-3)','Ok(())'),1)
    elif name=='decrement-before-clear':
-    old='handles_replace(self.window, self.offset, index, &page, &zero)?;\n            self.initialized -= 1;';assert text.count(old)==1
-    mutated=text.replace(old,'self.initialized -= 1;\n            handles_replace(self.window, self.offset, index, &page, &zero)?;',1)
+    old='handles_replace(self.window, self.offset, index, &page, &handles_zero)?;\n            self.initialized -= 1;';assert text.count(old)==1
+    mutated=text.replace(old,'self.initialized -= 1;\n            handles_replace(self.window, self.offset, index, &page, &handles_zero)?;',1)
    elif name=='publish-after-revoked-scan':
     old='let slot = free[1];\n        self.handles_guard_snapshot(ram)?;';assert text.count(old)==1;mutated=text.replace(old,'let slot = free[1];',1)
    else:

@@ -1456,6 +1456,45 @@ impl KernelContext {
         }
         Ok(result)
     }
+    pub fn kernel_context_new_with_objects(
+        ram: &memory::Memory,
+        registry: &Connections,
+        map: &Shadow,
+        table: u64,
+        event_domain: u64,
+    ) -> Result<Self, i32> {
+        registry.connection_snapshot(ram)?;
+        map.shadow_snapshot(ram)?;
+        let services = ram.services_handle()?;
+        let creator = gamepkg::local_task_status()?.0;
+        let mut b = [0u8; 80];
+        for (at, value) in [
+            (0usize, 0x3343494bu64),
+            (8, ram.call_handle()),
+            (16, services),
+            (24, registry.connections_id()),
+            (32, map.shadow_id()),
+            (40, table),
+            (48, event_domain),
+        ] {
+            b[at..at + 8].copy_from_slice(&u64::to_le_bytes(value));
+        }
+        let record = gamepkg::local_record_create(&b)?;
+        let result = Self {
+            root: ram.call_handle(),
+            services,
+            record,
+            creator,
+            owned: true,
+        };
+        if let Err(code) = result.context_snapshot(ram) {
+            if gamepkg::local_record_release(record).is_err() {
+                return Err(-3);
+            }
+            return Err(code);
+        }
+        Ok(result)
+    }
     pub fn kernel_context_id(&self) -> u64 {
         self.record
     }
@@ -1478,19 +1517,27 @@ impl KernelContext {
             return Err(-4);
         }
         connection_live(ram, self.services)?;
-        let (_, b) = gamepkg::local_record_snapshot(self.record, 72)?;
-        let extended = b.len() == 72 && pool_long(&b, 0)? == 0x3243494b;
-        if !extended && (b.len() != 64 || pool_long(&b, 0)? != 0x3143494b) {
+        let (_, b) = gamepkg::local_record_snapshot(self.record, 80)?;
+        let version = if b.len() == 64 && pool_long(&b, 0)? == 0x3143494b {
+            1
+        } else if b.len() == 72 && pool_long(&b, 0)? == 0x3243494b {
+            2
+        } else if b.len() == 80 && pool_long(&b, 0)? == 0x3343494b {
+            3
+        } else {
             return Err(-1);
-        }
+        };
         if pool_long(&b, 8)? != self.root || pool_long(&b, 16)? != self.services {
             return Err(-4);
         }
-        for at in if extended {
-            [40usize, 48, 56, 64]
+        let reserved = if version == 1 {
+            32usize
+        } else if version == 2 {
+            40
         } else {
-            [32usize, 40, 48, 56]
-        } {
+            56
+        };
+        for at in (reserved..b.len()).step_by(8) {
             if pool_long(&b, at)? != 0 {
                 return Err(-1);
             }
@@ -1500,26 +1547,85 @@ impl KernelContext {
             return Err(-1);
         }
         Connections::connections_borrow(ram, registry)?;
-        if extended {
+        if version >= 2 {
             let map = pool_long(&b, 32)?;
             if map == 0 {
                 return Err(-1);
             }
             Shadow::shadow_borrow(ram, map)?;
         }
+        if version == 3 {
+            self.context_object_records(ram, &b)?;
+        }
         connection_live(ram, self.services)?;
         Ok(registry)
+    }
+    // Validate copied structural bindings, not native authority or resource leases.
+    // The typed consumer must still borrow the full game-owned table/domain and
+    // validate actual SDK kind/liveness when it uses an event.
+    fn context_object_records(&self, ram: &memory::Memory, b: &[u8]) -> Result<[u64; 2], i32> {
+        let table = pool_long(b, 40)?;
+        let domain = pool_long(b, 48)?;
+        if table == 0 || domain == 0 || table == domain {
+            return Err(-1);
+        }
+        let (_, t) = gamepkg::local_record_snapshot(table, 80)?;
+        if t.len() != 80
+            || pool_long(&t, 0)? != 0x32525448
+            || pool_long(&t, 40)? != 2
+            || pool_long(&t, 64)? != 16
+            || pool_long(&t, 72)? != 0
+        {
+            return Err(-1);
+        }
+        if pool_long(&t, 8)? != self.root
+            || pool_long(&t, 16)? != self.services
+            || pool_long(&t, 24)? == 0
+            || pool_long(&t, 48)? == 0
+            || pool_long(&t, 56)? % 262144 != 0
+            || pool_long(&t, 56)? > 786432
+        {
+            return Err(-4);
+        }
+        let (_, d) = gamepkg::local_record_snapshot(domain, 2624)?;
+        if d.len() != 2624
+            || pool_long(&d, 0)? != 0x32445645
+            || pool_long(&d, 40)? != 0
+            || pool_long(&d, 48)? != 0
+            || pool_long(&d, 56)? != 0
+        {
+            return Err(-1);
+        }
+        if pool_long(&d, 8)? != self.root
+            || pool_long(&d, 16)? != self.services
+            || pool_long(&d, 24)? != table
+            || pool_long(&d, 32)? == u64::MAX
+        {
+            return Err(-4);
+        }
+        connection_live(ram, self.services)?;
+        Ok([table, domain])
     }
     pub fn kernel_context_registry(&self, ram: &memory::Memory) -> Result<Connections, i32> {
         Connections::connections_borrow(ram, self.context_snapshot(ram)?)
     }
     pub fn kernel_context_shadow(&self, ram: &memory::Memory) -> Result<Shadow, i32> {
         self.context_snapshot(ram)?;
-        let (_, b) = gamepkg::local_record_snapshot(self.record, 72)?;
-        if b.len() != 72 || pool_long(&b, 0)? != 0x3243494b {
+        let (_, b) = gamepkg::local_record_snapshot(self.record, 80)?;
+        if !((b.len() == 72 && pool_long(&b, 0)? == 0x3243494b)
+            || (b.len() == 80 && pool_long(&b, 0)? == 0x3343494b))
+        {
             return Err(-5);
         }
         Shadow::shadow_borrow(ram, pool_long(&b, 32)?)
+    }
+    pub fn kernel_context_objects(&self, ram: &memory::Memory) -> Result<[u64; 2], i32> {
+        self.context_snapshot(ram)?;
+        let (_, b) = gamepkg::local_record_snapshot(self.record, 80)?;
+        if b.len() != 80 || pool_long(&b, 0)? != 0x3343494b {
+            return Err(-5);
+        }
+        self.context_object_records(ram, &b)
     }
     pub fn kernel_context_close(&mut self, ram: &memory::Memory) -> Result<(), i32> {
         if ram.call_handle() != self.root || gamepkg::local_task_status()?.0 != self.creator {

@@ -169,3 +169,14 @@ imports, thread/TIB/IRQ startup, remaining generated/manual/media/renderer paths
 and native entry remain required. The title build/play/cache/export gate stays
 closed; neither shared-owner tests nor Wine establish actual gameplay, physical
 controls, audible output or measured frame pacing.
+
+## Opt-in four-window service layout
+
+`Contiguous::contiguous_services(&Memory,window:u64)` validates the explicit
+64 MiB/64 MiB/1 MiB/1 MiB layout and still selects only its second bank.
+`contiguous_new` stays strict three-window. The existing checked allocator owner
+accepts primary-owner-only private version-2 operation 19 through
+`HeapClient::heap_contiguous_services`; version 1 remains invalid, as do ordinary
+clients, wrong windows and repeated initialization. Scratch is not allocated or
+aliased by this arena. Exact request/lifetime contracts and authenticated startup
+integration: [OBJECT_STARTUP.md](../service-kernel-context/OBJECT_STARTUP.md).

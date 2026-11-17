@@ -171,7 +171,8 @@ pub fn startup_image(
     )?;
     gamepkg::local_record_release(foreign.call_handle())?;
     let table = image.image_thunk();
-    let mut before = [0u8; 64 + 379 * 4];
+    let mut before = std::vec::Vec::new();
+    before.resize(64 + 379 * 4, 0u8);
     ram.read_bytes(table - 64, &mut before)?;
     if mode == 14 {
         ram.call_bounds(0, 0)?;
@@ -256,7 +257,8 @@ pub fn startup_image(
                 && owner.startup_ids(ram) == Err(-4)
                 && ram.kernel_handle() == 0,
         )?;
-        let mut after = [0u8; 64 + 379 * 4];
+        let mut after = std::vec::Vec::new();
+        after.resize(64 + 379 * 4, 0u8);
         ram.read_bytes(table - 64, &mut after)?;
         startup_need(before == after)?;
         startup_need(owner.startup_prepare(ram, image, data, &[], 0x10000, 2) == Err(-1))?;

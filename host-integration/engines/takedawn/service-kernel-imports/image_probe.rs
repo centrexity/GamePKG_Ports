@@ -35,7 +35,11 @@ pub fn image_import_run() -> Result<(), i32> {
         return Err(-3);
     }
     gamepkg::file_close(mode_file)?;
-    let (mut ram, banks) = probe::imports_memory()?;
+    let (mut ram, banks) = if mode[0] >= 51 {
+        probe::imports_memory_services()?
+    } else {
+        probe::imports_memory()?
+    };
     let indexed = disc::Disc::disc_open(rom)?;
     let file = indexed.disc_find("default.xbe")?;
     let image = xbe::Image::image_plan(&indexed, file, expected)?;
@@ -43,7 +47,11 @@ pub fn image_import_run() -> Result<(), i32> {
     let startup = bootstrap::Bootstrap::boot_plan(&image, &ram)?;
     let shape = startup.boot_layout();
     let mut state = startup.boot_apply(&mut ram)?;
-    let job = probe::imports_owner(&mut ram, banks, shape[4], true)?;
+    let job = if mode[0] >= 51 {
+        probe::imports_owner_services(&mut ram, banks, shape[4], true)?
+    } else {
+        probe::imports_owner(&mut ram, banks, shape[4], true)?
+    };
     let data = kernel_data::Data::data_initialize(
         &mut ram,
         if mode[0] == 5 || mode[0] == 17 {
@@ -56,6 +64,11 @@ pub fn image_import_run() -> Result<(), i32> {
         &[],
         None,
     )?;
+    if mode[0] >= 51 {
+        crate::object_startup_probe::object_startup_image(&mut ram, &image, &data, mode[0])?;
+        probe::imports_cleanup(&mut ram, job)?;
+        return Ok(());
+    }
     if mode[0] >= 12 {
         startup_probe::startup_image(&mut ram, &image, &data, mode[0], shape)?;
         probe::imports_cleanup(&mut ram, job)?;

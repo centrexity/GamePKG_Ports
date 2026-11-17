@@ -301,18 +301,18 @@ impl Handles {
         self.window = window;
         self.offset = offset;
         self.phase = 1;
-        let mut zero = std::vec::Vec::new();
-        zero.resize(16384, 0u8);
+        let mut handles_zero = std::vec::Vec::new();
+        handles_zero.resize(16384, 0u8);
         for index in 0..16usize {
             handles_owner(ram, self.services)?;
-            let mut page = zero.clone();
+            let mut page = handles_zero.clone();
             handles_put32(&mut page, 0, 0x32505448)?;
             handles_put32(&mut page, 4, index as u32)?;
             handles_put(&mut page, 8, self.record)?;
             if !gamepkg::local_memory_compare_exchange(
                 window,
                 offset + index as u64 * 16384,
-                &zero,
+                &handles_zero,
                 &page,
             )? {
                 return Err(-2);
@@ -494,9 +494,9 @@ impl Handles {
                     return Err(-2);
                 }
             }
-            let mut zero = std::vec::Vec::new();
-            zero.resize(16384, 0u8);
-            handles_replace(self.window, self.offset, index, &page, &zero)?;
+            let mut handles_zero = std::vec::Vec::new();
+            handles_zero.resize(16384, 0u8);
+            handles_replace(self.window, self.offset, index, &page, &handles_zero)?;
             self.initialized -= 1;
         }
         match gamepkg::local_record_release(self.record) {

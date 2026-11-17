@@ -189,8 +189,10 @@ actual confinement. Windows component execution uses Wine; real Windows
 confinement, physical controls, audible audio, GPU fidelity and frame pacing are
 not established. There is no game window or full-title gameplay in these tests.
 
-Remaining: accurate pulse/NT status and previous-state/import behavior; new versioned
-context/startup ownership; typed file/thread resources; migrated full native
+The opt-in authenticated KIC3 startup now owns this domain and its table; see
+[OBJECT_STARTUP.md](../service-kernel-context/OBJECT_STARTUP.md). Remaining:
+accurate pulse/NT status and previous-state/import behavior; typed file/thread
+resources; migrated full native
 source/build/launch/renderer/media and actual gameplay qualification. Do not wire
 ordinal 189 or other imports as ready from this component alone, reinterpret
 KIC2 reserved fields, allow raw native fallbacks, or enable blocked profiles.

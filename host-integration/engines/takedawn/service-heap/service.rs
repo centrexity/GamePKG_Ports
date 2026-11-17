@@ -98,7 +98,7 @@ fn service_run(inbox: u64, clients: &mut [u64; 12]) -> Result<(), i32> {
         }
         let operation = service_word(&bytes, 4)?;
         let version = service_word(&bytes, 0)?;
-        let extended = version == 2 && (8..=18).contains(&operation);
+        let extended = version == 2 && (8..=19).contains(&operation);
         let expected = if extended && operation == 9 { 40 } else { 32 };
         if length != expected || (version != 1 && !extended) {
             service_reply(reply, sequence, Err(-1), state.heap_stats(), 1)?;
@@ -245,7 +245,7 @@ fn service_physical(
     bytes: &[u8],
 ) -> Result<u32, i32> {
     ram.call_snapshot()?;
-    if operation == 8 {
+    if operation == 8 || operation == 19 {
         if !owner {
             return Err(-4);
         }
@@ -253,7 +253,11 @@ fn service_physical(
             return Err(-1);
         }
         let window = u64::from(first) | (u64::from(second) << 32);
-        *physical = Some(contiguous::Contiguous::contiguous_new(ram, window)?);
+        *physical = Some(if operation == 19 {
+            contiguous::Contiguous::contiguous_services(ram, window)?
+        } else {
+            contiguous::Contiguous::contiguous_new(ram, window)?
+        });
         return Ok(0);
     }
     let arena = physical.as_mut().ok_or(-5)?;
@@ -379,7 +383,7 @@ impl HeapClient {
         service_alive()?;
         let sequence = self.sequence.checked_add(1).ok_or(-3)?;
         let mut request = std::vec::Vec::new();
-        let version = if (8..=18).contains(&operation) {
+        let version = if (8..=19).contains(&operation) {
             2u32
         } else {
             1u32
@@ -547,6 +551,15 @@ impl HeapClient {
         }
         let result = self
             .service_call(8, window as u32, (window >> 32) as u32, &[])?
+            .0;
+        self.service_zero_result(result)
+    }
+    pub fn heap_contiguous_services(&mut self, window: u64) -> Result<(), i32> {
+        if !self.active || self.record == 0 {
+            return Err(-4);
+        }
+        let result = self
+            .service_call(19, window as u32, (window >> 32) as u32, &[])?
             .0;
         self.service_zero_result(result)
     }

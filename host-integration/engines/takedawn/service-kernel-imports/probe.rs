@@ -10,8 +10,18 @@ use crate::layout;
 use crate::memory;
 use crate::registers;
 pub fn imports_memory() -> Result<(memory::Memory, [u64; 3]), i32> {
+    imports_memory_mode(false)
+}
+pub fn imports_memory_services() -> Result<(memory::Memory, [u64; 3]), i32> {
+    imports_memory_mode(true)
+}
+fn imports_memory_mode(services: bool) -> Result<(memory::Memory, [u64; 3]), i32> {
     let root = memory::Memory::new()?;
-    let topology = layout::Layout::layout_current(&root)?;
+    let topology = if services {
+        layout::Layout::layout_services(&root)?
+    } else {
+        layout::Layout::layout_current(&root)?
+    };
     let banks = topology.layout_banks();
     let mut req = std::vec::Vec::new();
     req.extend(u64::to_le_bytes(banks[0]));
@@ -30,6 +40,23 @@ pub fn imports_owner(
     base: u32,
     physical: bool,
 ) -> Result<u64, i32> {
+    imports_owner_mode(ram, banks, base, physical, false)
+}
+pub fn imports_owner_services(
+    ram: &mut memory::Memory,
+    banks: [u64; 3],
+    base: u32,
+    physical: bool,
+) -> Result<u64, i32> {
+    imports_owner_mode(ram, banks, base, physical, true)
+}
+fn imports_owner_mode(
+    ram: &mut memory::Memory,
+    banks: [u64; 3],
+    base: u32,
+    physical: bool,
+    services: bool,
+) -> Result<u64, i32> {
     let inbox = heap_service::heap_inbox()?;
     let mut req = std::vec::Vec::new();
     req.extend(u32::to_le_bytes(0));
@@ -41,7 +68,20 @@ pub fn imports_owner(
     let mut client = heap_service::HeapClient::heap_client(inbox, job)?;
     client.heap_initialize(ram.call_handle(), banks[0], base, 67108864)?;
     if physical {
-        client.heap_contiguous_initialize(banks[1])?;
+        if services {
+            if client.heap_contiguous_initialize(banks[1]) != Err(-1)
+                || client.heap_contiguous_services(banks[0]) != Err(-4)
+                || client.heap_contiguous_services(banks[1] | 0x100000000) != Err(-4)
+            {
+                return Err(-3);
+            }
+            client.heap_contiguous_services(banks[1])?;
+            if client.heap_contiguous_services(banks[1]) != Err(-1) {
+                return Err(-3);
+            }
+        } else {
+            client.heap_contiguous_initialize(banks[1])?;
+        }
     }
     let mut owner = Some(client);
     ram.heap_install(&mut owner)?;

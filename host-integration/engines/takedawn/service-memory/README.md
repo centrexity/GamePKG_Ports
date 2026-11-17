@@ -102,3 +102,13 @@ frame pacing remain unqualified. Complete kernel/data exports, guest-thread/
 TIB/IRQ startup, generated/manual/media/renderer routes and native entry are
 still required. Keep the title build/play/cache/export gate closed. Python is
 maintainer tooling only; users receive Rust/native tools.
+
+## Explicit service scratch topology
+
+`Layout::layout_services(&Memory)` is the opt-in four-window companion for
+host `LocalLayout::TakedawnServices`; `layout_scratch()` returns its fourth opaque
+1 MiB ID. The original three-window entry remains strict. Guest views keep the
+same three-bank aliases and do not map scratch. A matching guest number still
+resolves to its checked guest backing, never to a host address. Caller-owned
+commit and partial resource cleanup contracts are described in
+[OBJECT_STARTUP.md](../service-kernel-context/OBJECT_STARTUP.md).

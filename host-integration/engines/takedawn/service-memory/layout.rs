@@ -4,6 +4,7 @@ use crate::memory;
 pub struct Layout {
     root: u64,
     banks: [u64; 3],
+    scratch: u64,
 }
 fn layout_long(bytes: &[u8], at: usize) -> Result<u64, i32> {
     let part = bytes.get(at..at + 8).ok_or(-1)?;
@@ -13,9 +14,16 @@ fn layout_long(bytes: &[u8], at: usize) -> Result<u64, i32> {
 }
 impl Layout {
     pub fn layout_current(ram: &memory::Memory) -> Result<Self, i32> {
+        Self::layout_read(ram, false)
+    }
+    pub fn layout_services(ram: &memory::Memory) -> Result<Self, i32> {
+        Self::layout_read(ram, true)
+    }
+    fn layout_read(ram: &memory::Memory, services: bool) -> Result<Self, i32> {
         ram.call_snapshot()?;
-        let mut bytes = [0u8; 48];
-        if gamepkg::local_call(1, &[], &mut bytes)? != 48 {
+        let mut bytes = [0u8; 64];
+        let expected = if services { 64usize } else { 48 };
+        if gamepkg::local_call(1, &[], &mut bytes[..expected])? != expected {
             return Err(-5);
         }
         let banks = [
@@ -35,10 +43,28 @@ impl Layout {
         {
             return Err(-1);
         }
+        let scratch = if services {
+            layout_long(&bytes, 48)?
+        } else {
+            0
+        };
+        if services
+            && (scratch == 0 || layout_long(&bytes, 56)? != 1048576 || banks.contains(&scratch))
+        {
+            return Err(-1);
+        }
         Ok(Self {
             root: ram.call_handle(),
             banks,
+            scratch,
         })
+    }
+    pub fn layout_scratch(&self) -> Result<u64, i32> {
+        if self.scratch == 0 {
+            Err(-5)
+        } else {
+            Ok(self.scratch)
+        }
     }
     pub fn layout_banks(&self) -> [u64; 3] {
         self.banks

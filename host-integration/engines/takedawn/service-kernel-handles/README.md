@@ -131,6 +131,8 @@ of four targets. Actual confined Linux32/64 repeat the vectors, concurrency and
 ownership controls. Neither Windows process confinement, original native event/
 file/thread semantics, device input, audible audio, GPU fidelity nor measured
 frame pacing is established. **Main import gap remains 106**. Next work must
-add typed resource ownership/cleanup and bind this table into a new versioned
-context/startup path before admitting event/object imports; no legacy raw-handle
+complete native import/NT semantics and typed file/thread ownership. The checked
+event domain now supplies event ownership/waits, and opt-in authenticated KIC3
+startup binds both owners: see [OBJECT_STARTUP.md](../service-kernel-context/OBJECT_STARTUP.md).
+These do not admit event/object imports yet; no legacy raw-handle
 fallback, ignored unknown object or engine/media exemption is allowed.

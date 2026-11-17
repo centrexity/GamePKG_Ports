@@ -1,10 +1,21 @@
-# Shared-service migration status — 2026-11-16
+# Shared-service migration status — 2026-11-17
 
 This is tested integration work, **not a playable Burnout release**. The legacy
 profile remains blocked. No source pin, signature, cached executable or engine
 exception may bypass that block. The source kit and catalog URLs are unchanged.
 
-## Latest checkpoint: bounded typed event waits
+## Latest checkpoint: authenticated KIC3 object-owner startup
+
+The opt-in startup owns the scratch-backed table, typed event domain and strict
+KIC3 binding alongside its existing resources. It validates the exact owned pair,
+retains partial setup/cleanup obligations and enforces actual consumed joins.
+Explicit four-window topology/allocator APIs keep scratch outside guest aliases.
+Guest tags, fresh aliases and native worker orphans are covered by the combined
+qualification. Exact contracts and limits:
+[OBJECT_STARTUP.md](service-kernel-context/OBJECT_STARTUP.md).
+This does not enable an event import or native title. Main gap remains 106.
+
+## Earlier checkpoint: bounded typed event waits
 
 The EVD2 ownership graph adds 32 bounded wait slots and explicit WLT1 completion
 records. Actual waiting workers release the table mutex before waiting; active

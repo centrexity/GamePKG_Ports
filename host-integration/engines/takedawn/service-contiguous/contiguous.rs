@@ -22,13 +22,35 @@ fn contiguous_long(bytes: &[u8], at: usize) -> Result<u64, i32> {
 }
 impl Contiguous {
     pub fn contiguous_new(ram: &memory::Memory, window: u64) -> Result<Self, i32> {
+        Self::contiguous_layout(ram, window, false)
+    }
+    pub fn contiguous_services(ram: &memory::Memory, window: u64) -> Result<Self, i32> {
+        Self::contiguous_layout(ram, window, true)
+    }
+    fn contiguous_layout(ram: &memory::Memory, window: u64, services: bool) -> Result<Self, i32> {
         ram.call_snapshot()?;
-        let mut banks = [0u8; 48];
-        if gamepkg::local_call(1, &[], &mut banks)? != 48
+        let mut banks = [0u8; 64];
+        let expected = if services { 64usize } else { 48 };
+        if gamepkg::local_call(1, &[], &mut banks[..expected])? != expected
             || contiguous_long(&banks, 8)? != 67108864
             || contiguous_long(&banks, 24)? != 67108864
             || contiguous_long(&banks, 40)? != 1048576
         {
+            return Err(-1);
+        }
+        let mut ids = [0u64; 4];
+        for index in 0..if services { 4usize } else { 3 } {
+            ids[index] = contiguous_long(&banks, index * 16)?;
+            if ids[index] == 0 {
+                return Err(-1);
+            }
+            for before in 0..index {
+                if ids[index] == ids[before] {
+                    return Err(-1);
+                }
+            }
+        }
+        if services && contiguous_long(&banks, 56)? != 1048576 {
             return Err(-1);
         }
         if window == 0 || window != contiguous_long(&banks, 16)? {
