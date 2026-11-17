@@ -116,7 +116,7 @@ pub fn copy_new(grant: u64, source: &str, destination: &str) -> Result<u64, i32>
         return Err(-4);
     }
     let input = gamepkg::file_open(grant, false, source)?;
-    let output = match gamepkg::file_open(grant, true, destination) {
+    let output = match gamepkg::file_create_new(grant, destination) {
         Ok(output) => output,
         Err(error) => {
             let _ = gamepkg::file_close(input);

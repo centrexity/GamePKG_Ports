@@ -145,3 +145,9 @@ then integrate the engine and qualify real game save behavior. Source kit,
 recipe and profile admission remain
 unchanged. These tests do not establish actual Burnout saves, gameplay, Windows
 runtime, audio or pacing.
+
+Save-history exports use `file_create_new` for archive files and the temporary
+completion marker. Creation fails atomically if a destination exists, including
+if it appears after a presence check. Use an app SDK that supports file-open
+mode 3. Existing shadow recovery and flush-and-replace publication still use
+their established paths.

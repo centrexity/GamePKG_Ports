@@ -250,7 +250,7 @@ fn history_marker(
     if note.as_bytes().last() != Some(&b'\n') {
         text.push('\n');
     }
-    let handle = gamepkg::file_open(grant, true, &temporary)?;
+    let handle = gamepkg::file_create_new(grant, &temporary)?;
     let written = gamepkg::file_write(handle, 0, text.as_bytes());
     let close_status = gamepkg::file_close(handle);
     written?;
