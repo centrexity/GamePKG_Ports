@@ -758,3 +758,33 @@ No full title or other unsupported import is enabled. Production factory/source
 closure, real device/profiler/IRQ and NV2A ack/register paths, disconnect contract,
 whole timer loop and full build/launch/gameplay/GPU/input/audio/pacing validation
 remain required. Installed matching app SDK and user ROMs/saves are unchanged.
+
+## Authenticated import startup owner and actual join barriers
+
+`service-kernel-context/startup.rs` now owns KSV3/ISR1/KIC1/KPL4 creation,
+complete authenticated import publication, failed-prefix retention and ordered
+cleanup. Its actual-job barrier requires consuming SDK joins, including evidence
+shared by other owners; suspended, finished and externally joined-but-unwitnessed
+jobs cannot be mistaken for safe teardown. Ready state validates the exact
+current map/root/context association. See `service-kernel-context/STARTUP.md`
+for all APIs, phases, error semantics and coordinator obligations. This remains
+ordinary checked game code, not a trusted engine or complete native session.
+
+Complete source admission and both separately optimized game-object audits pass
+for Linux/Windows x64/i686. Actual confined Linux x64/i686 each pass 22 synthetic
+image cases and two read-only private ISO cases, including 716-file host
+authentication and expected full-title rejection before import publication.
+Five deliberately broken copies pass build checks then fail actual Linux64
+behavior. Record-prefix exhaustion, restored capacity, wrong/repeated real join
+proofs, replacement-map refusal and full-u64 binding corruption are covered.
+Windows scope is source/object/link only. No gameplay, GPU, physical input,
+audible audio, Windows confinement or measured pacing is established.
+
+The private authenticated image has 107 unsupported main function imports when
+the context is supplied, versus 108 context-free. The complete generated source
+candidate's previous closure counts are not requalified by this smaller fixture.
+All other unsupported calls and both unmigrated profiles remain blocked. SDK,
+quotas, public source-kit archive, launch defaults, source/object/confinement
+rules and app's pinned submodule stay unchanged. The full production factory,
+real device/profiler/IRQ handlers, timer/pacing loop, remaining kernel/generated/
+manual/media/renderer work and complete build/launch/gameplay remain required.

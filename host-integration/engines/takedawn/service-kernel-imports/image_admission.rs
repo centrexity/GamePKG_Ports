@@ -27,7 +27,29 @@ impl Backend for Silent {
 }
 fn main() {
     let args: Vec<_> = std::env::args_os().collect();
-    assert!(args.len() >= 6 && (args.len() - 4) % 2 == 0);
+    assert!(args.len() >= 6);
+    let mut cases_start = 4;
+    let mut evidence = None;
+    let mut startup_copy = None;
+    let mut linux64_only = false;
+    while args[cases_start].to_str().unwrap().starts_with("--") {
+        match args[cases_start].to_str().unwrap() {
+            "--evidence" => {
+                evidence = Some(Path::new(&args[cases_start + 1]));
+                cases_start += 2;
+            }
+            "--startup-copy" => {
+                startup_copy = Some(Path::new(&args[cases_start + 1]));
+                cases_start += 2;
+            }
+            "--linux64-only" => {
+                linux64_only = true;
+                cases_start += 1;
+            }
+            _ => panic!("unknown maintainer option"),
+        }
+    }
+    assert!((args.len() - cases_start) % 2 == 0);
     let app = Path::new(&args[1]);
     let here = Path::new(&args[2]);
     let targets = Path::new(&args[3]);
@@ -75,6 +97,16 @@ fn main() {
         ("imports.rs", here.join("imports.rs")),
         ("image_imports.rs", here.join("image_imports.rs")),
         ("image_probe.rs", here.join("image_probe.rs")),
+        (
+            "kernel_startup.rs",
+            startup_copy
+                .map(Path::to_path_buf)
+                .unwrap_or_else(|| here.join("../service-kernel-context/startup.rs")),
+        ),
+        (
+            "startup_probe.rs",
+            here.join("../service-kernel-context/startup_probe.rs"),
+        ),
         ("disc.rs", here.join("../service-disc/disc.rs")),
         ("sha256.rs", here.join("../service-image/sha256.rs")),
         ("xbe.rs", here.join("../service-image/image.rs")),
@@ -113,8 +145,9 @@ fn main() {
         fs::write(path, data).unwrap();
     }
     fs::write(source.join("source/src/lib.rs"),r#"
-mod layout;mod memory;mod registers;mod call_state;mod calls_runtime;mod vector;mod scalar;mod debug;mod heap;mod contiguous;mod heap_service;mod kernel_pool;mod kernel_data;mod signature;mod imports;mod cases;mod probe;mod controls;mod game;mod dispatch;mod targets;mod disc;mod sha256;mod xbe;mod bootstrap;mod image_imports;mod image_probe;
+mod layout;mod memory;mod registers;mod call_state;mod calls_runtime;mod vector;mod scalar;mod debug;mod heap;mod contiguous;mod heap_service;mod kernel_pool;mod kernel_data;mod signature;mod imports;mod cases;mod probe;mod controls;mod game;mod dispatch;mod targets;mod disc;mod sha256;mod xbe;mod bootstrap;mod image_imports;mod image_probe;mod kernel_startup;mod startup_probe;
 pub fn heap_worker(arg:u64)->u64{heap_service::heap_serve(arg)}
+pub fn startup_worker(arg:u64)->u64{startup_probe::startup_worker(arg)}
 pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,Err(code)=>code as i64 as u64};let _=gamepkg::diagnostic(1,0x544b0fff,&[code]);}
 "#).unwrap();
     let mut manifest =
@@ -133,16 +166,53 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
     gamepkg::pack::pack(&source, &package, &[183; 32]).unwrap();
     let checked =
         CheckedSources::verify(&mut gamepkg::archive::Package::open(&package).unwrap()).unwrap();
+    if let Some(out) = evidence {
+        let mut hashes = std::collections::BTreeMap::new();
+        fn scan(root: &Path, dir: &Path, hashes: &mut std::collections::BTreeMap<String, String>) {
+            for entry in fs::read_dir(dir).unwrap() {
+                let entry = entry.unwrap();
+                let path = entry.path();
+                if entry.file_type().unwrap().is_dir() {
+                    scan(root, &path, hashes);
+                } else {
+                    hashes.insert(
+                        path.strip_prefix(root)
+                            .unwrap()
+                            .to_str()
+                            .unwrap()
+                            .to_owned(),
+                        gamepkg::verify::digest(&fs::read(&path).unwrap()),
+                    );
+                }
+            }
+        }
+        scan(&source, &source, &mut hashes);
+        fs::write(
+            out.join("checked-sources.json"),
+            serde_json::to_vec_pretty(&hashes).unwrap(),
+        )
+        .unwrap();
+    }
+    fs::write(
+        source.join("source/src/unused_shell.rs"),
+        r#"pub fn unused(){let _=std::fs::read("/etc/passwd");}"#,
+    )
+    .unwrap();
+    assert!(gamepkg::pack::pack(&source, &root.path().join("denied.gamepkg"), &[183; 32]).is_err());
+    fs::remove_file(source.join("source/src/unused_shell.rs")).unwrap();
     for target in [
         Target::Linux64,
         Target::Linux32,
         Target::Windows64,
         Target::Windows32,
     ] {
+        if linux64_only && !matches!(target, Target::Linux64) {
+            continue;
+        }
         let plan = Plan::new(
             target,
             "game_main",
-            vec!["heap_worker".into()],
+            vec!["heap_worker".into(), "startup_worker".into()],
             LocalLayout::TakedawnMemory,
             true,
         )
@@ -151,17 +221,33 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
         .unwrap();
         let artifact = preparation::build(root.path(), &checked, &plan, vec![], vec![]).unwrap();
         artifact.executable().unwrap();
+        assert_eq!(
+            artifact.receipt().game.sdk,
+            gamepkg::port_host::build_identity()
+        );
+        assert_eq!(artifact.receipt().game.source_kit, checked.identity());
+        assert_eq!(
+            artifact.receipt().raw_objects.len(),
+            artifact.receipt().game.objects.len()
+        );
+        if let Some(out) = evidence {
+            fs::write(
+                out.join(format!("receipt-{target:?}.json")),
+                serde_json::to_vec_pretty(artifact.receipt()).unwrap(),
+            )
+            .unwrap();
+        }
         println!("PASS {target:?}: complete image/import/helper source admission and all-object audit before trusted linking; not full generated kit");
         if matches!(target, Target::Windows64 | Target::Windows32) {
             continue;
         }
-        for pair in args[4..].chunks_exact(2) {
+        for pair in args[cases_start..].chunks_exact(2) {
             let mode = pair[0].to_str().unwrap().parse::<u8>().unwrap();
-            assert!(mode <= 11);
+            assert!(mode <= 23);
             let selected = fs::File::open(&pair[1]).unwrap();
             let mut indexed =
                 gamepkg::xbox_disc::Disc::from_file(selected.try_clone().unwrap()).unwrap();
-            let expected: [u8; 32] = if mode == 4 {
+            let expected: [u8; 32] = if mode == 4 || mode == 23 {
                 let checked = indexed.verify_takedawn().unwrap();
                 assert_eq!(checked.verified_files, 716);
                 let text = checked.executable_sha256;
@@ -229,7 +315,18 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
             assert_eq!(summaries.len(), 1);
             let values = &summaries[0].values;
             assert_eq!(values[0], u64::from(mode));
-            if mode < 2 || mode == 6 || mode == 7 || mode == 8 || mode == 10 || mode == 11 {
+            if mode >= 12 {
+                let expected = if mode >= 19 && mode <= 21 {
+                    -2i64 as u64
+                } else if mode == 13 || mode == 23 {
+                    -5i64 as u64
+                } else if mode == 14 || mode == 15 || mode == 17 {
+                    -1i64 as u64
+                } else {
+                    0
+                };
+                assert_eq!(&values[1..], &[expected, 5, 0]);
+            } else if mode < 2 || mode == 6 || mode == 7 || mode == 8 || mode == 10 || mode == 11 {
                 let count = if mode == 11 {
                     5
                 } else if mode == 10 {
@@ -262,16 +359,38 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                     assert!(event.values == vec![8, 4] || event.values == vec![9, 4]);
                 }
                 if event.code == 0x544b3200 {
-                    assert_eq!(mode, 11);
+                    assert!(mode == 11 || mode == 16 || mode == 18);
                     assert_eq!(event.values, [3, 0x1d000, 0x1100, 0x89abcdef]);
                 }
                 if event.code == 0x544b0f10 {
-                    assert_eq!(mode, 4);
+                    assert!(mode == 4 || mode == 23);
                     println!(
-                        "PRIVATE pending canonical kernel ordinals: {:?}",
+                        "PRIVATE mode {mode} pending canonical kernel ordinals: {:?}",
                         event.values
                     );
                 }
+            }
+            let connections = events.iter().filter(|e| e.code == 0x544b3200).count();
+            assert_eq!(
+                connections,
+                if mode == 16 || mode == 18 {
+                    4
+                } else if mode == 11 {
+                    1
+                } else {
+                    0
+                }
+            );
+            if let Some(out) = evidence {
+                let reports: Vec<_> = events
+                    .iter()
+                    .map(|e| serde_json::json!({"code":e.code,"values":e.values}))
+                    .collect();
+                fs::write(
+                    out.join(format!("{target:?}-mode-{mode}.json")),
+                    serde_json::to_vec_pretty(&reports).unwrap(),
+                )
+                .unwrap();
             }
             owner.stop().unwrap();
             println!("PASS {target:?} image mode {mode}: authenticated in-place image, CPU/allocator/data/import setup and explicit unmigrated/wrong-context rejection; no native entry");

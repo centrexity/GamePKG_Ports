@@ -1,0 +1,310 @@
+// Port-owned authenticated import startup and explicit owner lifecycle.
+use crate::gamepkg;
+use crate::image_imports;
+use crate::kernel_data;
+use crate::kernel_pool;
+use crate::memory;
+use crate::xbe;
+
+pub struct Startup {
+    root: u64,
+    creator: u64,
+    phase: u32,
+    setup_error: i32,
+    close_error: i32,
+    services: Option<kernel_pool::KernelServices>,
+    registry: Option<kernel_pool::Connections>,
+    context: Option<kernel_pool::KernelContext>,
+    map: u64,
+    jobs: std::vec::Vec<u64>,
+}
+impl Startup {
+    // Idle owns no new records. RAM, image, data, heap and banks stay caller-owned.
+    pub fn startup_new(ram: &memory::Memory) -> Result<Self, i32> {
+        ram.call_snapshot()?;
+        let (creator, cancelled) = gamepkg::local_task_status()?;
+        if cancelled {
+            return Err(-4);
+        }
+        if ram.kernel_handle() != 0 || ram.services_handle()? != 0 {
+            return Err(-1);
+        }
+        Ok(Self {
+            root: ram.call_handle(),
+            creator,
+            phase: 0,
+            setup_error: 0,
+            close_error: 0,
+            services: None,
+            registry: None,
+            context: None,
+            map: 0,
+            jobs: std::vec::Vec::new(),
+        })
+    }
+    // 0 idle, 1 preparing, 2 ready, 3 failed, 4 closing, 5 closed.
+    pub fn startup_phase(&self) -> u32 {
+        self.phase
+    }
+    pub fn startup_error(&self) -> i32 {
+        self.setup_error
+    }
+    pub fn startup_closed(&self) -> bool {
+        self.phase == 5
+    }
+    pub fn startup_jobs(&self) -> u32 {
+        self.jobs.len() as u32
+    }
+    fn startup_owner(&self, ram: &memory::Memory) -> Result<(), i32> {
+        if ram.call_handle() != self.root || gamepkg::local_task_status()?.0 != self.creator {
+            return Err(-4);
+        }
+        Ok(())
+    }
+    pub fn startup_prepare(
+        &mut self,
+        ram: &mut memory::Memory,
+        image: &xbe::Image,
+        data: &kernel_data::Data,
+        remap: &[u16],
+        video: u32,
+        speakers: u32,
+    ) -> Result<(), i32> {
+        self.startup_owner(ram)?;
+        ram.call_snapshot()?;
+        if gamepkg::local_task_status()?.1 {
+            return Err(-4);
+        }
+        if self.phase != 0 || ram.kernel_handle() != 0 || ram.services_handle()? != 0 {
+            return Err(-1);
+        }
+        self.phase = 1;
+        let outcome = self.startup_prepare_inner(ram, image, data, remap, video, speakers);
+        match outcome {
+            Ok(()) => {
+                self.phase = 2;
+                Ok(())
+            }
+            Err(code) => {
+                self.phase = 3;
+                self.setup_error = code;
+                Err(code)
+            }
+        }
+    }
+    fn startup_prepare_inner(
+        &mut self,
+        ram: &mut memory::Memory,
+        image: &xbe::Image,
+        data: &kernel_data::Data,
+        remap: &[u16],
+        video: u32,
+        speakers: u32,
+    ) -> Result<(), i32> {
+        self.services = Some(kernel_pool::kernel_services_initialize(
+            ram, video, speakers,
+        )?);
+        self.registry = Some(kernel_pool::Connections::connections_new(ram)?);
+        self.context = Some(kernel_pool::KernelContext::kernel_context_new(
+            ram,
+            self.registry.as_ref().ok_or(-3)?,
+        )?);
+        let plan = image_imports::imports_image_with_context(
+            ram,
+            image,
+            data,
+            remap,
+            self.context.as_ref().ok_or(-3)?,
+        )?;
+        plan.imports_publish(ram)?;
+        self.map = ram.kernel_handle();
+        if self.map == 0 {
+            return Err(-3);
+        }
+        Ok(())
+    }
+    // Only a ready live owner can issue copied IDs. IDs are not resource leases.
+    // [KSV3, ISR1, KIC1, KPL4]; the existing worker four-ID format is unchanged.
+    pub fn startup_ids(&self, ram: &memory::Memory) -> Result<[u64; 4], i32> {
+        self.startup_owner(ram)?;
+        if self.phase != 2 || self.map == 0 || ram.kernel_handle() != self.map {
+            return Err(-4);
+        }
+        let services = self.services.as_ref().ok_or(-4)?.service_handle();
+        if ram.services_handle()? != services {
+            return Err(-4);
+        }
+        let context = self.context.as_ref().ok_or(-4)?;
+        let (_, map_bytes) = gamepkg::local_record_snapshot(self.map, 1548)?;
+        if map_bytes.len() < 36
+            || map_bytes[..4] != u32::to_le_bytes(0x344c504b)
+            || map_bytes[8..16] != u64::to_le_bytes(self.root)
+            || map_bytes[24..32] != u64::to_le_bytes(context.kernel_context_id())
+        {
+            return Err(-4);
+        }
+        let registry = context.kernel_context_registry(ram)?;
+        if registry.connections_id() != self.registry.as_ref().ok_or(-4)?.connections_id() {
+            return Err(-4);
+        }
+        Ok([
+            services,
+            registry.connections_id(),
+            context.kernel_context_id(),
+            self.map,
+        ])
+    }
+    // Register every subsystem job before its shared owners can be closed. A
+    // completion snapshot, including true, does not replace a consuming join.
+    pub fn startup_track(&mut self, ram: &memory::Memory, task: u64) -> Result<(), i32> {
+        self.startup_ids(ram)?;
+        if task == 0 || task == self.creator || self.jobs.contains(&task) {
+            return Err(-1);
+        }
+        if self.jobs.len() >= 32 {
+            return Err(-2);
+        }
+        gamepkg::local_task_finished(task)?;
+        self.jobs.push(task);
+        Ok(())
+    }
+    // Spawn suspended and retain its join obligation before returning the job.
+    // The caller supplies the reviewed Plan entry/argument, then resumes it.
+    pub fn startup_spawn(
+        &mut self,
+        ram: &memory::Memory,
+        entry: u32,
+        argument: u64,
+    ) -> Result<u64, i32> {
+        self.startup_ids(ram)?;
+        if self.jobs.len() >= 32 {
+            return Err(-2);
+        }
+        let mut request = std::vec::Vec::new();
+        request.extend(u32::to_le_bytes(entry));
+        request.extend(u64::to_le_bytes(argument));
+        request.extend(u32::to_le_bytes(1));
+        let mut response = [0u8; 8];
+        if gamepkg::local_call(10, &request, &mut response)? != 8 {
+            return Err(-3);
+        }
+        let task = u64::from_le_bytes(response);
+        self.jobs.push(task);
+        Ok(task)
+    }
+    // Cleanup still accepts actual join evidence after cancellation/revocation.
+    pub fn startup_accept_join(
+        &mut self,
+        ram: &memory::Memory,
+        joined: &gamepkg::LocalTaskJoin,
+    ) -> Result<(), i32> {
+        self.startup_owner(ram)?;
+        let mut found = self.jobs.len();
+        for at in 0..self.jobs.len() {
+            if self.jobs[at] == joined.task_id() {
+                found = at;
+                break;
+            }
+        }
+        if found == self.jobs.len() {
+            return Err(-4);
+        }
+        for at in found..self.jobs.len() - 1 {
+            self.jobs[at] = self.jobs[at + 1];
+        }
+        let _ = self.jobs.pop();
+        Ok(())
+    }
+    pub fn startup_join_task(
+        &mut self,
+        ram: &memory::Memory,
+        task: u64,
+    ) -> Result<gamepkg::LocalTaskJoin, i32> {
+        self.startup_owner(ram)?;
+        if !self.jobs.contains(&task) {
+            return Err(-4);
+        }
+        let joined = gamepkg::local_task_join(task)?;
+        self.startup_accept_join(ram, &joined)?;
+        Ok(joined)
+    }
+    fn startup_close_status(&self) -> Result<(), i32> {
+        if self.close_error == 0 {
+            Ok(())
+        } else {
+            Err(self.close_error)
+        }
+    }
+    // Nonblocking: stop/join users first. Never cancel them or confuse finished
+    // with joined. Failed/partial startup cannot retry or enter native code.
+    pub fn startup_close(&mut self, ram: &mut memory::Memory) -> Result<(), i32> {
+        self.startup_owner(ram)?;
+        if self.phase == 5 {
+            return self.startup_close_status();
+        }
+        if !self.jobs.is_empty() {
+            return Err(-2);
+        }
+        self.phase = 4;
+        if self.map != 0 {
+            let current = ram.kernel_handle();
+            if current != 0 && current != self.map {
+                return Err(-4);
+            }
+            if current == self.map {
+                ram.kernel_clear()?;
+            } else {
+                match gamepkg::local_record_release(self.map) {
+                    Ok(()) | Err(-4) => {}
+                    Err(code) => return Err(code),
+                }
+            }
+            self.map = 0;
+        }
+        if let Some(context) = self.context.as_mut() {
+            let outcome = context.kernel_context_close(ram);
+            if !context.kernel_context_closed() {
+                return outcome;
+            }
+            if let Err(code) = outcome {
+                if self.close_error == 0 {
+                    self.close_error = code;
+                }
+            }
+            self.context = None;
+        }
+        if let Some(registry) = self.registry.as_mut() {
+            let outcome = registry.connections_close(ram);
+            if !registry.connections_closed() {
+                return outcome;
+            }
+            if let Err(code) = outcome {
+                if self.close_error == 0 {
+                    self.close_error = code;
+                }
+            }
+            self.registry = None;
+        }
+        if let Some(services) = self.services.as_ref() {
+            match services.service_close(ram) {
+                Ok(()) => {}
+                Err(-4) => {
+                    // service_close can report dead root after releasing. Make
+                    // the owned record's absence explicit without unlinking a
+                    // replacement service belonging to somebody else.
+                    match gamepkg::local_record_release(services.service_handle()) {
+                        Ok(()) | Err(-4) => {}
+                        Err(code) => return Err(code),
+                    }
+                    if self.close_error == 0 {
+                        self.close_error = -4;
+                    }
+                }
+                Err(code) => return Err(code),
+            }
+            self.services = None;
+        }
+        self.phase = 5;
+        self.startup_close_status()
+    }
+}

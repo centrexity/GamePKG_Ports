@@ -7,6 +7,7 @@ use crate::image_imports;
 use crate::kernel_data;
 use crate::kernel_pool;
 use crate::probe;
+use crate::startup_probe;
 use crate::xbe;
 pub fn image_import_run() -> Result<(), i32> {
     let mut rom = 0u64;
@@ -45,7 +46,7 @@ pub fn image_import_run() -> Result<(), i32> {
     let job = probe::imports_owner(&mut ram, banks, shape[4], true)?;
     let data = kernel_data::Data::data_initialize(
         &mut ram,
-        if mode[0] == 5 {
+        if mode[0] == 5 || mode[0] == 17 {
             shape[0] + 65536
         } else {
             shape[0]
@@ -55,6 +56,11 @@ pub fn image_import_run() -> Result<(), i32> {
         &[],
         None,
     )?;
+    if mode[0] >= 12 {
+        startup_probe::startup_image(&mut ram, &image, &data, mode[0])?;
+        probe::imports_cleanup(&mut ram, job)?;
+        return Ok(());
+    }
     let services = if mode[0] == 4 || mode[0] == 8 || mode[0] == 10 || mode[0] == 11 {
         Some(kernel_pool::kernel_services_initialize(
             &ram,

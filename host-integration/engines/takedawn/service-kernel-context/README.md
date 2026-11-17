@@ -125,3 +125,12 @@ closure, actual ISR/profiler/device/NV2A register/ack paths, disconnect contract
 timer/IRQ/vblank/spin/pause/warp/wait loop and full builders/launchers plus real
 gameplay/GPU/physical-input/audible-audio/measured-pacing qualification. This
 checkpoint establishes safe native ABI composition, not playable title admission.
+
+## Authenticated startup ownership
+
+`startup.rs` now composes service/registry/context creation and authenticated
+complete import publication with explicit retained cleanup and actual-job join
+barriers. See [STARTUP.md](STARTUP.md) for every API, phase, copied-ID format,
+partial-error and cleanup contract. This is checked game code. The complete
+native session factory still needs to adopt it and register its real users;
+issuing an opaque ID is not a source/build/admission exemption or resource lease.
