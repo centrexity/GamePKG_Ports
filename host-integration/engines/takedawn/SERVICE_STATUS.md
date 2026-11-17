@@ -1048,3 +1048,17 @@ full source/handler/loop/renderer/media/build/launcher/gameplay remain required.
 The SDK, app ports pin, public archive/catalog, launch defaults and blocked title
 profiles are unchanged. Components/contained image tests are not physical Windows
 controls, audible sound, visual fidelity or measured pacing.
+
+## Atomic mixed-object wait prerequisite
+
+GamePKG now supplies a bounded atomic wait over events, recursive mutexes, counted
+semaphores and actual reviewed task completion, with explicit abandonment and
+cancellation/revocation semantics. See [SHARED_WAITSET_HANDOFF.md](SHARED_WAITSET_HANDOFF.md)
+for the exact SDK/ABI, checked-owner migration requirements and original-source
+pins. All current component/startup receipts must use the new SDK identity.
+The host prerequisite does not admit NT waits or generic close: combined typed
+wait ownership, guest timeout/status/CPU behavior, alertable thread wake-up/APC
+integration and file/thread adapters remain required. KIC4's main-import gap stays
+102; the public source archive, app pin, defaults and native profile gates remain
+unchanged. Infrastructure/native-Wine/offscreen hardware checks establish no
+physical controls, audible audio, original game fidelity or measured frame pacing.

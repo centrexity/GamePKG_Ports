@@ -1,5 +1,11 @@
 # Shared semaphore interface for the checked port
 
+Current shared SDK identity and the additive atomic-wait API are documented in
+[SHARED_WAITSET_HANDOFF.md](SHARED_WAITSET_HANDOFF.md). The 7baf... identity below
+records the earlier semaphore-only checkpoint; those old receipts cannot be
+reused with the current SDK. Semaphore operations/count rules remain unchanged,
+and the current component/KIC4 regressions are rebuilt against the new identity.
+
 The app now supplies counted child-local semaphores required by the reviewed
 `xbox_NtCreateSemaphore` / `xbox_NtReleaseSemaphore` source. The exact SDK identity
 for this qualification is
