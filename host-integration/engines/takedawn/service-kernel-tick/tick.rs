@@ -6,6 +6,8 @@ use crate::memory;
 
 pub struct Tick {
     root: u64,
+    creator: u64,
+    binding: [u64; 3],
     record: u64,
     stop: u64,
     task: u64,
@@ -67,6 +69,8 @@ impl Tick {
     pub fn tick_new() -> Self {
         Self {
             root: 0,
+            creator: 0,
+            binding: [0; 3],
             record: 0,
             stop: 0,
             task: 0,
@@ -78,13 +82,52 @@ impl Tick {
     pub fn tick_closed(&self) -> bool {
         self.root == 0
     }
-    // On failure this owner retains any partially-created resources. Call
-    // tick_close until terminal before dropping data/root or reusing the owner.
-    pub fn tick_start(
+    fn tick_owner(&self, ram: &memory::Memory) -> Result<(), i32> {
+        if self.root != 0
+            && (ram.call_handle() != self.root || gamepkg::local_task_status()?.0 != self.creator)
+        {
+            return Err(-4);
+        }
+        Ok(())
+    }
+    fn tick_metadata(&self, task: u64) -> std::vec::Vec<u8> {
+        let mut bytes = std::vec::Vec::new();
+        for value in [
+            0x314b4354u64,
+            self.root,
+            self.binding[0],
+            self.binding[1],
+            self.stop,
+            task,
+            self.binding[2],
+            0,
+        ] {
+            bytes.extend(u64::to_le_bytes(value));
+        }
+        bytes
+    }
+    fn tick_validate(&self, ram: &memory::Memory) -> Result<(), i32> {
+        self.tick_owner(ram)?;
+        if self.root == 0 || self.record == 0 || self.stop == 0 {
+            return Err(-1);
+        }
+        if gamepkg::local_task_status()?.1 || ram.services_handle()? != self.binding[2] {
+            return Err(-4);
+        }
+        kernel_pool::kernel_service_values(ram)?;
+        let (_, bytes) = gamepkg::local_record_snapshot(self.record, 64)?;
+        if bytes != self.tick_metadata(self.task) {
+            return Err(-4);
+        }
+        Ok(())
+    }
+    // Allocate immutable startup metadata and stop event, but no worker. A
+    // coordinator can now use Startup::startup_spawn to establish its lifetime
+    // obligation before assigning and resuming the actual SDK job.
+    pub fn tick_allocate(
         &mut self,
         ram: &memory::Memory,
         data: &kernel_data::Data,
-        entry: u32,
     ) -> Result<(), i32> {
         if self.root != 0 {
             return Err(-1);
@@ -92,7 +135,13 @@ impl Tick {
         let binding = data.data_tick_binding(ram)?;
         let services = ram.services_handle()?;
         kernel_pool::kernel_service_values(ram)?;
+        let (creator, cancelled) = gamepkg::local_task_status()?;
+        if cancelled {
+            return Err(-4);
+        }
         self.root = binding[0];
+        self.creator = creator;
+        self.binding = [binding[1], binding[2], services];
         self.result = 0;
         let mut reply = [0u8; 8];
         if gamepkg::local_call(
@@ -104,33 +153,51 @@ impl Tick {
             return Err(-3);
         }
         self.stop = u64::from_le_bytes(reply);
-        let mut bytes = std::vec::Vec::new();
-        for value in [
-            0x314b4354u64,
-            self.root,
-            binding[1],
-            binding[2],
-            self.stop,
-            0,
-            services,
-            0,
-        ] {
-            bytes.extend(u64::to_le_bytes(value));
+        self.record = gamepkg::local_record_create(&self.tick_metadata(0))?;
+        Ok(())
+    }
+    // Opaque argument only. Requires fully allocated, unassigned live state.
+    pub fn tick_argument(&self, ram: &memory::Memory) -> Result<u64, i32> {
+        self.tick_validate(ram)?;
+        if self.task != 0 {
+            return Err(-1);
         }
-        self.record = gamepkg::local_record_create(&bytes)?;
-        let request = [
-            u32::to_le_bytes(entry).as_slice(),
-            &u64::to_le_bytes(self.record),
-            &u32::to_le_bytes(1),
-        ]
-        .concat();
-        if gamepkg::local_call(10, &request, &mut reply)? != 8 {
-            return Err(-3);
+        Ok(self.record)
+    }
+    // The caller must pass its actual suspended SDK spawn. Retain that cleanup
+    // obligation before fallible metadata/liveness checks; failed assignment
+    // must still cancel/join the job before releasing the argument record.
+    pub fn tick_assign(&mut self, ram: &memory::Memory, task: u64) -> Result<(), i32> {
+        self.tick_owner(ram)?;
+        if self.root == 0
+            || self.record == 0
+            || self.stop == 0
+            || self.task != 0
+            || task == 0
+            || task == self.creator
+        {
+            return Err(-1);
         }
-        self.task = u64::from_le_bytes(reply);
-        let (version, _) = gamepkg::local_record_snapshot(self.record, 64)?;
-        bytes[40..48].copy_from_slice(&u64::to_le_bytes(self.task));
-        gamepkg::local_record_compare_exchange(self.record, version, &bytes)?;
+        self.task = task;
+        if gamepkg::local_task_finished(task)? {
+            return Err(-4);
+        }
+        if gamepkg::local_task_status()?.1 || ram.services_handle()? != self.binding[2] {
+            return Err(-4);
+        }
+        kernel_pool::kernel_service_values(ram)?;
+        let (version, bytes) = gamepkg::local_record_snapshot(self.record, 64)?;
+        if bytes != self.tick_metadata(0) {
+            return Err(-4);
+        }
+        gamepkg::local_record_compare_exchange(self.record, version, &self.tick_metadata(task))?;
+        Ok(())
+    }
+    pub fn tick_resume(&mut self, ram: &memory::Memory) -> Result<(), i32> {
+        self.tick_validate(ram)?;
+        if self.task == 0 || self.started {
+            return Err(-1);
+        }
         let mut resumed = [0u8; 4];
         if gamepkg::local_call(13, &u64::to_le_bytes(self.task), &mut resumed)? != 4
             || resumed != u32::to_le_bytes(1)
@@ -140,14 +207,71 @@ impl Tick {
         self.started = true;
         Ok(())
     }
+    pub fn tick_task(&self, ram: &memory::Memory) -> Result<u64, i32> {
+        self.tick_owner(ram)?;
+        Ok(self.task)
+    }
+    // Compatibility composition for a sole owner. Failure retains all partial
+    // resources. Shared coordinators use allocate/argument/spawn/assign/resume.
+    pub fn tick_start(
+        &mut self,
+        ram: &memory::Memory,
+        data: &kernel_data::Data,
+        entry: u32,
+    ) -> Result<(), i32> {
+        self.tick_allocate(ram, data)?;
+        let request = [
+            u32::to_le_bytes(entry).as_slice(),
+            &u64::to_le_bytes(self.tick_argument(ram)?),
+            &u32::to_le_bytes(1),
+        ]
+        .concat();
+        let mut reply = [0u8; 8];
+        if gamepkg::local_call(10, &request, &mut reply)? != 8 {
+            return Err(-3);
+        }
+        self.tick_assign(ram, u64::from_le_bytes(reply))?;
+        self.tick_resume(ram)
+    }
+    // A successful join is shared evidence, not another native object or lease.
+    pub fn tick_accept_join(
+        &mut self,
+        ram: &memory::Memory,
+        joined: &gamepkg::LocalTaskJoin,
+    ) -> Result<(), i32> {
+        self.tick_owner(ram)?;
+        if self.task == 0 || joined.task_id() != self.task {
+            return Err(-4);
+        }
+        let result = joined.result();
+        self.result = if result == 0 {
+            0
+        } else if result <= 6 {
+            -(result as i32)
+        } else {
+            -3
+        };
+        self.task = 0;
+        Ok(())
+    }
+    pub fn tick_join_task(&mut self, ram: &memory::Memory) -> Result<gamepkg::LocalTaskJoin, i32> {
+        self.tick_stop(ram)?;
+        if self.task == 0 {
+            return Err(-1);
+        }
+        if !self.started {
+            gamepkg::local_call(12, &u64::to_le_bytes(self.task), &mut [])?;
+        }
+        let joined = gamepkg::local_task_join(self.task)?;
+        self.tick_accept_join(ram, &joined)?;
+        Ok(joined)
+    }
     // Stop is a request, not a barrier. A write already accepted may complete.
     pub fn tick_stop(&self, ram: &memory::Memory) -> Result<(), i32> {
         if self.root == 0 {
             return Ok(());
         }
-        if ram.call_handle() != self.root {
-            return Err(-4);
-        }
+        self.tick_owner(ram)?;
         if self.stop != 0 {
             tick_signal(self.stop)?;
         }
@@ -157,9 +281,7 @@ impl Tick {
         if self.root == 0 {
             return Ok(true);
         }
-        if ram.call_handle() != self.root {
-            return Err(-4);
-        }
+        self.tick_owner(ram)?;
         if self.task == 0 {
             return Ok(true);
         }
@@ -171,22 +293,7 @@ impl Tick {
     pub fn tick_close(&mut self, ram: &memory::Memory) -> Result<(), i32> {
         self.tick_stop(ram)?;
         if self.task != 0 {
-            if !self.started {
-                gamepkg::local_call(12, &u64::to_le_bytes(self.task), &mut [])?;
-            }
-            let mut reply = [0u8; 8];
-            if gamepkg::local_call(11, &u64::to_le_bytes(self.task), &mut reply)? != 8 {
-                return Err(-3);
-            }
-            let result = u64::from_le_bytes(reply);
-            self.result = if result == 0 {
-                0
-            } else if result <= 6 {
-                -(result as i32)
-            } else {
-                -3
-            };
-            self.task = 0;
+            self.tick_join_task(ram)?;
         }
         if self.record != 0 {
             gamepkg::local_record_release(self.record)?;
@@ -228,7 +335,13 @@ fn tick_run(record: u64) -> Result<(), i32> {
             return Err(-4);
         }
         let sample = gamepkg::local_performance_sample()?;
-        let settings = kernel_pool::kernel_service_values(&ram)?;
+        let settings = kernel_pool::kernel_service_values(&ram);
+        // A bound configuration revoked/replaced during the fetch is Denied,
+        // even if the fetch saw a temporarily unconfigured root (Unsupported).
+        if ram.services_handle()? != values[5] {
+            return Err(-4);
+        }
+        let settings = settings?;
         if tick_wait(values[3], 0)? {
             return Ok(());
         }

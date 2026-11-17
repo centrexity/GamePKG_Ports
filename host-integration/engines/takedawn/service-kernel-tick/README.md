@@ -122,3 +122,30 @@ hardware input/audio/graphics. These are component/lifetime checks, not complete
 title entry, frame pacing, visual fidelity or playable Burnout. The private main
 image still has 111 unresolved imports; remaining timers/scheduler/device/
 renderer/media/build/launch migration and gameplay gates remain required.
+
+## Shared startup and consuming join evidence
+
+The current `tick_allocate`, `tick_argument`, `tick_assign` and `tick_resume`
+APIs permit the actual job to be created and tracked by authenticated startup
+before any periodic write. `tick_task` exposes its unjoined ID to the actual
+creator. `tick_join_task` returns the SDK's actual typed consuming-join evidence;
+`tick_accept_join` accepts that same exact-job proof when another owner joined.
+Busy, wrong/repeated proofs, suspended failed assignment and revoked binding
+cleanup retain their explicit obligations. Original `tick_start`/`tick_close`
+remain sole-owner compositions. Metadata before assignment has task zero and
+cannot be run as a worker; TCK1/64 and all other codecs/quotas remain unchanged.
+
+Production composition and every API/error/lifecycle contract are documented in
+[../service-kernel-context/TICK_STARTUP.md](../service-kernel-context/TICK_STARTUP.md).
+The exact creator and binding cache live only in checked Rust owner state.
+Settings lookup now rechecks the pinned KSV even when lookup errors: revocation
+cannot masquerade as a new unconfigured owner. The new deterministic native seam
+covers unlink/replacement before any word write and rejects an old-guard copy;
+it remains maintainer-only and rejects when packaged unused.
+
+Neither this periodic writer nor startup registration implements the separate
+timer/DPC/vblank worker, production IRQ/device/renderer paths or complete title
+entry. The latest authenticated startup inspection still has 107 unsupported
+main function imports with bound context. Earlier unresolved counts above are
+historical. No legacy native profile, source/object or confinement exemption is
+enabled, and users do not need the maintainer Python/C tools.

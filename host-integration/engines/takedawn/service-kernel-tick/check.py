@@ -17,7 +17,7 @@ def main():
   root=Path(temp);reference=root/'reference.c';reference.write_text(text)
   rs='#![allow(dead_code)]\n'
   for name,path in modules:rs+='#[path='+json.dumps(str(path))+']mod '+name+';\n'
-  source=root/'main.rs';source.write_text(rs+(here/'reference.rs').read_text())
+  source=root/'main.rs';source.write_text(rs+(here/'reference.rs').read_text());race=root/'race.rs';race.write_text(rs+(here/'revocation.rs').read_text())
   for target,compiler,extra in [('x86_64-unknown-linux-gnu','gcc',[]),('i686-unknown-linux-gnu','gcc-11',['-m32']),('x86_64-pc-windows-gnu','x86_64-w64-mingw32-gcc',[]),('i686-pc-windows-gnu','i686-w64-mingw32-gcc',[])]:
    obj=root/(target+'.o');subprocess.run([compiler,*extra,'-std=c11','-Wall','-Wextra','-Werror','-O2','-c',str(reference),'-o',str(obj)],check=True)
    exe=root/(target+('.exe' if 'windows' in target else ''));cmd=['rustc','--edition=2021','-D','warnings','-O','--target',target,str(source),'-C','link-arg='+str(obj),'-o',str(exe)]
@@ -26,6 +26,21 @@ def main():
    if 'windows' not in target:subprocess.run([str(exe)],check=True,timeout=180)
    elif a.wine:subprocess.run(['wine',str(exe)],check=True,timeout=180,env=dict(os.environ,WINEDEBUG='-all',WINEPREFIX='/tmp/gamepkg-port-replace-wine'))
    else:print('PASS '+target+': compilation only')
+   race_exe=root/('race-'+target+('.exe' if 'windows' in target else ''));cmd=['rustc','--edition=2021','-D','warnings','-O','--target',target,str(race),'-o',str(race_exe)]
+   if target=='i686-unknown-linux-gnu':cmd+=['-C','linker=gcc-11','-C','link-arg=-lssp_nonshared']
+   subprocess.run(cmd,check=True)
+   if 'windows' not in target:subprocess.run([str(race_exe)],check=True,timeout=30)
+   elif a.wine:subprocess.run(['wine',str(race_exe)],check=True,timeout=30,env=dict(os.environ,WINEDEBUG='-all',WINEPREFIX='/tmp/gamepkg-port-replace-wine'))
+   else:print('PASS '+target+': deterministic revocation compilation only')
+  original=(here/'tick.rs').read_text()
+  old='        let settings = kernel_pool::kernel_service_values(&ram);\n        // A bound configuration revoked/replaced during the fetch is Denied,\n        // even if the fetch saw a temporarily unconfigured root (Unsupported).\n        if ram.services_handle()? != values[5] {\n            return Err(-4);\n        }\n        let settings = settings?;'
+  assert original.count(old)==1
+  broken=root/'broken-tick.rs';broken.write_text(original.replace(old,'        let settings = kernel_pool::kernel_service_values(&ram)?;',1))
+  source=root/'broken-race.rs';source.write_text(race.read_text().replace(json.dumps(str(here/'tick.rs')),json.dumps(str(broken))))
+  exe=root/'broken-race';subprocess.run(['rustc','--edition=2021','-D','warnings','-O',str(source),'-o',str(exe)],check=True)
+  result=subprocess.run([str(exe)],capture_output=True,text=True,timeout=30)
+  assert result.returncode!=0 and 'revoked bound KSV must be Denied' in result.stderr and 'left: 5' in result.stderr,result.stderr
+  print('PASS required failing old tick binding-revocation race: compiled maintainer control returns Unsupported 5 instead of Denied 4; never admitted',flush=True)
   if a.app_lib:
    lib=a.app_lib.resolve(strict=True);spec=importlib.util.spec_from_file_location('helpers',here.parent/'service-save/check.py');helpers=importlib.util.module_from_spec(spec);spec.loader.exec_module(helpers)
    exe=root/'admission';cmd=['rustc','--edition=2021','-D','warnings',str(here/'admission.rs'),'--extern','gamepkg='+str(lib),'-L','dependency='+str(lib.parent),'-o',str(exe)]

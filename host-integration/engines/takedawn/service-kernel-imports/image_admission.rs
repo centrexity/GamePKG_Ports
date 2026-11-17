@@ -31,6 +31,8 @@ fn main() {
     let mut cases_start = 4;
     let mut evidence = None;
     let mut startup_copy = None;
+    let mut tick_copy = None;
+    let mut tick_startup_copy = None;
     let mut linux64_only = false;
     while args[cases_start].to_str().unwrap().starts_with("--") {
         match args[cases_start].to_str().unwrap() {
@@ -40,6 +42,14 @@ fn main() {
             }
             "--startup-copy" => {
                 startup_copy = Some(Path::new(&args[cases_start + 1]));
+                cases_start += 2;
+            }
+            "--tick-copy" => {
+                tick_copy = Some(Path::new(&args[cases_start + 1]));
+                cases_start += 2;
+            }
+            "--tick-startup-copy" => {
+                tick_startup_copy = Some(Path::new(&args[cases_start + 1]));
                 cases_start += 2;
             }
             "--linux64-only" => {
@@ -107,6 +117,22 @@ fn main() {
             "startup_probe.rs",
             here.join("../service-kernel-context/startup_probe.rs"),
         ),
+        (
+            "tick_service.rs",
+            tick_copy
+                .map(Path::to_path_buf)
+                .unwrap_or_else(|| here.join("../service-kernel-tick/tick.rs")),
+        ),
+        (
+            "tick_startup.rs",
+            tick_startup_copy
+                .map(Path::to_path_buf)
+                .unwrap_or_else(|| here.join("../service-kernel-context/tick_startup.rs")),
+        ),
+        (
+            "tick_probe.rs",
+            here.join("../service-kernel-context/tick_probe.rs"),
+        ),
         ("disc.rs", here.join("../service-disc/disc.rs")),
         ("sha256.rs", here.join("../service-image/sha256.rs")),
         ("xbe.rs", here.join("../service-image/image.rs")),
@@ -145,9 +171,10 @@ fn main() {
         fs::write(path, data).unwrap();
     }
     fs::write(source.join("source/src/lib.rs"),r#"
-mod layout;mod memory;mod registers;mod call_state;mod calls_runtime;mod vector;mod scalar;mod debug;mod heap;mod contiguous;mod heap_service;mod kernel_pool;mod kernel_data;mod signature;mod imports;mod cases;mod probe;mod controls;mod game;mod dispatch;mod targets;mod disc;mod sha256;mod xbe;mod bootstrap;mod image_imports;mod image_probe;mod kernel_startup;mod startup_probe;
+mod layout;mod memory;mod registers;mod call_state;mod calls_runtime;mod vector;mod scalar;mod debug;mod heap;mod contiguous;mod heap_service;mod kernel_pool;mod kernel_data;mod signature;mod imports;mod cases;mod probe;mod controls;mod game;mod dispatch;mod targets;mod disc;mod sha256;mod xbe;mod bootstrap;mod image_imports;mod image_probe;mod kernel_startup;mod startup_probe;mod tick_service;mod tick_startup;mod tick_probe;
 pub fn heap_worker(arg:u64)->u64{heap_service::heap_serve(arg)}
 pub fn startup_worker(arg:u64)->u64{startup_probe::startup_worker(arg)}
+pub fn tick_worker(arg:u64)->u64{tick_service::tick_worker(arg)}
 pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,Err(code)=>code as i64 as u64};let _=gamepkg::diagnostic(1,0x544b0fff,&[code]);}
 "#).unwrap();
     let mut manifest =
@@ -200,6 +227,18 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
     .unwrap();
     assert!(gamepkg::pack::pack(&source, &root.path().join("denied.gamepkg"), &[183; 32]).is_err());
     fs::remove_file(source.join("source/src/unused_shell.rs")).unwrap();
+    fs::copy(
+        here.join("../service-kernel-tick/revocation.rs"),
+        source.join("source/src/unused_revocation.rs"),
+    )
+    .unwrap();
+    assert!(gamepkg::pack::pack(
+        &source,
+        &root.path().join("denied-revocation.gamepkg"),
+        &[183; 32]
+    )
+    .is_err());
+    fs::remove_file(source.join("source/src/unused_revocation.rs")).unwrap();
     for target in [
         Target::Linux64,
         Target::Linux32,
@@ -212,7 +251,11 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
         let plan = Plan::new(
             target,
             "game_main",
-            vec!["heap_worker".into(), "startup_worker".into()],
+            vec![
+                "heap_worker".into(),
+                "startup_worker".into(),
+                "tick_worker".into(),
+            ],
             LocalLayout::TakedawnMemory,
             true,
         )
@@ -243,7 +286,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
         }
         for pair in args[cases_start..].chunks_exact(2) {
             let mode = pair[0].to_str().unwrap().parse::<u8>().unwrap();
-            assert!(mode <= 23);
+            assert!(mode <= 31);
             let selected = fs::File::open(&pair[1]).unwrap();
             let mut indexed =
                 gamepkg::xbox_disc::Disc::from_file(selected.try_clone().unwrap()).unwrap();
@@ -305,7 +348,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
             assert_eq!(
                 events.last().unwrap().values,
                 vec![0],
-                "{}",
+                "{} {events:?}",
                 owner.diagnostics()
             );
             let summaries: Vec<_> = events
@@ -352,8 +395,10 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                 );
             }
             for event in &events {
-                assert!([0x544b0f00, 0x544b0f10, 0x544b0fff, 0x544b1300, 0x544b3200]
-                    .contains(&event.code));
+                assert!(
+                    [0x544b0f00, 0x544b0f10, 0x544b0fff, 0x544b1300, 0x544b3200, 0x544b1710]
+                        .contains(&event.code)
+                );
                 if event.code == 0x544b1300 {
                     assert!(mode == 8 || mode == 10);
                     assert!(event.values == vec![8, 4] || event.values == vec![9, 4]);

@@ -788,3 +788,37 @@ quotas, public source-kit archive, launch defaults, source/object/confinement
 rules and app's pinned submodule stay unchanged. The full production factory,
 real device/profiler/IRQ handlers, timer/pacing loop, remaining kernel/generated/
 manual/media/renderer work and complete build/launch/gameplay remain required.
+
+## Live clock registered before resume, with shared actual join evidence
+
+`service-kernel-context/tick_startup.rs` now composes authenticated startup with
+the actual periodic KeTickCount writer. Allocate/argument/Startup suspended spawn/
+assign/resume establishes startup's lifetime obligation before the job runs.
+The split Tick APIs retain failed assignment for cancel/join; exact SDK join
+proof can be consumed by either Tick or Startup and shared with the other.
+Wrong/repeated evidence, unwitnessed consumed jobs and completion snapshots do
+not authorize cleanup. Exact contracts: `service-kernel-context/TICK_STARTUP.md`.
+
+An integration run reproduced the prior clock configuration race. The loop now
+rechecks its pinned KSV after lookup, including lookup errors, so unlink or live
+replacement is Denied before writing rather than fresh-owner Unsupported.
+Deterministic maintainer controls and an old-guard required-failing copy bind
+that behavior. The seam rejects when packaged unused; it is not host/game code.
+
+All four targets pass complete source checks and both emitted optimized object
+audits before trusted linking. Actual confined Linux x64/i686 each pass 30
+synthetic image cases plus two independently authenticated private ISO cases.
+Eleven broken copies pass build checks then fail actual confined Linux64 behavior.
+The original Tick matrix passes 2,048 C arithmetic vectors per target, lifecycle/
+quota/revocation and 132-cycle regressions, plus confined Linux progress during a
+>=60ms held broker request. Deterministic unlink/replacement executes natively on
+Linux and through Wine on Windows. Image Windows scope remains source/object/link.
+No physical controls, audible audio, GPU/gameplay/pacing or Windows confinement
+claim is made. Source-policy variable and Windows stack-helper rejections were
+resolved in fixture code without altering policy or audit vocabulary.
+
+The full native session must still adopt these owners and wire actual timer/
+DPC/IRQ/device/profiler/pacing handlers, remaining imports/generated/manual/media/
+renderer code and builders/launchers. The private bound-context main gap stays
+107; no full candidate counts are requalified. SDK/codecs/quotas/public source
+archive/defaults/pinned submodule and both blocked title profiles are unchanged.

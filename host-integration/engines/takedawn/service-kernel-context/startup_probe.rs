@@ -7,6 +7,7 @@ use crate::kernel_startup;
 use crate::layout;
 use crate::memory;
 use crate::registers;
+use crate::tick_probe;
 use crate::xbe;
 fn startup_need(ok: bool) -> Result<(), i32> {
     if ok {
@@ -274,6 +275,9 @@ pub fn startup_image(
             && owner.startup_prepare(ram, image, data, &[], 0x10000, 2) == Err(-1)
             && owner.startup_ids(ram)? == ids,
     )?;
+    if mode >= 24 {
+        return tick_probe::startup_clock_case(&mut owner, ram, data, mode);
+    }
     let mut state = registers::Registers::new();
     state.esp = 0x21000;
     ram.write_u32(state.esp, 0x12345678)?;

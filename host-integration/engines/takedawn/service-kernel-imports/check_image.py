@@ -13,7 +13,7 @@ def main():
   root=Path(temp);probe=root/'admission';cmd=['rustc','--edition=2021','-D','warnings',str(here/'image_admission.rs'),'--extern','gamepkg='+str(lib),'-L','dependency='+str(lib.parent),'-o',str(probe)]
   for name in ['cap_std','tempfile','toml','serde_json']:cmd+=['--extern',name+'='+str(helpers.dependency(lib,name))]
   subprocess.run(cmd,check=True);cases=[]
-  for mode in [0,1,2,3,5,6,7,8,9,10,11,*range(12,23)]:
+  for mode in [0,1,2,3,5,6,7,8,9,10,11,*range(12,23),*range(24,32)]:
    data=images.image();images.word(data,0x10c,0x770000);images.word(data,0x1b8+8,0x76e000);images.word(data,0x1b8+16,0x1000)
    images.word(data,0x158,0x12400^(0xefb1f152 if mode==1 else 0x5b6d40b6))
    if mode==1:images.word(data,0x128,0x11020^0x94859d4b)
@@ -63,9 +63,34 @@ def main():
      (a.evidence/(name+'.log')).write_text(result.stdout+result.stderr)
      (a.evidence/(name+'.rs')).write_text(variant.read_text())
     print('PASS required failing '+name+' startup control; no policy exemption',flush=True)
+   tick_source=here/'../service-kernel-tick/tick.rs';coordinator=here/'../service-kernel-context/tick_startup.rs'
+   tick_variants=[
+    ('untracked-clock',coordinator,'--tick-startup-copy','let task = owner.startup_spawn(ram, entry, argument)?;', 'let request = [u32::to_le_bytes(entry).as_slice(), &u64::to_le_bytes(argument), &u32::to_le_bytes(1)].concat(); let mut reply = [0u8;8]; if crate::gamepkg::local_call(10,&request,&mut reply)? != 8 { return Err(-3); } let task = u64::from_le_bytes(reply);',24),
+    ('skip-clock-assignment',coordinator,'--tick-startup-copy','    clock.tick_assign(ram, task)?;', '    let _ = task;',24),
+    ('wrong-clock-join',tick_source,'--tick-copy','self.task == 0 || joined.task_id() != self.task','self.task == 0 || joined.task_id() != joined.task_id()',25),
+    ('release-clock-without-join',tick_source,'--tick-copy','if self.task != 0 {\n            self.tick_join_task(ram)?;\n        }','if false {\n            self.tick_join_task(ram)?;\n        }',25),
+    ('forget-failed-clock-assignment',tick_source,'--tick-copy','        self.task = task;\n        if gamepkg::local_task_finished(task)?','        if gamepkg::local_task_finished(task)?',28),
+    ('resume-corrupt-clock-metadata',tick_source,'--tick-copy','if bytes != self.tick_metadata(self.task) {','if bytes != bytes {',28),
+   ]
+   for name,path,option,old,new,mode in tick_variants:
+    original=path.read_text();assert original.count(old)==1,(name,old)
+    mutated=original.replace(old,new,1)
+    if name=='forget-failed-clock-assignment':
+     old='gamepkg::local_record_compare_exchange(self.record, version, &self.tick_metadata(task))?;'
+     assert mutated.count(old)==1;mutated=mutated.replace(old,old+'\n        self.task = task;',1)
+    variant=root/(name+'.rs');variant.write_text(mutated)
+    result=subprocess.run([*prefix,'--linux64-only',option,str(variant),str(mode),str(root/(str(mode)+'.iso'))],capture_output=True,text=True)
+    assert result.returncode!=0,(name,'broken live clock accepted')
+    assert 'PASS Linux64: complete image/import/helper source admission and all-object audit before trusted linking' in result.stdout,(name,result.stderr)
+    assert 'error:' not in result.stderr and 'BuildError' not in result.stderr,(name,result.stderr)
+    assert 'assertion' in result.stderr or 'panicked at' in result.stderr,(name,result.stderr)
+    if a.evidence:
+     (a.evidence/(name+'.log')).write_text(result.stdout+result.stderr)
+     (a.evidence/(name+'.rs')).write_text(variant.read_text())
+    print('PASS required failing '+name+' clock integration control; no policy exemption',flush=True)
   if a.evidence:
    files={str(path.relative_to(a.evidence)):hashlib.sha256(path.read_bytes()).hexdigest() for path in sorted(a.evidence.iterdir())}
-   sources={str(path.relative_to(here.parent)):hashlib.sha256(path.read_bytes()).hexdigest() for path in [here/'check_image.py',here/'image_admission.rs',here/'image_probe.rs',here/'../service-kernel-context/startup.rs',here/'../service-kernel-context/startup_probe.rs']}
-   (a.evidence/'qualification.json').write_text(json.dumps({'schema':1,'sdk':'fe309935dd602e2cf098e50065f6035de33dac88b51d45a2bc1ba47cf026742f','status':'authenticated-synthetic-image-startup-and-actual-join-lifetimes-not-title-entry','files':files,'sources':sources,'required_failing_variants':5 if a.mutations else 0,'windows':'source/object/link only','linux':'actual confined x64/i686 children','profile_admission':'blocked'},indent=2)+'\n')
+   sources={str(path.relative_to(here.parent)):hashlib.sha256(path.read_bytes()).hexdigest() for path in [here/'check_image.py',here/'image_admission.rs',here/'image_probe.rs',here/'../service-kernel-context/startup.rs',here/'../service-kernel-context/startup_probe.rs',here/'../service-kernel-context/tick_startup.rs',here/'../service-kernel-context/tick_probe.rs',here/'../service-kernel-tick/tick.rs']}
+   (a.evidence/'qualification.json').write_text(json.dumps({'schema':1,'sdk':'fe309935dd602e2cf098e50065f6035de33dac88b51d45a2bc1ba47cf026742f','status':'authenticated-image-startup-with-live-shared-tick-join-lifetimes-not-title-entry','files':files,'sources':sources,'required_failing_variants':11 if a.mutations else 0,'windows':'source/object/link only','linux':'actual confined x64/i686 children','profile_admission':'blocked'},indent=2)+'\n')
  print('Image/import infrastructure only; private title remains rejected until all actual kernel calls and native entry migrate.')
 if __name__=='__main__':main()
