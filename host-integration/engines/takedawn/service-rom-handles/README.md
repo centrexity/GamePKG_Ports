@@ -48,7 +48,13 @@ contention, discarded cursor updates, wrong-root finish, host revocation and cle
 remains live. Linux32/64 execute confined children. Windows32/64 checks
 build and audit the same source. Fixture media are temporary.
 
-Guest kernel import dispatch and writing completion status/data to guest
-memory still need wiring. This component supplies the owned file and read
-reservation for that path. Full asynchronous notification, saves, normal
+`RomRead::rom_read_guest` preflights the whole requested output and the
+eight-byte status block, reads into private scratch, and publishes the data
+and status with one checked local scatter write. The status is written last.
+Success returns zero. A nonempty request at EOF returns 0xC0000011 and writes
+a zero count. Rejected destinations and transport errors return a service
+error. Backing permissions are checked again under the write lock, and a
+failed publication discards the proposed cursor change.
+
+Guest kernel import dispatch, asynchronous notification, saves, normal
 title launch and gameplay have separate integration requirements.

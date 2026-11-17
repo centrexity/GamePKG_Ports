@@ -101,6 +101,51 @@ fn run_handles(grant: u64) -> Result<(), i32> {
         retry.rom_read_into(&f.ram, None, &mut bytes)? == 4 && bytes == expected,
     )?;
     retry.rom_read_finish(&f.ram, true)?;
+    let mut begin = None;
+    files.rom_read_begin(&f.ram, &f.table, first, &mut begin)?;
+    let guest = begin.as_mut().ok_or(-3)?;
+    let mut missing = f.ram.call_view();
+    check(
+        871,
+        guest.rom_read_guest(&mut missing, None, 0x10100, 4, 0x10200) == Err(-4),
+    )?;
+    check(
+        872,
+        guest.rom_read_guest(&mut f.ram, None, 0x10100, 4, 0x10200)? == 0,
+    )?;
+    stream.disc_file_exact(12, &mut expected)?;
+    f.ram.read_bytes(0x10100, &mut bytes)?;
+    check(
+        873,
+        bytes == expected && f.ram.read_u64(0x10200)? == 0x400000000,
+    )?;
+    guest.rom_read_finish(&f.ram, true)?;
+
+    let mut begin = None;
+    files.rom_read_begin(&f.ram, &f.table, first, &mut begin)?;
+    let eof = begin.as_mut().ok_or(-3)?;
+    check(
+        874,
+        eof.rom_read_guest(&mut f.ram, Some(u64::MAX), 0x10100, 4, 0x10200)? == 0xc0000011,
+    )?;
+    check(875, f.ram.read_u64(0x10200)? == 0xc0000011)?;
+    f.ram.read_bytes(0x10100, &mut bytes)?;
+    check(876, bytes == expected)?;
+    eof.rom_read_finish(&f.ram, true)?;
+
+    // The second guest range resolves, but its backing page is uncommitted.
+    // The local scatter operation must keep the first range intact.
+    let mut info = [0u8; 64];
+    check(879, gamepkg::local_call(1, &[], &mut info)? == 64)?;
+    f.ram
+        .attach(0x11000, 4096, setup::mixed_word(&info, 0)?, 4096, true)?;
+    check(880, f.ram.memory_check_write(0x11000, 8) == Err(-4))?;
+    check(
+        877,
+        f.ram.memory_write_pair(0x10100, b"FAIL", 0x11000, b"\x01") == Err(-4),
+    )?;
+    f.ram.read_bytes(0x10100, &mut bytes)?;
+    check(878, bytes == expected)?;
     files.rom_close(&f.ram, &f.table, first)?;
     check(864, files.rom_close(&f.ram, &f.table, first) == Err(-4))?;
 

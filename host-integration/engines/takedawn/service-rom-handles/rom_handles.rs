@@ -333,6 +333,44 @@ impl RomRead {
         Ok(count)
     }
 
+    // Publish a synchronous read to guest memory. Status is the final
+    // eight-byte LE write of (status, transferred), even for aliasing ranges.
+    pub fn rom_read_guest(
+        &mut self,
+        ram: &mut memory::Memory,
+        offset: Option<u64>,
+        destination: u32,
+        length: u32,
+        status: u32,
+    ) -> Result<u32, i32> {
+        self.rom_read_owner(ram)?;
+        if length as usize > READ_LIMIT || status == 0 || (length != 0 && destination == 0) {
+            return Err(-1);
+        }
+        ram.memory_check_write(destination, length)?;
+        ram.memory_check_write(status, 8)?;
+        let mut scratch = std::vec::Vec::new();
+        scratch.resize(length as usize, 0u8);
+        let count = self.rom_read_into(ram, offset, &mut scratch)?;
+        let code = if length != 0 && count == 0 {
+            0xc0000011u32
+        } else {
+            0
+        };
+        let completion = [
+            u32::to_le_bytes(code).as_slice(),
+            &u32::to_le_bytes(count as u32),
+        ]
+        .concat();
+        if let Err(error) =
+            ram.memory_write_pair(destination, &scratch[..count], status, &completion)
+        {
+            self.next_cursor = None;
+            return Err(error);
+        }
+        Ok(code)
+    }
+
     pub fn rom_read_finish(&mut self, ram: &memory::Memory, publish: bool) -> Result<(), i32> {
         self.rom_read_owner(ram)?;
         if let Some(choice) = self.publish_cursor {

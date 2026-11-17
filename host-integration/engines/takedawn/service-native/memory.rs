@@ -512,6 +512,55 @@ impl Memory {
         }
         Ok(())
     }
+    // Preflight writable guest ranges before starting external I/O. Backing
+    // permissions are checked again when writing, since no lease is acquired.
+    pub fn memory_check_write(&self, address: u32, length: u32) -> Result<(), i32> {
+        if length == 0 {
+            return Ok(());
+        }
+        for segment in self.resolve_segments(address, u64::from(length), true)? {
+            let mut page = segment[1] & !4095u64;
+            let end = segment[1].checked_add(segment[2]).ok_or(-1)?;
+            while page < end {
+                let pages = ((end - page).div_ceil(4096)).min(256);
+                for access in gamepkg::local_memory_page_states(segment[0], page, pages as u32)? {
+                    if access != 3 {
+                        return Err(-4);
+                    }
+                }
+                page += pages * 4096;
+            }
+        }
+        Ok(())
+    }
+
+    // Publish two guest ranges in order under the same local memory lock.
+    // The service checks all backing permissions before touching either one.
+    pub fn memory_write_pair(
+        &mut self,
+        first: u32,
+        first_bytes: &[u8],
+        last: u32,
+        last_bytes: &[u8],
+    ) -> Result<(), i32> {
+        if first_bytes.len().saturating_add(last_bytes.len()) > 1048560 {
+            return Err(-1);
+        }
+        let mut segments = std::vec::Vec::new();
+        if !first_bytes.is_empty() {
+            segments.extend(self.resolve_segments(first, first_bytes.len() as u64, true)?);
+        }
+        if !last_bytes.is_empty() {
+            segments.extend(self.resolve_segments(last, last_bytes.len() as u64, true)?);
+        }
+        if segments.is_empty() {
+            return Ok(());
+        }
+        let mut payload = first_bytes.to_vec();
+        payload.extend(last_bytes);
+        gamepkg::local_memory_write_segments(&segments, &payload)
+    }
+
     pub fn read_u8(&self, address: u32) -> Result<u8, i32> {
         let mut bytes = [0u8; 1];
         self.read_bytes(address, &mut bytes)?;
