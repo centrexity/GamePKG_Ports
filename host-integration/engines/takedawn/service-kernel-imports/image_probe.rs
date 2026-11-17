@@ -101,6 +101,9 @@ pub fn image_import_run() -> Result<(), i32> {
                 let ordinal = current & 0x7fffffff;
                 if data.data_address(&ram, ordinal)? == 0
                     && (kernel_pool::kernel_supported(ordinal).is_err()
+                        || ordinal == 277
+                        || ordinal == 291
+                        || ordinal == 294
                         || kernel_pool::kernel_requires_context(ordinal))
                 {
                     missing.extend([u64::from(ordinal)]);

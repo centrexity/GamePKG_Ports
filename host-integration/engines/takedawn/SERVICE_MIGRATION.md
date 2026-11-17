@@ -107,3 +107,20 @@ on the new boundary, including original saves/visuals, menus/driving, analog
 extremes, hotplug/focus/rumble, audible output and measured CPU/GPU frame times.
 Only then merge the scoped Burnout commits into local main. This session leaves
 main and historical worktrees untouched because that completion gate is unmet.
+
+## Checked critical-section checkpoint (2026-11-17)
+
+The isolated `feature/takedawn-shared-services` integration adds checked CSD1
+recursive critical sections and explicit KIC5 startup for active imports
+291/277/294. See [the exact contract](service-critical/README.md). It consumes
+unchanged app SDK `49a313ff062e83e3bcbaadb125f4ace190847b0321cc25877e45f92023f0234a`.
+Normal source scanning, separate optimized game units, collective object audit,
+SDK/object/source-kit receipts and process confinement remain mandatory. No
+engine/media exemption or legacy player enablement was added.
+
+KIC5 private image diagnostics report 95 pending imports; KIC4 remains at 98.
+This is not title entry or a playable port. Next work includes demonstrated
+active file ownership, thread creation/termination and actual NT wait/APC paths,
+then complete generated-source, renderer, media and launcher integration. Existing
+local GamePKG binaries already supply this SDK; these game-side changes do not
+require replacing them or enabling blocked legacy ports.

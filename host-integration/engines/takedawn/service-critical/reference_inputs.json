@@ -1,0 +1,62 @@
+{
+  "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+  "functions": [
+    {
+      "member": "toolkit/src/kernel/kernel_rtl.c",
+      "member_sha256": "0288004b67feb7fa608a38146a66530d4ca64e131ed2ddbe5e39de7620bed978",
+      "function": "xbox_cs_shadow",
+      "start": 9306,
+      "end": 11556,
+      "sha256": "4c199145127047307fcbdd34113a8c58c17222e11652c85590025f82e8319418"
+    },
+    {
+      "member": "toolkit/src/kernel/kernel_rtl.c",
+      "member_sha256": "0288004b67feb7fa608a38146a66530d4ca64e131ed2ddbe5e39de7620bed978",
+      "function": "xbox_RtlInitializeCriticalSection",
+      "start": 19646,
+      "end": 19921,
+      "sha256": "af7b7e616379377462f14f298707aac24b9f2df343eb78813f1697a6e2b5a8ca"
+    },
+    {
+      "member": "toolkit/src/kernel/kernel_rtl.c",
+      "member_sha256": "0288004b67feb7fa608a38146a66530d4ca64e131ed2ddbe5e39de7620bed978",
+      "function": "xbox_RtlEnterCriticalSection",
+      "start": 17237,
+      "end": 19316,
+      "sha256": "04e9973e18a1a52e9a47fb1e7d9129a43a7eb8bfbdb03c5ee19a650974905546"
+    },
+    {
+      "member": "toolkit/src/kernel/kernel_rtl.c",
+      "member_sha256": "0288004b67feb7fa608a38146a66530d4ca64e131ed2ddbe5e39de7620bed978",
+      "function": "xbox_RtlLeaveCriticalSection",
+      "start": 19318,
+      "end": 19644,
+      "sha256": "ede7c95558e6daa3fb4f4c2f2a3ce5899a64b97ba0af2181b291fc282a81d5c4"
+    },
+    {
+      "member": "toolkit/src/kernel/kernel_bridge.c",
+      "member_sha256": "bf62f8787a2e78a0abdb28e10ad8f79c5267dc655491353af231067747ce446e",
+      "function": "bridge_RtlInitializeCriticalSection",
+      "start": 78204,
+      "end": 78373,
+      "sha256": "09fe0edaa8c6c490b8552683fe7813fcf61fb6c5f8738d8a6f4c246b7eb01532"
+    },
+    {
+      "member": "toolkit/src/kernel/kernel_bridge.c",
+      "member_sha256": "bf62f8787a2e78a0abdb28e10ad8f79c5267dc655491353af231067747ce446e",
+      "function": "bridge_RtlEnterCriticalSection",
+      "start": 78375,
+      "end": 78534,
+      "sha256": "4e57a9a7cc4065be12dd04fa7f9d38a5244737aef7d4d028962d58de016cbbdc"
+    },
+    {
+      "member": "toolkit/src/kernel/kernel_bridge.c",
+      "member_sha256": "bf62f8787a2e78a0abdb28e10ad8f79c5267dc655491353af231067747ce446e",
+      "function": "bridge_RtlLeaveCriticalSection",
+      "start": 78536,
+      "end": 78695,
+      "sha256": "535a3de906cdda3a402c2aa33651b6c74c975e5f3068c2eecea331cfe3c01b46"
+    }
+  ],
+  "scope": "reviewed original contract bytes; no original C oracle execution is claimed"
+}

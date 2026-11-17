@@ -21,6 +21,8 @@ pub struct Startup {
     handles: Option<handles::Handles>,
     objects: Option<typed_events::Events>,
     semaphores: Option<kernel_pool::Semaphores>,
+    critical_shadow: Option<kernel_pool::Shadow>,
+    criticals: Option<kernel_pool::Criticals>,
     map: u64,
     jobs: std::vec::Vec<u64>,
 }
@@ -48,6 +50,8 @@ impl Startup {
             handles: None,
             objects: None,
             semaphores: None,
+            critical_shadow: None,
+            criticals: None,
             map: 0,
             jobs: std::vec::Vec::new(),
         })
@@ -158,6 +162,31 @@ impl Startup {
             [scratch, offset, 1],
         )
     }
+    pub fn startup_prepare_with_criticals(
+        &mut self,
+        ram: &mut memory::Memory,
+        image: &xbe::Image,
+        data: &kernel_data::Data,
+        remap: &[u16],
+        video: u32,
+        speakers: u32,
+        scratch: u64,
+        offset: u64,
+    ) -> Result<(), i32> {
+        if scratch == 0 {
+            return Err(-1);
+        }
+        self.startup_prepare_mode(
+            ram,
+            image,
+            data,
+            remap,
+            video,
+            speakers,
+            true,
+            [scratch, offset, 2],
+        )
+    }
     fn startup_prepare_mode(
         &mut self,
         ram: &mut memory::Memory,
@@ -226,21 +255,40 @@ impl Startup {
                 ram,
                 self.handles.as_ref().ok_or(-3)?,
             )?);
-            if objects[2] == 1 {
+            if objects[2] == 1 || objects[2] == 2 {
                 self.semaphores = Some(kernel_pool::Semaphores::semaphores_new(
                     ram,
                     self.handles.as_ref().ok_or(-3)?,
                 )?);
-                Some(
-                    kernel_pool::KernelContext::kernel_context_new_with_sync_objects(
+                if objects[2] == 2 {
+                    self.critical_shadow = Some(kernel_pool::Shadow::shadow_new(ram)?);
+                    self.criticals = Some(kernel_pool::Criticals::criticals_new(
                         ram,
-                        self.registry.as_ref().ok_or(-3)?,
-                        self.shadow.as_ref().ok_or(-3)?,
-                        self.handles.as_ref().ok_or(-3)?.handles_id(),
-                        self.objects.as_ref().ok_or(-3)?.events_id(),
-                        self.semaphores.as_ref().ok_or(-3)?.semaphores_id(),
-                    )?,
-                )
+                        self.critical_shadow.as_ref().ok_or(-3)?,
+                    )?);
+                    Some(
+                        kernel_pool::KernelContext::kernel_context_new_with_criticals(
+                            ram,
+                            self.registry.as_ref().ok_or(-3)?,
+                            self.shadow.as_ref().ok_or(-3)?,
+                            self.handles.as_ref().ok_or(-3)?.handles_id(),
+                            self.objects.as_ref().ok_or(-3)?.events_id(),
+                            self.semaphores.as_ref().ok_or(-3)?.semaphores_id(),
+                            self.criticals.as_ref().ok_or(-3)?,
+                        )?,
+                    )
+                } else {
+                    Some(
+                        kernel_pool::KernelContext::kernel_context_new_with_sync_objects(
+                            ram,
+                            self.registry.as_ref().ok_or(-3)?,
+                            self.shadow.as_ref().ok_or(-3)?,
+                            self.handles.as_ref().ok_or(-3)?.handles_id(),
+                            self.objects.as_ref().ok_or(-3)?.events_id(),
+                            self.semaphores.as_ref().ok_or(-3)?.semaphores_id(),
+                        )?,
+                    )
+                }
             } else {
                 Some(kernel_pool::KernelContext::kernel_context_new_with_objects(
                     ram,
@@ -340,6 +388,16 @@ impl Startup {
         } else if context.kernel_context_sync_objects(ram).err() != Some(-5) {
             return Err(-4);
         }
+        if let Some(owned) = self.criticals.as_ref() {
+            let (critical_map, domain) = context.kernel_context_criticals(ram)?;
+            if domain.criticals_id() != owned.criticals_id()
+                || critical_map.shadow_id() != self.critical_shadow.as_ref().ok_or(-4)?.shadow_id()
+            {
+                return Err(-4);
+            }
+        } else if context.kernel_context_criticals(ram).err() != Some(-5) {
+            return Err(-4);
+        }
         Ok([
             services,
             registry.connections_id(),
@@ -385,6 +443,16 @@ impl Startup {
             .kernel_context_sync_objects(ram)?;
         let bound_semaphores = kernel_pool::Semaphores::semaphores_borrow(ram, &table, ids[2])?;
         Ok((table, bound_events, bound_semaphores))
+    }
+    pub fn startup_criticals(
+        &self,
+        ram: &memory::Memory,
+    ) -> Result<(kernel_pool::Shadow, kernel_pool::Criticals), i32> {
+        self.startup_ids(ram)?;
+        self.context
+            .as_ref()
+            .ok_or(-4)?
+            .kernel_context_criticals(ram)
     }
     // Register every subsystem job before its shared owners can be closed. A
     // completion snapshot, including true, does not replace a consuming join.
@@ -504,6 +572,30 @@ impl Startup {
                 }
             }
             self.context = None;
+        }
+        if let Some(domain) = self.criticals.as_mut() {
+            let outcome = domain.criticals_close(ram, self.critical_shadow.as_ref().ok_or(-3)?);
+            if !domain.criticals_closed() {
+                return outcome;
+            }
+            if let Err(code) = outcome {
+                if self.close_error == 0 {
+                    self.close_error = code;
+                }
+            }
+            self.criticals = None;
+        }
+        if let Some(map) = self.critical_shadow.as_mut() {
+            let outcome = map.shadow_close(ram);
+            if !map.shadow_closed() {
+                return outcome;
+            }
+            if let Err(code) = outcome {
+                if self.close_error == 0 {
+                    self.close_error = code;
+                }
+            }
+            self.critical_shadow = None;
         }
         if let Some(domain) = self.semaphores.as_mut() {
             let outcome = domain.semaphores_close(ram, self.handles.as_ref().ok_or(-3)?);

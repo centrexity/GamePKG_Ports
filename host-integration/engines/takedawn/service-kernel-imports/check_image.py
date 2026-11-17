@@ -75,8 +75,15 @@ def main():
     ('leak-owned-shadow','let outcome = map.shadow_close(ram);\n            if !map.shadow_closed() {\n                return outcome;\n            }','let _ = map.shadow_id(); let outcome: Result<(), i32> = Ok(());',42),
    ]
    for name,old,new,mode in shadow_variants:
-    assert shadow_startup.count(old)==1,(name,old)
-    variant=root/(name+'.rs');variant.write_text(shadow_startup.replace(old,new,1))
+    if name=='leak-owned-shadow':
+     start=shadow_startup.index('        if let Some(map) = self.shadow.as_mut() {',shadow_startup.index('    pub fn startup_close('))
+     end=shadow_startup.index('            self.shadow = None;',start)
+     owned=shadow_startup[start:end];assert owned.count(old)==1,(name,old)
+     altered=shadow_startup[:start]+owned.replace(old,new,1)+shadow_startup[end:]
+    else:
+     assert shadow_startup.count(old)==1,(name,old)
+     altered=shadow_startup.replace(old,new,1)
+    variant=root/(name+'.rs');variant.write_text(altered)
     result=subprocess.run([*prefix,'--linux64-only','--startup-copy',str(variant),str(mode),str(root/(str(mode)+'.iso'))],capture_output=True,text=True)
     assert result.returncode!=0,(name,'broken shared-shadow startup accepted')
     assert 'PASS Linux64: complete image/import/helper source admission and all-object audit before trusted linking' in result.stdout,(name,result.stderr)

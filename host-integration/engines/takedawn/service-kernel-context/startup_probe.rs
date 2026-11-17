@@ -218,7 +218,7 @@ pub fn startup_image(
                     // This startup still creates KIC1: timer initialization
                     // needs the explicit KIC2 shadow binding, even though its
                     // argument classification is now implemented.
-                    && (kernel_pool::kernel_supported(ordinal).is_err() || mode == 23 && ordinal == 113 || ordinal==189 || ordinal==225 || ordinal==193 || ordinal==222)
+                    && (kernel_pool::kernel_supported(ordinal).is_err() || ordinal==277 || ordinal==291 || ordinal==294 || mode == 23 && ordinal == 113 || ordinal==189 || ordinal==225 || ordinal==193 || ordinal==222)
                 {
                     missing.push(u64::from(ordinal));
                     if missing.len() == 32 {

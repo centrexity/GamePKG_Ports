@@ -254,13 +254,13 @@ pub fn object_startup_image(
         -4
     } else if mode == 54 || (mode >= 55 && mode <= 61) || mode >= 76 && mode <= 78 {
         -2
-    } else if mode == 67 || mode == 79 {
+    } else if mode == 67 || mode == 79 || mode == 84 || mode == 85 {
         -5
     } else {
         0
     };
     let before = ram.read_u32(image.image_thunk())?;
-    if mode == 67 || mode == 79 {
+    if mode == 67 || mode == 79 || mode == 84 {
         let mut missing = std::vec::Vec::new();
         for index in 0..378u32 {
             let value = ram.read_u32(image.image_thunk() + index * 4)?;
@@ -271,7 +271,8 @@ pub fn object_startup_image(
                 let ordinal = value & 0x7fffffff;
                 if data.data_address(ram, ordinal)? == 0
                     && (kernel_pool::kernel_supported(ordinal).is_err()
-                        || mode == 67 && (ordinal == 193 || ordinal == 222))
+                        || mode == 67 && (ordinal == 193 || ordinal == 222)
+                        || mode != 84 && (ordinal == 277 || ordinal == 291 || ordinal == 294))
                 {
                     missing.push(u64::from(ordinal));
                     if missing.len() == 32 {
@@ -286,7 +287,9 @@ pub fn object_startup_image(
         }
     }
 
-    let result = if mode >= 69 {
+    let result = if mode == 83 || mode == 84 {
+        owner.startup_prepare_with_criticals(ram, image, data, &[], 0x10000, 2, scratch, 0)
+    } else if mode >= 69 {
         owner.startup_prepare_with_sync_objects(
             ram,
             image,
@@ -323,10 +326,18 @@ pub fn object_startup_image(
     )?;
     let mut owned = std::vec::Vec::new();
     let mut sync_owned = std::vec::Vec::new();
+    let mut critical_owned = [0u64; 3];
     if expected == 0 {
         object_need(316, owner.startup_phase() == 2)?;
         if mode >= 69 {
-            crate::sync_startup_probe::sync_startup_schema(ram, &owner, mode)?;
+            if mode < 83 {
+                crate::sync_startup_probe::sync_startup_schema(ram, &owner, mode)?;
+            }
+            if mode == 83 {
+                let values = crate::critical_image_probe::critical_image_calls(ram, &owner)?;
+                critical_owned = [values[2], values[3], values[4]];
+                gamepkg::diagnostic(1, 0x544b4300, &[values[0], values[1], 1, 1, 1])?;
+            }
             if mode == 81 {
                 let values = crate::rtl_image_probe::rtl_image_calls(ram, [10, 11, 12, 13, 14])?;
                 gamepkg::diagnostic(1, 0x544b3f00, &values)?;
@@ -527,7 +538,9 @@ pub fn object_startup_image(
         &[
             u64::from(mode),
             expected as i64 as u64,
-            if mode == 81 {
+            if mode == 83 || mode == 85 {
+                13
+            } else if mode == 81 {
                 15
             } else if mode >= 69 {
                 10
@@ -539,6 +552,17 @@ pub fn object_startup_image(
             0,
         ],
     )?;
+    if mode == 83 {
+        object_need(
+            898,
+            gamepkg::local_mutex_state(critical_owned[0]) == Err(-4),
+        )?;
+        object_need(
+            899,
+            gamepkg::local_record_snapshot(critical_owned[1], 152).is_err()
+                && gamepkg::local_record_snapshot(critical_owned[2], 2624).is_err(),
+        )?;
+    }
     Ok(())
 }
 fn object_actor(argument: u64) -> Result<u64, i32> {

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Maintainer authenticated KIC4 semaphore-owner/import startup, not title entry."""
+"""Maintainer authenticated KIC4/KIC5 synchronization/import startup, not title entry."""
 import argparse,hashlib,importlib.util,json,struct,subprocess,tempfile
 from pathlib import Path
 
@@ -13,13 +13,13 @@ def main():
   root=Path(temp);probe=root/'admission';cmd=['rustc','--edition=2021','-D','warnings',str(here/'image_admission.rs'),'--extern','gamepkg='+str(lib),'-L','dependency='+str(lib.parent),'-o',str(probe)]
   for name in ['cap_std','tempfile','toml','serde_json']:cmd+=['--extern',name+'='+str(helpers.dependency(lib,name))]
   subprocess.run(cmd,check=True);cases=[]
-  for mode in [*range(69,79),80,81,82]:
+  for mode in [*range(69,79),80,81,82,83,85]:
    data=images.image();images.word(data,0x10c,0x770000);images.word(data,0x1b8+8,0x76e000);images.word(data,0x1b8+16,0x1000);images.word(data,0x158,0x12400^0x5b6d40b6);data[0xfc0:0x1000+379*4]=bytes(64+379*4)
-   for index,ordinal in enumerate(([14,16,23,109,98,113,189,225,193,222]+([269,279,289,290,301] if mode==81 else []))):images.word(data,0x1000+index*4,0x80000000|ordinal)
+   for index,ordinal in enumerate(([14,16,23,109,98,113,189,225,193,222]+([269,279,289,290,301] if mode==81 else [291,277,294] if mode==83 or mode==85 else []))):images.word(data,0x1000+index*4,0x80000000|ordinal)
    images.word(data,0xffc,0x8000000e);image=root/(str(mode)+'.iso');discs.fixture(image)
    with image.open('r+b')as f:f.truncate(100*2048);f.seek(40*2048+4);f.write(struct.pack('<II',80,len(data)));f.seek(80*2048);f.write(data)
    cases.extend([str(mode),str(image)])
-  if a.iso:cases.extend(['79',str(a.iso.resolve(strict=True))])
+  if a.iso:cases.extend(['79',str(a.iso.resolve(strict=True)),'84',str(a.iso.resolve(strict=True))])
   prefix=[str(probe),str(app),str(here),str(a.call_targets.resolve(strict=True)),'--objects-layout'];evidence=[]
   if a.evidence:a.evidence.mkdir(parents=True,exist_ok=False);evidence=['--evidence',str(a.evidence.resolve())]
   subprocess.run([*prefix,*evidence,*cases],check=True)
@@ -48,6 +48,16 @@ def main():
    handles=original[start:end]
    reordered=original.replace(drain,'',1).replace(handles,handles+drain,1)
    variants.append(('destroy-table-before-semaphore-drain',original,reordered,69))
+   start=original.index('    pub fn startup_prepare_with_criticals(');end=original.index('    fn startup_prepare_mode(',start)
+   body=original[start:end]
+   assert body.count('[scratch, offset, 2]')==1
+   variants.append(('omit-critical-context',body,body.replace('[scratch, offset, 2]','[scratch, offset, 1]'),83))
+   start=original.index('        if let Some(domain) = self.criticals.as_mut() {');end=original.index('        if let Some(map) = self.critical_shadow.as_mut()',start)
+   body=original[start:end]
+   variants.append(('discard-critical-native-obligations',body,'        self.criticals=None;\n',83))
+   start=end;end=original.index('        if let Some(domain) = self.semaphores.as_mut()',start)
+   body=original[start:end]
+   variants.append(('discard-critical-map-obligations',body,'        self.critical_shadow=None;\n',83))
    for name,old,new,mode in variants:
     assert original.count(old)==1,(name,old);variant=root/(name+'.rs');variant.write_text(original.replace(old,new,1))
     result=subprocess.run([*prefix,'--linux64-only','--startup-copy',str(variant),str(mode),str(root/(str(mode)+'.iso'))],capture_output=True,text=True)
@@ -60,8 +70,8 @@ def main():
     print('PASS required failing '+name+' authenticated sync-startup control; no policy exemption',flush=True)
   if a.evidence:
    files={p.name:digest(p)for p in a.evidence.iterdir()if p.is_file()};sources={}
-   for path in [here/'check_sync.py',here/'image_admission.rs',here/'image_probe.rs',here/'probe.rs',here/'../service-kernel-context/startup.rs',here/'../service-kernel-context/object_startup_probe.rs',here/'../service-kernel-context/sync_startup_probe.rs',here/'../service-kernel-pool/kernel_pool.rs',here/'../service-memory/layout.rs',here/'../service-kernel-handles/handles.rs',here/'../service-kernel-events/events.rs',here/'../service-kernel-event-imports/probe.rs',here/'../service-kernel-semaphore-imports/probe.rs',here/'../service-kernel-rtl/image_probe.rs',here/'../service-kernel-mixed-waits/image_probe.rs']:sources[str(path.relative_to(here.parent))]=digest(path)
+   for path in [here/'check_sync.py',here/'image_admission.rs',here/'image_probe.rs',here/'probe.rs',here/'../service-kernel-context/startup.rs',here/'../service-kernel-context/object_startup_probe.rs',here/'../service-kernel-context/sync_startup_probe.rs',here/'../service-kernel-pool/kernel_pool.rs',here/'../service-memory/layout.rs',here/'../service-kernel-handles/handles.rs',here/'../service-kernel-events/events.rs',here/'../service-kernel-event-imports/probe.rs',here/'../service-kernel-semaphore-imports/probe.rs',here/'../service-kernel-rtl/image_probe.rs',here/'../service-kernel-mixed-waits/image_probe.rs',here/'../service-critical/image_probe.rs']:sources[str(path.relative_to(here.parent))]=digest(path)
    receipts=[json.loads(p.read_text())for p in a.evidence.glob('receipt-*.json')];assert len(receipts)==4;sdk={r['game']['sdk']for r in receipts};assert len(sdk)==1
-   (a.evidence/'qualification.json').write_text(json.dumps({'schema':1,'sdk':sdk.pop(),'status':'authenticated-KIC4-startup-not-title-entry' if a.mutations else 'KIC4-positive-startup-only-mutation-qualification-pending','sources':sources,'files':files,'synthetic_modes':[*range(69,79),80,81,82],'private_mode':79 if a.iso else None,'required_failing_variants':len(variants),'profile_admission':'blocked','main_import_gap':'98 with KIC4; 100 with KIC3; 102 with KIC2','linux':'actual confined children','windows':'source/object/link only'},indent=2)+'\n')
- print('KIC4 startup/import checks passed; '+('seven required-failing startup controls passed; 'if a.mutations else'mutation qualification pending; ')+'full title remains blocked.')
+   (a.evidence/'qualification.json').write_text(json.dumps({'schema':1,'sdk':sdk.pop(),'status':'authenticated-KIC4-KIC5-startup-not-title-entry' if a.mutations else 'KIC4-KIC5-positive-startup-only-mutation-qualification-pending','sources':sources,'files':files,'synthetic_modes':[*range(69,79),80,81,82,83,85],'private_modes':[79,84] if a.iso else [],'required_failing_variants':len(variants),'profile_admission':'blocked','main_import_gap':'95 with KIC5; 98 with KIC4; 100 with KIC3; 102 with KIC2','linux':'actual confined children','windows':'source/object/link only'},indent=2)+'\n')
+ print('KIC4 startup/import checks passed; '+('ten required-failing startup controls passed; 'if a.mutations else'mutation qualification pending; ')+'full title remains blocked.')
 if __name__=='__main__':main()

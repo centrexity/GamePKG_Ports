@@ -14,7 +14,7 @@ fn pool_long(bytes: &[u8], at: usize) -> Result<u64, i32> {
 }
 fn pool_argument_bytes(ordinal: u32) -> Result<u32, i32> {
     match ordinal {
-        14 | 17 | 23 | 98 | 165 | 171 | 180 | 301 | 335 => Ok(4),
+        14 | 17 | 23 | 98 | 165 | 171 | 180 | 277 | 291 | 294 | 301 | 335 => Ok(4),
         15 | 44 | 113 | 168 | 225 | 289 | 290 | 337 => Ok(8),
         189 | 193 => Ok(16),
         107 | 222 | 269 | 279 | 336 | 338 | 339 => Ok(12),
@@ -32,6 +32,9 @@ pub fn kernel_supported(ordinal: u32) -> Result<u32, i32> {
 // Context-dependent imports require a live typed binding, not classification alone.
 pub fn kernel_requires_context(ordinal: u32) -> bool {
     ordinal == 98
+        || ordinal == 277
+        || ordinal == 291
+        || ordinal == 294
         || ordinal == 113
         || ordinal == 189
         || ordinal == 225
@@ -311,6 +314,24 @@ pub fn kernel_invoke(
             _ => return Err(-5),
         };
         state.eax = result;
+        state.esp = end as u32;
+        return Ok(());
+    }
+    if ordinal == 277 || ordinal == 291 || ordinal == 294 {
+        let (_, record, _, routing_start) = pool_snapshot(ram)?;
+        if routing_start != 32 {
+            return Err(-5);
+        }
+        let context = KernelContext::kernel_context_borrow(ram, pool_long(&record, 24)?)?;
+        let (critical_map, domain) = context.kernel_context_criticals(ram)?;
+        if ordinal == 291 {
+            critical_initialize(&domain, &critical_map, ram, first)?;
+        } else if ordinal == 277 {
+            critical_enter(&domain, &critical_map, ram, first)?;
+        } else {
+            critical_leave(&domain, &critical_map, ram, first)?;
+        }
+        state.eax = 0;
         state.esp = end as u32;
         return Ok(());
     }
@@ -1622,6 +1643,57 @@ impl KernelContext {
         }
         Ok(result)
     }
+    pub fn kernel_context_new_with_criticals(
+        ram: &memory::Memory,
+        registry: &Connections,
+        map: &Shadow,
+        table: u64,
+        event_domain: u64,
+        semaphore_domain: u64,
+        criticals: &Criticals,
+    ) -> Result<Self, i32> {
+        let critical_map = Shadow::shadow_borrow(ram, criticals.criticals_map_id())?;
+        criticals.criticals_snapshot(ram, &critical_map)?;
+        if critical_map.shadow_id() == map.shadow_id() {
+            return Err(-1);
+        }
+        registry.connection_snapshot(ram)?;
+        map.shadow_snapshot(ram)?;
+        let services = ram.services_handle()?;
+        let creator = gamepkg::local_task_status()?.0;
+        let mut bytes = [0u8; 96];
+        for (at, value) in [
+            (0usize, 0x3543494bu64),
+            (8, ram.call_handle()),
+            (16, services),
+            (24, registry.connections_id()),
+            (32, map.shadow_id()),
+            (40, table),
+            (48, event_domain),
+            (56, semaphore_domain),
+            (64, criticals.criticals_id()),
+        ] {
+            let encoded = u64::to_le_bytes(value);
+            for lane in 0..8usize {
+                bytes[at + lane] = encoded[lane];
+            }
+        }
+        let record = gamepkg::local_record_create(&bytes)?;
+        let result = Self {
+            root: ram.call_handle(),
+            services,
+            record,
+            creator,
+            owned: true,
+        };
+        if let Err(code) = result.context_snapshot(ram) {
+            if gamepkg::local_record_release(record).is_err() {
+                return Err(-3);
+            }
+            return Err(code);
+        }
+        Ok(result)
+    }
     pub fn kernel_context_id(&self) -> u64 {
         self.record
     }
@@ -1644,7 +1716,7 @@ impl KernelContext {
             return Err(-4);
         }
         connection_live(ram, self.services)?;
-        let (_, b) = gamepkg::local_record_snapshot(self.record, 88)?;
+        let (_, b) = gamepkg::local_record_snapshot(self.record, 96)?;
         let version = if b.len() == 64 && pool_long(&b, 0)? == 0x3143494b {
             1
         } else if b.len() == 72 && pool_long(&b, 0)? == 0x3243494b {
@@ -1653,6 +1725,8 @@ impl KernelContext {
             3
         } else if b.len() == 88 && pool_long(&b, 0)? == 0x3443494b {
             4
+        } else if b.len() == 96 && pool_long(&b, 0)? == 0x3543494b {
+            5
         } else {
             return Err(-1);
         };
@@ -1665,8 +1739,10 @@ impl KernelContext {
             40
         } else if version == 3 {
             56
-        } else {
+        } else if version == 4 {
             64
+        } else {
+            72
         };
         for at in (reserved..b.len()).step_by(8) {
             if pool_long(&b, at)? != 0 {
@@ -1687,8 +1763,11 @@ impl KernelContext {
         }
         if version == 3 {
             self.context_object_records(ram, &b)?;
-        } else if version == 4 {
+        } else if version >= 4 {
             self.context_sync_records(ram, &b)?;
+            if version == 5 {
+                self.context_critical_records(ram, &b)?;
+            }
         }
         connection_live(ram, self.services)?;
         Ok(registry)
@@ -1740,13 +1819,14 @@ impl KernelContext {
         Ok([table, domain])
     }
     fn context_sync_records(&self, ram: &memory::Memory, b: &[u8]) -> Result<[u64; 3], i32> {
-        if b.len() != 88
-            || pool_long(b, 0)? != 0x3443494b
-            || pool_long(b, 64)? != 0
-            || pool_long(b, 72)? != 0
-            || pool_long(b, 80)? != 0
-        {
+        let v5 = b.len() == 96 && pool_long(b, 0)? == 0x3543494b;
+        if !(v5 || (b.len() == 88 && pool_long(b, 0)? == 0x3443494b)) {
             return Err(-1);
+        }
+        for at in (if v5 { 72usize } else { 64 }..b.len()).step_by(8) {
+            if pool_long(b, at)? != 0 {
+                return Err(-1);
+            }
         }
         if pool_long(b, 8)? != self.root || pool_long(b, 16)? != self.services {
             return Err(-4);
@@ -1777,33 +1857,64 @@ impl KernelContext {
     }
     pub fn kernel_context_sync_objects(&self, ram: &memory::Memory) -> Result<[u64; 3], i32> {
         self.context_snapshot(ram)?;
-        let (_, b) = gamepkg::local_record_snapshot(self.record, 88)?;
-        if b.len() != 88 || pool_long(&b, 0)? != 0x3443494b {
+        let (_, b) = gamepkg::local_record_snapshot(self.record, 96)?;
+        if !((b.len() == 88 && pool_long(&b, 0)? == 0x3443494b)
+            || (b.len() == 96 && pool_long(&b, 0)? == 0x3543494b))
+        {
             return Err(-5);
         }
         self.context_sync_records(ram, &b)
+    }
+    fn context_critical_records(
+        &self,
+        ram: &memory::Memory,
+        bytes: &[u8],
+    ) -> Result<(Shadow, Criticals), i32> {
+        if bytes.len() != 96 || pool_long(bytes, 0)? != 0x3543494b {
+            return Err(-5);
+        }
+        let domain_id = pool_long(bytes, 64)?;
+        let (_, domain_bytes) = gamepkg::local_record_snapshot(domain_id, 2624)?;
+        let map_id = pool_long(&domain_bytes, 24)?;
+        if map_id == pool_long(bytes, 32)? || map_id == domain_id {
+            return Err(-1);
+        }
+        let critical_map = Shadow::shadow_borrow(ram, map_id)?;
+        let criticals = Criticals::criticals_borrow(ram, &critical_map, domain_id)?;
+        Ok((critical_map, criticals))
+    }
+    pub fn kernel_context_criticals(
+        &self,
+        ram: &memory::Memory,
+    ) -> Result<(Shadow, Criticals), i32> {
+        self.context_snapshot(ram)?;
+        let (_, bytes) = gamepkg::local_record_snapshot(self.record, 96)?;
+        self.context_critical_records(ram, &bytes)
     }
     pub fn kernel_context_registry(&self, ram: &memory::Memory) -> Result<Connections, i32> {
         Connections::connections_borrow(ram, self.context_snapshot(ram)?)
     }
     pub fn kernel_context_shadow(&self, ram: &memory::Memory) -> Result<Shadow, i32> {
         self.context_snapshot(ram)?;
-        let (_, b) = gamepkg::local_record_snapshot(self.record, 88)?;
+        let (_, b) = gamepkg::local_record_snapshot(self.record, 96)?;
         if !((b.len() == 72 && pool_long(&b, 0)? == 0x3243494b)
             || (b.len() == 80 && pool_long(&b, 0)? == 0x3343494b)
-            || (b.len() == 88 && pool_long(&b, 0)? == 0x3443494b))
+            || (b.len() == 88 && pool_long(&b, 0)? == 0x3443494b)
+            || (b.len() == 96 && pool_long(&b, 0)? == 0x3543494b))
         {
             return Err(-5);
         }
-        if b.len() == 88 {
+        if b.len() >= 88 {
             self.context_sync_records(ram, &b)?;
         }
         Shadow::shadow_borrow(ram, pool_long(&b, 32)?)
     }
     pub fn kernel_context_objects(&self, ram: &memory::Memory) -> Result<[u64; 2], i32> {
         self.context_snapshot(ram)?;
-        let (_, b) = gamepkg::local_record_snapshot(self.record, 88)?;
-        if b.len() == 88 && pool_long(&b, 0)? == 0x3443494b {
+        let (_, b) = gamepkg::local_record_snapshot(self.record, 96)?;
+        if (b.len() == 88 && pool_long(&b, 0)? == 0x3443494b)
+            || (b.len() == 96 && pool_long(&b, 0)? == 0x3543494b)
+        {
             let sync = self.context_sync_records(ram, &b)?;
             return Ok([sync[0], sync[1]]);
         }
@@ -2734,6 +2845,9 @@ pub fn kernel_context_ready(ram: &memory::Memory, context: u64, ordinal: u32) ->
         return Err(-5);
     }
     let bound = KernelContext::kernel_context_borrow(ram, context)?;
+    if ordinal == 277 || ordinal == 291 || ordinal == 294 {
+        bound.kernel_context_criticals(ram)?;
+    }
     if ordinal == 113 {
         bound.kernel_context_shadow(ram)?;
     }
@@ -6220,4 +6334,938 @@ impl MixedWait {
             Err(-5)
         }
     }
+}
+
+// Checked per-address critical sections. CSD1 owns native mutexes; guest bytes
+// are deliberately untouched. This is game code over the audited local SDK.
+pub struct Criticals {
+    root: u64,
+    services: u64,
+    map: u64,
+    record: u64,
+    owner: u64,
+    owned: bool,
+    close_error: i32,
+}
+pub struct CriticalCreation {
+    root: u64,
+    services: u64,
+    map: u64,
+    domain: u64,
+    owner: u64,
+    task: u64,
+    guest: u32,
+    row: usize,
+    native: u64,
+    phase: u32,
+    attempted: bool,
+    released: bool,
+    cleared: bool,
+    closed: bool,
+    existing: bool,
+    guard: Guard,
+}
+pub struct CriticalWait {
+    root: u64,
+    services: u64,
+    map: u64,
+    domain: u64,
+    owner: u64,
+    task: u64,
+    guest: u32,
+    native: u64,
+    record: u64,
+    slot: usize,
+    guard: Option<Guard>,
+    attempted: bool,
+    published: bool,
+    prepared: bool,
+    terminal: bool,
+    observed: bool,
+    native_error: i32,
+    outcome: i32,
+    finished: bool,
+    closed: bool,
+}
+fn criticals_live(ram: &memory::Memory, root: u64, services: u64) -> Result<(), i32> {
+    events_live(ram, root, services)
+}
+fn criticals_binding(guest: u32, phase: u32) -> u64 {
+    (u64::from(guest) << 32) | u64::from(phase)
+}
+fn criticals_record(
+    id: u64,
+    root: u64,
+    services: u64,
+    map: u64,
+    owner: u64,
+) -> Result<(u64, std::vec::Vec<u8>), i32> {
+    let (version, bytes) = gamepkg::local_record_snapshot(id, 2624)?;
+    if bytes.len() != 2624
+        || pool_long(&bytes, 0)? != 0x31445343
+        || pool_long(&bytes, 40)? > 1
+        || pool_long(&bytes, 48)? > 4294967295
+        || pool_long(&bytes, 56)? > 4294967295
+    {
+        return Err(-1);
+    }
+    if root == 0
+        || services == 0
+        || map == 0
+        || owner == u64::MAX
+        || pool_long(&bytes, 8)? != root
+        || pool_long(&bytes, 16)? != services
+        || pool_long(&bytes, 24)? != map
+        || pool_long(&bytes, 32)? != owner
+    {
+        return Err(-4);
+    }
+    for row in 0..128usize {
+        let native = pool_long(&bytes, 64 + row * 16)?;
+        let binding = pool_long(&bytes, 72 + row * 16)?;
+        let phase = binding as u32;
+        let guest = (binding >> 32) as u32;
+        if phase > 3
+            || (phase == 0 && (guest != 0 || native != 0))
+            || (phase != 0 && guest == 0)
+            || (phase == 1 && native != 0)
+            || (phase >= 2 && native == 0)
+        {
+            return Err(-1);
+        }
+        for before in 0..row {
+            if guest != 0 && (pool_long(&bytes, 72 + before * 16)? >> 32) == u64::from(guest) {
+                return Err(-1);
+            }
+            if native != 0 && pool_long(&bytes, 64 + before * 16)? == native {
+                return Err(-1);
+            }
+        }
+    }
+    for slot in 0..32usize {
+        let lease = pool_long(&bytes, 2112 + slot * 16)?;
+        let phase = pool_long(&bytes, 2120 + slot * 16)?;
+        if phase > 2 || ((phase == 0) != (lease == 0)) {
+            return Err(-1);
+        }
+        for before in 0..slot {
+            if lease != 0 && pool_long(&bytes, 2112 + before * 16)? == lease {
+                return Err(-1);
+            }
+        }
+    }
+    Ok((version, bytes))
+}
+fn criticals_wait_record(
+    id: u64,
+    root: u64,
+    services: u64,
+    map: u64,
+    domain: u64,
+) -> Result<(u64, std::vec::Vec<u8>), i32> {
+    let (version, bytes) = gamepkg::local_record_snapshot(id, 80)?;
+    if bytes.len() != 80
+        || pool_long(&bytes, 0)? != 0x314c5743
+        || pool_long(&bytes, 56)? > 1
+        || pool_long(&bytes, 72)? == 0
+        || pool_long(&bytes, 72)? > 4294967295
+    {
+        return Err(-1);
+    }
+    if pool_long(&bytes, 8)? != root
+        || pool_long(&bytes, 16)? != services
+        || pool_long(&bytes, 24)? != map
+        || pool_long(&bytes, 32)? != domain
+        || pool_long(&bytes, 40)? == 0
+        || pool_long(&bytes, 48)? == u64::MAX
+    {
+        return Err(-4);
+    }
+    let outcome = pool_long(&bytes, 64)?;
+    if outcome != (outcome as i32 as i64 as u64)
+        || (outcome as i64) > 0
+        || (pool_long(&bytes, 56)? == 0 && outcome != 0)
+    {
+        return Err(-1);
+    }
+    Ok((version, bytes))
+}
+fn criticals_has_native(bytes: &[u8], guest: u32, native: u64) -> Result<bool, i32> {
+    for row in 0..128usize {
+        if pool_long(bytes, 72 + row * 16)? == criticals_binding(guest, 2)
+            && pool_long(bytes, 64 + row * 16)? == native
+        {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+impl Criticals {
+    pub fn criticals_new(ram: &memory::Memory, map: &Shadow) -> Result<Self, i32> {
+        let services = ram.services_handle()?;
+        criticals_live(ram, ram.call_handle(), services)?;
+        if !map.owned || map.creator != gamepkg::local_task_status()?.0 {
+            return Err(-4);
+        }
+        let mut guard = map.shadow_cleanup_lock(ram)?;
+        let entries = guard.shadow_entries(ram);
+        let closed = guard.shadow_guard_close(ram);
+        let empty = entries?.is_empty();
+        closed?;
+        if !empty {
+            return Err(-1);
+        }
+        let owner = gamepkg::local_task_status()?.0;
+        let mut bytes = std::vec::Vec::new();
+        bytes.resize(2624, 0);
+        for (at, value) in [
+            (0usize, 0x31445343u64),
+            (8, ram.call_handle()),
+            (16, services),
+            (24, map.shadow_id()),
+            (32, owner),
+        ] {
+            events_put(&mut bytes, at, value)?;
+        }
+        let record = gamepkg::local_record_create(&bytes)?;
+        Ok(Self {
+            root: ram.call_handle(),
+            services,
+            map: map.shadow_id(),
+            record,
+            owner,
+            owned: true,
+            close_error: 0,
+        })
+    }
+    pub fn criticals_id(&self) -> u64 {
+        self.record
+    }
+    pub fn criticals_closed(&self) -> bool {
+        self.record == 0
+    }
+    pub fn criticals_map_id(&self) -> u64 {
+        self.map
+    }
+    pub fn criticals_borrow(ram: &memory::Memory, map: &Shadow, id: u64) -> Result<Self, i32> {
+        let (_, bytes) = gamepkg::local_record_snapshot(id, 2624)?;
+        let view = Self {
+            root: ram.call_handle(),
+            services: ram.services_handle()?,
+            map: map.shadow_id(),
+            record: id,
+            owner: pool_long(&bytes, 32)?,
+            owned: false,
+            close_error: 0,
+        };
+        view.criticals_snapshot(ram, map)?;
+        Ok(view)
+    }
+    fn criticals_snapshot(
+        &self,
+        ram: &memory::Memory,
+        map: &Shadow,
+    ) -> Result<(u64, std::vec::Vec<u8>), i32> {
+        criticals_live(ram, self.root, self.services)?;
+        if map.shadow_id() != self.map {
+            return Err(-4);
+        }
+        map.shadow_snapshot(ram)?;
+        let data = criticals_record(self.record, self.root, self.services, self.map, self.owner)?;
+        if pool_long(&data.1, 40)? != 0 {
+            return Err(-4);
+        }
+        Ok(data)
+    }
+    fn criticals_lookup_locked(
+        &self,
+        ram: &memory::Memory,
+        map: &Shadow,
+        guard: &Guard,
+        guest: u32,
+    ) -> Result<Option<u64>, i32> {
+        let (_, bytes) = self.criticals_snapshot(ram, map)?;
+        if guard.record != self.map {
+            return Err(-4);
+        }
+        let native = match guard.shadow_lookup(ram, guest)? {
+            None => return Ok(None),
+            Some(value) => value,
+        };
+        for row in 0..128usize {
+            if pool_long(&bytes, 72 + row * 16)? == criticals_binding(guest, 2)
+                && pool_long(&bytes, 64 + row * 16)? == native
+            {
+                gamepkg::local_mutex_state(native)?;
+                return Ok(Some(native));
+            }
+        }
+        Err(-4)
+    }
+    pub fn criticals_begin(
+        &self,
+        ram: &memory::Memory,
+        map: &Shadow,
+        guest: u32,
+    ) -> Result<CriticalCreation, i32> {
+        if guest == 0 {
+            return Err(-1);
+        }
+        self.criticals_snapshot(ram, map)?;
+        let task = gamepkg::local_task_status()?.0;
+        let mut guard = map.shadow_lock(ram)?;
+        let result = self.criticals_reserve(ram, map, &guard, guest);
+        let (row, native, existing) = match result {
+            Ok(v) => v,
+            Err(code) => {
+                let _ = guard.shadow_guard_close(ram);
+                return Err(code);
+            }
+        };
+        Ok(CriticalCreation {
+            root: self.root,
+            services: self.services,
+            map: self.map,
+            domain: self.record,
+            owner: self.owner,
+            task,
+            guest,
+            row,
+            native,
+            phase: if existing { 4 } else { 0 },
+            attempted: false,
+            released: false,
+            cleared: false,
+            closed: false,
+            existing,
+            guard,
+        })
+    }
+    fn criticals_reserve(
+        &self,
+        ram: &memory::Memory,
+        map: &Shadow,
+        guard: &Guard,
+        guest: u32,
+    ) -> Result<(usize, u64, bool), i32> {
+        if let Some(native) = self.criticals_lookup_locked(ram, map, guard, guest)? {
+            return Ok((0, native, true));
+        }
+        let (version, mut bytes) = self.criticals_snapshot(ram, map)?;
+        let mut free = 128usize;
+        for row in 0..128usize {
+            let binding = pool_long(&bytes, 72 + row * 16)?;
+            if (binding >> 32) == u64::from(guest) {
+                return Err(-3);
+            }
+            if binding == 0 && free == 128 {
+                free = row;
+            }
+        }
+        if free == 128 {
+            return Err(-2);
+        }
+        events_put(&mut bytes, 72 + free * 16, criticals_binding(guest, 1))?;
+        events_commit(self.record, version, &bytes)?;
+        Ok((free, 0, false))
+    }
+    pub fn criticals_counts(&self, ram: &memory::Memory, map: &Shadow) -> Result<[u32; 2], i32> {
+        let (_, bytes) = self.criticals_snapshot(ram, map)?;
+        Ok([pool_long(&bytes, 48)? as u32, pool_long(&bytes, 56)? as u32])
+    }
+    pub fn criticals_wait_begin(
+        &self,
+        ram: &memory::Memory,
+        map: &Shadow,
+        guest: u32,
+    ) -> Result<CriticalWait, i32> {
+        let task = gamepkg::local_task_status()?.0;
+        let mut guard = map.shadow_lock(ram)?;
+        let result = self.criticals_wait_reserve(ram, map, &guard, guest, task);
+        let (slot, native, record) = match result {
+            Ok(v) => v,
+            Err(code) => {
+                let _ = guard.shadow_guard_close(ram);
+                return Err(code);
+            }
+        };
+        Ok(CriticalWait {
+            root: self.root,
+            services: self.services,
+            map: self.map,
+            domain: self.record,
+            owner: self.owner,
+            task,
+            guest,
+            native,
+            record,
+            slot,
+            guard: Some(guard),
+            attempted: false,
+            published: false,
+            prepared: false,
+            terminal: false,
+            observed: false,
+            native_error: -1,
+            outcome: -4,
+            finished: false,
+            closed: false,
+        })
+    }
+    fn criticals_wait_reserve(
+        &self,
+        ram: &memory::Memory,
+        map: &Shadow,
+        guard: &Guard,
+        guest: u32,
+        task: u64,
+    ) -> Result<(usize, u64, u64), i32> {
+        let native = self
+            .criticals_lookup_locked(ram, map, guard, guest)?
+            .ok_or(-4)?;
+        self.criticals_wait_reap()?;
+        let (_, bytes) = self.criticals_snapshot(ram, map)?;
+        let mut slot = 32usize;
+        for index in 0..32usize {
+            if pool_long(&bytes, 2120 + index * 16)? == 0 {
+                slot = index;
+                break;
+            }
+        }
+        if slot == 32 {
+            return Err(-2);
+        }
+        let mut bytes = [0u8; 80];
+        for (at, value) in [
+            (0usize, 0x314c5743u64),
+            (8, self.root),
+            (16, self.services),
+            (24, self.map),
+            (32, self.record),
+            (40, native),
+            (48, task),
+            (72, u64::from(guest)),
+        ] {
+            events_put(&mut bytes, at, value)?;
+        }
+        let record = gamepkg::local_record_create(&bytes)?;
+        Ok((slot, native, record))
+    }
+    fn criticals_wait_busy(&self) -> Result<(), i32> {
+        let (_, bytes) =
+            criticals_record(self.record, self.root, self.services, self.map, self.owner)?;
+        for slot in 0..32usize {
+            if pool_long(&bytes, 2120 + slot * 16)? == 1 {
+                let (_, lease) = criticals_wait_record(
+                    pool_long(&bytes, 2112 + slot * 16)?,
+                    self.root,
+                    self.services,
+                    self.map,
+                    self.record,
+                )?;
+                if pool_long(&lease, 56)? == 0 {
+                    return Err(-2);
+                }
+            }
+        }
+        Ok(())
+    }
+    fn criticals_wait_reap(&self) -> Result<(), i32> {
+        for slot in 0..32usize {
+            let (version, mut bytes) =
+                criticals_record(self.record, self.root, self.services, self.map, self.owner)?;
+            let mut phase = pool_long(&bytes, 2120 + slot * 16)?;
+            if phase == 0 {
+                continue;
+            }
+            let record = pool_long(&bytes, 2112 + slot * 16)?;
+            if phase == 1 {
+                let (_, lease) =
+                    criticals_wait_record(record, self.root, self.services, self.map, self.record)?;
+                if pool_long(&lease, 56)? == 0 {
+                    continue;
+                }
+                events_put(&mut bytes, 2120 + slot * 16, 2)?;
+                events_commit(self.record, version, &bytes)?;
+                phase = 2;
+            }
+            if phase != 2 {
+                return Err(-1);
+            }
+            match gamepkg::local_record_release(record) {
+                Ok(()) | Err(-4) => {}
+                Err(code) => return Err(code),
+            }
+            let (version, mut bytes) =
+                criticals_record(self.record, self.root, self.services, self.map, self.owner)?;
+            if pool_long(&bytes, 2112 + slot * 16)? != record
+                || pool_long(&bytes, 2120 + slot * 16)? != 2
+            {
+                return Err(-4);
+            }
+            events_put(&mut bytes, 2112 + slot * 16, 0)?;
+            events_put(&mut bytes, 2120 + slot * 16, 0)?;
+            events_commit(self.record, version, &bytes)?;
+        }
+        Ok(())
+    }
+    pub fn criticals_leave(
+        &self,
+        ram: &memory::Memory,
+        map: &Shadow,
+        guest: u32,
+    ) -> Result<(), i32> {
+        let mut guard = map.shadow_lock(ram)?;
+        let result = self.criticals_leave_locked(ram, map, &guard, guest);
+        let closed = guard.shadow_guard_close(ram);
+        result?;
+        closed?;
+        criticals_live(ram, self.root, self.services)
+    }
+    fn criticals_leave_locked(
+        &self,
+        ram: &memory::Memory,
+        map: &Shadow,
+        guard: &Guard,
+        guest: u32,
+    ) -> Result<(), i32> {
+        let native = self
+            .criticals_lookup_locked(ram, map, guard, guest)?
+            .ok_or(-4)?;
+        let state = gamepkg::local_mutex_state(native)?;
+        if !state.owned_by_caller || state.depth == 0 {
+            return Err(-4);
+        }
+        let (version, mut bytes) = self.criticals_snapshot(ram, map)?;
+        let leaves = (pool_long(&bytes, 56)? as u32).wrapping_add(1);
+        events_put(&mut bytes, 56, u64::from(leaves))?;
+        events_commit(self.record, version, &bytes)?;
+        shadow_unlock(native)
+    }
+    pub fn criticals_close(&mut self, ram: &memory::Memory, map: &Shadow) -> Result<(), i32> {
+        if !self.owned
+            || ram.call_handle() != self.root
+            || gamepkg::local_task_status()?.0 != self.owner
+            || map.shadow_id() != self.map
+        {
+            return Err(-4);
+        }
+        if self.record == 0 {
+            return if self.close_error == 0 {
+                Ok(())
+            } else {
+                Err(self.close_error)
+            };
+        }
+        let validation = criticals_live(ram, self.root, self.services);
+        let mut guard = map.shadow_cleanup_lock(ram)?;
+        let result = self.criticals_close_locked(ram, &guard);
+        let closed = guard.shadow_guard_close(ram);
+        result?;
+        closed?;
+        gamepkg::local_record_release(self.record)?;
+        self.record = 0;
+        if let Err(code) = validation {
+            self.close_error = code;
+        }
+        if self.close_error == 0 {
+            Ok(())
+        } else {
+            Err(self.close_error)
+        }
+    }
+    fn criticals_close_locked(&mut self, ram: &memory::Memory, guard: &Guard) -> Result<(), i32> {
+        let (_, map_bytes) = shadow_root(self.map, self.root, self.services, guard.lock)?;
+        if shadow_word(&map_bytes, 32)? != 1 {
+            return Err(-2);
+        }
+        self.criticals_wait_busy()?;
+        let (version, mut bytes) =
+            criticals_record(self.record, self.root, self.services, self.map, self.owner)?;
+        for row in 0..128usize {
+            let phase = pool_long(&bytes, 72 + row * 16)? as u32;
+            if phase == 1 {
+                return Err(-2);
+            }
+            if phase < 2 {
+                continue;
+            }
+            match gamepkg::local_mutex_state(pool_long(&bytes, 64 + row * 16)?) {
+                Ok(state) => {
+                    if state.locked {
+                        return Err(-2);
+                    }
+                }
+                Err(-4) => {
+                    self.close_error = -4;
+                }
+                Err(code) => return Err(code),
+            }
+        }
+        if pool_long(&bytes, 40)? == 0 {
+            events_put(&mut bytes, 40, 1)?;
+            events_commit(self.record, version, &bytes)?;
+        }
+        self.criticals_wait_reap()?;
+        for row in 0..128usize {
+            let (version, mut bytes) =
+                criticals_record(self.record, self.root, self.services, self.map, self.owner)?;
+            let binding = pool_long(&bytes, 72 + row * 16)?;
+            if binding == 0 {
+                continue;
+            }
+            let guest = (binding >> 32) as u32;
+            let native = pool_long(&bytes, 64 + row * 16)?;
+            if binding as u32 == 2 {
+                events_put(&mut bytes, 72 + row * 16, criticals_binding(guest, 3))?;
+                events_commit(self.record, version, &bytes)?;
+            }
+            match gamepkg::local_sync_release(native, 2) {
+                Ok(()) | Err(-4) => {}
+                Err(code) => return Err(code),
+            }
+            match guard.shadow_lookup(ram, guest)? {
+                Some(value) => {
+                    if value != native {
+                        return Err(-4);
+                    }
+                    if guard.shadow_remove(ram, guest)? != Some(native) {
+                        return Err(-3);
+                    }
+                }
+                None => {}
+            }
+            let (version, mut bytes) =
+                criticals_record(self.record, self.root, self.services, self.map, self.owner)?;
+            if pool_long(&bytes, 64 + row * 16)? != native
+                || pool_long(&bytes, 72 + row * 16)? != criticals_binding(guest, 3)
+            {
+                return Err(-4);
+            }
+            events_put(&mut bytes, 64 + row * 16, 0)?;
+            events_put(&mut bytes, 72 + row * 16, 0)?;
+            events_commit(self.record, version, &bytes)?;
+        }
+        // Unowned map values are corruption, not permission to close foreign IDs.
+        if !guard.shadow_entries(ram)?.is_empty() {
+            return Err(-4);
+        }
+        Ok(())
+    }
+}
+impl CriticalCreation {
+    fn critical_creation_owner(&self, ram: &memory::Memory) -> Result<(), i32> {
+        if ram.call_handle() != self.root || gamepkg::local_task_status()?.0 != self.task {
+            return Err(-4);
+        }
+        Ok(())
+    }
+    pub fn critical_creation_id(&self) -> u64 {
+        self.native
+    }
+    pub fn critical_creation_phase(&self) -> u32 {
+        self.phase
+    }
+    pub fn critical_creation_closed(&self) -> bool {
+        self.closed
+    }
+    pub fn critical_create_publish(&mut self, ram: &memory::Memory) -> Result<u64, i32> {
+        self.critical_creation_owner(ram)?;
+        if self.closed || self.attempted {
+            return Err(-1);
+        }
+        self.attempted = true;
+        criticals_live(ram, self.root, self.services)?;
+        self.guard.shadow_guard_snapshot(ram)?;
+        if self.existing {
+            let (_, bytes) =
+                criticals_record(self.domain, self.root, self.services, self.map, self.owner)?;
+            if pool_long(&bytes, 40)? != 0
+                || !criticals_has_native(&bytes, self.guest, self.native)?
+                || self.guard.shadow_lookup(ram, self.guest)? != Some(self.native)
+            {
+                return Err(-4);
+            }
+            gamepkg::local_mutex_state(self.native)?;
+            return Ok(self.native);
+        }
+        let mut out = [0u8; 8];
+        if gamepkg::local_call(21, &[], &mut out)? != 8 {
+            return Err(-3);
+        }
+        self.native = u64::from_le_bytes(out);
+        self.phase = 1;
+        criticals_live(ram, self.root, self.services)?;
+        gamepkg::local_mutex_state(self.native)?;
+        let (version, mut bytes) =
+            criticals_record(self.domain, self.root, self.services, self.map, self.owner)?;
+        if pool_long(&bytes, 40)? != 0
+            || pool_long(&bytes, 64 + self.row * 16)? != 0
+            || pool_long(&bytes, 72 + self.row * 16)? != criticals_binding(self.guest, 1)
+        {
+            return Err(-4);
+        }
+        events_put(&mut bytes, 64 + self.row * 16, self.native)?;
+        events_put(
+            &mut bytes,
+            72 + self.row * 16,
+            criticals_binding(self.guest, 2),
+        )?;
+        events_commit(self.domain, version, &bytes)?;
+        self.phase = 2;
+        if self
+            .guard
+            .shadow_insert(ram, self.guest, self.native)?
+            .is_some()
+        {
+            return Err(-3);
+        }
+        self.phase = 3;
+        criticals_live(ram, self.root, self.services)?;
+        self.phase = 4;
+        Ok(self.native)
+    }
+    pub fn critical_creation_close(&mut self, ram: &memory::Memory) -> Result<(), i32> {
+        self.critical_creation_owner(ram)?;
+        if self.closed {
+            return Ok(());
+        }
+        if !self.existing && self.phase < 2 && !self.cleared {
+            if self.native != 0 && !self.released {
+                gamepkg::local_sync_release(self.native, 2)?;
+                self.released = true;
+            }
+            let (version, mut bytes) =
+                criticals_record(self.domain, self.root, self.services, self.map, self.owner)?;
+            if pool_long(&bytes, 64 + self.row * 16)? != 0
+                || pool_long(&bytes, 72 + self.row * 16)? != criticals_binding(self.guest, 1)
+            {
+                return Err(-4);
+            }
+            events_put(&mut bytes, 72 + self.row * 16, 0)?;
+            events_commit(self.domain, version, &bytes)?;
+            self.cleared = true;
+        }
+        self.guard.shadow_guard_close(ram)?;
+        self.closed = true;
+        Ok(())
+    }
+}
+impl CriticalWait {
+    fn critical_wait_owner(&self, ram: &memory::Memory) -> Result<(), i32> {
+        if ram.call_handle() != self.root || gamepkg::local_task_status()?.0 != self.task {
+            return Err(-4);
+        }
+        Ok(())
+    }
+    fn critical_wait_unlock(&mut self, ram: &memory::Memory) -> Result<(), i32> {
+        if let Some(guard) = self.guard.as_mut() {
+            guard.shadow_guard_close(ram)?;
+        }
+        self.guard = None;
+        Ok(())
+    }
+    fn critical_wait_live(&self, ram: &memory::Memory) -> Result<(), i32> {
+        criticals_live(ram, self.root, self.services)?;
+        let (_, bytes) =
+            criticals_record(self.domain, self.root, self.services, self.map, self.owner)?;
+        if pool_long(&bytes, 40)? != 0
+            || !criticals_has_native(&bytes, self.guest, self.native)?
+            || pool_long(&bytes, 2112 + self.slot * 16)? != self.record
+            || pool_long(&bytes, 2120 + self.slot * 16)? != 1
+        {
+            return Err(-4);
+        }
+        let (_, lease) =
+            criticals_wait_record(self.record, self.root, self.services, self.map, self.domain)?;
+        if pool_long(&lease, 40)? != self.native
+            || pool_long(&lease, 48)? != self.task
+            || pool_long(&lease, 72)? != u64::from(self.guest)
+            || pool_long(&lease, 56)? != 0
+        {
+            return Err(-4);
+        }
+        Ok(())
+    }
+    pub fn critical_wait_pending(&self) -> bool {
+        self.prepared && !self.terminal && !self.closed
+    }
+    pub fn critical_wait_closed(&self) -> bool {
+        self.closed
+    }
+    pub fn critical_wait_id(&self) -> u64 {
+        self.record
+    }
+    pub fn critical_wait_native_result(&self) -> Result<(), i32> {
+        if !self.observed {
+            return Err(-1);
+        }
+        if self.native_error == 0 {
+            Ok(())
+        } else {
+            Err(self.native_error)
+        }
+    }
+    pub fn critical_wait_prepare(&mut self, ram: &memory::Memory) -> Result<(), i32> {
+        self.critical_wait_owner(ram)?;
+        if self.closed || self.attempted {
+            return Err(-1);
+        }
+        self.attempted = true;
+        criticals_live(ram, self.root, self.services)?;
+        self.guard.as_ref().ok_or(-4)?.shadow_guard_snapshot(ram)?;
+        let (version, mut bytes) =
+            criticals_record(self.domain, self.root, self.services, self.map, self.owner)?;
+        if pool_long(&bytes, 40)? != 0 || pool_long(&bytes, 2120 + self.slot * 16)? != 0 {
+            return Err(-4);
+        }
+        let state = gamepkg::local_mutex_state(self.native)?;
+        if state.abandoned {
+            return Err(-4);
+        }
+        if state.owned_by_caller && state.depth == u32::MAX {
+            return Err(-2);
+        }
+        events_put(&mut bytes, 2112 + self.slot * 16, self.record)?;
+        events_put(&mut bytes, 2120 + self.slot * 16, 1)?;
+        let count = (pool_long(&bytes, 48)? as u32).wrapping_add(1);
+        events_put(&mut bytes, 48, u64::from(count))?;
+        events_commit(self.domain, version, &bytes)?;
+        self.published = true;
+        self.critical_wait_unlock(ram)?;
+        self.critical_wait_live(ram)?;
+        self.prepared = true;
+        Ok(())
+    }
+    pub fn critical_wait_slice(
+        &mut self,
+        ram: &memory::Memory,
+        milliseconds: u32,
+    ) -> Result<(), i32> {
+        self.critical_wait_owner(ram)?;
+        if !self.critical_wait_pending() || milliseconds > 1000 {
+            return Err(-1);
+        }
+        self.terminal = true;
+        self.critical_wait_live(ram)?;
+        let state = gamepkg::local_mutex_state(self.native)?;
+        if state.abandoned {
+            return Err(-4);
+        }
+        if state.owned_by_caller && state.depth == u32::MAX {
+            return Err(-2);
+        }
+        let native = gamepkg::local_mutex_lock(self.native, milliseconds);
+        self.observed = true;
+        self.native_error = match native {
+            Ok(()) => 0,
+            Err(code) => code,
+        };
+        let live = self.critical_wait_live(ram);
+        if native == Err(-2) && live.is_ok() {
+            self.terminal = false;
+            return Err(-2);
+        }
+        let effective = match live {
+            Ok(()) => native,
+            Err(code) => Err(code),
+        };
+        self.outcome = match effective {
+            Ok(()) => 0,
+            Err(code) => code,
+        };
+        self.critical_wait_finish()?;
+        effective
+    }
+    fn critical_wait_finish(&mut self) -> Result<(), i32> {
+        if self.finished {
+            return Ok(());
+        }
+        let (version, mut bytes) =
+            criticals_wait_record(self.record, self.root, self.services, self.map, self.domain)?;
+        if pool_long(&bytes, 40)? != self.native
+            || pool_long(&bytes, 48)? != self.task
+            || pool_long(&bytes, 72)? != u64::from(self.guest)
+            || pool_long(&bytes, 56)? != 0
+        {
+            return Err(-4);
+        }
+        events_put(&mut bytes, 56, 1)?;
+        events_put(&mut bytes, 64, self.outcome as i64 as u64)?;
+        events_commit(self.record, version, &bytes)?;
+        self.finished = true;
+        Ok(())
+    }
+    pub fn critical_wait_close(&mut self, ram: &memory::Memory) -> Result<(), i32> {
+        self.critical_wait_owner(ram)?;
+        if self.closed {
+            return Ok(());
+        }
+        if self.published {
+            self.critical_wait_finish()?;
+        } else if self.record != 0 {
+            gamepkg::local_record_release(self.record)?;
+            self.record = 0;
+        }
+        self.critical_wait_unlock(ram)?;
+        self.closed = true;
+        Ok(())
+    }
+}
+pub fn critical_initialize(
+    domain: &Criticals,
+    map: &Shadow,
+    ram: &memory::Memory,
+    guest: u32,
+) -> Result<(), i32> {
+    domain.criticals_snapshot(ram, map)?;
+    if guest == 0 {
+        return Ok(());
+    }
+    let mut incoming = domain.criticals_begin(ram, map, guest)?;
+    let result = incoming.critical_create_publish(ram);
+    let closed = incoming.critical_creation_close(ram);
+    result?;
+    closed?;
+    criticals_live(ram, domain.root, domain.services)
+}
+fn critical_enter_run(wait: &mut CriticalWait, ram: &memory::Memory) -> Result<(), i32> {
+    wait.critical_wait_prepare(ram)?;
+    let mut milliseconds = 0u32;
+    loop {
+        let result = wait.critical_wait_slice(ram, milliseconds);
+        if result == Err(-2) && wait.critical_wait_pending() {
+            milliseconds = 1000;
+        } else {
+            return result;
+        }
+    }
+}
+pub fn critical_enter(
+    domain: &Criticals,
+    map: &Shadow,
+    ram: &memory::Memory,
+    guest: u32,
+) -> Result<(), i32> {
+    critical_initialize(domain, map, ram, guest)?;
+    if guest == 0 {
+        return Ok(());
+    }
+    let mut wait = domain.criticals_wait_begin(ram, map, guest)?;
+    let result = critical_enter_run(&mut wait, ram);
+    let closed = wait.critical_wait_close(ram);
+    result?;
+    closed
+}
+pub fn critical_leave(
+    domain: &Criticals,
+    map: &Shadow,
+    ram: &memory::Memory,
+    guest: u32,
+) -> Result<(), i32> {
+    critical_initialize(domain, map, ram, guest)?;
+    if guest == 0 {
+        return Ok(());
+    }
+    domain.criticals_leave(ram, map, guest)
 }
