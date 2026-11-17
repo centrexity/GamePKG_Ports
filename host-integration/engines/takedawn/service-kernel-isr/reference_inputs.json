@@ -1,0 +1,65 @@
+{
+  "schema": 1,
+  "production_ready": false,
+  "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+  "files": {
+    "toolkit/src/kernel/kernel_bridge.c": {
+      "sha256": "bf62f8787a2e78a0abdb28e10ad8f79c5267dc655491353af231067747ce446e",
+      "functions": {
+        "kernel_call_isr": {
+          "start": 113002,
+          "end": 113949,
+          "sha256": "23de8fc4ab31765c864ae7ec4de491323e4763a0793e39987b99ef6e634de526"
+        },
+        "bridge_HalGetInterruptVector": {
+          "start": 138107,
+          "end": 138395,
+          "sha256": "5ef5dd4ff819f4abde1711ddab26fadc49a41715b61d8f159c67ffa07f266ef2"
+        },
+        "bridge_KeInitializeInterrupt": {
+          "start": 138546,
+          "end": 139120,
+          "sha256": "ebd665e0cacaebee6b129a6a7b6f648895bfa25f281032897c74524314adcc0b"
+        },
+        "bridge_KeConnectInterrupt": {
+          "start": 139874,
+          "end": 140489,
+          "sha256": "ffa3a0fba7743b1a48c75be5413675116061cc8afe46700ce3977b90dda8bdf2"
+        },
+        "xbox_GetConnectedInterrupt": {
+          "start": 140650,
+          "end": 140777,
+          "sha256": "64e998ed6d68b8733f9388ae82b419b56f31547c0fb6ad29f346a91f9909b53a"
+        },
+        "bridge_KeDisconnectInterrupt": {
+          "start": 227424,
+          "end": 227582,
+          "sha256": "136abeaa26ffae2b46c9d4d0a9ccd12be03a75936bd8cd5049aec15fec035803"
+        }
+      }
+    },
+    "toolkit/src/kernel/kernel_hal.c": {
+      "sha256": "4e65affa22218adfd942c8f0460292358b055bacad5ede8faa3480eec268717e",
+      "functions": {
+        "xbox_KeDisconnectInterrupt": {
+          "start": 50611,
+          "end": 51071,
+          "sha256": "2ee54e0a0d3dc32f5bc24829154c6e89f2e4a35f2f4fcf9a01d6f425458c3e39"
+        }
+      }
+    },
+    "toolkit/src/kernel/kernel.h": {
+      "sha256": "efae4f1b5aab8a2a420d00b8fb5fd75a1fb9a717704a709c34baddcc254bd17e",
+      "functions": {},
+      "struct": {
+        "start": 12258,
+        "end": 12414,
+        "sha256": "db9cec1792f7d62876396552ffca18568f597a099594aeaa89433019e3a68895"
+      }
+    },
+    "toolkit/src/platform/xbox_winnt.h": {
+      "sha256": "856d6492397e8dfb5db424d57c07e151f15bd58f069284d158ca735cc439693c",
+      "functions": {}
+    }
+  }
+}

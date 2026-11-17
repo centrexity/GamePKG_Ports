@@ -695,3 +695,35 @@ Real context/IRQ attachment, vblank/device/profiler routes, spin/pause/warp and
 pacing/deadline/wait integration, full source/build/launcher closure and actual
 graphics/input/audio/pacing qualification remain required. Both title profiles
 remain blocked; installed app SDK/binaries and user ROMs/saves are unchanged.
+
+
+## Checked guest interrupt registration and ISR convention
+
+`service-kernel-isr` now provides the original 32-vector guest registry, 44-byte
+interrupt initialization, full/low-byte vector behavior and finite native ISR
+calling convention. It uses GamePKG copied records and checked RAM, actual
+reviewed tasks and retained guest stack/TIB. Original caller-held single-CPU
+gate ownership remains a precondition. The convention pushes three stdcall
+words, enters IRQL16, profiles in original order, restores old IRQL and returns
+EAX & 1. Typed failures preserve their published prefix and abort the actor;
+preflight failures leave a healthy actor reusable. See its README for contracts.
+
+128 pinned original-C cases and ten actual native fatal-prefix/lifetime modes
+per target pass on Linux/Windows x64/i686 (Windows via Wine), with identical
+35,968-byte witnesses. Eight broken variants fail. Registry corruption, foreign
+root, borrowed close, overflow, read-only and publication-before-read-error
+controls pass. Complete source and all eight optimized game objects per target
+are checked before trusted linking; actual confined Linux x64/i686 children run
+the same suite and an unused maintainer shell rejects. SDK, source archive,
+root/KSV/CPU formats, quotas, import/admission checks and installed binaries stay
+unchanged; no main import or title profile is enabled.
+
+The original disconnect wrapper still calls a host-shaped struct helper: its
+Connected byte is at native offset 16 on 32-bit and 24 on 64-bit, and it does not
+clear the bridge vector registry. Four-target original-layout evidence confirms
+this gap. Do not enable ordinal 100 by copying host offsets or guessing new
+registry-removal behavior. Production registry/context publication, ABI wiring,
+real generated ISR/profiler/device and NV2A ack/register paths, timer/IRQ loop and
+full source/build/launcher/gameplay closure remain required. Fixture handlers
+and synthetic-memory checks do not prove GPU fidelity, physical input, audible
+audio or measured pacing.

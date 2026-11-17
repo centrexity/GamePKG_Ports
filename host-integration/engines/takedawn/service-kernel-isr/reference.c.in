@@ -1,0 +1,59 @@
+/* Maintainer-only original registration/ISR calling convention oracle. */
+#include <stdint.h>
+#include <stddef.h>
+#include <string.h>
+#include <assert.h>
+#define XBOX_MAX_VECTORS 32
+static uint32_t g_connected_isr[32];
+static uintptr_t g_memory_offset;
+static uint32_t g_esp,g_eax,g_fs_base,args[7],level_now,profile_on;
+static uint32_t trace[3],trace_n;
+#define BRIDGE_MEM32(va) (*(uint32_t *)(g_memory_offset+(uint32_t)(va)))
+#define BRIDGE_MEM8(va) (*(uint8_t *)(g_memory_offset+(uint32_t)(va)))
+#define XBOX_TO_NATIVE(va) ((void *)(g_memory_offset+(uint32_t)(va)))
+#define STACK_ARG(i) args[i]
+#define fprintf(...) ((void)0)
+#define fflush(...) ((void)0)
+#define stderr ((void *)0)
+static int bridge_buf_ok(uint32_t va,uint32_t bytes,const char *label){(void)label;return va && va<=67108864u && bytes<=67108864u-va;}
+static void note(uint32_t value){assert(trace_n<3);trace[trace_n++]=value;}
+static int xbox_IrqlEnterInterrupt(int value){int old=(int)level_now;level_now=(uint32_t)value;BRIDGE_MEM8(g_fs_base+0x24)=(uint8_t)value;return old;}
+static void xbox_IrqlLeaveInterrupt(int old){level_now=(uint32_t)old;BRIDGE_MEM8(g_fs_base+0x24)=(uint8_t)old;}
+static int xbox_ProfOn(void){return (int)profile_on;}
+static int64_t xbox_ProfNowUs(void){return 1;}
+#define XBOX_PROF_ISR_VBLANK 1
+static void *xbox_ProfBegin(int kind,uint32_t routine){(void)kind;(void)routine;assert(level_now==16 && g_esp==0x7bffe4);note(1);return (void *)(uintptr_t)1;}
+static void xbox_ProfEnd(void *previous,int64_t elapsed){(void)previous;(void)elapsed;assert(level_now==16 && g_esp==0x7bfff0);note(3);}
+static void reference_body(void){
+    assert(level_now==16 && BRIDGE_MEM8(g_fs_base+0x24)==16 && g_esp==0x7bffe4);
+    assert(BRIDGE_MEM32(g_esp)==0);uint32_t object=BRIDGE_MEM32(g_esp+4);assert(object==0x740100 || object==0x740200);
+    assert(BRIDGE_MEM32(g_esp+8)==BRIDGE_MEM32(object+4));note(2);g_eax=BRIDGE_MEM32(g_esp+8);g_esp+=12;
+}
+typedef void (*recomp_func_t)(void);
+static recomp_func_t recomp_lookup(uint32_t routine){return routine==0x1100?reference_body:0;}
+static recomp_func_t recomp_lookup_manual(uint32_t routine){return routine==0x2200?reference_body:0;}
+/* PINNED_BRIDGE_HALGETINTERRUPTVECTOR */
+/* PINNED_BRIDGE_KEINITIALIZEINTERRUPT */
+/* PINNED_BRIDGE_KECONNECTINTERRUPT */
+/* PINNED_XBOX_GETCONNECTEDINTERRUPT */
+/* PINNED_KERNEL_CALL_ISR */
+static void put32(uint8_t *out,uint32_t value){for(unsigned n=0;n<4;n++)out[n]=(uint8_t)(value>>(8*n));}
+void isr_reference_init(uint8_t *ram){g_memory_offset=(uintptr_t)ram;memset(g_connected_isr,0,sizeof(g_connected_isr));}
+void isr_reference_case(const uint32_t *values,uint8_t *out){
+    uint32_t mode=values[0],vector=values[1],context=values[4];
+    memset(XBOX_TO_NATIVE(0x740100),0xa5,44);memset(XBOX_TO_NATIVE(0x740200),0xa5,44);
+    uint32_t routine=mode==1?0:mode==2?0x3300:mode==5?0x2200:0x1100;
+    args[0]=0x740100;args[1]=routine;args[2]=context;args[3]=vector;bridge_KeInitializeInterrupt();
+    args[0]=mode==0?0:0x740100;bridge_KeConnectInterrupt();
+    if(mode==7){args[0]=0x740200;args[1]=0x2200;args[2]=context^0x80000001u;args[3]=vector;bridge_KeInitializeInterrupt();args[0]=0x740200;bridge_KeConnectInterrupt();}
+    put32(out,g_eax);out+=4;g_eax=values[5];g_esp=0x7bfff0;g_fs_base=0x1000000;
+    memset(XBOX_TO_NATIVE(g_esp-12),0xa5,12);level_now=values[3];BRIDGE_MEM8(g_fs_base+0x24)=(uint8_t)level_now;
+    profile_on=values[2];trace_n=0;memset(trace,0,sizeof(trace));
+    int result=kernel_call_isr(vector);
+    uint32_t words[9]={(uint32_t)result,g_esp,g_eax,level_now,BRIDGE_MEM8(g_fs_base+0x24),trace_n,trace[0],trace[1],trace[2]};
+    for(unsigned n=0;n<9;n++){put32(out,words[n]);out+=4;}
+    memcpy(out,XBOX_TO_NATIVE(0x7bfff0-12),12);out+=12;
+    for(unsigned n=0;n<32;n++){put32(out,xbox_GetConnectedInterrupt(n));out+=4;}
+    memcpy(out,XBOX_TO_NATIVE(0x740100),44);out+=44;memcpy(out,XBOX_TO_NATIVE(0x740200),44);out+=44;
+    args[0]=values[6];args[1]=0x740380;bridge_HalGetInterruptVector();put32(out,g_eax);put32(out+4,BRIDGE_MEM8(0x740380));
+}
