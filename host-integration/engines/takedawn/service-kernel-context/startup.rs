@@ -15,6 +15,7 @@ pub struct Startup {
     services: Option<kernel_pool::KernelServices>,
     registry: Option<kernel_pool::Connections>,
     context: Option<kernel_pool::KernelContext>,
+    shadow: Option<kernel_pool::Shadow>,
     map: u64,
     jobs: std::vec::Vec<u64>,
 }
@@ -38,6 +39,7 @@ impl Startup {
             services: None,
             registry: None,
             context: None,
+            shadow: None,
             map: 0,
             jobs: std::vec::Vec::new(),
         })
@@ -85,6 +87,29 @@ impl Startup {
         video: u32,
         speakers: u32,
     ) -> Result<(), i32> {
+        self.startup_prepare_mode(ram, image, data, remap, video, speakers, false)
+    }
+    pub fn startup_prepare_with_shadow(
+        &mut self,
+        ram: &mut memory::Memory,
+        image: &xbe::Image,
+        data: &kernel_data::Data,
+        remap: &[u16],
+        video: u32,
+        speakers: u32,
+    ) -> Result<(), i32> {
+        self.startup_prepare_mode(ram, image, data, remap, video, speakers, true)
+    }
+    fn startup_prepare_mode(
+        &mut self,
+        ram: &mut memory::Memory,
+        image: &xbe::Image,
+        data: &kernel_data::Data,
+        remap: &[u16],
+        video: u32,
+        speakers: u32,
+        with_shadow: bool,
+    ) -> Result<(), i32> {
         self.startup_owner(ram)?;
         ram.call_snapshot()?;
         if gamepkg::local_task_status()?.1 {
@@ -94,7 +119,8 @@ impl Startup {
             return Err(-1);
         }
         self.phase = 1;
-        let outcome = self.startup_prepare_inner(ram, image, data, remap, video, speakers);
+        let outcome =
+            self.startup_prepare_inner(ram, image, data, remap, video, speakers, with_shadow);
         match outcome {
             Ok(()) => {
                 self.phase = 2;
@@ -115,15 +141,25 @@ impl Startup {
         remap: &[u16],
         video: u32,
         speakers: u32,
+        with_shadow: bool,
     ) -> Result<(), i32> {
         self.services = Some(kernel_pool::kernel_services_initialize(
             ram, video, speakers,
         )?);
         self.registry = Some(kernel_pool::Connections::connections_new(ram)?);
-        self.context = Some(kernel_pool::KernelContext::kernel_context_new(
-            ram,
-            self.registry.as_ref().ok_or(-3)?,
-        )?);
+        self.context = if with_shadow {
+            self.shadow = Some(kernel_pool::Shadow::shadow_new(ram)?);
+            Some(kernel_pool::KernelContext::kernel_context_new_with_shadow(
+                ram,
+                self.registry.as_ref().ok_or(-3)?,
+                self.shadow.as_ref().ok_or(-3)?,
+            )?)
+        } else {
+            Some(kernel_pool::KernelContext::kernel_context_new(
+                ram,
+                self.registry.as_ref().ok_or(-3)?,
+            )?)
+        };
         let plan = image_imports::imports_image_with_context(
             ram,
             image,
@@ -139,7 +175,7 @@ impl Startup {
         Ok(())
     }
     // Only a ready live owner can issue copied IDs. IDs are not resource leases.
-    // [KSV3, ISR1, KIC1, KPL4]; the existing worker four-ID format is unchanged.
+    // [KSV3, ISR1, KIC1 or KIC2, KPL4]; the existing worker four-ID format is unchanged.
     pub fn startup_ids(&self, ram: &memory::Memory) -> Result<[u64; 4], i32> {
         self.startup_owner(ram)?;
         if self.phase != 2 || self.map == 0 || ram.kernel_handle() != self.map {
@@ -162,12 +198,25 @@ impl Startup {
         if registry.connections_id() != self.registry.as_ref().ok_or(-4)?.connections_id() {
             return Err(-4);
         }
+        if let Some(owned) = self.shadow.as_ref() {
+            let map = context.kernel_context_shadow(ram)?;
+            if map.shadow_id() != owned.shadow_id() {
+                return Err(-4);
+            }
+        } else if context.kernel_context_shadow(ram).err() != Some(-5) {
+            return Err(-4);
+        }
         Ok([
             services,
             registry.connections_id(),
             context.kernel_context_id(),
             self.map,
         ])
+    }
+    // The owner retains event/map cleanup; callers receive only a live borrow.
+    pub fn startup_shadow(&self, ram: &memory::Memory) -> Result<kernel_pool::Shadow, i32> {
+        self.startup_ids(ram)?;
+        self.context.as_ref().ok_or(-4)?.kernel_context_shadow(ram)
     }
     // Register every subsystem job before its shared owners can be closed. A
     // completion snapshot, including true, does not replace a consuming join.
@@ -287,6 +336,28 @@ impl Startup {
                 }
             }
             self.context = None;
+        }
+        if let Some(map) = self.shadow.as_mut() {
+            let outcome = kernel_pool::event_close_all(map, ram);
+            match outcome {
+                Ok(()) => {}
+                Err(-4) => {
+                    if self.close_error == 0 {
+                        self.close_error = -4;
+                    }
+                }
+                Err(code) => return Err(code),
+            }
+            let outcome = map.shadow_close(ram);
+            if !map.shadow_closed() {
+                return outcome;
+            }
+            if let Err(code) = outcome {
+                if self.close_error == 0 {
+                    self.close_error = code;
+                }
+            }
+            self.shadow = None;
         }
         if let Some(registry) = self.registry.as_mut() {
             let outcome = registry.connections_close(ram);

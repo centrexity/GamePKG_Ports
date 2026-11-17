@@ -360,11 +360,11 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
         }
         for pair in args[cases_start..].chunks_exact(2) {
             let mode = pair[0].to_str().unwrap().parse::<u8>().unwrap();
-            assert!(mode <= 41);
+            assert!(mode <= 50);
             let selected = fs::File::open(&pair[1]).unwrap();
             let mut indexed =
                 gamepkg::xbox_disc::Disc::from_file(selected.try_clone().unwrap()).unwrap();
-            let expected: [u8; 32] = if mode == 4 || mode == 23 {
+            let expected: [u8; 32] = if mode == 4 || mode == 23 || mode == 49 {
                 let checked = indexed.verify_takedawn().unwrap();
                 assert_eq!(checked.verified_files, 716);
                 let text = checked.executable_sha256;
@@ -433,9 +433,9 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
             let values = &summaries[0].values;
             assert_eq!(values[0], u64::from(mode));
             if mode >= 12 {
-                let expected = if mode >= 19 && mode <= 21 {
+                let expected = if mode >= 19 && mode <= 21 || mode >= 44 && mode <= 48 {
                     -2i64 as u64
-                } else if mode == 13 || mode == 23 {
+                } else if mode == 13 || mode == 23 || mode == 49 {
                     -5i64 as u64
                 } else if mode == 14 || mode == 15 || mode == 17 {
                     -1i64 as u64
@@ -483,7 +483,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                     assert_eq!(event.values, [3, 0x1d000, 0x1100, 0x89abcdef]);
                 }
                 if event.code == 0x544b0f10 {
-                    assert!(mode == 4 || mode == 23);
+                    assert!(mode == 4 || mode == 23 || mode == 49);
                     println!(
                         "PRIVATE mode {mode} pending canonical kernel ordinals: {:?}",
                         event.values

@@ -1,13 +1,16 @@
 // Checked authenticated startup integration fixtures; controlled finite routes,
 // not production device/profiler handlers, vblank delivery or a full timer loop.
+use crate::calls_runtime;
 use crate::dispatching;
 use crate::events;
 use crate::gamepkg;
 use crate::irql;
 use crate::kernel_data;
+use crate::kernel_pool;
 use crate::kernel_startup;
 use crate::memory;
 use crate::queue;
+use crate::registers;
 use crate::schedule;
 use crate::shadow;
 use crate::stacks;
@@ -64,6 +67,29 @@ fn timer_actor(argument: u64) -> Result<(), i32> {
             u64::from(view.read_u32(cpu.fs_base)?),
         ],
     )?;
+    if launch_u64(&bytes, 72)? == 1 {
+        let (view, cpu, _) = active_worker.worker_parts()?;
+        let (_, plan_bytes) = gamepkg::local_record_snapshot(view.kernel_handle(), 1548)?;
+        let bound =
+            kernel_pool::KernelContext::kernel_context_borrow(view, launch_u64(&plan_bytes, 24)?)?;
+        launch_need(bound.kernel_context_shadow(view)?.shadow_id() == map)?;
+        let saved = cpu.encode();
+        let sp = cpu.esp;
+        view.write_u32(sp, 0x12345678)?;
+        view.write_u32(sp + 4, 0x745100)?;
+        view.write_u32(sp + 8, 2)?;
+        calls_runtime::invoke_call(cpu, view, 0xfe000014, sp)?;
+        let mut expected_cpu = registers::Registers::new();
+        expected_cpu.decode(&saved)?;
+        expected_cpu.eax = 0;
+        expected_cpu.esp = sp + 12;
+        launch_need(cpu.encode() == expected_cpu.encode())?;
+        let map_view = shadow::Shadow::shadow_borrow(view, map)?;
+        let event_id = events::event_lookup(&map_view, view, 0x745100)?.ok_or(-3)?;
+        launch_need(!gamepkg::local_event_state(event_id)?.manual)?;
+        view.write_u64(0x741028, event_id)?;
+        cpu.decode(&saved)?;
+    }
     let mut dispatcher = dispatching::Dispatch::dispatch_new(
         &mut active_worker,
         pending,
@@ -201,8 +227,23 @@ pub fn startup_timer_case(
     let mut display_pacing = schedule::Schedule::schedule_new(ram, -1)?;
     let mut control = irql::Controller::controller_new(ram)?;
     let mut pool = stacks::Pool::stacks_new(ram, shape[0], shape[2])?;
-    let mut map = shadow::Shadow::shadow_new(ram)?;
-    events::timer_initialize(&map, ram, 0x745000, 0)?;
+    let mut map = if mode >= 42 {
+        owner.startup_shadow(ram)?
+    } else {
+        shadow::Shadow::shadow_new(ram)?
+    };
+    if mode >= 42 {
+        launch_need(map.shadow_close(ram) == Err(-4))?;
+        let mut initial_cpu = registers::Registers::new();
+        initial_cpu.esp = 0x744000;
+        ram.write_u32(initial_cpu.esp, 0x12345678)?;
+        ram.write_u32(initial_cpu.esp + 4, 0x745000)?;
+        ram.write_u32(initial_cpu.esp + 8, 0)?;
+        calls_runtime::invoke_call(&mut initial_cpu, ram, 0xfe000014, 0x744000)?;
+        launch_need(initial_cpu.eax == 0 && initial_cpu.esp == 0x74400c)?;
+    } else {
+        events::timer_initialize(&map, ram, 0x745000, 0)?;
+    }
     let event = events::event_lookup(&map, ram, 0x745000)?.ok_or(-3)?;
     let reply = gamepkg::local_mailbox_create(1, 1)?;
     let ack = gamepkg::local_mailbox_create(1, 1)?;
@@ -212,7 +253,7 @@ pub fn startup_timer_case(
             2
         } else if mode == 39 {
             3
-        } else if mode == 41 {
+        } else if (mode == 41 || mode == 43) {
             4
         } else {
             0
@@ -236,7 +277,7 @@ pub fn startup_timer_case(
         pool.stacks_id(),
         table.timers_id(),
         map.shadow_id(),
-        0,
+        u64::from(mode >= 42),
         reply,
         ack,
         u64::from(shape[7]),
@@ -363,7 +404,7 @@ pub fn startup_timer_case(
         launch_need(
             launch.launch_resume(owner, ram, &pending, &table, &display_pacing) == Err(-1),
         )?;
-        if mode == 39 || mode == 41 {
+        if mode == 39 || (mode == 41 || mode == 43) {
             let mut byte = [0u8; 1];
             launch_need(
                 gamepkg::local_mailbox_receive(reply, 1000, &mut byte)? == 1
@@ -412,7 +453,7 @@ pub fn startup_timer_case(
         joined.result()
             == if mode == 38 {
                 -5i64 as u64
-            } else if mode == 39 || mode == 41 {
+            } else if mode == 39 || (mode == 41 || mode == 43) {
                 -4i64 as u64
             } else if mode == 40 {
                 -3i64 as u64
@@ -459,7 +500,7 @@ pub fn startup_timer_case(
         count
             == if mode == 37 || mode == 40 {
                 0
-            } else if mode == 38 || mode == 39 || mode == 41 {
+            } else if mode == 38 || mode == 39 || (mode == 41 || mode == 43) {
                 1
             } else {
                 2
@@ -472,7 +513,7 @@ pub fn startup_timer_case(
                 && gamepkg::local_event_state(event)?.signaled,
         )?;
     }
-    let revoked = mode == 41;
+    let revoked = (mode == 41 || mode == 43);
     if revoked {
         launch_need(pool.stacks_usage(ram) == Err(-4))?;
         let (_, state) = gamepkg::local_record_snapshot(pool.stacks_id(), 576)?;
@@ -487,15 +528,17 @@ pub fn startup_timer_case(
     launch_cleanup(pending.queue_close(ram), revoked)?;
     launch_cleanup(control.controller_close(ram), revoked)?;
     launch_cleanup(pool.stacks_close(ram), revoked)?;
-    launch_cleanup(events::event_close_all(&map, ram), revoked)?;
-    launch_cleanup(map.shadow_close(ram), revoked)?;
+    if mode < 42 {
+        launch_cleanup(events::event_close_all(&map, ram), revoked)?;
+        launch_cleanup(map.shadow_close(ram), revoked)?;
+    }
     launch_need(
         table.timers_closed()
             && display_pacing.schedule_closed()
             && pending.queue_closed()
             && control.controller_closed()
             && pool.stacks_closed()
-            && map.shadow_closed(),
+            && (mode >= 42 || map.shadow_closed()),
     )?;
     if revoked {
         for _ in 0..4096u32 {
@@ -514,7 +557,34 @@ pub fn startup_timer_case(
     gamepkg::local_record_release(argument)?;
     gamepkg::local_mailbox_release(reply)?;
     gamepkg::local_mailbox_release(ack)?;
+    let owned_shadow_id = if mode >= 42 { map.shadow_id() } else { 0 };
+    let second_event = if mode >= 42 {
+        ram.read_u64(0x741028)?
+    } else {
+        0
+    };
+    if mode >= 42 {
+        launch_need(second_event != 0)?;
+    }
     launch_cleanup(owner.startup_close(ram), revoked)?;
+    if mode >= 42 {
+        launch_need(
+            gamepkg::local_record_snapshot(owned_shadow_id, 152).err() == Some(-4)
+                && gamepkg::local_event_state(event) == Err(-4)
+                && gamepkg::local_event_state(second_event) == Err(-4),
+        )?;
+        launch_cleanup(owner.startup_close(ram), revoked)?;
+        let mut resources = std::vec::Vec::new();
+        for _ in 0..128usize {
+            let mut bytes = [0u8; 8];
+            launch_need(gamepkg::local_call(20, &[0u8; 8], &mut bytes)? == 8)?;
+            resources.push(u64::from_le_bytes(bytes));
+        }
+        launch_need(gamepkg::local_call(20, &[0u8; 8], &mut [0u8; 8]) == Err(-2))?;
+        for id in resources {
+            gamepkg::local_call(25, &u64::to_le_bytes(id), &mut [])?;
+        }
+    }
     launch_need(owner.startup_closed())?;
     for id in original {
         match gamepkg::local_record_snapshot(id, 4096) {

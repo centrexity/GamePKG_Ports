@@ -178,7 +178,7 @@ pub fn startup_image(
     }
     let mut held = std::vec::Vec::new();
     let mut filled = 0usize;
-    if mode >= 19 && mode <= 21 {
+    if mode >= 19 && mode <= 21 || mode >= 44 && mode <= 47 {
         for _ in 0..64usize {
             match gamepkg::local_record_create(&[0u8; 8]) {
                 Ok(id) => held.push(id),
@@ -191,20 +191,20 @@ pub fn startup_image(
             Err(-2) => {}
             _ => return Err(-3),
         }
-        for _ in 0..usize::from(mode - 18) {
+        for _ in 0..usize::from(if mode >= 44 { mode - 43 } else { mode - 18 }) {
             gamepkg::local_record_release(held.pop().ok_or(-3)?)?;
         }
     }
-    let expected = if mode >= 19 && mode <= 21 {
+    let expected = if mode >= 19 && mode <= 21 || mode >= 44 && mode <= 48 {
         -2
-    } else if mode == 13 || mode == 23 {
+    } else if mode == 13 || mode == 23 || mode == 49 {
         -5
     } else if mode == 14 || mode == 15 || mode == 17 {
         -1
     } else {
         0
     };
-    if mode == 23 {
+    if mode == 23 || mode == 49 {
         let mut missing = std::vec::Vec::new();
         for index in 0..378u32 {
             let current = ram.read_u32(table + index * 4)?;
@@ -217,7 +217,7 @@ pub fn startup_image(
                     // This startup still creates KIC1: timer initialization
                     // needs the explicit KIC2 shadow binding, even though its
                     // argument classification is now implemented.
-                    && (kernel_pool::kernel_supported(ordinal).is_err() || ordinal == 113)
+                    && (kernel_pool::kernel_supported(ordinal).is_err() || mode == 23 && ordinal == 113)
                 {
                     missing.push(u64::from(ordinal));
                     if missing.len() == 32 {
@@ -231,14 +231,23 @@ pub fn startup_image(
             gamepkg::diagnostic(1, 0x544b0f10, &missing)?;
         }
     }
-    let prepared = owner.startup_prepare(
-        ram,
-        image,
-        data,
-        &[],
-        0x10000,
-        if mode == 15 { 3 } else { 2 },
-    );
+    let sync_held = if mode == 48 {
+        startup_fill_sync()?
+    } else {
+        std::vec::Vec::new()
+    };
+    let prepared = if mode >= 42 {
+        owner.startup_prepare_with_shadow(ram, image, data, &[], 0x10000, 2)
+    } else {
+        owner.startup_prepare(
+            ram,
+            image,
+            data,
+            &[],
+            0x10000,
+            if mode == 15 { 3 } else { 2 },
+        )
+    };
     if expected != 0 {
         startup_need(
             prepared == Err(expected)
@@ -254,7 +263,7 @@ pub fn startup_image(
         owner.startup_close(ram)?;
         owner.startup_close(ram)?;
         startup_need(owner.startup_closed() && ram.services_handle()? == 0)?;
-        if mode >= 19 && mode <= 21 {
+        if mode >= 19 && mode <= 21 || mode >= 44 && mode <= 47 {
             for id in held {
                 gamepkg::local_record_release(id)?;
             }
@@ -268,6 +277,15 @@ pub fn startup_image(
             }
             for id in recovered {
                 gamepkg::local_record_release(id)?;
+            }
+        }
+        for id in sync_held {
+            gamepkg::local_call(25, &u64::to_le_bytes(id), &mut [])?;
+        }
+        if mode >= 44 {
+            let recovered_sync = startup_fill_sync()?;
+            for id in recovered_sync {
+                gamepkg::local_call(25, &u64::to_le_bytes(id), &mut [])?;
             }
         }
         gamepkg::diagnostic(
@@ -285,6 +303,25 @@ pub fn startup_image(
             && owner.startup_prepare(ram, image, data, &[], 0x10000, 2) == Err(-1)
             && owner.startup_ids(ram)? == ids,
     )?;
+    if mode == 50 {
+        let mut other_shadow = kernel_pool::Shadow::shadow_new(ram)?;
+        let (version, mut changed) = gamepkg::local_record_snapshot(ids[2], 72)?;
+        let original = changed.clone();
+        let replacement = u64::to_le_bytes(other_shadow.shadow_id());
+        for lane in 0..8usize {
+            changed[32 + lane] = replacement[lane];
+        }
+        gamepkg::local_record_compare_exchange(ids[2], version, &changed)?;
+        startup_need(
+            owner.startup_ids(ram) == Err(-4)
+                && owner.startup_shadow(ram).err() == Some(-4)
+                && owner.startup_spawn(ram, 3, 0) == Err(-4)
+                && owner.startup_jobs() == 0,
+        )?;
+        let (version, _) = gamepkg::local_record_snapshot(ids[2], 72)?;
+        gamepkg::local_record_compare_exchange(ids[2], version, &original)?;
+        other_shadow.shadow_close(ram)?;
+    }
     if mode >= 32 {
         return timer_probe::startup_timer_case(
             &mut owner,
@@ -369,4 +406,15 @@ pub fn startup_image(
     }
     gamepkg::diagnostic(1, 0x544b0f00, &[u64::from(mode), 0, 5, 0])?;
     Ok(())
+}
+
+fn startup_fill_sync() -> Result<std::vec::Vec<u64>, i32> {
+    let mut held_sync = std::vec::Vec::new();
+    for _ in 0..128usize {
+        let mut bytes = [0u8; 8];
+        startup_need(gamepkg::local_call(20, &[0u8; 8], &mut bytes)? == 8)?;
+        held_sync.push(u64::from_le_bytes(bytes));
+    }
+    startup_need(gamepkg::local_call(20, &[0u8; 8], &mut [0u8; 8]) == Err(-2))?;
+    Ok(held_sync)
 }

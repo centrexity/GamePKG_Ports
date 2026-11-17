@@ -4,7 +4,15 @@ This is tested integration work, **not a playable Burnout release**. The legacy
 profile remains blocked. No source pin, signature, cached executable or engine
 exception may bypass that block. The source kit and catalog URLs are unchanged.
 
-## Current checkpoint: IRQ queue/epilogue and bounded cleanup
+## Latest checkpoint: authenticated shared-shadow startup
+
+The opt-in KIC2 startup owns the timer event map and shares it with the actual
+retained timer worker. Cleanup requires actual joins, drains native events and
+recovers its bounded resource budget. The full-title main import gap is 106;
+playback remains blocked. Exact APIs and qualification limits are in
+[SHADOW_STARTUP.md](service-kernel-context/SHADOW_STARTUP.md).
+
+## Earlier checkpoint: IRQ queue/epilogue and bounded cleanup
 
 `service-kernel-irq` composes coalesced pending lines, original post/release gate
 races, checked worker slices, IRQL/PCR order and complete register restoration
@@ -910,3 +918,24 @@ remain required. Both title profiles, catalog recipes, public source archive,
 pinned submodule and launch defaults remain unchanged and blocked. Rebuild checked
 source kits and receipts for the changed exact game-source/object identities.
 The installed matching host SDK does not require a binary update for these APIs.
+
+## Authenticated KIC2 shadow ownership and timer import
+
+The explicit `Startup::startup_prepare_with_shadow` path now owns the one shared
+shadow map, binds it into KIC2, and hands out only live borrowed maps through
+`startup_shadow`. Its ready/spawn checks reject a substituted same-root map.
+The existing KIC1 prepare path keeps its original allocation requirements.
+All actual timer/Tick joins precede event drain, map/mutex release, registry and
+service teardown. Source/object/process enforcement and profile gates stay intact.
+
+Exact APIs, partial setup, borrowed ownership and cleanup/error semantics are in
+ports `service-kernel-context/SHADOW_STARTUP.md`. The authenticated retained timer
+composition calls import 113 from an actual assigned worker and uses the same map
+as Dispatch. 102 actual confined Linux image sessions and 21 compiled bad copies
+pass; four target source/object/link checks pass. Windows image scope is build-only.
+Full-title import gaps are 106 with KIC2, 107 with KIC1 and 108 without context;
+each complete title attempt still rejects before native entry. No original title
+playback, graphics/physical input/audible audio or measured pacing is established.
+SDK/quotas/public source archive/defaults/catalog/pinned submodule/blocked profiles
+are unchanged. Complete source/import/handler/loop/renderer/media/build/launcher
+and gameplay qualification remain required; the host installation needs no update.

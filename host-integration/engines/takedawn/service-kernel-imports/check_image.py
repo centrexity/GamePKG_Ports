@@ -13,7 +13,7 @@ def main():
   root=Path(temp);probe=root/'admission';cmd=['rustc','--edition=2021','-D','warnings',str(here/'image_admission.rs'),'--extern','gamepkg='+str(lib),'-L','dependency='+str(lib.parent),'-o',str(probe)]
   for name in ['cap_std','tempfile','toml','serde_json']:cmd+=['--extern',name+'='+str(helpers.dependency(lib,name))]
   subprocess.run(cmd,check=True);cases=[]
-  for mode in [0,1,2,3,5,6,7,8,9,10,11,*range(12,23),*range(24,42)]:
+  for mode in [0,1,2,3,5,6,7,8,9,10,11,*range(12,23),*range(24,49),50]:
    data=images.image();images.word(data,0x10c,0x770000);images.word(data,0x1b8+8,0x76e000);images.word(data,0x1b8+16,0x1000)
    images.word(data,0x158,0x12400^(0xefb1f152 if mode==1 else 0x5b6d40b6))
    if mode==1:images.word(data,0x128,0x11020^0x94859d4b)
@@ -21,6 +21,7 @@ def main():
    for index,ordinal in enumerate([14,181 if mode==2 else 16,23]+([335,336,337,338,339,340,24,125,126,127,128] if mode==10 else [335,336,337,338,339,340,24] if mode==8 or mode==9 else [335,336,337,338,339,340] if mode==7 else [335,336,337] if mode==6 else [])):images.word(data,0x1000+index*4,0x80000000|ordinal)
    if mode>=11:
     for index,ordinal in enumerate([14,16,23,109,98]):images.word(data,0x1000+index*4,0x80000000|ordinal)
+   if mode>=42:images.word(data,0x1000+5*4,0x80000071)
    if mode==13:images.word(data,0x1000+4*4,0x800000b5)
    if mode>=32 and mode!=40:
     images.word(data,0x12c,0x12000)
@@ -29,7 +30,7 @@ def main():
    image=root/(str(mode)+'.iso');discs.fixture(image)
    with image.open('r+b') as f:f.truncate(100*2048);f.seek(40*2048+4);f.write(struct.pack('<II',80,len(data)));f.seek(80*2048);f.write(data)
    cases.extend([str(mode),str(image)])
-  if a.iso:cases.extend(['4',str(a.iso.resolve(strict=True)),'23',str(a.iso.resolve(strict=True))])
+  if a.iso:cases.extend(['4',str(a.iso.resolve(strict=True)),'23',str(a.iso.resolve(strict=True)),'49',str(a.iso.resolve(strict=True))])
   prefix=[str(probe),str(app),str(here),str(a.call_targets.resolve(strict=True))]
   evidence=[]
   if a.evidence:
@@ -66,6 +67,24 @@ def main():
      (a.evidence/(name+'.log')).write_text(result.stdout+result.stderr)
      (a.evidence/(name+'.rs')).write_text(variant.read_text())
     print('PASS required failing '+name+' startup control; no policy exemption',flush=True)
+   shadow_startup=(here/'../service-kernel-context/startup.rs').read_text()
+   shadow_variants=[
+    ('omit-shadow-context','kernel_pool::KernelContext::kernel_context_new_with_shadow(\n                ram,\n                self.registry.as_ref().ok_or(-3)?,\n                self.shadow.as_ref().ok_or(-3)?,\n            )?', 'kernel_pool::KernelContext::kernel_context_new(ram, self.registry.as_ref().ok_or(-3)?)?',42),
+    ('skip-owned-event-drain','let outcome = kernel_pool::event_close_all(map, ram);','let outcome: Result<(), i32> = Ok(());',42),
+    ('allow-substituted-shadow','if map.shadow_id() != owned.shadow_id() {','if map.shadow_id() != owned.shadow_id() && false {',50),
+    ('leak-owned-shadow','let outcome = map.shadow_close(ram);\n            if !map.shadow_closed() {\n                return outcome;\n            }','let _ = map.shadow_id(); let outcome: Result<(), i32> = Ok(());',42),
+   ]
+   for name,old,new,mode in shadow_variants:
+    assert shadow_startup.count(old)==1,(name,old)
+    variant=root/(name+'.rs');variant.write_text(shadow_startup.replace(old,new,1))
+    result=subprocess.run([*prefix,'--linux64-only','--startup-copy',str(variant),str(mode),str(root/(str(mode)+'.iso'))],capture_output=True,text=True)
+    assert result.returncode!=0,(name,'broken shared-shadow startup accepted')
+    assert 'PASS Linux64: complete image/import/helper source admission and all-object audit before trusted linking' in result.stdout,(name,result.stderr)
+    assert 'error:' not in result.stderr and 'BuildError' not in result.stderr,(name,result.stderr)
+    assert 'assertion' in result.stderr or 'panicked at' in result.stderr,(name,result.stderr)
+    if a.evidence:
+     (a.evidence/(name+'.log')).write_text(result.stdout+result.stderr);(a.evidence/(name+'.rs')).write_text(variant.read_text())
+    print('PASS required failing '+name+' shared-shadow startup control; no policy exemption',flush=True)
    tick_source=here/'../service-kernel-tick/tick.rs';coordinator=here/'../service-kernel-context/tick_startup.rs'
    tick_variants=[
     ('untracked-clock',coordinator,'--tick-startup-copy','let task = owner.startup_spawn(ram, entry, argument)?;', 'let request = [u32::to_le_bytes(entry).as_slice(), &u64::to_le_bytes(argument), &u32::to_le_bytes(1)].concat(); let mut reply = [0u8;8]; if crate::gamepkg::local_call(10,&request,&mut reply)? != 8 { return Err(-3); } let task = u64::from_le_bytes(reply);',24),
@@ -119,6 +138,6 @@ def main():
   if a.evidence:
    files={str(path.relative_to(a.evidence)):hashlib.sha256(path.read_bytes()).hexdigest() for path in sorted(a.evidence.iterdir())}
    sources={str(path.relative_to(here.parent)):hashlib.sha256(path.read_bytes()).hexdigest() for path in [here/'check_image.py',here/'image_admission.rs',here/'image_probe.rs',here/'../service-kernel-context/startup.rs',here/'../service-kernel-context/startup_probe.rs',here/'../service-kernel-context/tick_startup.rs',here/'../service-kernel-context/tick_probe.rs',here/'../service-kernel-tick/tick.rs',here/'../service-kernel-context/startup.rs',here/'../service-kernel-context/timer_startup.rs',here/'../service-kernel-context/timer_probe.rs',here/'../service-kernel-dpc/queue.rs',here/'../service-kernel-pacing/shared.rs',here/'../service-kernel-timers/timers.rs']}
-   (a.evidence/'qualification.json').write_text(json.dumps({'schema':1,'sdk':'fe309935dd602e2cf098e50065f6035de33dac88b51d45a2bc1ba47cf026742f','status':'authenticated-image-shared-tick-and-retained-timer-launch-lifetimes-not-title-entry','files':files,'sources':sources,'required_failing_variants':17 if a.mutations else 0,'windows':'source/object/link only','linux':'actual confined x64/i686 children','profile_admission':'blocked'},indent=2)+'\n')
+   (a.evidence/'qualification.json').write_text(json.dumps({'schema':1,'sdk':'fe309935dd602e2cf098e50065f6035de33dac88b51d45a2bc1ba47cf026742f','status':'authenticated-image-owned-shadow-KIC2-timer-import-worker-and-retained-launch-lifetimes-not-title-entry','files':files,'sources':sources,'required_failing_variants':21 if a.mutations else 0,'windows':'source/object/link only','linux':'actual confined x64/i686 children','profile_admission':'blocked'},indent=2)+'\n')
  print('Image/import infrastructure only; private title remains rejected until all actual kernel calls and native entry migrate.')
 if __name__=='__main__':main()
