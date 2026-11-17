@@ -1,0 +1,22 @@
+{
+  "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+  "member": "toolkit/src/kernel/kernel_bridge.c",
+  "source_sha256": "bf62f8787a2e78a0abdb28e10ad8f79c5267dc655491353af231067747ce446e",
+  "functions": {
+    "bridge_handle_token_ex": {
+      "start": 165547,
+      "end": 166175,
+      "sha256": "0235eb23bbda58db1f6d6e1673deffd48a0d3020d66097787a07e87d6103bb06"
+    },
+    "bridge_resolve_handle": {
+      "start": 168420,
+      "end": 168702,
+      "sha256": "79a14c1656fe194193c23432cc19f5d050f23cdb0ec61d6a412fb4af5740ef24"
+    },
+    "bridge_take_handle": {
+      "start": 168704,
+      "end": 169164,
+      "sha256": "f85ca59bc3a686b08b340c835310235f2a296f1928a17849febf806ca9c27077"
+    }
+  }
+}

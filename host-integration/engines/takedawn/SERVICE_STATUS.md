@@ -4,7 +4,14 @@ This is tested integration work, **not a playable Burnout release**. The legacy
 profile remains blocked. No source pin, signature, cached executable or engine
 exception may bypass that block. The source kit and catalog URLs are unchanged.
 
-## Latest checkpoint: authenticated shared-shadow startup
+## Latest checkpoint: scratch-backed tagged handle metadata
+
+The checked table preserves all 16,383 tagged slots with bounded scratch memory.
+It is not yet a native object owner or kernel-import bridge. Exact contracts and
+qualification limits: [service-kernel-handles](service-kernel-handles/README.md).
+Main import gap remains 106 and playback stays blocked.
+
+## Earlier checkpoint: authenticated shared-shadow startup
 
 The opt-in KIC2 startup owns the timer event map and shares it with the actual
 retained timer worker. Cleanup requires actual joins, drains native events and
@@ -950,3 +957,21 @@ record bounds and is preserved privately. It is not admitted port code. Full
 scratch-backed handles, native event/object adapters and import/context/startup
 wiring remain required. No title profile, archive, catalog, default or pinned
 submodule is enabled or changed by this prerequisite. Main import gap stays 106.
+
+## Scratch-backed tagged handle metadata
+
+`service-kernel-handles` now preserves all 16,383 original tagged slots over a
+bounded 256 KiB scratch range, with an 80-byte owner record and actual SDK mutex.
+Typed copied identities, first-free/same/fresh behavior, atomic page versions,
+partial initialization and reverse cleanup are checked. Per-page binding and
+pre-publication liveness rechecks prevent continuing across observed KSV unlink;
+accepted prefixes remain owned for cleanup. Exact APIs and formats are in ports
+`service-kernel-handles/README.md`.
+
+Four-target original-C comparisons, native/Wine fault and required-failing
+controls, all-eight-object admission/audit and actual confined Linux32/64 checks
+pass. Fault SDK facades and the C oracle cannot be packaged as game code. These
+are metadata tests, not native resource ownership or title gameplay. Typed event/
+file/thread adapters and context/import/startup wiring still remain. SDK/quotas/
+installed app/pin/archive/catalog/defaults/profile gates stay unchanged; the main
+import gap remains 106. No original controls/audio/graphics/pacing claim is made.
