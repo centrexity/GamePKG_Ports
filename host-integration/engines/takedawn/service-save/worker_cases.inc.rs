@@ -283,3 +283,33 @@ fn explicit_flush_checks_the_writer_and_preserves_publication_order() {
     assert_eq!(std::fs::read(root.path().join("UDATA/12345678/profile")).unwrap(), b"new-save");
     assert_eq!(actor.io_error, -3);
 }
+
+#[test]
+fn path_metadata_observes_published_saves_and_closes_temporary_handles() {
+    let root = tempfile::tempdir().unwrap();
+    worker_setup(root.path());
+    let (grant, _harness) = connect(root.path(), 1048576, false, false);
+    let mut actor = save_worker::SaveWorker::new(grant, "12345678", "20261114-120000").unwrap();
+    let leaf = b"UDATA/12345678/profile";
+    let read_metadata = |actor: &mut save_worker::SaveWorker, name: &[u8]| {
+        actor.save_actor_command(save_worker::QUERY_PATH, name)
+    };
+    assert_eq!(read_metadata(&mut actor, b"UDATA/87654321/profile"), Err(-4));
+    assert_eq!(read_metadata(&mut actor, b""), Err(-1));
+    assert!(read_metadata(&mut actor, b"UDATA/12345678/missing").unwrap().is_empty());
+    let before = read_metadata(&mut actor, leaf).unwrap();
+    assert_eq!(before.len(), 52);
+    assert_eq!(&before[40..48], &8u64.to_le_bytes());
+    let writer = worker_open(&mut actor);
+    let changed = [writer.to_le_bytes().as_slice(), &8u64.to_le_bytes(), b"!"].concat();
+    actor.save_actor_command(save_worker::WRITE, &changed).unwrap();
+    assert_eq!(&read_metadata(&mut actor, leaf).unwrap()[40..48], &8u64.to_le_bytes());
+    actor.save_actor_command(save_worker::CLOSE, &writer.to_le_bytes()).unwrap();
+    worker_drain(&mut actor);
+    assert_eq!(&read_metadata(&mut actor, leaf).unwrap()[40..48], &9u64.to_le_bytes());
+    // This exceeds the host's file handle budget if every observation leaks.
+    for _ in 0..260 {
+        assert!(read_metadata(&mut actor, leaf).is_ok());
+    }
+    assert_eq!(&actor.status_bytes()[32..40], &[0; 8]);
+}

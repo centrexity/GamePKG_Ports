@@ -18,6 +18,7 @@ pub const SHUTDOWN: u32 = 9;
 pub const OPEN_FILE: u32 = 10;
 pub const QUERY_FILE: u32 = 11;
 pub const FLUSH_FILE: u32 = 12;
+pub const QUERY_PATH: u32 = 13;
 
 pub struct Reply {
     pub sequence: u64,
@@ -74,6 +75,21 @@ fn worker_u64(bytes: &[u8]) -> Result<u64, i32> {
     Ok(u64::from_le_bytes([
         bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
     ]))
+}
+fn save_file_info_bytes(observed_file: u64) -> Result<std::vec::Vec<u8>, i32> {
+    let info = gamepkg::save_file_info(observed_file)?;
+    let allocation = info.length.checked_add(16383).ok_or(-1)? & !16383u64;
+    if allocation > i64::MAX as u64 {
+        return Err(-1);
+    }
+    let mut reported = std::vec::Vec::new();
+    for stamp in info.times {
+        reported.extend(u64::to_le_bytes(stamp));
+    }
+    reported.extend(u64::to_le_bytes(allocation));
+    reported.extend(u64::to_le_bytes(info.length));
+    reported.extend(u32::to_le_bytes(info.attributes));
+    Ok(reported)
 }
 fn worker_string(bytes: &[u8]) -> Result<&str, i32> {
     gamepkg::text_from_utf8(bytes)
@@ -345,19 +361,23 @@ impl SaveWorker {
         if !owned_file {
             return Err(-4);
         }
-        let info = gamepkg::save_file_info(observed_file)?;
-        let allocation = info.length.checked_add(16383).ok_or(-1)? & !16383u64;
-        if allocation > i64::MAX as u64 {
-            return Err(-1);
+        save_file_info_bytes(observed_file)
+    }
+
+    fn query_save_path(&mut self, payload: &[u8]) -> Result<std::vec::Vec<u8>, i32> {
+        let real = worker_string(payload)?;
+        self.check_path(real)?;
+        let (observed_file, disposition) = self.guard.open_regular(real, 1, false, false, 0)?;
+        if observed_file == 0 {
+            if disposition == 5 {
+                return Ok(std::vec::Vec::new());
+            }
+            return Err(-3);
         }
-        let mut reported = std::vec::Vec::new();
-        for stamp in info.times {
-            reported.extend(u64::to_le_bytes(stamp));
-        }
-        reported.extend(u64::to_le_bytes(allocation));
-        reported.extend(u64::to_le_bytes(info.length));
-        reported.extend(u32::to_le_bytes(info.attributes));
-        Ok(reported)
+        let information = save_file_info_bytes(observed_file);
+        let observation_close = gamepkg::file_close(observed_file);
+        observation_close?;
+        information
     }
 
     pub fn save_actor_command(
@@ -388,6 +408,7 @@ impl SaveWorker {
             OPEN_FILE => self.open_file_message(payload),
             QUERY_FILE => self.regular_file_information(payload),
             FLUSH_FILE => self.flush_save_handle(payload),
+            QUERY_PATH => self.query_save_path(payload),
             WRITE => {
                 if payload.len() < 16 {
                     return Err(-1);
@@ -649,7 +670,7 @@ impl Connection {
         if self.waiting.is_some() {
             return Err(-2);
         }
-        if payload.len() > 65524 || !(1..=FLUSH_FILE).contains(&operation) {
+        if payload.len() > 65524 || !(1..=QUERY_PATH).contains(&operation) {
             return Err(-1);
         }
         if operation == SHUTDOWN && !payload.is_empty() {

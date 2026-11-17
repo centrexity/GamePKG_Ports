@@ -52,6 +52,7 @@ packing or pointers appear in the protocol.
 | 10 OPEN_FILE | flags u32, disposition u32, relative UTF-8 path | opened handle u64 and disposition information u32 |
 | 11 QUERY_FILE | opened handle u64 | 52 defined bytes of Xbox class-34 file information |
 | 12 FLUSH_FILE | opened writable handle u64 | empty. The staged file remains unpublished |
+| 13 QUERY_PATH | relative UTF-8 save path | 52 defined bytes of class-34 file information or empty for a missing file |
 
 `OPEN_FILE` accepts `FILE_OPEN` (1), `FILE_CREATE` (2) or `FILE_OPEN_IF`
 (3). Flags bit 0 grants a guarded writable handle and bit 1 requests
@@ -83,7 +84,9 @@ the portable attributes as u32. The allocation is the logical file length
 rounded up to the 16 KiB volume unit. The Xbox kernel bridge writes these
 52 bytes into a 56-byte class-34 buffer and leave its four padding bytes alone.
 The observer uses the already-opened file and propagates unavailable
-timestamps or unsupported attributes.
+timestamps or unsupported attributes. `QUERY_PATH` uses the guarded read
+view and closes its temporary handle after observing the same fields. A
+normal lookup sees the published file or a recoverable pending replacement.
 
 Read handles may be read through the SDK. Both read and title handles must be
 closed through the worker so it can track shutdown correctly. Writes/resize/
@@ -142,11 +145,11 @@ join; the engine must explicitly shut it down or terminate its containing proces
 
 ## Validation and remaining integration
 
-Eleven real-file worker tests cover close-before-publication, flush failure,
+Twelve real-file worker tests cover close-before-publication, flush failure,
 complete title history, read/write limits, malformed paths/messages/handles,
 failed pending redirection and the original warning threshold, history quota
 failure, startup ordering, and post-publication uncertainty without source retry.
-Together the suite has 32 actual-file/service tests and 18 transition tests,
+Together the suite has 33 actual-file/service tests and 18 transition tests,
 including 4096 pinned-C policy events.
 
 Exact production modules including the worker pass source checks, isolated

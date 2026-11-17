@@ -137,9 +137,15 @@ pub fn rom_startup_calls(
             let write_marker = ram.read_u32(image.image_thunk() + 72)?;
             let flush_marker = ram.read_u32(image.image_thunk() + 76)?;
             let control_marker = ram.read_u32(image.image_thunk() + 80)?;
+            let path_query_marker = ram.read_u32(image.image_thunk() + 84)?;
             rom_startup_need(
-                [query_marker, write_marker, flush_marker, control_marker]
-                    == [0xfe000044, 0xfe000048, 0xfe00004c, 0xfe000050],
+                [
+                    query_marker,
+                    write_marker,
+                    flush_marker,
+                    control_marker,
+                    path_query_marker,
+                ] == [0xfe000044, 0xfe000048, 0xfe00004c, 0xfe000050, 0xfe000054],
             )?;
             rom_startup_need(kernel_pool::kernel_ordinal(ram, 17) == Err(-5))?;
             regular_startup_calls(
@@ -155,6 +161,7 @@ pub fn rom_startup_calls(
                     close_marker,
                     flush_marker,
                     control_marker,
+                    path_query_marker,
                 ],
                 token,
             )?;
@@ -367,11 +374,11 @@ fn regular_startup_calls(
     routed: &mut startup_file::StartupFiles,
     ram: &mut memory::Memory,
     frame: [u32; 7],
-    slots: [u32; 8],
+    slots: [u32; 9],
     optical_token: u32,
 ) -> Result<(), i32> {
     let [stack, obj, name_address, text_address, handle_address, io_address, query_output] = frame;
-    let [create_marker, open_marker, query_marker, write_marker, read_marker, close_marker, flush_marker, control_marker] =
+    let [create_marker, open_marker, query_marker, write_marker, read_marker, close_marker, flush_marker, control_marker, path_query_marker] =
         slots;
     save_startup_name(
         ram,
@@ -458,6 +465,30 @@ fn regular_startup_calls(
             &[optical_token, io_address],
         ) == Err(-4),
     )?;
+    let path_query = [obj, query_output];
+    rom_startup_need(
+        rom_startup_call(routed, ram, path_query_marker, stack, &path_query)? == 0xc0000034
+            && ram.read_u64(query_output)? == 2,
+    )?;
+    save_startup_name(
+        ram,
+        name_address,
+        text_address,
+        b"\\Device\\Harddisk0\\partition1\\UDATA\\4541005b\\missing\\field.xbx",
+    )?;
+    rom_startup_need(
+        rom_startup_call(routed, ram, path_query_marker, stack, &path_query)? == 0xc000003a
+            && ram.read_u64(query_output)? == 2,
+    )?;
+    save_startup_name(
+        ram,
+        name_address,
+        text_address,
+        b"\\Device\\Harddisk0\\partition1\\UDATA\\4541005c\\TitleMeta.xbx",
+    )?;
+    rom_startup_need(
+        rom_startup_call(routed, ram, path_query_marker, stack, &path_query) == Err(-5),
+    )?;
     rom_startup_need(rom_startup_call(routed, ram, close_marker, stack, &[regular_token])? == 0)?;
     rom_startup_need(rom_startup_call(routed, ram, query_marker, stack, &query_file) == Err(-4))?;
     save_startup_name(
@@ -476,6 +507,12 @@ fn regular_startup_calls(
         memory::Memory::call_retry_pause()?;
     }
     rom_startup_need(result == Ok(0) && ram.read_u64(io_address)? == 0x100000000)?;
+    rom_startup_need(rom_startup_call(routed, ram, path_query_marker, stack, &path_query)? == 0)?;
+    rom_startup_need(
+        ram.read_u64(query_output + 40)? == 5
+            && ram.read_u32(query_output + 48)? == 0x24
+            && ram.read_u32(query_output + 52)? == 0x8a6bedcc,
+    )?;
     let reader_token = ram.read_u32(handle_address)?;
     let read_file = [reader_token, 0, 0, 0, io_address, query_output, 5, 0];
     rom_startup_need(rom_startup_call(routed, ram, read_marker, stack, &read_file)? == 0)?;
@@ -495,6 +532,6 @@ fn regular_startup_calls(
     let reader_eof = [reader_token, io_address, control_input, 8, 20];
     rom_startup_need(rom_startup_call(routed, ram, control_marker, stack, &reader_eof) == Err(-4))?;
     // Leave the reader open to establish that the startup router drains it.
-    gamepkg::diagnostic(1, 0x544b4700, &[5, 0x24, 16384, 2, 7])?;
+    gamepkg::diagnostic(1, 0x544b4700, &[5, 0x24, 16384, 2, 7, 210])?;
     Ok(())
 }

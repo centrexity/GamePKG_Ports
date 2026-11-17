@@ -88,7 +88,7 @@ impl<'a, 'b> StartupFiles<'a, 'b> {
             190 | 202 if self.private_directories.is_some() => {
                 startup_open_route(ram, cpu, ordinal, self.regular_files.is_some())?
             }
-            198 | 211 | 226 | 236 => 2,
+            198 | 210 | 211 | 226 | 236 => 2,
             218 => 1,
             187 | 219 => {
                 let token = ram.read_u32(token_at)?;

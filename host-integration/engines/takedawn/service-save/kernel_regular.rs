@@ -230,7 +230,7 @@ impl<'a> RegularFiles<'a> {
             187 => 8,
             190 => 40,
             202 => 28,
-            198 => 12,
+            198 | 210 => 12,
             211 | 226 => 24,
             219 | 236 => 36,
             _ => return Err(-5),
@@ -245,6 +245,7 @@ impl<'a> RegularFiles<'a> {
             }
             190 | 202 => self.regular_files_open(ram, table, &frame, ordinal == 190)?,
             198 | 226 => self.regular_files_control(ram, table, &frame, ordinal == 198)?,
+            210 => self.regular_files_query_path(ram, &frame)?,
             211 => self.regular_files_query(ram, table, &frame)?,
             219 | 236 => self.regular_files_transfer(ram, table, &frame, ordinal == 236)?,
             _ => return Err(-5),
@@ -355,7 +356,13 @@ impl<'a> RegularFiles<'a> {
         ram.memory_check_write(handle_address, 4)?;
         ram.memory_check_write(iosb, 8)?;
         let granted_name =
-            regular_name(self.session.grant, gamepkg::text_from_utf8(&opaque_name)?)?;
+            match regular_name(self.session.grant, gamepkg::text_from_utf8(&opaque_name)?)? {
+                Some(resolved) => resolved,
+                None => {
+                    ram.write_u64(iosb, regular_status(0xc000003a, 0))?;
+                    return Ok(0xc000003a);
+                }
+            };
         let write_mode = u32::from(writable)
             | (options & 2)
             | (if disposition == 1 {
@@ -425,6 +432,41 @@ impl<'a> RegularFiles<'a> {
         Ok(0)
     }
 
+    fn regular_files_query_path(
+        &mut self,
+        ram: &mut memory::Memory,
+        frame: &[u8],
+    ) -> Result<u32, i32> {
+        let object_address = kernel_file::rom_kernel_word(frame, 4)?;
+        let output_address = kernel_file::rom_kernel_word(frame, 8)?;
+        if object_address == 0
+            || output_address == 0
+            || ram.read_u32(object_address)? != 0
+            || ram.read_u32(object_address.checked_add(8).ok_or(-1)?)? != 0x40
+        {
+            return Err(-5);
+        }
+        let counted_save_name = kernel_file::rom_kernel_name(ram, object_address)?;
+        ram.memory_check_write(output_address, 56)?;
+        let selected_name = match regular_name(
+            self.session.grant,
+            gamepkg::text_from_utf8(&counted_save_name)?,
+        )? {
+            Some(resolved) => resolved,
+            None => return Ok(0xc000003a),
+        };
+        let reply = self
+            .session
+            .regular_session_request(save_worker::QUERY_PATH, selected_name.as_bytes())?;
+        if reply.is_empty() {
+            return Ok(0xc0000034);
+        }
+        if reply.len() != 52 {
+            return Err(-3);
+        }
+        ram.write_bytes(output_address, &reply)?;
+        Ok(0)
+    }
     fn regular_files_query(
         &mut self,
         ram: &mut memory::Memory,
@@ -685,7 +727,7 @@ fn regular_status(status: u32, information: u32) -> u64 {
     u64::from(status) | (u64::from(information) << 32)
 }
 
-fn regular_name(grant: u64, requested_name: &str) -> Result<std::string::String, i32> {
+fn regular_name(grant: u64, requested_name: &str) -> Result<Option<std::string::String>, i32> {
     let prefix = "\\Device\\Harddisk0\\partition1\\";
     if !requested_name
         .get(..prefix.len())
@@ -720,8 +762,15 @@ fn regular_name(grant: u64, requested_name: &str) -> Result<std::string::String,
     } else {
         return Err(-5);
     }
-    for requested_part in &components[2..] {
-        let segment = gamepkg::text_component(requested_part.as_bytes())?;
+    let tails = &components[2..];
+    for part_name in tails {
+        gamepkg::text_component(part_name.as_bytes())?;
+    }
+    if gamepkg::save_directory(grant, &canonical, false)? == 0 {
+        return Ok(None);
+    }
+    for (part_index, segment) in tails.iter().enumerate() {
+        let final_part = part_index + 1 == tails.len();
         let names = gamepkg::directory_list(grant, &canonical)?;
         let mut spelling = None;
         for candidate in &names {
@@ -729,11 +778,18 @@ fn regular_name(grant: u64, requested_name: &str) -> Result<std::string::String,
                 if spelling.is_some() {
                     return Err(-4);
                 }
-                spelling = Some(candidate.name.as_str());
+                spelling = Some((candidate.name.as_str(), candidate.directory));
             }
         }
+        let resolved_part = match spelling {
+            Some((name, true)) if !final_part => name,
+            Some((name, false)) if final_part => name,
+            Some(_) => return Err(-4),
+            None if final_part => segment,
+            None => return Ok(None),
+        };
         canonical.push_str("/");
-        canonical.push_str(spelling.unwrap_or(segment));
+        canonical.push_str(resolved_part);
     }
-    Ok(canonical)
+    Ok(Some(canonical))
 }
