@@ -528,6 +528,11 @@ impl Startup {
         self.startup_ids(ram)?;
         self.context.as_ref().ok_or(-4)?.kernel_context_shadow(ram)
     }
+    pub fn startup_thread_table(&self, ram: &memory::Memory) -> Result<&handles::Handles, i32> {
+        self.startup_ids(ram)?;
+        self.handles.as_ref().ok_or(-4)
+    }
+
     pub fn startup_objects(
         &self,
         ram: &memory::Memory,

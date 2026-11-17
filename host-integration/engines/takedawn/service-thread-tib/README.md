@@ -71,3 +71,38 @@ Native callbacks, actual IRQ/device handlers, context/bootstrap publication and
 full source/build/launch closure remain required. It establishes no title
 startup/gameplay, graphics fidelity, physical input, audible audio or measured
 frame pacing. Both unmigrated title profiles remain blocked.
+
+## Checked system-thread launch component
+
+The authenticated startup fixture now drives the PsCreateSystemThreadEx
+argument layout through the game-owned launcher in
+../service-kernel-context/thread_launch.rs. The launcher reads the ten Xbox
+arguments and the return word before allocating. The reviewed caller supplies
+the matching generated guest routine, audited Plan entry, and initialized
+TLS template. The supported shape uses a 16-byte-aligned guest stack from
+4 KiB through 256 KiB, with a 64 KiB default. It requires the requested TLS
+size to match the provided template and refuses extra or debug-stack fields.
+
+The creator owns one combined guest stack/TIB allocation and the copied
+launch record. The same TIB initializer used by the differential tests lays
+out the worker data. A real GamePKG task is created suspended, tracked by the
+authenticated Startup owner, and associated with a typed kernel handle. The
+worker validates its actual task identity against the copied record and uses
+a fresh guest RAM view and fresh CPU state. Its original stdcall frame contains
+a zero return sentinel and the two guest context words. Only a compiled direct
+dispatch route runs. No OS handle or native function pointer crosses into
+guest state.
+
+The launch owner can resume the matching live handle or cancel a still-gated
+task during teardown. Resource cleanup consumes the real join before removing
+the handle and releasing the launch record and stack/TIB. A failed launch
+after acquiring resources still requires owner drain. Busy remains retryable.
+The 32-bit output ID is a runtime task identifier and the handle is a typed
+guest token. Neither is a host pointer.
+
+The signed fixture checks explicit resume, immediate start, cancellation of
+a suspended job, rejection of a mismatched route and handle, the paired guest
+outputs, and parent register preservation. It runs a short existing translated
+stdcall body. The real Burnout system routine and import routing remain to be
+connected. General guest wait, suspend, close and termination are separate
+integration work. The full title import gate remains closed.

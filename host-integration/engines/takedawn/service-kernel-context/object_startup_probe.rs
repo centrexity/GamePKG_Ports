@@ -429,6 +429,7 @@ pub fn object_startup_image(
             if mode == 94 {
                 crate::sync_startup_probe::protection_fixture(ram, [26, 27])?;
                 crate::sync_startup_probe::virtual_startup_fixture(ram, [28, 29, 30])?;
+                crate::thread_launch::system_thread_fixture(&mut owner, ram)?;
             }
             if mode < 83 {
                 crate::sync_startup_probe::sync_startup_schema(ram, &owner, mode)?;
