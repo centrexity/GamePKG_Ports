@@ -55,9 +55,9 @@ pub fn events_probe() -> Result<std::vec::Vec<u8>, i32> {
         events::Events::events_borrow(&other, &map, domain.events_id()).is_err(),
     )?;
     gamepkg::local_record_release(other.call_handle())?;
-    let (_, pristine) = gamepkg::local_record_snapshot(domain.events_id(), 2112)?;
-    for at in [0usize, 8, 16, 24, 32, 40, 48, 56, 64, 72] {
-        let (version, mut bad) = gamepkg::local_record_snapshot(domain.events_id(), 2112)?;
+    let (_, pristine) = gamepkg::local_record_snapshot(domain.events_id(), 2624)?;
+    for at in [0usize, 8, 16, 24, 32, 40, 48, 56, 64, 72, 2112, 2120, 2616] {
+        let (version, mut bad) = gamepkg::local_record_snapshot(domain.events_id(), 2624)?;
         bad[at] ^= 0xff;
         gamepkg::local_record_compare_exchange(domain.events_id(), version, &bad)?;
         events_need(
@@ -68,7 +68,7 @@ pub fn events_probe() -> Result<std::vec::Vec<u8>, i32> {
                 events::Events::events_borrow(&ram, &map, domain.events_id()).is_err()
             },
         )?;
-        let (version, _) = gamepkg::local_record_snapshot(domain.events_id(), 2112)?;
+        let (version, _) = gamepkg::local_record_snapshot(domain.events_id(), 2624)?;
         gamepkg::local_record_compare_exchange(domain.events_id(), version, &pristine)?;
     }
     let mut output = std::vec::Vec::new();
@@ -180,6 +180,7 @@ pub fn events_probe() -> Result<std::vec::Vec<u8>, i32> {
     guard.handles_guard_close(&ram)?;
     gamepkg::local_call(25, &u64::to_le_bytes(foreign), &mut [])?;
     // Accepted events remain owned after KSV revocation; deletion lane closes them.
+    crate::wait_probe::wait_probe(&mut ram, &map, &mut domain)?;
     events_parallel(&ram, &map, &domain)?;
     let mut untransferred = domain.events_begin(&ram, &map)?;
     untransferred.event_create(&ram, 0, 1)?;

@@ -60,9 +60,9 @@ fn events_record(
     table: u64,
     owner: u64,
 ) -> Result<(u64, std::vec::Vec<u8>), i32> {
-    let (version, b) = gamepkg::local_record_snapshot(record, 2112)?;
-    if b.len() != 2112
-        || events_word(&b, 0)? != 0x31445645
+    let (version, b) = gamepkg::local_record_snapshot(record, 2624)?;
+    if b.len() != 2624
+        || events_word(&b, 0)? != 0x32445645
         || events_word(&b, 40)? > 1
         || events_word(&b, 48)? != 0
         || events_word(&b, 56)? != 0
@@ -89,6 +89,20 @@ fn events_record(
         if id != 0 {
             for before in 0..row {
                 if events_word(&b, 64 + before * 16)? == id {
+                    return Err(-1);
+                }
+            }
+        }
+    }
+    for slot in 0..32usize {
+        let lease = events_word(&b, 2112 + slot * 16)?;
+        let state = events_word(&b, 2120 + slot * 16)?;
+        if state > 2 || ((state == 0) != (lease == 0)) {
+            return Err(-1);
+        }
+        if lease != 0 {
+            for before in 0..slot {
+                if events_word(&b, 2112 + before * 16)? == lease {
                     return Err(-1);
                 }
             }
@@ -136,9 +150,9 @@ impl Events {
         events_live(ram, root, services)?;
         let owner = gamepkg::local_task_status()?.0;
         let mut b = std::vec::Vec::new();
-        b.resize(2112, 0);
+        b.resize(2624, 0);
         for (at, value) in [
-            (0usize, 0x31445645u64),
+            (0usize, 0x32445645u64),
             (8, root),
             (16, services),
             (24, map.handles_id()),
@@ -168,7 +182,7 @@ impl Events {
         map: &handles::Handles,
         record: u64,
     ) -> Result<Self, i32> {
-        let (_, b) = gamepkg::local_record_snapshot(record, 2112)?;
+        let (_, b) = gamepkg::local_record_snapshot(record, 2624)?;
         let view = Self {
             root: ram.call_handle(),
             services: ram.services_handle()?,
@@ -374,6 +388,8 @@ impl Events {
             }
             return Ok(());
         }
+        self.events_wait_busy(id)?;
+        self.events_wait_reap()?;
         let (version, mut b) = self.events_snapshot(ram, map)?;
         events_put(&mut b, 72 + row * 16, 3)?;
         events_commit(self.record, version, &b)?;
@@ -481,10 +497,12 @@ impl Events {
                 return Err(-2);
             }
         }
+        self.events_wait_busy(0)?;
         if events_word(&b, 40)? == 0 {
             events_put(&mut b, 40, 1)?;
             events_commit(self.record, version, &b)?;
         }
+        self.events_wait_reap()?;
         for row in 0..128usize {
             let (version, mut b) = events_record(
                 self.record,
@@ -623,6 +641,321 @@ impl EventCreation {
             self.cleared = true;
         }
         self.guard.handles_guard_close(ram)?;
+        self.closed = true;
+        Ok(())
+    }
+}
+
+pub struct EventWait {
+    root: u64,
+    services: u64,
+    table: u64,
+    domain: u64,
+    owner: u64,
+    task: u64,
+    event: u64,
+    record: u64,
+    slot: usize,
+    published: bool,
+    attempted: bool,
+    outcome: i32,
+    observed: bool,
+    finished: bool,
+    closed: bool,
+    guard: Option<handles::HandleGuard>,
+}
+fn events_wait_record(
+    record: u64,
+    root: u64,
+    services: u64,
+    table: u64,
+    domain: u64,
+) -> Result<(u64, std::vec::Vec<u8>), i32> {
+    let (version, b) = gamepkg::local_record_snapshot(record, 80)?;
+    if b.len() != 80
+        || events_word(&b, 0)? != 0x31544c57
+        || events_word(&b, 56)? > 1
+        || events_word(&b, 72)? != 0
+    {
+        return Err(-1);
+    }
+    if root == 0
+        || services == 0
+        || table == 0
+        || domain == 0
+        || events_word(&b, 8)? != root
+        || events_word(&b, 16)? != services
+        || events_word(&b, 24)? != table
+        || events_word(&b, 32)? != domain
+        || events_word(&b, 40)? == 0
+        || events_word(&b, 48)? == u64::MAX
+    {
+        return Err(-4);
+    }
+    let result = events_word(&b, 64)?;
+    if (events_word(&b, 56)? == 0 && result != 0) || result != (result as i32 as i64 as u64) {
+        return Err(-1);
+    }
+    Ok((version, b))
+}
+impl Events {
+    pub fn events_wait_begin(
+        &self,
+        ram: &memory::Memory,
+        map: &handles::Handles,
+        token: u32,
+    ) -> Result<EventWait, i32> {
+        let task = gamepkg::local_task_status()?.0;
+        let mut guard = map.handles_lock(ram)?;
+        let result = self.events_wait_reserve(ram, map, &guard, token, task);
+        let (slot, event, record) = match result {
+            Ok(value) => value,
+            Err(code) => {
+                let _ = guard.handles_guard_close(ram);
+                return Err(code);
+            }
+        };
+        Ok(EventWait {
+            root: self.root,
+            services: self.services,
+            table: self.table,
+            domain: self.record,
+            owner: self.owner,
+            task,
+            event,
+            record,
+            slot,
+            published: false,
+            attempted: false,
+            outcome: -4,
+            observed: false,
+            finished: false,
+            closed: false,
+            guard: Some(guard),
+        })
+    }
+    fn events_wait_reserve(
+        &self,
+        ram: &memory::Memory,
+        map: &handles::Handles,
+        guard: &handles::HandleGuard,
+        token: u32,
+        task: u64,
+    ) -> Result<(usize, u64, u64), i32> {
+        let (_, event) = self.events_lookup_locked(ram, map, guard, token)?;
+        self.events_wait_reap()?;
+        let (_, b) = self.events_snapshot(ram, map)?;
+        let mut slot = 32usize;
+        for index in 0..32usize {
+            if events_word(&b, 2120 + index * 16)? == 0 {
+                slot = index;
+                break;
+            }
+        }
+        if slot == 32 {
+            return Err(-2);
+        }
+        let mut lease = [0u8; 80];
+        for (at, value) in [
+            (0usize, 0x31544c57u64),
+            (8, self.root),
+            (16, self.services),
+            (24, self.table),
+            (32, self.record),
+            (40, event),
+            (48, task),
+        ] {
+            events_put(&mut lease, at, value)?;
+        }
+        // Accepted record ownership is returned without further fallible calls.
+        let record = gamepkg::local_record_create(&lease)?;
+        Ok((slot, event, record))
+    }
+    fn events_wait_busy(&self, event: u64) -> Result<(), i32> {
+        let (_, b) = events_record(
+            self.record,
+            self.root,
+            self.services,
+            self.table,
+            self.owner,
+        )?;
+        for slot in 0..32usize {
+            let state = events_word(&b, 2120 + slot * 16)?;
+            if state == 1 {
+                let (_, lease) = events_wait_record(
+                    events_word(&b, 2112 + slot * 16)?,
+                    self.root,
+                    self.services,
+                    self.table,
+                    self.record,
+                )?;
+                if events_word(&lease, 56)? == 0
+                    && (event == 0 || events_word(&lease, 40)? == event)
+                {
+                    return Err(-2);
+                }
+            }
+        }
+        Ok(())
+    }
+    fn events_wait_reap(&self) -> Result<(), i32> {
+        for slot in 0..32usize {
+            let (version, mut b) = events_record(
+                self.record,
+                self.root,
+                self.services,
+                self.table,
+                self.owner,
+            )?;
+            let mut state = events_word(&b, 2120 + slot * 16)?;
+            if state == 0 {
+                continue;
+            }
+            let record = events_word(&b, 2112 + slot * 16)?;
+            if state == 1 {
+                let (_, lease) =
+                    events_wait_record(record, self.root, self.services, self.table, self.record)?;
+                if events_word(&lease, 56)? == 0 {
+                    continue;
+                }
+                events_put(&mut b, 2120 + slot * 16, 2)?;
+                events_commit(self.record, version, &b)?;
+                state = 2;
+            }
+            if state != 2 {
+                return Err(-1);
+            }
+            match gamepkg::local_record_release(record) {
+                Ok(()) | Err(-4) => {}
+                Err(code) => return Err(code),
+            }
+            let (version, mut b) = events_record(
+                self.record,
+                self.root,
+                self.services,
+                self.table,
+                self.owner,
+            )?;
+            if events_word(&b, 2112 + slot * 16)? != record
+                || events_word(&b, 2120 + slot * 16)? != 2
+            {
+                return Err(-4);
+            }
+            events_put(&mut b, 2112 + slot * 16, 0)?;
+            events_put(&mut b, 2120 + slot * 16, 0)?;
+            events_commit(self.record, version, &b)?;
+        }
+        Ok(())
+    }
+}
+impl EventWait {
+    pub fn event_wait_id(&self) -> u64 {
+        self.record
+    }
+    pub fn event_wait_closed(&self) -> bool {
+        self.closed
+    }
+    pub fn event_wait_published(&self) -> bool {
+        self.published
+    }
+    fn event_wait_owner(&self, ram: &memory::Memory) -> Result<(), i32> {
+        if self.closed
+            || ram.call_handle() != self.root
+            || gamepkg::local_task_status()?.0 != self.task
+        {
+            return Err(-4);
+        }
+        Ok(())
+    }
+    fn event_wait_unlock(&mut self, ram: &memory::Memory) -> Result<(), i32> {
+        if let Some(guard) = self.guard.as_mut() {
+            guard.handles_guard_close(ram)?;
+        }
+        self.guard = None;
+        Ok(())
+    }
+    pub fn event_wait(&mut self, ram: &memory::Memory, milliseconds: u32) -> Result<(), i32> {
+        self.event_wait_owner(ram)?;
+        if milliseconds > 1000 || self.attempted {
+            return Err(-1);
+        }
+        events_live(ram, self.root, self.services)?;
+        self.attempted = true;
+        let (version, mut b) = events_record(
+            self.domain,
+            self.root,
+            self.services,
+            self.table,
+            self.owner,
+        )?;
+        if events_word(&b, 40)? != 0 || events_word(&b, 2120 + self.slot * 16)? != 0 {
+            return Err(-4);
+        }
+        gamepkg::local_event_state(self.event)?;
+        events_put(&mut b, 2112 + self.slot * 16, self.record)?;
+        events_put(&mut b, 2120 + self.slot * 16, 1)?;
+        events_commit(self.domain, version, &b)?;
+        self.published = true;
+        self.event_wait_unlock(ram)?;
+        // Never retain the tagged-table guard across the actual host-owned wait.
+        let result = gamepkg::local_event_wait(self.event, milliseconds);
+        let result = match events_live(ram, self.root, self.services) {
+            Ok(()) => result,
+            Err(code) => Err(code),
+        };
+        self.outcome = match result {
+            Ok(()) => 0,
+            Err(code) => code,
+        };
+        self.observed = true;
+        self.event_wait_finish()?;
+        result
+    }
+    fn event_wait_finish(&mut self) -> Result<(), i32> {
+        if self.finished {
+            return Ok(());
+        }
+        let (version, mut b) = events_wait_record(
+            self.record,
+            self.root,
+            self.services,
+            self.table,
+            self.domain,
+        )?;
+        if events_word(&b, 40)? != self.event
+            || events_word(&b, 48)? != self.task
+            || events_word(&b, 56)? != 0
+        {
+            return Err(-4);
+        }
+        events_put(&mut b, 56, 1)?;
+        events_put(
+            &mut b,
+            64,
+            if self.observed {
+                self.outcome as i64 as u64
+            } else {
+                (-4i64) as u64
+            },
+        )?;
+        events_commit(self.record, version, &b)?;
+        self.finished = true;
+        Ok(())
+    }
+    pub fn event_wait_close(&mut self, ram: &memory::Memory) -> Result<(), i32> {
+        if self.closed {
+            return Ok(());
+        }
+        self.event_wait_owner(ram)?;
+        if self.published {
+            // Actual-task completion publication needs no live KSV or mutex
+            // reacquisition, so cancellation cannot strand a held table lock.
+            self.event_wait_finish()?;
+        } else if self.record != 0 {
+            gamepkg::local_record_release(self.record)?;
+            self.record = 0;
+        }
+        self.event_wait_unlock(ram)?;
         self.closed = true;
         Ok(())
     }

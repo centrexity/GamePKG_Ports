@@ -5,6 +5,9 @@ mod gamepkg {
 fn event_worker(_: local::runtime::TaskContext, arg: u64) -> u64 {
     probe::event_worker(arg)
 }
+fn wait_worker(_: local::runtime::TaskContext, arg: u64) -> u64 {
+    wait_probe::wait_worker(arg)
+}
 fn main() {
     let runtime = local::runtime::Runtime::new(
         &[
@@ -25,7 +28,7 @@ fn main() {
                 bytes: 1048576,
             },
         ],
-        vec![event_worker],
+        vec![event_worker, wait_worker],
         256 * 1024 * 1024,
         4,
         1048576,

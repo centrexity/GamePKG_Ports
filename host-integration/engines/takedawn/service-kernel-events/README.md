@@ -13,7 +13,7 @@ All APIs return `Result<_,i32>` unless the accessor is explicitly infallible.
 SDK errors stay SDK errors; these functions do not yet map Xbox NTSTATUS values.
 
 - `Events::events_new(&Memory,&Handles) -> Events` requires the live same-root
-  KSV and actual table creator. It allocates one bounded 2,112-byte copied ledger.
+  KSV and actual table creator. It allocates one bounded 2,624-byte copied ledger.
   No additional mutex or larger quota is introduced. `events_id()` returns its
   opaque record ID; `events_closed()` reports actual ledger release.
 - `Events::events_borrow(&Memory,&Handles,id) -> Events` validates the fixed
@@ -72,7 +72,9 @@ shutdown can retry draining it. It never fabricates a live or closed event.
 `events_close(&mut self,&Memory,&Handles)` is actual creator-only. Callers must
 stop and **actually join** all borrowers first; this component does not track jobs
 or prove joins. It returns Busy before changing phase while any other table guard
-or reserved creation remains. It then disables new operations, journals/drains
+or reserved creation remains. Registered ACTIVE waits also return Busy before
+shutdown phase changes. It then disables new operations, retires completed wait
+records, journals/drains
 all live, orphaned and interrupted-closing events, removes their matching typed
 aliases and releases the ledger. The table remains owned separately: close the
 domain before closing its table. Creator/root-validated completed close is stable,
@@ -82,21 +84,70 @@ resources were released unless `events_closed()` confirms it. Malformed records,
 wrong native kinds or inaccessible backing can require fatal session teardown.
 No lost guard, reservation, native event or backing is silently called cleaned up.
 
+## Bounded wait leases
+
+`events_wait_begin(&Memory,&Handles,token) -> EventWait` validates the owned live
+native event, selects a free slot in the 32-entry wait graph and allocates one
+80-byte WLT1 record while retaining the actual-task table guard. Its record
+remains privately owned until publication. `event_wait_id()`,
+`event_wait_published()` and `event_wait_closed()` are infallible observations.
+
+`EventWait::event_wait(&Memory,milliseconds:u32)` accepts 0..1,000 ms and attempts
+the actual wait once. It publishes ACTIVE ownership into the domain before
+releasing its guard, and **releases the guard before waiting** through the typed
+SDK event service. Other tasks can signal/reset or remove other aliases while
+it waits. Removing the last alias returns Busy while its event has an ACTIVE
+lease. Host waits remain worker-only; no window-owner-thread wait is introduced.
+This is one bounded SDK wait, not an Xbox indefinite/absolute wait translator.
+
+After the actual wait, live KSV/cancellation is rechecked. The observed result is
+retained privately before fallible DONE publication, so an interrupted publication
+can be retried without repeating a wait or consuming a second auto-reset signal.
+`event_wait_close(&Memory)` must run on every path in the acquiring task. A
+published lease records DONE with the retained result (or Denied for an abandoned
+pre-wait transaction); an unpublished lease releases its private record. It also
+releases any remaining guard. Completed close repeats harmlessly. DONE publication
+uses only actual-task/root-bound copied-record CAS: it needs neither a live KSV
+nor cancellation-sensitive mutex reacquisition. Actual task cancellation therefore
+does not strand the wait graph. Total SDK/session revocation still requires the
+outer process owner to terminate/reclaim that session.
+
+Published record ownership belongs to the domain after the accepted list CAS.
+The waiter must not release it. Under the table lock, domain operations move a
+DONE slot to RETIRING **before** releasing its record, then clear that slot. A
+failed final clear retains the exact RETIRING ID; retry permits a missing record
+only in that already-journaled phase. ACTIVE missing records are errors. Domain
+shutdown and last-alias close do not pretend an ACTIVE lease has finished from a
+copied task ID or a task-finished poll. Callers must still consume actual join
+proofs and stop borrowers. Lost/forged records or abandoned tasks can require
+fatal session teardown. Records and copied event IDs are not immutable authority.
+
 ## Fixed representation and budgets
 
-`EVD1` is exactly 2,112 bytes, all fields LE u64:
+`EVD2` is exactly 2,624 bytes, all fields LE u64:
 
 | Offset | Meaning |
 | --- | --- |
-| 0 | magic 0x31445645 |
+| 0 | magic 0x32445645 |
 | 8 / 16 / 24 | game root / KSV / tagged-table record IDs |
 | 32 | actual owner task ID, bootstrap zero allowed |
 | 40 | domain phase: 0 active, 1 closing |
 | 48 / 56 | reserved zero |
 | 64 + 16*n | opaque SDK event ID, n=0..127 |
 | 72 + 16*n | row state: 0 free, 1 reserved, 2 live, 3 closing |
+| 2112 + 16*n | wait-record ID, n=0..31 |
+| 2120 + 16*n | wait-slot state: 0 free, 1 linked, 2 retiring |
 
-FREE and RESERVED require ID zero; LIVE and CLOSING require a nonzero unique ID.
+The earlier 2,112-byte EVD1 representation is historical and rejected by this
+version; its fields are not silently reinterpreted. Wait IDs are unique, nonzero
+when linked/retiring, and zero when free. WLT1 is exactly 80 bytes, LE u64:
+magic 0x31544c57 at 0; root/KSV/table/domain IDs at 8/16/24/32; native event ID at
+40; actual acquiring task at 48; state ACTIVE=0/DONE=1 at 56; sign-extended i32 SDK
+result at 64; reserved zero at 72. ACTIVE requires zero result; DONE retains the
+observed result. Task zero is the bootstrap; u64::MAX is invalid. Completion is
+not a guest pointer, event authority, joined-task proof or frame-time measurement.
+
+FREE and RESERVED event rows require ID zero; LIVE and CLOSING require a nonzero unique ID.
 Reserved and closing states are explicit resource obligations. Whole-record
 versioned CAS reports stale publication as Failed, never successful transfer.
 This record fits unchanged limits of 4 KiB each, 64 records and 64 KiB aggregate.
@@ -113,13 +164,20 @@ Native Linux32/64 and Windows32/64 SDK components (Windows through Wine) check
 24 manual/auto/initial-state combinations, real signal/reset and zero-time waits,
 last-alias lifetime, invalid kinds/foreign domains, null-output orphans,
 failed-output prefixes, forged records, four actual creating workers with consumed
-join proofs, unchanged synchronization limits and revoked-KSV cleanup.
+join proofs, unchanged synchronization limits and revoked-KSV cleanup. Actual waiting workers
+check concurrent signal, cancellation, late KSV-revocation denial, Busy last-alias
+close, consumed joins and record reclamation. Zero-timeout and invalid/duplicate
+wait controls exercise exact outcomes. Synthetic schema controls register 32
+ACTIVE copied leases to test the bound; this does **not** claim 32 physical
+waiting jobs. Global record exhaustion and duplicate lease IDs remain rejected.
 
-Six maintainer-only fault cases per target interfere through the actual SDK:
+Ten maintainer-only fault cases per target interfere through the actual SDK:
 stale ledger transfer, stale tag publication after accepted transfer, stale tag
 removal after native close, stale final ledger clear, stale reservation clear
-following incoming-event release, and revocation immediately after transfer.
-Ten deliberately broken native copies must fail. Fault facades and maintainer
+following incoming-event release, and revocation immediately after transfer. Wait faults cover stale ACTIVE
+publication, stale completion after an actual timeout, stale retirement marking,
+and stale slot clearing after actual record release.
+Fourteen deliberately broken native copies must fail. Fault facades and maintainer
 runtime files are rejected if packaged even as unused game source; no production
 fault hooks or exemptions exist.
 
@@ -131,8 +189,7 @@ actual confinement. Windows component execution uses Wine; real Windows
 confinement, physical controls, audible audio, GPU fidelity and frame pacing are
 not established. There is no game window or full-title gameplay in these tests.
 
-Remaining: shared wait leases and cancellation-safe wakeup/close coordination;
-accurate pulse/NT status and previous-state/import behavior; new versioned
+Remaining: accurate pulse/NT status and previous-state/import behavior; new versioned
 context/startup ownership; typed file/thread resources; migrated full native
 source/build/launch/renderer/media and actual gameplay qualification. Do not wire
 ordinal 189 or other imports as ready from this component alone, reinterpret

@@ -4,7 +4,18 @@ This is tested integration work, **not a playable Burnout release**. The legacy
 profile remains blocked. No source pin, signature, cached executable or engine
 exception may bypass that block. The source kit and catalog URLs are unchanged.
 
-## Latest checkpoint: typed SDK event ownership
+## Latest checkpoint: bounded typed event waits
+
+The EVD2 ownership graph adds 32 bounded wait slots and explicit WLT1 completion
+records. Actual waiting workers release the table mutex before waiting; active
+waits prevent last-alias close, and cancelled/revoked tasks can record completion
+without reacquiring that mutex. Journaled retirement retains failed cleanup
+prefixes. Ten interference cases and fourteen broken variants pass alongside
+four-target admission and actual confined Linux checks. This remains component
+qualification; pulse/NT status and context/import/startup integration are required.
+See [service-kernel-events](service-kernel-events/README.md). Gap remains 106.
+
+## Earlier checkpoint: typed SDK event ownership
 
 The new checked event domain owns real SDK events, shared aliases, null-output
 orphans and partial publication/cleanup prefixes. Four-target native/Wine and
