@@ -1,10 +1,10 @@
 // Startup-only recovery. The mutable guard borrow prevents title activity until
 // this scanner is released. Disk operations use only shared capability services.
-use crate::adapter;
-use crate::files;
 use crate::gamepkg;
-use crate::history;
-use crate::state;
+use crate::save_adapter;
+use crate::save_files;
+use crate::save_history;
+use crate::save_state;
 
 pub struct Report {
     pub unfinished_removed: u32,
@@ -38,7 +38,7 @@ struct Waiting {
     error: i32,
 }
 pub struct Recovery<'a> {
-    guard: &'a mut adapter::SaveGuard,
+    guard: &'a mut save_adapter::SaveGuard,
     grant: u64,
     candidates: std::vec::Vec<Candidate>,
     waiting: Option<Waiting>,
@@ -60,8 +60,8 @@ fn recovery_scan(grant: u64, title: &str) -> Result<std::vec::Vec<Candidate>, i3
     }
     let mut directories = std::vec::Vec::new();
     for partition in ["TDATA", "UDATA"] {
-        let path = history::history_child(partition, title)?;
-        if history::directory_present(grant, &path)? {
+        let path = save_history::history_child(partition, title)?;
+        if save_history::directory_present(grant, &path)? {
             directories.push((path, 0u32));
         }
     }
@@ -77,10 +77,10 @@ fn recovery_scan(grant: u64, title: &str) -> Result<std::vec::Vec<Candidate>, i3
             return Err(-2);
         }
         for entry in entries {
-            let path = history::history_child(&parent, &entry.name)?;
+            let path = save_history::history_child(&parent, &entry.name)?;
             if entry.directory {
                 directories.push((path, depth + 1));
-            } else if state::hidden(&entry.name) {
+            } else if save_state::hidden(&entry.name) {
                 candidates.push(Candidate {
                     path,
                     pending: entry.name.ends_with(".~pend"),
@@ -92,7 +92,11 @@ fn recovery_scan(grant: u64, title: &str) -> Result<std::vec::Vec<Candidate>, i3
     Ok(candidates)
 }
 impl<'a> Recovery<'a> {
-    pub fn begin(guard: &'a mut adapter::SaveGuard, grant: u64, title: &str) -> Result<Self, i32> {
+    pub fn begin(
+        guard: &'a mut save_adapter::SaveGuard,
+        grant: u64,
+        title: &str,
+    ) -> Result<Self, i32> {
         if !guard.for_grant(grant) {
             return Err(-4);
         }
@@ -171,18 +175,19 @@ impl<'a> Recovery<'a> {
         let newer = if !gamepkg::file_exists(self.grant, &real)? {
             true
         } else {
-            files::modified(self.grant, &candidate.path)? >= files::modified(self.grant, &real)?
+            save_files::modified(self.grant, &candidate.path)?
+                >= save_files::modified(self.grant, &real)?
         };
         let mut code = -3;
         if newer {
-            match files::publish(self.grant, &candidate.path, &real) {
-                Ok(files::Publication::Durable {}) => {
+            match save_files::publish_save(self.grant, &candidate.path, &real) {
+                Ok(save_files::Publication::Durable {}) => {
                     self.guard.startup_published(&real, true)?;
                     let _ = self.candidates.pop();
                     self.report.recovered += 1;
                     return Ok(RecoveryStep::Progress {});
                 }
-                Ok(files::Publication::CommittedNotDurable {}) => {
+                Ok(save_files::Publication::CommittedNotDurable {}) => {
                     self.guard.startup_published(&real, false)?;
                     let _ = self.candidates.pop();
                     self.report.recovered += 1;
@@ -205,7 +210,7 @@ impl<'a> Recovery<'a> {
             error: code,
         })
     }
-    pub fn history_done(&mut self, proof: &history::Archived) -> Result<(), i32> {
+    pub fn history_done(&mut self, proof: &save_history::Archived) -> Result<(), i32> {
         let waiting = self.waiting.as_ref().ok_or(-4)?;
         if !proof.valid_for(self.grant, &waiting.real, &waiting.path) {
             return Err(-4);

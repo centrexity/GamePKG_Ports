@@ -59,8 +59,7 @@ partition route by the counted name. A close routes by the directory
 owner's typed token, and the volume query accepts an owned directory token.
 The optical route uses the original ROM grant, and its read and wait
 operations refuse directory tokens. Close and drain both adapters before
-closing the startup owner. Regular save files still require the save
-worker route with guarded close, flush and replace.
+closing the startup owner. The regular save route uses the tracked worker described below.
 
 Run `service-kernel-imports/check_sync.py` to check the combined path.
 Mode 90 opens the root, queries quota geometry and creates and reopens both
@@ -70,3 +69,41 @@ save grant present. Mode 92 checks that an unsupported import prevents any
 marker publication with both adapters selected. Optional mode 93 checks the
 actual image in place with both adapters selected and verifies that all
 remaining unsupported imports still prevent launch.
+
+
+## Regular save files
+
+The authenticated regular profile takes a ready private save session. The
+startup owner tracks the exact worker task if admission succeeds. It will
+report Busy on close until it receives the matching consuming join. Construct
+`StartupFiles::startup_files_with_regular` with that same session, drain the
+router, stop the worker, and pass `startup_join_task` evidence to
+`regular_session_accept_join`. Then finish releasing the worker queues
+before closing the startup owner. A failed admission leaves the caller
+responsible for stopping and joining its worker. A timeout or transport
+failure after a request was submitted may leave staged changes. Stop the
+session without replaying the request. The next startup checks abandoned
+shadows before accepting saves.
+
+The new route uses type 6 tokens for regular files. It applies symmetric
+read/write sharing and checks the recorded token identity. Counted ASCII
+paths select a file under the title's UDATA or TDATA tree. Existing names
+match case insensitively within that tree. Ambiguous case aliases fail.
+The host remains responsible for containment, file rights and quotas.
+Relative root handles, unsupported paths, alternate volumes, external
+callbacks and asynchronous save I/O remain refused.
+
+| Ordinal | Regular file operation |
+| --- | --- |
+| 190 / 202 | Synchronous non-alertable OPEN, CREATE or OPEN_IF with the reviewed read/write, sharing, portable creation attributes and write-through flags. The worker owns each staged write. |
+| 211 | Class 34 query on the exact opened file. Writes 52 defined bytes into the 56-byte guest buffer, preserves its padding, and publishes the eight-byte status last. |
+| 219 / 236 | Synchronous read or write with at most 65,508 bytes per call. Uses the signed offset, the current cursor when no offset or −2 is provided, or EOF for a write with offset −1. A successful transfer advances the handle's cursor by the bytes transferred. |
+| 187 | Closes the worker's title handle. A close does not by itself acknowledge durable publication. |
+
+Authenticated fixture mode 94 sends the recorded TitleMeta.xbx creation
+shape through the real service marker, queries its timestamps and SYSTEM
+attribute, writes data, and reopens it under a different case. It checks
+sharing, cross-domain and closed-token rejection, EOF, and the worker join
+requirement. Mode 95 verifies that a directory-only profile rejects the
+new regular imports. Optional mode 96 measures the remaining imports
+against the authenticated user image in place and still refuses launch.

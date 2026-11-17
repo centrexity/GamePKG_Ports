@@ -134,7 +134,12 @@ fn main() {
         "worker.rs",
         "worker_fixture.rs",
     ] {
-        fs::copy(here.join(module), source.join("source/src").join(module)).unwrap();
+        let staged = if module == "worker_fixture.rs" {
+            module.to_owned()
+        } else {
+            format!("save_{module}")
+        };
+        fs::copy(here.join(module), source.join("source/src").join(staged)).unwrap();
     }
     fs::copy(
         here.join("native_game.rs"),
@@ -160,7 +165,7 @@ fn main() {
         let plan = Plan::new(
             target,
             "game_main",
-            vec!["save_worker".into()],
+            vec!["save_worker_entry".into()],
             LocalLayout::None,
             true,
         )

@@ -26,6 +26,7 @@ pub struct Startup {
     map: u64,
     rom_key: Option<(u64, [u8; 32])>,
     private_save: u64,
+    regular_worker: u64,
     jobs: std::vec::Vec<u64>,
 }
 impl Startup {
@@ -57,6 +58,7 @@ impl Startup {
             map: 0,
             rom_key: None,
             private_save: 0,
+            regular_worker: 0,
             jobs: std::vec::Vec::new(),
         })
     }
@@ -226,6 +228,43 @@ impl Startup {
         speakers: u32,
         storage: [u64; 3],
     ) -> Result<(), i32> {
+        self.startup_prepare_storage(
+            ram,
+            image,
+            data,
+            remap,
+            video,
+            speakers,
+            [storage[0], storage[1], storage[2], 0],
+        )
+    }
+
+    pub fn startup_prepare_with_regular_files(
+        &mut self,
+        ram: &mut memory::Memory,
+        image: &xbe::Image,
+        data: &kernel_data::Data,
+        remap: &[u16],
+        video: u32,
+        speakers: u32,
+        storage: [u64; 4],
+    ) -> Result<(), i32> {
+        if storage[3] == 0 {
+            return Err(-4);
+        }
+        self.startup_prepare_storage(ram, image, data, remap, video, speakers, storage)
+    }
+
+    fn startup_prepare_storage(
+        &mut self,
+        ram: &mut memory::Memory,
+        image: &xbe::Image,
+        data: &kernel_data::Data,
+        remap: &[u16],
+        video: u32,
+        speakers: u32,
+        storage: [u64; 4],
+    ) -> Result<(), i32> {
         self.startup_owner(ram)?;
         if self.phase != 0 || storage[0] == 0 {
             return Err(-1);
@@ -233,6 +272,13 @@ impl Startup {
         if gamepkg::local_task_status()?.1 || gamepkg::save_directory(storage[2], "", false)? != 1 {
             return Err(-4);
         }
+        let regular_task = storage[3];
+        if regular_task != 0
+            && (regular_task == self.creator || gamepkg::local_task_finished(regular_task)?)
+        {
+            return Err(-4);
+        }
+        let options = if regular_task == 0 { 4 } else { 5 };
         self.startup_prepare_mode(
             ram,
             image,
@@ -241,9 +287,13 @@ impl Startup {
             video,
             speakers,
             true,
-            [storage[0], storage[1], 4],
+            [storage[0], storage[1], options],
         )?;
         self.private_save = storage[2];
+        self.regular_worker = regular_task;
+        if regular_task != 0 {
+            self.jobs.push(regular_task);
+        }
         Ok(())
     }
     fn startup_prepare_mode(
@@ -378,7 +428,7 @@ impl Startup {
                 data,
                 remap,
                 context,
-                objects[2] == 4,
+                (objects[2] - 2) as u32,
             )?
         } else {
             image_imports::imports_image_with_context(ram, image, data, remap, context)?
@@ -542,6 +592,14 @@ impl Startup {
         self.startup_rom_table(ram, image)?;
         Ok(self.private_save)
     }
+    pub fn startup_regular_worker(
+        &self,
+        ram: &memory::Memory,
+        image: &xbe::Image,
+    ) -> Result<u64, i32> {
+        self.startup_rom_table(ram, image)?;
+        Ok(self.regular_worker)
+    }
     pub fn startup_rom_ordinal(
         &self,
         ram: &memory::Memory,
@@ -553,7 +611,13 @@ impl Startup {
             ram,
             self.context.as_ref().ok_or(-4)?.kernel_context_id(),
             marker,
-            self.private_save != 0,
+            if self.regular_worker != 0 {
+                3
+            } else if self.private_save != 0 {
+                2
+            } else {
+                1
+            },
         )
     }
     // Register every subsystem job before its shared owners can be closed. A

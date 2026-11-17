@@ -1,8 +1,8 @@
 // Port-owned, asset-free history export. Only shared capability I/O is used.
-use crate::files;
 use crate::gamepkg;
-use crate::paths;
-use crate::state;
+use crate::save_files;
+use crate::save_paths;
+use crate::save_state;
 
 pub struct Archived {
     grant: u64,
@@ -26,7 +26,9 @@ impl Archived {
             return Err(-3);
         }
         let target = history_child(&self.folder, real)?;
-        if !gamepkg::file_exists(grant, &target)? || !files::same(grant, pending, &target)? {
+        if !gamepkg::file_exists(grant, &target)?
+            || !save_files::same_save_bytes(grant, pending, &target)?
+        {
             return Err(-3);
         }
         Ok(())
@@ -99,7 +101,7 @@ pub fn directory_present(grant: u64, path: &str) -> Result<bool, i32> {
         return Ok(true);
     }
     let mut parent = std::string::String::new();
-    for component in paths::segments(path)? {
+    for component in save_paths::save_path_segments(path)? {
         let _ = gamepkg::text_component(component.as_bytes())?;
         let entries = gamepkg::directory_list(grant, &parent)?;
         let mut found = false;
@@ -121,7 +123,7 @@ pub fn directory_present(grant: u64, path: &str) -> Result<bool, i32> {
 }
 fn history_ensure_dir(grant: u64, path: &str) -> Result<(), i32> {
     let mut parent = std::string::String::new();
-    for component in paths::segments(path)? {
+    for component in save_paths::save_path_segments(path)? {
         let _ = gamepkg::text_component(component.as_bytes())?;
         parent = history_child(&parent, component)?;
         if !directory_present(grant, &parent)? {
@@ -178,7 +180,9 @@ fn history_copy_one(
     let length = length?;
     close_status?;
     budget.charge_file(length)?;
-    if files::copy_new(grant, source, target)? != length || !files::same(grant, source, target)? {
+    if save_files::copy_new(grant, source, target)? != length
+        || !save_files::same_save_bytes(grant, source, target)?
+    {
         return Err(-3);
     }
     Ok(())
@@ -204,7 +208,7 @@ fn history_copy_tree(
             count = count
                 .checked_add(history_copy_tree(grant, &from, &to, depth + 1, budget)?)
                 .ok_or(-2)?;
-        } else if !state::hidden(&entry.name) {
+        } else if !save_state::hidden(&entry.name) {
             history_copy_one(grant, &from, &to, budget)?;
             count = count.checked_add(1).ok_or(-2)?;
         }
@@ -255,9 +259,9 @@ fn history_marker(
     let close_status = gamepkg::file_close(handle);
     written?;
     close_status?;
-    match files::publish(grant, &temporary, &target)? {
-        files::Publication::Durable {} => Ok(()),
-        files::Publication::CommittedNotDurable {} => Err(-6),
+    match save_files::publish_save(grant, &temporary, &target)? {
+        save_files::Publication::Durable {} => Ok(()),
+        save_files::Publication::CommittedNotDurable {} => Err(-6),
     }
 }
 fn history_build(
@@ -268,12 +272,13 @@ fn history_build(
     folder: &str,
     real: &str,
     pending: &str,
-) -> Result<(), i32> {
+) -> Result<bool, i32> {
     let mut budget = HistoryBudget {
         entries: 0,
         bytes: 0,
     };
     let mut userdata = 0u32;
+    let mut contains_files = false;
     for partition in ["UDATA", "TDATA"] {
         let relative = history_child(partition, title)?;
         if !directory_present(grant, &relative)? {
@@ -281,9 +286,13 @@ fn history_build(
         }
         let target = history_child(folder, &relative)?;
         let count = history_copy_tree(grant, &relative, &target, 0, &mut budget)?;
+        contains_files |= count != 0;
         if partition == "UDATA" {
             userdata = count;
         }
+    }
+    if !contains_files && real.is_empty() {
+        return Ok(false);
     }
     if userdata == 0 {
         return Err(-3);
@@ -295,7 +304,8 @@ fn history_build(
         }
         history_copy_one(grant, pending, &target, &mut budget)?;
     }
-    history_marker(grant, folder, title, stamp, note)
+    history_marker(grant, folder, title, stamp, note)?;
+    Ok(true)
 }
 pub fn archive_pending(
     grant: u64,
@@ -309,7 +319,7 @@ pub fn archive_pending(
     }
     let mut expected = history_text(real);
     expected.push_str(".~pend");
-    if pending != expected || state::hidden(real) {
+    if pending != expected || save_state::hidden(real) {
         return Err(-1);
     }
     let mut scoped = false;
@@ -352,12 +362,16 @@ pub fn archive_pending(
         pending: history_text(pending),
     })
 }
-pub fn archive_before_replace(grant: u64, title: &str, stamp: &str) -> Result<Archived, i32> {
+pub fn archive_before_replace(
+    grant: u64,
+    title: &str,
+    stamp: &str,
+) -> Result<Option<Archived>, i32> {
     if !history_title_valid(title) || !history_stamp_valid(stamp) {
         return Err(-1);
     }
     let folder = history_destination(grant, stamp)?;
-    if let Err(error) = history_build(
+    let built_history = history_build(
         grant,
         title,
         stamp,
@@ -365,8 +379,9 @@ pub fn archive_before_replace(grant: u64, title: &str, stamp: &str) -> Result<Ar
         &folder,
         "",
         "",
-    ) {
-        let _ = history_remove_tree(
+    );
+    if built_history != Ok(true) {
+        let cleaned_archive = history_remove_tree(
             grant,
             &folder,
             0,
@@ -375,15 +390,17 @@ pub fn archive_before_replace(grant: u64, title: &str, stamp: &str) -> Result<Ar
                 bytes: 0,
             },
         );
-        return Err(error);
+        built_history?;
+        cleaned_archive?;
+        return Ok(None);
     }
-    Ok(Archived {
+    Ok(Some(Archived {
         grant,
         folder,
         title: history_text(title),
         real: std::string::String::new(),
         pending: std::string::String::new(),
-    })
+    }))
 }
 // Completion marker is mandatory for migrated history listings. A process that
 // ends mid-copy must not leave a partially copied tree advertised as restorable.
@@ -395,7 +412,7 @@ pub fn archive_complete(grant: u64, folder: &str, title: &str) -> Result<bool, i
     if !gamepkg::file_exists(grant, &marker)? {
         return Ok(false);
     }
-    let bytes = files::read_small(grant, &marker, 16384)?;
+    let bytes = save_files::read_small(grant, &marker, 16384)?;
     if bytes.len() < 15 || &bytes[..6] != b"title " {
         return Ok(false);
     }
@@ -426,7 +443,7 @@ pub fn archive_complete(grant: u64, folder: &str, title: &str) -> Result<bool, i
         for entry in entries {
             if entry.directory {
                 stack.push((history_child(&path, &entry.name)?, depth + 1));
-            } else if !state::hidden(&entry.name) {
+            } else if !save_state::hidden(&entry.name) {
                 return Ok(true);
             }
         }

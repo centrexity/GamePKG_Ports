@@ -3,6 +3,7 @@ use crate::gamepkg;
 use crate::handles;
 use crate::kernel_data;
 use crate::kernel_pool;
+use crate::kernel_regular;
 use crate::kernel_startup;
 use crate::layout;
 use crate::memory;
@@ -139,6 +140,7 @@ fn object_schema(
     Ok(())
 }
 fn object_jobs(ram: &memory::Memory, owner: &mut kernel_startup::Startup) -> Result<u64, i32> {
+    let baseline_jobs = owner.startup_jobs();
     let ids = owner.startup_ids(ram)?;
     let argument = gamepkg::local_record_create(
         &[
@@ -170,13 +172,13 @@ fn object_jobs(ram: &memory::Memory, owner: &mut kernel_startup::Startup) -> Res
         310,
         finished
             && owner.startup_close(&mut ram.call_view()) == Err(-2)
-            && owner.startup_jobs() == 1,
+            && owner.startup_jobs() == baseline_jobs + 1,
     )?;
     let proof = owner.startup_join_task(ram, task)?;
     let id = proof.result();
     object_need(
         311,
-        id != 0 && gamepkg::local_event_state(id).is_ok() && owner.startup_jobs() == 0,
+        id != 0 && gamepkg::local_event_state(id).is_ok() && owner.startup_jobs() == baseline_jobs,
     )?;
     object_need(312, owner.startup_accept_join(ram, &proof) == Err(-4))?;
     gamepkg::local_record_release(argument)?;
@@ -263,6 +265,8 @@ pub fn object_startup_image(
         || mode == 91
         || mode == 92
         || mode == 93
+        || mode == 95
+        || mode == 96
     {
         -5
     } else {
@@ -270,11 +274,11 @@ pub fn object_startup_image(
     };
     let before = ram.read_u32(image.image_thunk())?;
     let mut original_file_imports = std::vec::Vec::new();
-    if mode >= 91 {
+    if mode >= 91 && mode != 94 {
         original_file_imports.resize(64 + 379 * 4, 0u8);
         ram.read_bytes(image.image_thunk() - 64, &mut original_file_imports)?;
     }
-    if mode == 67 || mode == 79 || mode == 84 || mode == 93 {
+    if mode == 67 || mode == 79 || mode == 84 || mode == 93 || mode == 96 {
         let mut missing = std::vec::Vec::new();
         for index in 0..378u32 {
             let value = ram.read_u32(image.image_thunk() + index * 4)?;
@@ -284,11 +288,16 @@ pub fn object_startup_image(
             if value & 0x80000000 != 0 {
                 let ordinal = value & 0x7fffffff;
                 if data.data_address(ram, ordinal)? == 0
-                    && (mode != 93 || !kernel_pool::kernel_scoped_file_supported(ordinal, true))
+                    && (mode != 93 && mode != 96
+                        || !kernel_pool::kernel_scoped_file_supported(
+                            ordinal,
+                            if mode == 96 { 3 } else { 2 },
+                        ))
                     && (kernel_pool::kernel_supported(ordinal).is_err()
                         || mode == 67 && (ordinal == 193 || ordinal == 222)
                         || mode != 84
                             && mode != 93
+                            && mode != 96
                             && (ordinal == 277 || ordinal == 291 || ordinal == 294))
                 {
                     missing.push(u64::from(ordinal));
@@ -304,7 +313,9 @@ pub fn object_startup_image(
         }
     }
 
-    let result = if mode == 90 || mode == 92 || mode == 93 {
+    let mut bound_regular = None;
+    let result = if mode >= 90 && mode != 91 {
+        let regular_profile = mode == 94 || mode == 96;
         let mut boot_save_grant = 0;
         for item in gamepkg::grants()? {
             if item.kind == 2 {
@@ -325,15 +336,49 @@ pub fn object_startup_image(
                 && owner.startup_phase() == 0
                 && ram.kernel_handle() == 0,
         )?;
-        owner.startup_prepare_with_private_files(
-            ram,
-            image,
-            data,
-            &[],
-            0x10000,
-            2,
-            [scratch, 0, boot_save_grant],
-        )
+        if regular_profile {
+            let mut regular_session = kernel_regular::SaveSession::regular_session_launch(
+                7,
+                boot_save_grant,
+                "20261117-120000",
+            )?;
+            regular_session.regular_session_start()?;
+            let storage = regular_session.regular_session_ids()?;
+            object_need(
+                926,
+                owner.startup_prepare_with_regular_files(
+                    ram,
+                    image,
+                    data,
+                    &[],
+                    0x10000,
+                    2,
+                    [scratch, 0, storage[0], 0],
+                ) == Err(-4)
+                    && owner.startup_phase() == 0,
+            )?;
+            let prepared = owner.startup_prepare_with_regular_files(
+                ram,
+                image,
+                data,
+                &[],
+                0x10000,
+                2,
+                [scratch, 0, storage[0], storage[1]],
+            );
+            bound_regular = Some(regular_session);
+            prepared
+        } else {
+            owner.startup_prepare_with_private_files(
+                ram,
+                image,
+                data,
+                &[],
+                0x10000,
+                2,
+                [scratch, 0, boot_save_grant],
+            )
+        }
     } else if mode == 86 || mode == 88 || mode == 89 || mode == 91 {
         owner.startup_prepare_with_rom(ram, image, data, &[], 0x10000, 2, scratch, 0)
     } else if mode == 83 || mode == 84 || mode == 87 {
@@ -387,9 +432,14 @@ pub fn object_startup_image(
                 critical_owned = [values[2], values[3], values[4]];
                 gamepkg::diagnostic(1, 0x544b4300, &[values[0], values[1], 1, 1, 1])?;
             }
-            if mode == 86 || mode == 89 || mode == 90 {
-                let values =
-                    crate::rom_startup_probe::rom_startup_calls(ram, &owner, image, mode != 86)?;
+            if mode == 86 || mode == 89 || mode == 90 || mode == 94 {
+                let values = crate::rom_startup_probe::rom_startup_calls(
+                    ram,
+                    &owner,
+                    image,
+                    mode != 86,
+                    bound_regular.as_mut(),
+                )?;
                 gamepkg::diagnostic(1, 0x544b4500, &values)?;
             }
             if mode == 81 {
@@ -478,7 +528,7 @@ pub fn object_startup_image(
                 && ram.read_u32(image.image_thunk())? == before,
         )?;
     }
-    if mode >= 91 {
+    if mode >= 91 && mode != 94 {
         let mut rejected_file_imports = std::vec::Vec::new();
         rejected_file_imports.resize(64 + 379 * 4, 0u8);
         ram.read_bytes(image.image_thunk() - 64, &mut rejected_file_imports)?;
@@ -489,6 +539,32 @@ pub fn object_startup_image(
     }
     if mode >= 69 && expected == 0 {
         crate::sync_startup_probe::sync_startup_before_close(ram, &mut owner, mode)?;
+    }
+    if let Some(regular_session) = bound_regular.as_mut() {
+        let task = regular_session.regular_session_ids()?[1];
+        if mode == 94 {
+            object_need(928, owner.startup_close(ram) == Err(-2))?;
+        }
+        regular_session.regular_session_stop()?;
+        let mut finished = None;
+        for _ in 0..4096 {
+            if mode == 94 {
+                match owner.startup_join_task(ram, task) {
+                    Ok(proof) => {
+                        regular_session.regular_session_accept_join(&proof)?;
+                        finished = regular_session.regular_session_finish()?;
+                        break;
+                    }
+                    Err(-2) => {}
+                    Err(code) => return Err(code),
+                }
+            } else if let Some(status) = regular_session.regular_session_finish()? {
+                finished = Some(status);
+                break;
+            }
+            memory::Memory::call_retry_pause()?;
+        }
+        object_need(927, finished == Some(0))?;
     }
     let close_expected = if mode == 63 || mode == 75 {
         Err(-4)
@@ -601,7 +677,9 @@ pub fn object_startup_image(
         &[
             u64::from(mode),
             expected as i64 as u64,
-            if mode == 92 {
+            if mode == 94 || mode == 95 {
+                19
+            } else if mode == 92 {
                 18
             } else if mode == 90 || mode == 91 {
                 17

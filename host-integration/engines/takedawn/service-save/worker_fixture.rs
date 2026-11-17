@@ -1,7 +1,7 @@
 // Asset-free admitted test game; this is not production engine integration.
 use crate::gamepkg;
-use crate::worker;
-fn fixture_reply(connection: &mut worker::Connection) -> Result<worker::Reply, i32> {
+use crate::save_worker;
+fn fixture_reply(connection: &mut save_worker::Connection) -> Result<save_worker::Reply, i32> {
     let end = gamepkg::monotonic()?.0.saturating_add(6000000000);
     loop {
         if let Some(packet) = connection.poll(20)? {
@@ -13,10 +13,10 @@ fn fixture_reply(connection: &mut worker::Connection) -> Result<worker::Reply, i
     }
 }
 fn fixture_call(
-    connection: &mut worker::Connection,
+    connection: &mut save_worker::Connection,
     operation: u32,
     payload: &[u8],
-) -> Result<worker::Reply, i32> {
+) -> Result<save_worker::Reply, i32> {
     let sequence = connection.submit(operation, payload)?;
     let packet = fixture_reply(connection)?;
     if packet.sequence != sequence {
@@ -25,7 +25,7 @@ fn fixture_call(
     Ok(packet)
 }
 fn fixture_ok(
-    connection: &mut worker::Connection,
+    connection: &mut save_worker::Connection,
     operation: u32,
     payload: &[u8],
 ) -> Result<std::vec::Vec<u8>, i32> {
@@ -43,7 +43,7 @@ fn fixture_u64(bytes: &[u8]) -> Result<u64, i32> {
         bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
     ]))
 }
-fn fixture_finish(connection: &mut worker::Connection, expected: u64) -> Result<(), i32> {
+fn fixture_finish(connection: &mut save_worker::Connection, expected: u64) -> Result<(), i32> {
     let end = gamepkg::monotonic()?.0.saturating_add(6000000000);
     loop {
         if let Some(value) = connection.finish()? {
@@ -60,7 +60,7 @@ fn fixture_finish(connection: &mut worker::Connection, expected: u64) -> Result<
     }
 }
 fn fixture_regular_open(
-    connection: &mut worker::Connection,
+    connection: &mut save_worker::Connection,
     flags: u32,
     disposition: u32,
     filename: &[u8],
@@ -72,7 +72,7 @@ fn fixture_regular_open(
         filename,
     ]
     .concat();
-    let reply = fixture_ok(connection, worker::OPEN_FILE, &fields)?;
+    let reply = fixture_ok(connection, save_worker::OPEN_FILE, &fields)?;
     if reply.len() != 12 || reply[8..] != u32::to_le_bytes(expected_information) {
         return Err(-3);
     }
@@ -83,7 +83,7 @@ fn fixture_regular_open(
     Ok(id)
 }
 
-fn fixture_regular_files(connection: &mut worker::Connection, grant: u64) -> Result<(), i32> {
+fn fixture_regular_files(connection: &mut save_worker::Connection, grant: u64) -> Result<(), i32> {
     let profile_path = b"UDATA/12345678/profile";
     let new_path = b"UDATA/12345678/TitleMeta.xbx";
     fixture_regular_open(connection, 0, 1, new_path, 5)?;
@@ -94,10 +94,10 @@ fn fixture_regular_files(connection: &mut worker::Connection, grant: u64) -> Res
     if gamepkg::file_read(old_reader, 0, &mut bytes) != Ok(8) || &bytes != b"old-save" {
         return Err(-3);
     }
-    fixture_ok(connection, worker::CLOSE, &u64::to_le_bytes(old_reader))?;
+    fixture_ok(connection, save_worker::CLOSE, &u64::to_le_bytes(old_reader))?;
 
     let writer = fixture_regular_open(connection, 0x403, 3, new_path, 2)?;
-    let first_info = fixture_ok(connection, worker::QUERY_FILE, &u64::to_le_bytes(writer))?;
+    let first_info = fixture_ok(connection, save_worker::QUERY_FILE, &u64::to_le_bytes(writer))?;
     if first_info.len() != 52
         || first_info[32..48] != [0; 16]
         || first_info[48..52] != [0x24, 0, 0, 0]
@@ -113,15 +113,15 @@ fn fixture_regular_files(connection: &mut worker::Connection, grant: u64) -> Res
         b"contents",
     ]
     .concat();
-    fixture_ok(connection, worker::WRITE, &write)?;
+    fixture_ok(connection, save_worker::WRITE, &write)?;
     if gamepkg::file_size(peer) != Ok(8)
         || gamepkg::file_exists(grant, "UDATA/12345678/TitleMeta.xbx") != Ok(false)
     {
         return Err(-3);
     }
     let new_length = [u64::to_le_bytes(writer), u64::to_le_bytes(5)].concat();
-    fixture_ok(connection, worker::RESIZE, &new_length)?;
-    let resized_info = fixture_ok(connection, worker::QUERY_FILE, &u64::to_le_bytes(writer))?;
+    fixture_ok(connection, save_worker::RESIZE, &new_length)?;
+    let resized_info = fixture_ok(connection, save_worker::QUERY_FILE, &u64::to_le_bytes(writer))?;
     if resized_info.len() != 52
         || resized_info[..8] != first_info[..8]
         || resized_info[32..40] != u64::to_le_bytes(16384)
@@ -130,9 +130,9 @@ fn fixture_regular_files(connection: &mut worker::Connection, grant: u64) -> Res
     {
         return Err(-3);
     }
-    fixture_ok(connection, worker::CLOSE, &u64::to_le_bytes(peer))?;
-    fixture_ok(connection, worker::CLOSE, &u64::to_le_bytes(writer))?;
-    if fixture_call(connection, worker::QUERY_FILE, &u64::to_le_bytes(writer))?.status != -4 {
+    fixture_ok(connection, save_worker::CLOSE, &u64::to_le_bytes(peer))?;
+    fixture_ok(connection, save_worker::CLOSE, &u64::to_le_bytes(writer))?;
+    if fixture_call(connection, save_worker::QUERY_FILE, &u64::to_le_bytes(writer))?.status != -4 {
         return Err(-3);
     }
     Ok(())
@@ -151,8 +151,8 @@ pub fn exercise(grant: u64, phase: u8) -> Result<(), i32> {
     } else {
         grant
     };
-    let mut connection = worker::Connection::launch(0, chosen, "12345678", "20261114-120000")?;
-    if connection.submit(worker::STATUS, &[]) != Err(-2) {
+    let mut connection = save_worker::Connection::launch_save_actor(0, chosen, "12345678", "20261114-120000")?;
+    if connection.submit(save_worker::STATUS, &[]) != Err(-2) {
         return Err(-3);
     }
     let initial = fixture_reply(&mut connection)?;
@@ -173,10 +173,10 @@ pub fn exercise(grant: u64, phase: u8) -> Result<(), i32> {
     }
     if phase == 19 {
         for operation in [
-            worker::WRITE,
-            worker::RESIZE,
-            worker::CLOSE,
-            worker::DELETE_ON_CLOSE,
+            save_worker::WRITE,
+            save_worker::RESIZE,
+            save_worker::CLOSE,
+            save_worker::DELETE_ON_CLOSE,
         ] {
             if fixture_call(&mut connection, operation, &[0u8; 7])?.status != -1 {
                 return Err(-3);
@@ -184,7 +184,7 @@ pub fn exercise(grant: u64, phase: u8) -> Result<(), i32> {
         }
         if fixture_call(
             &mut connection,
-            worker::OPEN_WRITE,
+            save_worker::OPEN_WRITE,
             b"UDATA/87654321/profile",
         )?
         .status
@@ -192,17 +192,17 @@ pub fn exercise(grant: u64, phase: u8) -> Result<(), i32> {
         {
             return Err(-3);
         }
-        if fixture_call(&mut connection, worker::OPEN_WRITE, &[255u8])?.status != -1 {
+        if fixture_call(&mut connection, save_worker::OPEN_WRITE, &[255u8])?.status != -1 {
             return Err(-3);
         }
-        if fixture_call(&mut connection, worker::STAMP, b"bad")?.status != -1 {
+        if fixture_call(&mut connection, save_worker::STAMP, b"bad")?.status != -1 {
             return Err(-3);
         }
     }
     if phase == 10 || phase == 11 || phase == 12 || phase == 17 || phase == 18 {
         let handle = fixture_u64(&fixture_ok(
             &mut connection,
-            worker::OPEN_WRITE,
+            save_worker::OPEN_WRITE,
             b"UDATA/12345678/profile",
         )?)?;
         let mut payload = std::vec::Vec::new();
@@ -213,26 +213,26 @@ pub fn exercise(grant: u64, phase: u8) -> Result<(), i32> {
         } else {
             payload.extend(b"new-save");
         }
-        let _ = fixture_ok(&mut connection, worker::WRITE, &payload)?;
+        let _ = fixture_ok(&mut connection, save_worker::WRITE, &payload)?;
         if phase == 11 {
-            connection.cancel()?;
+            connection.cancel_save_actor()?;
             return fixture_finish(&mut connection, 2);
         }
         if phase == 17 {
             let _ = fixture_ok(
                 &mut connection,
-                worker::DELETE_ON_CLOSE,
+                save_worker::DELETE_ON_CLOSE,
                 &u64::to_le_bytes(handle),
             )?;
         }
         if phase != 12 {
-            let _ = fixture_ok(&mut connection, worker::CLOSE, &u64::to_le_bytes(handle))?;
+            let _ = fixture_ok(&mut connection, save_worker::CLOSE, &u64::to_le_bytes(handle))?;
         }
     }
     if phase == 20 {
         fixture_regular_files(&mut connection, grant)?;
     }
-    let final_packet = fixture_call(&mut connection, worker::SHUTDOWN, &[])?;
+    let final_packet = fixture_call(&mut connection, save_worker::SHUTDOWN, &[])?;
     if final_packet.bytes.len() != 68 {
         return Err(-3);
     }
@@ -250,7 +250,7 @@ pub fn exercise(grant: u64, phase: u8) -> Result<(), i32> {
     Ok(())
 }
 fn matches_launch_failure(grant: u64) -> bool {
-    match worker::Connection::launch(256, grant, "12345678", "20261114-120000") {
+    match save_worker::Connection::launch_save_actor(256, grant, "12345678", "20261114-120000") {
         Err(-4) => true,
         _ => false,
     }

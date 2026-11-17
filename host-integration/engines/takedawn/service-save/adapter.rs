@@ -1,16 +1,16 @@
 // Port-owned disk adapter. Work is extracted under the caller's serialization,
 // executed off the window owner thread, then acknowledged by its exact token.
-use crate::files;
 use crate::gamepkg;
-use crate::state;
+use crate::save_files;
+use crate::save_state;
 
 pub struct SaveGuard {
     grant: u64,
-    core: state::Guard,
+    core: save_state::Guard,
 }
 pub struct Job {
     grant: u64,
-    work: state::Work,
+    work: save_state::Work,
     flushed: bool,
     waiting_history: bool,
     history_done: bool,
@@ -19,7 +19,7 @@ pub struct Job {
 }
 pub struct Finished {
     token: u64,
-    result: state::Completion,
+    result: save_state::Completion,
     pub history_error: Option<i32>,
     pub preservation_durable: bool,
 }
@@ -38,7 +38,7 @@ fn remove_present(grant: u64, path: &str) -> Result<(), i32> {
     }
     Ok(())
 }
-pub fn clean_obsolete(grant: u64, cleanup: state::Cleanup) -> Result<(), i32> {
+pub fn clean_obsolete(grant: u64, cleanup: save_state::Cleanup) -> Result<(), i32> {
     if let Some(path) = cleanup.obsolete {
         remove_present(grant, &path)?;
     }
@@ -57,7 +57,7 @@ impl SaveGuard {
     pub fn new(grant: u64) -> Self {
         Self {
             grant,
-            core: state::Guard::new(),
+            core: save_state::Guard::new(),
         }
     }
     pub fn set_history(&mut self, enabled: bool) {
@@ -81,7 +81,7 @@ impl SaveGuard {
     pub fn pending_count(&self) -> usize {
         self.core.pending_count()
     }
-    pub fn problem(&self) -> Option<state::Problem> {
+    pub fn problem(&self) -> Option<save_state::Problem> {
         self.core.problem()
     }
     pub fn acknowledge_durability(&mut self) {
@@ -96,7 +96,7 @@ impl SaveGuard {
     fn seed_shadow(
         &mut self,
         real: &str,
-        plan: &state::OpenPlan,
+        plan: &save_state::OpenPlan,
         preserve_attributes: bool,
     ) -> Result<(), i32> {
         let seed = match &plan.seed {
@@ -104,9 +104,13 @@ impl SaveGuard {
             None => return Ok(()),
         };
         if gamepkg::file_exists(self.grant, seed)? {
-            if seed != &plan.shadow {
-                let _ =
-                    files::copy_seed_with_attributes(self.grant, seed, real, preserve_attributes)?;
+            if seed != &plan.save_shadow_path {
+                let _ = save_files::copy_seed_with_attributes(
+                    self.grant,
+                    seed,
+                    real,
+                    preserve_attributes,
+                )?;
             }
             return Ok(());
         }
@@ -115,20 +119,20 @@ impl SaveGuard {
         }
         if gamepkg::file_exists(self.grant, real)? {
             if preserve_attributes {
-                files::copy_seed_with_attributes(self.grant, real, real, true)?;
+                save_files::copy_seed_with_attributes(self.grant, real, real, true)?;
             } else {
-                files::copy_shadow(self.grant, real)?;
+                save_files::copy_shadow(self.grant, real)?;
             }
             return Ok(());
         }
-        let file = gamepkg::file_open(self.grant, true, &plan.shadow)?;
+        let file = gamepkg::file_open(self.grant, true, &plan.save_shadow_path)?;
         let resized = gamepkg::file_resize(file, 0);
         let close_status = gamepkg::file_close(file);
         resized?;
         close_status
     }
-    fn failed_open(&mut self, ticket: &state::OpenTicket) -> Result<(), i32> {
-        let cleanup = self.core.opened(ticket, None)?;
+    fn failed_open(&mut self, ticket: &save_state::OpenTicket) -> Result<(), i32> {
+        let cleanup = self.core.save_handle_opened(ticket, None)?;
         clean_obsolete(self.grant, cleanup)
     }
     pub fn open_write(&mut self, real: &str) -> Result<u64, i32> {
@@ -146,7 +150,7 @@ impl SaveGuard {
             let _ = self.failed_open(&plan.ticket);
             return Err(error);
         }
-        let file = match gamepkg::file_open(self.grant, true, &plan.shadow) {
+        let file = match gamepkg::file_open(self.grant, true, &plan.save_shadow_path) {
             Ok(file) => file,
             Err(error) => {
                 let _ = self.failed_open(&plan.ticket);
@@ -160,7 +164,7 @@ impl SaveGuard {
             cleanup?;
             return Err(error);
         }
-        if let Err(error) = self.core.opened(&plan.ticket, Some(file)) {
+        if let Err(error) = self.core.save_handle_opened(&plan.ticket, Some(file)) {
             let _ = gamepkg::file_close(file);
             let _ = self.failed_open(&plan.ticket);
             return Err(error);
@@ -198,12 +202,12 @@ impl SaveGuard {
         {
             return Err(-1);
         }
-        let shadow = if writable {
+        let save_shadow_path = if writable {
             self.core.opened_write_path(real)?
         } else {
             None
         };
-        let (present, key) = if let Some(open_shadow) = shadow {
+        let (present, key) = if let Some(open_shadow) = save_shadow_path {
             if !gamepkg::file_exists(self.grant, &open_shadow)? {
                 return Err(-3);
             }
@@ -247,9 +251,9 @@ impl SaveGuard {
     pub fn delete_on_close(&mut self, handle: u64) -> Result<(), i32> {
         self.core.delete_on_close(handle)
     }
-    pub fn close(&mut self, handle: u64) -> Result<(), i32> {
+    pub fn save_guard_close(&mut self, handle: u64) -> Result<(), i32> {
         let flush = if self.core.last_handle(handle)? {
-            Some(files::retain_for_flush(handle)?)
+            Some(save_files::retain_for_flush(handle)?)
         } else {
             None
         };
@@ -259,7 +263,7 @@ impl SaveGuard {
             }
             return Err(error);
         }
-        if let Err(error) = self.core.closed(handle, flush) {
+        if let Err(error) = self.core.save_handle_closed(handle, flush) {
             if let Some(retained) = flush {
                 let _ = gamepkg::file_close(retained);
             }
@@ -282,12 +286,16 @@ impl SaveGuard {
         }
     }
     // State-only acknowledgement; run returned cleanup on the worker too.
-    pub fn finish(&mut self, finished: Finished) -> Result<state::Cleanup, i32> {
+    pub fn finish(&mut self, finished: Finished) -> Result<save_state::Cleanup, i32> {
         self.core.complete(finished.token, finished.result)
     }
 }
 impl Job {
-    fn make_completion(&mut self, result: state::Completion, preservation_durable: bool) -> Step {
+    fn make_completion(
+        &mut self,
+        result: save_state::Completion,
+        preservation_durable: bool,
+    ) -> Step {
         self.done = true;
         Step::Complete {
             finished: Finished {
@@ -314,31 +322,37 @@ impl Job {
             return Ok(());
         }
         if let Some(handle) = self.work.flush.take() {
-            files::sync_close(handle)?;
-        } else if !self.work.deleted && gamepkg::file_exists(self.grant, &self.work.shadow)? {
-            let handle = gamepkg::file_open(self.grant, true, &self.work.shadow)?;
-            files::sync_close(handle)?;
+            save_files::sync_close(handle)?;
+        } else if !self.work.deleted
+            && gamepkg::file_exists(self.grant, &self.work.save_shadow_path)?
+        {
+            let handle = gamepkg::file_open(self.grant, true, &self.work.save_shadow_path)?;
+            save_files::sync_close(handle)?;
         }
         self.flushed = true;
         Ok(())
     }
     fn replace(&mut self) -> Result<Step, i32> {
-        match files::publish(self.grant, &self.work.shadow, &self.work.real) {
-            Ok(files::Publication::Durable {}) => {
-                Ok(self.make_completion(state::Completion::Published { durable: true }, true))
+        match save_files::publish_save(self.grant, &self.work.save_shadow_path, &self.work.real) {
+            Ok(save_files::Publication::Durable {}) => {
+                Ok(self.make_completion(save_state::Completion::Published { durable: true }, true))
             }
-            Ok(files::Publication::CommittedNotDurable {}) => {
-                Ok(self.make_completion(state::Completion::Published { durable: false }, true))
-            }
+            Ok(save_files::Publication::CommittedNotDurable {}) => Ok(
+                self.make_completion(save_state::Completion::Published { durable: false }, true)
+            ),
             Err(error) => {
-                let mut preserved = owned_path(&self.work.shadow);
+                let mut preserved = owned_path(&self.work.save_shadow_path);
                 let mut durable = true;
                 if !self.work.retry {
                     let mut pending = owned_path(&self.work.real);
                     pending.push_str(".~pend");
-                    match files::publish(self.grant, &self.work.shadow, &pending) {
-                        Ok(files::Publication::Durable {}) => preserved = pending,
-                        Ok(files::Publication::CommittedNotDurable {}) => {
+                    match save_files::publish_save(
+                        self.grant,
+                        &self.work.save_shadow_path,
+                        &pending,
+                    ) {
+                        Ok(save_files::Publication::Durable {}) => preserved = pending,
+                        Ok(save_files::Publication::CommittedNotDurable {}) => {
                             preserved = pending;
                             durable = false;
                         }
@@ -346,7 +360,7 @@ impl Job {
                     }
                 }
                 Ok(self.make_completion(
-                    state::Completion::Failed {
+                    save_state::Completion::Failed {
                         code: error,
                         preserved,
                     },
@@ -363,24 +377,28 @@ impl Job {
         }
         self.flush_source()?;
         if self.work.retry {
-            if !gamepkg::file_exists(self.grant, &self.work.shadow)? {
-                return Ok(self.make_completion(state::Completion::Missing {}, true));
+            if !gamepkg::file_exists(self.grant, &self.work.save_shadow_path)? {
+                return Ok(self.make_completion(save_state::Completion::Missing {}, true));
             }
             return self.replace();
         }
         if self.work.deleted {
-            remove_present(self.grant, &self.work.shadow)?;
+            remove_present(self.grant, &self.work.save_shadow_path)?;
             remove_present(self.grant, &self.work.real)?;
-            return Ok(self.make_completion(state::Completion::Deleted {}, true));
+            return Ok(self.make_completion(save_state::Completion::Deleted {}, true));
         }
-        if !gamepkg::file_exists(self.grant, &self.work.shadow)? {
-            return Ok(self.make_completion(state::Completion::Abandoned {}, true));
+        if !gamepkg::file_exists(self.grant, &self.work.save_shadow_path)? {
+            return Ok(self.make_completion(save_state::Completion::Abandoned {}, true));
         }
         if gamepkg::file_exists(self.grant, &self.work.real)?
-            && files::same(self.grant, &self.work.shadow, &self.work.real)?
+            && save_files::same_save_bytes(
+                self.grant,
+                &self.work.save_shadow_path,
+                &self.work.real,
+            )?
         {
-            remove_present(self.grant, &self.work.shadow)?;
-            return Ok(self.make_completion(state::Completion::Unchanged {}, true));
+            remove_present(self.grant, &self.work.save_shadow_path)?;
+            return Ok(self.make_completion(save_state::Completion::Unchanged {}, true));
         }
         if self.work.history && !self.history_done {
             self.waiting_history = true;

@@ -3,20 +3,20 @@
 `worker.rs` is port-owned, dependency-free Rust. It owns its `SaveGuard`, startup
 recovery, history copies and opened save handles in a reviewed static task. It
 uses no game mutex, callback, function pointer, global mutable state or OS API.
-The actual generated Burnout kernel/title still needs to call this component.
-It is not a complete Burnout source-kit or launcher integration.
+The authenticated file router consumes this component. The generated title
+entry still requires full source-kit and launcher integration.
 
 App commit `f1dd3fb8359f6524d7a5ca00f7a282b99a9f124b` supplies its bounded
 child-local message primitive. Exact generic SDK contracts are in
 `app/docs/PORT_SERVICES.md`, local operations 30–33. Register a root entry like
-`pub fn save_worker(argument:u64)->u64 { worker::run(argument) }` in the host's
+`pub fn save_worker_entry(argument:u64)->u64 { save_worker::run(argument) }` in the host's
 reviewed `Plan` task table. The port source is checked before generated bindings,
 then separately optimized and object-audited before trusted runtime linking.
-The host task index passed to `Connection::launch` is not a function pointer.
+The host task index passed to `Connection::launch_save_actor` is not a function pointer.
 
 ## Connection and wire contract
 
-`Connection::launch(entry, save_grant, title, stamp)` creates its request/reply
+`Connection::launch_save_actor(entry, save_grant, title, stamp)` creates its request/reply
 queues, sends configuration, then starts the reviewed task. A failed spawn
 releases both queues. Poll the sequence-1 startup reply before submitting title
 requests. Startup recovery completes before that reply and before any title I/O.
@@ -78,7 +78,7 @@ from the failed acknowledgement.
 `QUERY_FILE` accepts a live handle owned by this worker. It returns four
 100 ns UTC times, logical allocation and end-of-file lengths as u64s, then
 the portable attributes as u32. The allocation is the logical file length
-rounded up to the 16 KiB volume unit. The Xbox kernel bridge will write these
+rounded up to the 16 KiB volume unit. The Xbox kernel bridge writes these
 52 bytes into a 56-byte class-34 buffer and leave its four padding bytes alone.
 The observer uses the already-opened file and propagates unavailable
 timestamps or unsupported attributes.
@@ -115,7 +115,9 @@ the title's publication, matching the original void hook. Incomplete I/O retains
 the exact Job and retries after a bounded wait. Failed publication keeps the
 actual pending/shadow path and the pinned original retry/problem policy.
 Source-consumed durability uncertainty is reported, never retried by old name.
-Obsolete-file cleanup is also retained across errors.
+Obsolete-file cleanup is also retained across errors. A verified empty previous
+save tree needs no history export. Lookup, copy and cleanup failures still
+reach the worker status.
 
 SHUTDOWN stops admission, gives existing work a two-second drain window, then
 always schedules the final pending retry batch and gives that work a separate
@@ -128,7 +130,7 @@ unfinished; the next startup scanner keeps the previous published save.
 
 These are cooperative checks between service calls, not a promise that a stuck
 filesystem operation can be interrupted within four seconds. The containing
-process owner must enforce any final application-exit deadline. `cancel()` wakes
+process owner must enforce any final application-exit deadline. `cancel_save_actor()` wakes
 local waits cooperatively; it does not acknowledge durability. `finish()` polls
 and consumes actual task completion, then releases queues, and returns the task
 result (0 clean shutdown, 1 reported incomplete/failed startup, 2 task/transport/
@@ -138,11 +140,11 @@ join; the engine must explicitly shut it down or terminate its containing proces
 
 ## Validation and remaining integration
 
-Nine real-file worker tests cover close-before-publication, flush failure,
+Ten real-file worker tests cover close-before-publication, flush failure,
 complete title history, read/write limits, malformed paths/messages/handles,
 failed pending redirection and the original warning threshold, history quota
 failure, startup ordering, and post-publication uncertainty without source retry.
-Together the suite has 30 actual-file/service tests and 18 transition tests,
+Together the suite has 31 actual-file/service tests and 18 transition tests,
 including 4096 pinned-C policy events.
 
 Exact production modules including the worker pass source checks, isolated
@@ -158,7 +160,7 @@ compilation/audit only; generic mailbox tests ran under Wine separately.
 
 Remaining: the actual clock/date provider (labels are supplied explicitly here),
 retention/import/history UI, original Windows rename retry timing, generated
-kernel/title connection and engine/media/renderer migration. Physical
+generated title entry and engine/media/renderer migration. Physical
 controls, audible audio, graphics fidelity and measured game frame pacing remain
 unqualified. Legacy build/cache gates remain enabled; these components provide
 no engine/media exception or permission to publish an unfinished source kit.

@@ -1,10 +1,10 @@
 // Port-owned save actor. The only synchronization and I/O are GamePKG calls.
 // The launcher must register run as a reviewed static task before source build.
-use crate::adapter;
 use crate::gamepkg;
-use crate::history;
-use crate::paths;
-use crate::recovery;
+use crate::save_adapter;
+use crate::save_history;
+use crate::save_paths;
+use crate::save_recovery;
 
 pub const OPEN_WRITE: u32 = 1;
 pub const OPEN_READ: u32 = 2;
@@ -36,14 +36,14 @@ pub struct SaveWorker {
     grant: u64,
     title: std::string::String,
     stamp: std::string::String,
-    guard: adapter::SaveGuard,
-    active: Option<adapter::Job>,
+    guard: save_adapter::SaveGuard,
+    active: Option<save_adapter::Job>,
     obsolete: Option<std::string::String>,
     reads: std::vec::Vec<u64>,
     writes: std::vec::Vec<[u64; 2]>,
     pub history_error: i32,
     pub io_error: i32,
-    pub recovery_report: recovery::Report,
+    pub recovery_report: save_recovery::Report,
     closing: bool,
 }
 fn worker_text(text: &str) -> std::string::String {
@@ -107,12 +107,12 @@ fn worker_pause(event: u64) -> Result<(), i32> {
         Err(error) => Err(error),
     }
 }
-fn worker_send(queue: u64, bytes: &[u8], event: u64) -> Result<(), i32> {
+fn worker_send(save_reply_queue: u64, bytes: &[u8], event: u64) -> Result<(), i32> {
     let (now, _) = gamepkg::monotonic()?;
     let end = now.saturating_add(1000000000);
     loop {
         worker_alive()?;
-        match gamepkg::local_mailbox_send(queue, bytes) {
+        match gamepkg::local_mailbox_send(save_reply_queue, bytes) {
             Ok(()) => return Ok(()),
             Err(-2) => {
                 if gamepkg::monotonic()?.0 >= end {
@@ -150,19 +150,19 @@ impl SaveWorker {
         if !save_granted {
             return Err(-4);
         }
-        let mut guard = adapter::SaveGuard::new(grant);
+        let mut guard = save_adapter::SaveGuard::new(grant);
         let startup_report;
         {
-            let mut startup = recovery::Recovery::begin(&mut guard, grant, title)?;
+            let mut startup = save_recovery::Recovery::begin(&mut guard, grant, title)?;
             loop {
                 match startup.step()? {
-                    recovery::RecoveryStep::Progress {} => {}
-                    recovery::RecoveryStep::Done { report: completed } => {
+                    save_recovery::RecoveryStep::Progress {} => {}
+                    save_recovery::RecoveryStep::Done { report: completed } => {
                         startup_report = completed;
                         break;
                     }
-                    recovery::RecoveryStep::History { real, pending, .. } => {
-                        match history::archive_pending(grant, title, stamp, &real, &pending) {
+                    save_recovery::RecoveryStep::History { real, pending, .. } => {
+                        match save_history::archive_pending(grant, title, stamp, &real, &pending) {
                             Ok(proof) => startup.history_done(&proof)?,
                             Err(error) => startup.history_failed(error)?,
                         }
@@ -187,7 +187,7 @@ impl SaveWorker {
         })
     }
     fn check_path(&self, text: &str) -> Result<(), i32> {
-        let parts = paths::segments(text)?;
+        let parts = save_paths::save_path_segments(text)?;
         if parts.len() < 3 || (parts[0] != "UDATA" && parts[0] != "TDATA") || parts[1] != self.title
         {
             return Err(-4);
@@ -227,7 +227,7 @@ impl SaveWorker {
         bytes
     }
     // Executes one exact job step. On failure the same Job/cleanup is retained.
-    pub fn tick(&mut self) -> Result<bool, i32> {
+    pub fn save_worker_tick(&mut self) -> Result<bool, i32> {
         if let Some(path) = &self.obsolete {
             if gamepkg::file_exists(self.grant, path)? {
                 gamepkg::file_remove(self.grant, path)?;
@@ -243,16 +243,16 @@ impl SaveWorker {
             None => return Ok(false),
         };
         match job.step()? {
-            adapter::Step::History { .. } => {
+            save_adapter::Step::History { .. } => {
                 let archived =
-                    history::archive_before_replace(self.grant, &self.title, &self.stamp);
+                    save_history::archive_before_replace(self.grant, &self.title, &self.stamp);
                 let result = match archived {
                     Ok(_) => Ok(()),
                     Err(error) => Err(error),
                 };
                 job.history_finished(result)?;
             }
-            adapter::Step::Complete { finished } => {
+            save_adapter::Step::Complete { finished } => {
                 if let Some(error) = finished.history_error {
                     self.history_error = error;
                 }
@@ -341,7 +341,11 @@ impl SaveWorker {
         Ok(reported)
     }
 
-    pub fn command(&mut self, operation: u32, payload: &[u8]) -> Result<std::vec::Vec<u8>, i32> {
+    pub fn save_actor_command(
+        &mut self,
+        operation: u32,
+        payload: &[u8],
+    ) -> Result<std::vec::Vec<u8>, i32> {
         if self.closing && operation != STATUS {
             return Err(-4);
         }
@@ -399,7 +403,7 @@ impl SaveWorker {
                     gamepkg::file_close(handle)?;
                     worker_remove_handle(&mut self.reads, index)?;
                 } else {
-                    self.guard.close(handle)?;
+                    self.guard.save_guard_close(handle)?;
                     let mut position = 0usize;
                     while position < self.writes.len() {
                         if self.writes[position][0] == handle {
@@ -442,7 +446,7 @@ impl SaveWorker {
     fn drain_until(&mut self, event: u64, end: u64) -> Result<(), i32> {
         loop {
             worker_alive()?;
-            match self.tick() {
+            match self.save_worker_tick() {
                 Ok(false) => return Ok(()),
                 Ok(true) => {}
                 Err(error) => {
@@ -522,7 +526,7 @@ fn worker_loop(inbox: u64, event: u64) -> Result<u64, i32> {
                     )?;
                     return Ok(u64::from(!settled));
                 }
-                let packet = match owner.command(operation, payload) {
+                let packet = match owner.save_actor_command(operation, payload) {
                     Ok(bytes) => worker_reply(sequence, 0, &bytes),
                     Err(error) => worker_reply(sequence, error, &[]),
                 };
@@ -533,7 +537,7 @@ fn worker_loop(inbox: u64, event: u64) -> Result<u64, i32> {
             Err(-2) => {}
             Err(error) => return Err(error),
         }
-        match owner.tick() {
+        match owner.save_worker_tick() {
             Ok(advanced) => work_available = advanced,
             Err(error) => {
                 owner.io_error = error;
@@ -559,7 +563,12 @@ pub fn run(inbox: u64) -> u64 {
 impl Connection {
     // entry is a host-reviewed static task index, never a function pointer.
     // The initial recovery result is asynchronous: poll sequence 1 before use.
-    pub fn launch(entry: u32, grant: u64, title: &str, stamp: &str) -> Result<Self, i32> {
+    pub fn launch_save_actor(
+        entry: u32,
+        grant: u64,
+        title: &str,
+        stamp: &str,
+    ) -> Result<Self, i32> {
         if title.len() != 8 || !worker_stamp_valid(stamp) {
             return Err(-1);
         }
@@ -669,12 +678,23 @@ impl Connection {
             bytes: packet[12..length].to_vec(),
         }))
     }
-    pub fn cancel(&mut self) -> Result<(), i32> {
+    pub fn cancel_save_actor(&mut self) -> Result<(), i32> {
         if self.task == 0 {
             return Err(-4);
         }
         gamepkg::local_call(12, &u64::to_le_bytes(self.task), &mut [])?;
         self.closing = true;
+        Ok(())
+    }
+    pub fn task_id(&self) -> u64 {
+        self.task
+    }
+    pub fn accept_join(&mut self, joined_task: &gamepkg::LocalTaskJoin) -> Result<(), i32> {
+        if !self.closing || self.task == 0 || joined_task.task_id() != self.task {
+            return Err(-4);
+        }
+        self.joined = Some(joined_task.result());
+        self.task = 0;
         Ok(())
     }
     // Nonblocking join; release queues only after the worker has really exited.
@@ -684,15 +704,10 @@ impl Connection {
             return Err(-4);
         }
         if self.task != 0 {
-            let mut reply = [0u8; 8];
-            match gamepkg::local_call(11, &u64::to_le_bytes(self.task), &mut reply) {
-                Ok(8) => {
-                    self.joined = Some(u64::from_le_bytes(reply));
-                    self.task = 0;
-                }
+            match gamepkg::local_task_join(self.task) {
+                Ok(joined_task) => self.accept_join(&joined_task)?,
                 Err(-2) => return Ok(None),
                 Err(error) => return Err(error),
-                _ => return Err(-3),
             }
         }
         if self.inbox != 0 {

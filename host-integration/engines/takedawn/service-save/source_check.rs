@@ -29,35 +29,40 @@ fn main() {
         "recovery.rs",
         "worker.rs",
     ] {
-        fs::copy(here.join(module), source.join("source/src").join(module)).unwrap();
+        let staged = if module == "worker_fixture.rs" {
+            module.to_owned()
+        } else {
+            format!("save_{module}")
+        };
+        fs::copy(here.join(module), source.join("source/src").join(staged)).unwrap();
     }
     let game = String::from(
         r#"
-mod paths;
-mod files;
-mod state;
-mod adapter;
-mod history;
-mod recovery;
-mod worker;
-pub fn save_worker(argument:u64)->u64 { worker::run(argument) }
-fn accept_finished(guard:&mut adapter::SaveGuard, completed:adapter::Finished){
-    if let Ok(cleanup)=guard.finish(completed){let _=adapter::clean_obsolete(1,cleanup);}
+mod save_paths;
+mod save_files;
+mod save_state;
+mod save_adapter;
+mod save_history;
+mod save_recovery;
+mod save_worker;
+pub fn save_worker_entry(argument:u64)->u64 { save_worker::run(argument) }
+fn accept_finished(guard:&mut save_adapter::SaveGuard, completed:save_adapter::Finished){
+    if let Ok(cleanup)=guard.finish(completed){let _=save_adapter::clean_obsolete(1,cleanup);}
 }
 pub fn game_main(){
-    if let Ok(mut connection)=worker::Connection::launch(0,1,"12345678","20261114-120000") {
+    if let Ok(mut connection)=save_worker::Connection::launch_save_actor(0,1,"12345678","20261114-120000") {
         let _=connection.poll(0);
-        let _=connection.submit(worker::STATUS,&[]);
+        let _=connection.submit(save_worker::STATUS,&[]);
         let _=connection.poll(0);
-        let _=connection.cancel();
+        let _=connection.cancel_save_actor();
         let _=connection.finish();
     }
     let _=gamepkg::directory_list(1,"");
-    let mut guard=adapter::SaveGuard::new(1);
-    if let Ok(mut startup)=recovery::Recovery::begin(&mut guard,1,"12345678"){
-        if let Ok(recovery::RecoveryStep::History{real,pending,newer,error})=startup.step(){
+    let mut guard=save_adapter::SaveGuard::new(1);
+    if let Ok(mut startup)=save_recovery::Recovery::begin(&mut guard,1,"12345678"){
+        if let Ok(save_recovery::RecoveryStep::History{real,pending,newer,error})=startup.step(){
             let _=newer;let _=error;
-            match history::archive_pending(1,"12345678","20261114-120000",&real,&pending){
+            match save_history::archive_pending(1,"12345678","20261114-120000",&real,&pending){
                 Ok(proof)=>{let _=startup.history_done(&proof);},
                 Err(code)=>{let _=startup.history_failed(code);},
             }
@@ -67,16 +72,16 @@ pub fn game_main(){
     if let Ok(handle)=guard.open_write("save") {
         let _=guard.resize(handle,1);
         let _=guard.write_at(handle,0,b"x");
-        let _=guard.close(handle);
+        let _=guard.save_guard_close(handle);
     }
     if let Ok(Some(mut job))=guard.begin_job(){
         match job.step(){
-            Ok(adapter::Step::History{real})=>{
+            Ok(save_adapter::Step::History{real})=>{
                 let _=real;
                 let _=job.history_finished(Ok(()));
-                if let Ok(adapter::Step::Complete{finished})=job.step(){accept_finished(&mut guard,finished);}
+                if let Ok(save_adapter::Step::Complete{finished})=job.step(){accept_finished(&mut guard,finished);}
             },
-            Ok(adapter::Step::Complete{finished})=>accept_finished(&mut guard,finished),
+            Ok(save_adapter::Step::Complete{finished})=>accept_finished(&mut guard,finished),
             Err(_)=>{},
         }
     }
@@ -100,7 +105,7 @@ pub fn game_main(){
         let plan = Plan::new(
             target,
             "game_main",
-            vec!["save_worker".into()],
+            vec!["save_worker_entry".into()],
             LocalLayout::None,
             true,
         )

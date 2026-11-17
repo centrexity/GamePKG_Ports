@@ -1,6 +1,6 @@
 // Bounded value-only path segmentation. All actual containment stays in the
 // host; these checked slices avoid out-of-line string-search/panic imports.
-pub fn segments(path: &str) -> Result<std::vec::Vec<&str>, i32> {
+pub fn save_path_segments(path: &str) -> Result<std::vec::Vec<&str>, i32> {
     if path.is_empty() || path.len() > 4096 {
         return Err(-1);
     }

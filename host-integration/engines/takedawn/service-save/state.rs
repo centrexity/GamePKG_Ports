@@ -1,6 +1,6 @@
 // Port-owned saveguard transitions. This module performs no I/O or callbacks.
 // The adapter executes Work on its reviewed worker task using shared services.
-use crate::paths;
+use crate::save_paths;
 const FREE: u32 = 0;
 const PREPARING: u32 = 1;
 const OPEN: u32 = 2;
@@ -16,18 +16,18 @@ pub struct OpenTicket {
 }
 pub struct OpenPlan {
     pub ticket: OpenTicket,
-    pub shadow: std::string::String,
-    // The adapter seeds shadow from this pending/real path if it exists.
-    // None means another title handle already owns the prepared shadow.
+    pub save_shadow_path: std::string::String,
+    // The adapter seeds save_shadow_path from this pending/real path if it exists.
+    // None means another title handle already owns the prepared save_shadow_path.
     pub seed: Option<std::string::String>,
-    // A failed open must never remove a pending file reused as the shadow.
+    // A failed open must never remove a pending file reused as the save_shadow_path.
     pub preserve_shadow: bool,
 }
 pub struct Work {
     pub token: u64,
     pub retry: bool,
     pub real: std::string::String,
-    pub shadow: std::string::String,
+    pub save_shadow_path: std::string::String,
     pub flush: Option<u64>,
     pub deleted: bool,
     pub history: bool,
@@ -41,8 +41,8 @@ pub enum Completion {
     Unchanged {},
     Deleted {},
     Missing {},
-    // Title moved/removed its shadow without delete-on-close. Leave any older
-    // pending save alone, matching the original missing-shadow commit branch.
+    // Title moved/removed its save_shadow_path without delete-on-close. Leave any older
+    // pending save alone, matching the original missing-save_shadow_path commit branch.
     Abandoned {},
     // I/O failed before the operation could reach a complete publication or
     // preserved-pending outcome. Keep this entry queued; caller applies a wait.
@@ -72,7 +72,7 @@ struct Entry {
     generation: u64,
     phase: u32,
     real: std::string::String,
-    shadow: std::string::String,
+    save_shadow_path: std::string::String,
     handles: std::vec::Vec<Handle>,
     flush: Option<u64>,
     preserve_shadow: bool,
@@ -82,12 +82,12 @@ struct Entry {
     bytes: u64,
 }
 impl Entry {
-    fn empty() -> Self {
+    fn save_empty() -> Self {
         Self {
             generation: 0,
             phase: FREE,
             real: std::string::String::new(),
-            shadow: std::string::String::new(),
+            save_shadow_path: std::string::String::new(),
             handles: std::vec::Vec::new(),
             flush: None,
             preserve_shadow: false,
@@ -143,7 +143,7 @@ fn title_path(path: &str) -> bool {
     if path.is_empty() || path.len() > 4089 || hidden(path) {
         return false;
     }
-    let parts = match paths::segments(path) {
+    let parts = match save_paths::save_path_segments(path) {
         Ok(data) => data,
         Err(_) => return false,
     };
@@ -181,7 +181,7 @@ impl Guard {
     pub fn new() -> Self {
         let mut entries = std::vec::Vec::new();
         while entries.len() < 16 {
-            entries.push(Entry::empty());
+            entries.push(Entry::save_empty());
         }
         Self {
             entries,
@@ -287,12 +287,12 @@ impl Guard {
                     generation: entry.generation,
                     reservation,
                 },
-                shadow: copy_path(&entry.shadow),
+                save_shadow_path: copy_path(&entry.save_shadow_path),
                 seed: None,
                 preserve_shadow: entry.preserve_shadow,
             });
         }
-        // Reserve recovery capacity before any new shadow can be written. A
+        // Reserve recovery capacity before any new save_shadow_path can be written. A
         // full table returns Busy, never an unguarded in-place-write fallback.
         let mut occupied = self.pending.len();
         for entry in &self.entries {
@@ -311,17 +311,17 @@ impl Guard {
             }
         }
         let index = free.ok_or(-2)?;
-        let shadow = shadow_name(real);
+        let save_shadow_path = shadow_name(real);
         let seed = match self.pending_path(real) {
             Some(pending) => copy_path(&self.pending[pending].preserved),
             None => copy_path(&real),
         };
-        let preserve = seed == shadow;
-        let mut entry = Entry::empty();
+        let preserve = seed == save_shadow_path;
+        let mut entry = Entry::save_empty();
         entry.phase = PREPARING;
         entry.generation = reservation;
         entry.real = copy_path(&real);
-        entry.shadow = copy_path(&shadow);
+        entry.save_shadow_path = copy_path(&save_shadow_path);
         entry.preserve_shadow = preserve;
         entry.handles.push(Handle {
             reservation,
@@ -334,14 +334,18 @@ impl Guard {
                 generation: reservation,
                 reservation,
             },
-            shadow,
+            save_shadow_path,
             seed: Some(seed),
             preserve_shadow: preserve,
         })
     }
     // Actual file open completed. On Err the adapter closes any unaccepted OS-
     // independent service handle; this method never owns an unaccepted value.
-    pub fn opened(&mut self, ticket: &OpenTicket, handle: Option<u64>) -> Result<Cleanup, i32> {
+    pub fn save_handle_opened(
+        &mut self,
+        ticket: &OpenTicket,
+        handle: Option<u64>,
+    ) -> Result<Cleanup, i32> {
         if let Some(value) = handle {
             if value == 0 || self.locate_handle(value).is_some() || self.is_retained(value) {
                 return Err(-1);
@@ -373,9 +377,9 @@ impl Guard {
             let obsolete = if entry.preserve_shadow {
                 None
             } else {
-                Some(copy_path(&entry.shadow))
+                Some(copy_path(&entry.save_shadow_path))
             };
-            *entry = Entry::empty();
+            *entry = Entry::save_empty();
             return Ok(Cleanup { obsolete });
         }
         Ok(Cleanup { obsolete: None })
@@ -427,7 +431,7 @@ impl Guard {
     }
     // Call only after a successful service close; the last handle must first
     // acquire its retained flush duplicate. Pending open reservations count.
-    pub fn closed(&mut self, handle: u64, flush: Option<u64>) -> Result<(), i32> {
+    pub fn save_handle_closed(&mut self, handle: u64, flush: Option<u64>) -> Result<(), i32> {
         let (index, slot) = self.locate_handle(handle).ok_or(-4)?;
         for opening in &self.entries[index].handles {
             if opening.value.is_none() {
@@ -460,7 +464,7 @@ impl Guard {
         }
         Ok(())
     }
-    // An already opened write sees its shared shadow, including a newly
+    // An already opened write sees its shared save_shadow_path, including a newly
     // created file which still has no published name.
     pub fn opened_write_path(&self, real: &str) -> Result<Option<std::string::String>, i32> {
         if !title_path(real) {
@@ -474,7 +478,7 @@ impl Guard {
             if entry.phase != OPEN {
                 return Err(-2);
             }
-            return Ok(Some(copy_path(&entry.shadow)));
+            return Ok(Some(copy_path(&entry.save_shadow_path)));
         }
         Ok(None)
     }
@@ -585,7 +589,7 @@ impl Guard {
                 token,
                 retry: false,
                 real: copy_path(&entry.real),
-                shadow: copy_path(&entry.shadow),
+                save_shadow_path: copy_path(&entry.save_shadow_path),
                 flush: entry.flush,
                 deleted: entry.deleted,
                 history: self.history,
@@ -609,7 +613,7 @@ impl Guard {
                 continue;
             }
             if let Some(entry) = self.entry_path(&self.pending[index].real) {
-                if self.entries[entry].shadow == self.pending[index].preserved {
+                if self.entries[entry].save_shadow_path == self.pending[index].preserved {
                     continue;
                 }
             }
@@ -625,7 +629,7 @@ impl Guard {
                 token,
                 retry: true,
                 real: copy_path(&pending.real),
-                shadow: copy_path(&pending.preserved),
+                save_shadow_path: copy_path(&pending.preserved),
                 flush: None,
                 deleted: false,
                 history: false,
@@ -723,7 +727,7 @@ impl Guard {
             Completion::Published { durable } => {
                 if let Some(index) = self.pending_path(&real) {
                     let old = remove_stable(&mut self.pending, index)?.preserved;
-                    if kind == COMMIT && old != self.entries[slot].shadow {
+                    if kind == COMMIT && old != self.entries[slot].save_shadow_path {
                         obsolete = Some(old);
                     }
                 }
@@ -748,7 +752,7 @@ impl Guard {
             }
         }
         if kind == COMMIT {
-            self.entries[slot] = Entry::empty();
+            self.entries[slot] = Entry::save_empty();
         }
         self.refresh_problem();
         Ok(Cleanup { obsolete })

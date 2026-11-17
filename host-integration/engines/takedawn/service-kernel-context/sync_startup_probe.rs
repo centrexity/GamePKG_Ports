@@ -146,6 +146,7 @@ pub fn sync_startup_jobs(
     ram: &memory::Memory,
     owner: &mut kernel_startup::Startup,
 ) -> Result<u64, i32> {
+    let baseline_jobs = owner.startup_jobs();
     let ids = owner.startup_ids(ram)?;
     let arg = gamepkg::local_record_create(
         &[
@@ -177,7 +178,7 @@ pub fn sync_startup_jobs(
         710,
         finished
             && owner.startup_close(&mut ram.call_view()) == Err(-2)
-            && owner.startup_jobs() == 1,
+            && owner.startup_jobs() == baseline_jobs + 1,
     )?;
     let proof = owner.startup_join_task(ram, task)?;
     let id = proof.result();
@@ -185,7 +186,7 @@ pub fn sync_startup_jobs(
         711,
         id != 0
             && gamepkg::local_semaphore_state(id)?.count == 1
-            && owner.startup_jobs() == 0
+            && owner.startup_jobs() == baseline_jobs
             && owner.startup_accept_join(ram, &proof) == Err(-4),
     )?;
     gamepkg::local_record_release(arg)?;

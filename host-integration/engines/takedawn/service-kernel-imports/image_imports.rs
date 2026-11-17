@@ -38,7 +38,7 @@ pub fn imports_image_with_rom(
     data: &kernel_data::Data,
     remap: &[u16],
     context: &kernel_pool::KernelContext,
-    private_directories: bool,
+    file_profile: u32,
 ) -> Result<imports::Imports, i32> {
     context.kernel_context_criticals(ram)?;
     imports_image_inner(
@@ -47,7 +47,7 @@ pub fn imports_image_with_rom(
         data,
         remap,
         context.kernel_context_id(),
-        if private_directories { 2 } else { 1 },
+        file_profile,
     )
 }
 fn imports_image_inner(
@@ -79,7 +79,7 @@ fn imports_image_inner(
                 data,
                 remap,
                 &bound,
-                file_profile == 2,
+                file_profile,
             )?
         } else {
             imports::Imports::imports_scan_with_context(

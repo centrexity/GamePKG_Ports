@@ -1,5 +1,6 @@
 use crate::gamepkg;
 use crate::kernel_pool;
+use crate::kernel_regular;
 use crate::kernel_startup;
 use crate::memory;
 use crate::registers;
@@ -43,8 +44,18 @@ pub fn rom_startup_calls(
     owner: &kernel_startup::Startup,
     image: &xbe::Image,
     with_event: bool,
+    regular_session: Option<&mut kernel_regular::SaveSession>,
 ) -> Result<[u64; 3], i32> {
-    let mut routed = startup_file::StartupFiles::startup_files_new(owner, image, ram)?;
+    let regular_enabled = regular_session.is_some();
+    let mut routed = match regular_session {
+        Some(session) => {
+            rom_startup_need(
+                startup_file::StartupFiles::startup_files_new(owner, image, ram).err() == Some(-4),
+            )?;
+            startup_file::StartupFiles::startup_files_with_regular(owner, image, ram, session)?
+        }
+        None => startup_file::StartupFiles::startup_files_new(owner, image, ram)?,
+    };
     let base = ram.read_u32(0x4008)?;
     let stack_va = base.checked_add(0x2000).ok_or(-1)?;
     let attrib_va = stack_va + 64;
@@ -121,6 +132,26 @@ pub fn rom_startup_calls(
             token,
             startup_storage_grant,
         )?;
+        if regular_enabled {
+            let query_marker = ram.read_u32(image.image_thunk() + 68)?;
+            let write_marker = ram.read_u32(image.image_thunk() + 72)?;
+            rom_startup_need([query_marker, write_marker] == [0xfe000044, 0xfe000048])?;
+            rom_startup_need(kernel_pool::kernel_ordinal(ram, 17) == Err(-5))?;
+            regular_startup_calls(
+                &mut routed,
+                ram,
+                save_frame,
+                [
+                    ensure_marker,
+                    open_marker,
+                    query_marker,
+                    write_marker,
+                    read_marker,
+                    close_marker,
+                ],
+                token,
+            )?;
+        }
         ram.write_u16(name_va, path.len() as u16)?;
         ram.write_u16(name_va + 2, path.len() as u16)?;
         ram.write_bytes(path_va, path)?;
@@ -322,5 +353,92 @@ fn save_startup_calls(
     }
     rom_startup_need(gamepkg::save_volume(storage_grant) == Ok([65536, 65536]))?;
     gamepkg::diagnostic(1, 0x544b4600, &[4, 4, 16384])?;
+    Ok(())
+}
+
+fn regular_startup_calls(
+    routed: &mut startup_file::StartupFiles,
+    ram: &mut memory::Memory,
+    frame: [u32; 7],
+    slots: [u32; 6],
+    optical_token: u32,
+) -> Result<(), i32> {
+    let [stack, obj, name_address, text_address, handle_address, io_address, query_output] = frame;
+    let [create_marker, open_marker, query_marker, write_marker, read_marker, close_marker] = slots;
+    save_startup_name(
+        ram,
+        name_address,
+        text_address,
+        b"\\Device\\Harddisk0\\partition1\\UDATA\\4541005b\\TitleMeta.xbx",
+    )?;
+    let create_file = [
+        handle_address,
+        0x40100000,
+        obj,
+        io_address,
+        0,
+        4,
+        1,
+        3,
+        0x22,
+    ];
+    rom_startup_need(rom_startup_call(routed, ram, create_marker, stack, &create_file)? == 0)?;
+    let regular_token = ram.read_u32(handle_address)?;
+    rom_startup_need(regular_token != optical_token && ram.read_u64(io_address)? == 0x200000000)?;
+    rom_startup_need(rom_startup_call(routed, ram, create_marker, stack, &create_file) == Err(-2))?;
+    let query_file = [regular_token, io_address, query_output, 56, 34];
+    ram.write_u32(query_output + 52, 0x8a6bedcc)?;
+    rom_startup_need(rom_startup_call(routed, ram, query_marker, stack, &query_file)? == 0)?;
+    rom_startup_need(
+        ram.read_u64(query_output)? > 116_444_736_000_000_000
+            && ram.read_u64(query_output + 32)? == 0
+            && ram.read_u64(query_output + 40)? == 0
+            && ram.read_u32(query_output + 48)? == 0x24
+            && ram.read_u32(query_output + 52)? == 0x8a6bedcc
+            && ram.read_u64(io_address)? == 56u64 << 32,
+    )?;
+    let foreign_query = [optical_token, io_address, query_output, 56, 34];
+    rom_startup_need(
+        rom_startup_call(routed, ram, query_marker, stack, &foreign_query) == Err(-4),
+    )?;
+    let transfer = [regular_token, 0, 0, 0, io_address, query_output, 5, 0];
+    rom_startup_need(rom_startup_call(routed, ram, read_marker, stack, &transfer) == Err(-4))?;
+    ram.write_bytes(query_output, b"meta!")?;
+    rom_startup_need(rom_startup_call(routed, ram, write_marker, stack, &transfer)? == 0)?;
+    rom_startup_need(ram.read_u64(io_address)? == 5u64 << 32)?;
+    rom_startup_need(rom_startup_call(routed, ram, query_marker, stack, &query_file)? == 0)?;
+    rom_startup_need(
+        ram.read_u64(query_output + 32)? == 16384
+            && ram.read_u64(query_output + 40)? == 5
+            && ram.read_u32(query_output + 48)? == 0x24
+            && ram.read_u32(query_output + 52)? == 0x8a6bedcc,
+    )?;
+    rom_startup_need(rom_startup_call(routed, ram, close_marker, stack, &[regular_token])? == 0)?;
+    rom_startup_need(rom_startup_call(routed, ram, query_marker, stack, &query_file) == Err(-4))?;
+    save_startup_name(
+        ram,
+        name_address,
+        text_address,
+        b"\\Device\\Harddisk0\\partition1\\UDATA\\4541005b\\titlemeta.XBX",
+    )?;
+    let reopen = [handle_address, 0x80100000, obj, io_address, 3, 0x20];
+    let mut result = Err(-2);
+    for _ in 0..4096 {
+        result = rom_startup_call(routed, ram, open_marker, stack, &reopen);
+        if result != Err(-2) && result != Ok(0xc0000034) {
+            break;
+        }
+        memory::Memory::call_retry_pause()?;
+    }
+    rom_startup_need(result == Ok(0) && ram.read_u64(io_address)? == 0x100000000)?;
+    let reader_token = ram.read_u32(handle_address)?;
+    let read_file = [reader_token, 0, 0, 0, io_address, query_output, 5, 0];
+    rom_startup_need(rom_startup_call(routed, ram, read_marker, stack, &read_file)? == 0)?;
+    let mut verified_bytes = [0; 5];
+    ram.read_bytes(query_output, &mut verified_bytes)?;
+    rom_startup_need(&verified_bytes == b"meta!" && ram.read_u64(io_address)? == 5u64 << 32)?;
+    rom_startup_need(rom_startup_call(routed, ram, read_marker, stack, &read_file)? == 0xc0000011)?;
+    // Leave the reader open to establish that the startup router drains it.
+    gamepkg::diagnostic(1, 0x544b4700, &[5, 0x24, 16384])?;
     Ok(())
 }

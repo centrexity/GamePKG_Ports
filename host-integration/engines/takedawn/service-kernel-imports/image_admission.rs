@@ -135,6 +135,17 @@ fn main() {
             here.join("../service-rom-handles/startup_file.rs"),
         ),
         (
+            "kernel_regular.rs",
+            here.join("../service-save/kernel_regular.rs"),
+        ),
+        ("save_worker.rs", here.join("../service-save/worker.rs")),
+        ("save_adapter.rs", here.join("../service-save/adapter.rs")),
+        ("save_files.rs", here.join("../service-save/files.rs")),
+        ("save_paths.rs", here.join("../service-save/paths.rs")),
+        ("save_history.rs", here.join("../service-save/history.rs")),
+        ("save_recovery.rs", here.join("../service-save/recovery.rs")),
+        ("save_state.rs", here.join("../service-save/state.rs")),
+        (
             "kernel_directories.rs",
             here.join("../service-save/kernel_directories.rs"),
         ),
@@ -302,7 +313,8 @@ fn main() {
         fs::write(path, data).unwrap();
     }
     fs::write(source.join("source/src/lib.rs"),r#"
-pub mod handles;pub mod typed_events;mod event_import_probe;mod semaphore_import_probe;mod rtl_image_probe;mod mixed_image_probe;mod critical_image_probe;mod kernel_file;mod rom_handles;mod startup_file;mod kernel_directories;mod rom_startup_probe;mod sync_startup_probe;mod object_startup_probe;mod layout;mod memory;mod registers;mod call_state;mod calls_runtime;mod vector;mod scalar;mod debug;mod heap;mod contiguous;mod heap_service;mod kernel_pool;mod kernel_data;mod signature;mod imports;mod cases;mod probe;mod controls;mod game;mod dispatch;mod targets;mod disc;mod sha256;mod xbe;mod bootstrap;mod image_imports;mod image_probe;mod kernel_startup;mod startup_probe;mod tick_service;mod tick_startup;mod tick_probe;mod wait_service;mod gate;mod irql;mod queue;mod callback;mod drain;mod dpc_clock;mod stacks;mod shadow;mod events;mod timers;mod firing;mod timer_clock;mod production_clock;mod thread_tib;mod worker_setup;mod dispatching;mod dpc_observer;mod irq_hooks;mod dpc_routes;mod pacing;mod schedule;mod timer_startup;mod timer_probe;
+pub mod handles;pub mod typed_events;mod event_import_probe;mod semaphore_import_probe;mod rtl_image_probe;mod mixed_image_probe;mod critical_image_probe;mod kernel_file;mod rom_handles;mod startup_file;mod kernel_directories;mod kernel_regular;mod save_worker;mod save_adapter;mod save_files;mod save_paths;mod save_history;mod save_recovery;mod save_state;mod rom_startup_probe;mod sync_startup_probe;mod object_startup_probe;mod layout;mod memory;mod registers;mod call_state;mod calls_runtime;mod vector;mod scalar;mod debug;mod heap;mod contiguous;mod heap_service;mod kernel_pool;mod kernel_data;mod signature;mod imports;mod cases;mod probe;mod controls;mod game;mod dispatch;mod targets;mod disc;mod sha256;mod xbe;mod bootstrap;mod image_imports;mod image_probe;mod kernel_startup;mod startup_probe;mod tick_service;mod tick_startup;mod tick_probe;mod wait_service;mod gate;mod irql;mod queue;mod callback;mod drain;mod dpc_clock;mod stacks;mod shadow;mod events;mod timers;mod firing;mod timer_clock;mod production_clock;mod thread_tib;mod worker_setup;mod dispatching;mod dpc_observer;mod irq_hooks;mod dpc_routes;mod pacing;mod schedule;mod timer_startup;mod timer_probe;
+pub fn save_worker_entry(arg:u64)->u64{save_worker::run(arg)}
 pub fn object_worker(arg:u64)->u64{object_startup_probe::object_worker(arg)}
 pub fn sync_worker(arg:u64)->u64{sync_startup_probe::sync_startup_worker(arg)}
 pub fn heap_worker(arg:u64)->u64{heap_service::heap_serve(arg)}
@@ -395,6 +407,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                 "timer_holder".into(),
                 "object_worker".into(),
                 "sync_worker".into(),
+                "save_worker_entry".into(),
             ],
             if objects_layout {
                 LocalLayout::TakedawnServices
@@ -430,7 +443,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
         }
         for pair in args[cases_start..].chunks_exact(2) {
             let mode = pair[0].to_str().unwrap().parse::<u8>().unwrap();
-            assert!(mode <= 93);
+            assert!(mode <= 96);
             assert_eq!(objects_layout, mode >= 51);
             let selected = fs::File::open(&pair[1]).unwrap();
             let mut indexed =
@@ -442,6 +455,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                 || mode == 79
                 || mode == 84
                 || mode == 93
+                || mode == 96
             {
                 let checked = indexed.verify_takedawn().unwrap();
                 assert_eq!(checked.verified_files, 716);
@@ -531,6 +545,8 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                     || mode == 91
                     || mode == 92
                     || mode == 93
+                    || mode == 95
+                    || mode == 96
                 {
                     (-5i64) as u64
                 } else {
@@ -540,7 +556,9 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                     &values[1..],
                     &[
                         code,
-                        if mode == 92 {
+                        if mode == 94 || mode == 95 {
+                            19
+                        } else if mode == 92 {
                             18
                         } else if mode == 90 || mode == 91 {
                             17
@@ -602,7 +620,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                 assert!([
                     0x544b0f00, 0x544b0f10, 0x544b0fff, 0x544b1300, 0x544b3200, 0x544b1710,
                     0x544b1800, 0x544b1801, 0x544b3b00, 0x544b3900, 0x544b3c00, 0x544b3d00,
-                    0x544b3f00, 0x544b4100, 0x544b4300, 0x544b4500, 0x544b4600
+                    0x544b3f00, 0x544b4100, 0x544b4300, 0x544b4500, 0x544b4600, 0x544b4700
                 ]
                 .contains(&event.code));
                 if event.code == 0x544b1300 {
@@ -622,6 +640,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                             || mode == 79
                             || mode == 84
                             || mode == 93
+                            || mode == 96
                     );
                     println!(
                         "PRIVATE mode {mode} pending canonical kernel ordinals: {:?}",
@@ -659,19 +678,19 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                     95
                 );
             }
-            if mode == 93 {
+            if mode == 93 || mode == 96 {
                 let unresolved: Vec<_> = events
                     .iter()
                     .filter(|e| e.code == 0x544b0f10)
                     .flat_map(|e| &e.values)
                     .copied()
                     .collect();
-                assert_eq!(unresolved.len(), 88);
+                assert_eq!(unresolved.len(), if mode == 96 { 86 } else { 88 });
                 for ordinal in [187, 190, 202, 218, 219, 233, 234] {
                     assert!(!unresolved.contains(&ordinal));
                 }
             }
-            if mode == 86 || mode == 89 || mode == 90 {
+            if mode == 86 || mode == 89 || mode == 90 || mode == 94 {
                 let calls: Vec<_> = events.iter().filter(|e| e.code == 0x544b4500).collect();
                 assert_eq!(calls.len(), 1);
                 assert_eq!(calls[0].values, [1, 4, if mode >= 89 { 3 } else { 1 }]);
@@ -685,7 +704,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                     .unwrap()
                     .path()
                     .join("files");
-                if mode == 90 {
+                if mode == 90 || mode == 94 {
                     assert_eq!(disk_calls.len(), 1);
                     assert_eq!(disk_calls[0].values, [4, 4, 16384]);
                     assert!(directory.join("UDATA/4541005b").is_dir());
@@ -694,6 +713,29 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                     assert!(disk_calls.is_empty());
                     assert_eq!(fs::read_dir(directory).unwrap().count(), 0);
                 }
+            }
+            let regular_calls: Vec<_> = events
+                .iter()
+                .filter(|event| event.code == 0x544b4700)
+                .collect();
+            if mode == 94 {
+                assert_eq!(regular_calls.len(), 1);
+                assert_eq!(regular_calls[0].values, [5, 0x24, 16384]);
+                let scope = fs::read_dir(private_state.path().join("port-state"))
+                    .unwrap()
+                    .next()
+                    .unwrap()
+                    .unwrap()
+                    .path();
+                assert_eq!(
+                    fs::read(scope.join("files/UDATA/4541005b/TitleMeta.xbx")).unwrap(),
+                    b"meta!"
+                );
+                assert!(!scope
+                    .join("files/UDATA/4541005b/TitleMeta.xbx.~new")
+                    .exists());
+            } else {
+                assert!(regular_calls.is_empty());
             }
             if mode == 83 {
                 let calls: Vec<_> = events.iter().filter(|e| e.code == 0x544b4300).collect();

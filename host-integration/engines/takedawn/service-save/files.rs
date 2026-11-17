@@ -8,8 +8,8 @@ pub enum Publication {
     CommittedNotDurable {},
 }
 
-pub fn publish(grant: u64, shadow: &str, real: &str) -> Result<Publication, i32> {
-    match gamepkg::file_replace(grant, shadow, real, true) {
+pub fn publish_save(grant: u64, save_shadow_path: &str, real: &str) -> Result<Publication, i32> {
+    match gamepkg::file_replace(grant, save_shadow_path, real, true) {
         Ok(()) => Ok(Publication::Durable {}),
         Err(-6) => Ok(Publication::CommittedNotDurable {}),
         Err(error) => Err(error),
@@ -67,8 +67,8 @@ fn copy_open(input: u64, output: u64) -> Result<u64, i32> {
     }
 }
 
-// Copy the current whole save into the guard's shadow, never over the real
-// file. On any copy/close failure, remove the partial shadow and retain real.
+// Copy the current whole save into the guard's save_shadow_path, never over the real
+// file. On any copy/close failure, remove the partial save_shadow_path and retain real.
 // The caller must have settled prior queued writes/recovery for this path.
 pub fn copy_shadow(grant: u64, real: &str) -> Result<u64, i32> {
     copy_seed(grant, real, real)
@@ -85,9 +85,9 @@ pub fn copy_seed_with_attributes(
     real: &str,
     preserve_attributes: bool,
 ) -> Result<u64, i32> {
-    let mut shadow = real.to_owned();
-    shadow.push_str(".~new");
-    if source == shadow {
+    let mut save_shadow_path = real.to_owned();
+    save_shadow_path.push_str(".~new");
+    if source == save_shadow_path {
         return Err(-1);
     }
     let input = gamepkg::file_open(grant, false, source)?;
@@ -105,7 +105,7 @@ pub fn copy_seed_with_attributes(
     } else {
         None
     };
-    let output = match gamepkg::file_open(grant, true, &shadow) {
+    let output = match gamepkg::file_open(grant, true, &save_shadow_path) {
         Ok(handle) => handle,
         Err(error) => {
             let _ = gamepkg::file_close(input);
@@ -135,7 +135,7 @@ pub fn copy_seed_with_attributes(
         },
     };
     if result.is_err() {
-        let _ = gamepkg::file_remove(grant, &shadow);
+        let _ = gamepkg::file_remove(grant, &save_shadow_path);
     }
     result
 }
@@ -213,7 +213,7 @@ fn same_open(first: u64, second: u64) -> Result<bool, i32> {
     }
 }
 
-pub fn same(grant: u64, first: &str, second: &str) -> Result<bool, i32> {
+pub fn same_save_bytes(grant: u64, first: &str, second: &str) -> Result<bool, i32> {
     let left = gamepkg::file_open(grant, false, first)?;
     let right = match gamepkg::file_open(grant, false, second) {
         Ok(handle) => handle,

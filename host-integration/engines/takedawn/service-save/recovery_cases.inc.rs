@@ -16,12 +16,12 @@ fn save_layout(root: &std::path::Path, real: &[u8], pending: Option<&[u8]>, newe
         set(&folder.join("profile.~pend"), if newer { 30 } else { 10 });
     }
 }
-fn until_recovered(startup: &mut recovery::Recovery<'_>) -> recovery::Report {
+fn until_recovered(startup: &mut save_recovery::Recovery<'_>) -> save_recovery::Report {
     loop {
         match startup.step().unwrap() {
-            recovery::RecoveryStep::Progress {} => {}
-            recovery::RecoveryStep::Done { report } => return report,
-            recovery::RecoveryStep::History { .. } => panic!("unexpected history request"),
+            save_recovery::RecoveryStep::Progress {} => {}
+            save_recovery::RecoveryStep::Done { report } => return report,
+            save_recovery::RecoveryStep::History { .. } => panic!("unexpected history request"),
         }
     }
 }
@@ -34,8 +34,8 @@ fn recovery_discards_unfinished_shadow_and_preserves_real_and_other_titles() {
     std::fs::create_dir_all(root.path().join("UDATA/87654321")).unwrap();
     std::fs::write(root.path().join("UDATA/87654321/other.~new"), b"unrelated").unwrap();
     let (grant, _h) = connect(root.path(), 1024 * 1024, false, false);
-    let mut guard = adapter::SaveGuard::new(grant);
-    let mut startup = recovery::Recovery::begin(&mut guard, grant, TITLE).unwrap();
+    let mut guard = save_adapter::SaveGuard::new(grant);
+    let mut startup = save_recovery::Recovery::begin(&mut guard, grant, TITLE).unwrap();
     let report = until_recovered(&mut startup);
     assert_eq!(report.unfinished_removed, 1);
     assert_eq!(report.recovered, 0);
@@ -52,9 +52,9 @@ fn recovery_publishes_newer_complete_pending_and_reports_consumed_source() {
     let root = tempfile::tempdir().unwrap();
     save_layout(root.path(), b"old", Some(b"new"), true);
     let (grant, h) = connect(root.path(), 1024 * 1024, false, false);
-    let mut guard = adapter::SaveGuard::new(grant);
+    let mut guard = save_adapter::SaveGuard::new(grant);
     h.published_uncertain.store(1, Ordering::SeqCst);
-    let mut startup = recovery::Recovery::begin(&mut guard, grant, TITLE).unwrap();
+    let mut startup = save_recovery::Recovery::begin(&mut guard, grant, TITLE).unwrap();
     let report = until_recovered(&mut startup);
     assert_eq!((report.recovered, report.uncertain), (1, 1));
     assert_eq!(startup.summary().uncertain, 1);
@@ -85,12 +85,12 @@ fn older_pending_is_discarded_only_after_complete_title_snapshot_with_pending_ov
     std::fs::write(root.path().join("UDATA/87654321/private"), b"other title").unwrap();
     std::fs::write(root.path().join("settings"), b"not save data").unwrap();
     let (grant, _h) = connect(root.path(), 1024 * 1024, true, false);
-    let mut guard = adapter::SaveGuard::new(grant);
-    let mut startup = recovery::Recovery::begin(&mut guard, grant, TITLE).unwrap();
+    let mut guard = save_adapter::SaveGuard::new(grant);
+    let mut startup = save_recovery::Recovery::begin(&mut guard, grant, TITLE).unwrap();
     let (real, pending) = loop {
         match startup.step().unwrap() {
-            recovery::RecoveryStep::Progress {} => {}
-            recovery::RecoveryStep::History {
+            save_recovery::RecoveryStep::Progress {} => {}
+            save_recovery::RecoveryStep::History {
                 real,
                 pending,
                 newer,
@@ -100,10 +100,10 @@ fn older_pending_is_discarded_only_after_complete_title_snapshot_with_pending_ov
                 assert_eq!(error, -3);
                 break (real, pending);
             }
-            recovery::RecoveryStep::Done { .. } => panic!("missing history"),
+            save_recovery::RecoveryStep::Done { .. } => panic!("missing history"),
         }
     };
-    let proof = history::archive_pending(grant, TITLE, STAMP, &real, &pending).unwrap();
+    let proof = save_history::archive_pending(grant, TITLE, STAMP, &real, &pending).unwrap();
     let folder = root.path().join(proof.archive_root());
     assert!(proof.valid_for(grant, &real, &pending));
     assert!(!proof.valid_for(grant + 1, &real, &pending));
@@ -123,8 +123,8 @@ fn older_pending_is_discarded_only_after_complete_title_snapshot_with_pending_ov
     assert!(!folder.join("UDATA/12345678/another.~new").exists());
     assert!(!folder.join("UDATA/87654321").exists());
     assert!(!folder.join("settings").exists());
-    assert!(history::archive_complete(grant, proof.archive_root(), TITLE).unwrap());
-    assert!(!history::archive_complete(grant, proof.archive_root(), "87654321").unwrap());
+    assert!(save_history::archive_complete(grant, proof.archive_root(), TITLE).unwrap());
+    assert!(!save_history::archive_complete(grant, proof.archive_root(), "87654321").unwrap());
     startup.history_done(&proof).unwrap();
     let report = until_recovered(&mut startup);
     assert_eq!(report.archived, 1);
@@ -138,12 +138,12 @@ fn failed_history_copy_cleans_partial_export_and_keeps_older_pending() {
     let root = tempfile::tempdir().unwrap();
     save_layout(root.path(), b"current", Some(b"older"), false);
     let (grant, _h) = connect(root.path(), 16, false, false);
-    let mut guard = adapter::SaveGuard::new(grant);
-    let mut startup = recovery::Recovery::begin(&mut guard, grant, TITLE).unwrap();
-    let recovery::RecoveryStep::History { real, pending, .. } = startup.step().unwrap() else {
+    let mut guard = save_adapter::SaveGuard::new(grant);
+    let mut startup = save_recovery::Recovery::begin(&mut guard, grant, TITLE).unwrap();
+    let save_recovery::RecoveryStep::History { real, pending, .. } = startup.step().unwrap() else {
         panic!("history required")
     };
-    let error = history::archive_pending(grant, TITLE, STAMP, &real, &pending)
+    let error = save_history::archive_pending(grant, TITLE, STAMP, &real, &pending)
         .err()
         .unwrap();
     assert_eq!(error, -2);
@@ -162,10 +162,10 @@ fn blocked_newer_pending_survives_history_failure_and_retries_from_its_actual_pa
     let root = tempfile::tempdir().unwrap();
     save_layout(root.path(), b"old", Some(b"new"), true);
     let (grant, h) = connect(root.path(), 1024 * 1024, false, false);
-    let mut guard = adapter::SaveGuard::new(grant);
+    let mut guard = save_adapter::SaveGuard::new(grant);
     h.fail_real.store(1, Ordering::SeqCst);
-    let mut startup = recovery::Recovery::begin(&mut guard, grant, TITLE).unwrap();
-    let recovery::RecoveryStep::History { newer, error, .. } = startup.step().unwrap() else {
+    let mut startup = save_recovery::Recovery::begin(&mut guard, grant, TITLE).unwrap();
+    let save_recovery::RecoveryStep::History { newer, error, .. } = startup.step().unwrap() else {
         panic!("history requested")
     };
     assert!(newer);
@@ -194,17 +194,17 @@ fn lookup_errors_keep_the_same_recovery_candidate_and_require_a_matching_snapsho
     let root = tempfile::tempdir().unwrap();
     save_layout(root.path(), b"current", Some(b"older"), false);
     let (grant, h) = connect(root.path(), 1024 * 1024, false, false);
-    let mut guard = adapter::SaveGuard::new(grant);
-    let mut startup = recovery::Recovery::begin(&mut guard, grant, TITLE).unwrap();
+    let mut guard = save_adapter::SaveGuard::new(grant);
+    let mut startup = save_recovery::Recovery::begin(&mut guard, grant, TITLE).unwrap();
     h.fail_probe.store(1, Ordering::SeqCst);
     assert!(matches!(startup.step(), Err(-3)));
-    let recovery::RecoveryStep::History { real, pending, .. } = startup.step().unwrap() else {
+    let save_recovery::RecoveryStep::History { real, pending, .. } = startup.step().unwrap() else {
         panic!("same candidate must remain")
     };
-    let unrelated = history::archive_before_replace(grant, TITLE, STAMP).unwrap();
+    let unrelated = save_history::archive_before_replace(grant, TITLE, STAMP).unwrap().unwrap();
     assert_eq!(startup.history_done(&unrelated), Err(-4));
     assert!(root.path().join(&pending).exists());
-    let proof = history::archive_pending(grant, TITLE, STAMP, &real, &pending).unwrap();
+    let proof = save_history::archive_pending(grant, TITLE, STAMP, &real, &pending).unwrap();
     assert!(proof.archive_root().ends_with("-2"));
     startup.history_done(&proof).unwrap();
     assert_eq!(until_recovered(&mut startup).archived, 1);
@@ -218,16 +218,16 @@ fn incomplete_history_has_no_completion_marker_and_existing_exports_are_never_ov
     std::fs::create_dir_all(partial.join("UDATA/12345678")).unwrap();
     std::fs::write(partial.join("UDATA/12345678/profile"), b"partial").unwrap();
     let (grant, _h) = connect(root.path(), 1024 * 1024, false, false);
-    assert!(!history::archive_complete(grant, &format!("save-history/{STAMP}"), TITLE).unwrap());
-    let proof = history::archive_before_replace(grant, TITLE, STAMP).unwrap();
+    assert!(!save_history::archive_complete(grant, &format!("save-history/{STAMP}"), TITLE).unwrap());
+    let proof = save_history::archive_before_replace(grant, TITLE, STAMP).unwrap().unwrap();
     assert!(proof.archive_root().ends_with("-2"));
-    assert!(history::archive_complete(grant, proof.archive_root(), TITLE).unwrap());
+    assert!(save_history::archive_complete(grant, proof.archive_root(), TITLE).unwrap());
     assert_eq!(
         std::fs::read(partial.join("UDATA/12345678/profile")).unwrap(),
         b"partial"
     );
-    assert!(history::archive_before_replace(grant, "../oops", STAMP).is_err());
-    assert!(history::archive_before_replace(grant, TITLE, "../bad").is_err());
+    assert!(save_history::archive_before_replace(grant, "../oops", STAMP).is_err());
+    assert!(save_history::archive_before_replace(grant, TITLE, "../bad").is_err());
 }
 
 #[test]
@@ -235,17 +235,17 @@ fn recovery_rejects_wrong_grants_and_any_active_title_handles_before_mutation() 
     let root = tempfile::tempdir().unwrap();
     save_layout(root.path(), b"current", Some(b"older"), false);
     let (grant, _h) = connect(root.path(), 1024 * 1024, false, false);
-    let mut guard = adapter::SaveGuard::new(grant);
+    let mut guard = save_adapter::SaveGuard::new(grant);
     assert!(matches!(
-        recovery::Recovery::begin(&mut guard, grant + 1, TITLE),
+        save_recovery::Recovery::begin(&mut guard, grant + 1, TITLE),
         Err(-4)
     ));
     let handle = guard.open_write("UDATA/12345678/profile").unwrap();
     assert!(matches!(
-        recovery::Recovery::begin(&mut guard, grant, TITLE),
+        save_recovery::Recovery::begin(&mut guard, grant, TITLE),
         Err(-2)
     ));
-    guard.close(handle).unwrap();
+    guard.save_guard_close(handle).unwrap();
     assert!(root.path().join("UDATA/12345678/profile.~pend").exists());
 }
 
@@ -254,13 +254,13 @@ fn an_archive_changed_after_creation_cannot_authorize_discarding_pending_data() 
     let root = tempfile::tempdir().unwrap();
     save_layout(root.path(), b"current", Some(b"older"), false);
     let (grant, _h) = connect(root.path(), 1024 * 1024, false, false);
-    let mut guard = adapter::SaveGuard::new(grant);
-    let mut startup = recovery::Recovery::begin(&mut guard, grant, TITLE).unwrap();
-    let recovery::RecoveryStep::History { real, pending, .. } = startup.step().unwrap() else {
+    let mut guard = save_adapter::SaveGuard::new(grant);
+    let mut startup = save_recovery::Recovery::begin(&mut guard, grant, TITLE).unwrap();
+    let save_recovery::RecoveryStep::History { real, pending, .. } = startup.step().unwrap() else {
         panic!("history required")
     };
-    let proof = history::archive_pending(grant, TITLE, STAMP, &real, &pending).unwrap();
-    let target = history::history_child(proof.archive_root(), &real).unwrap();
+    let proof = save_history::archive_pending(grant, TITLE, STAMP, &real, &pending).unwrap();
+    let target = save_history::history_child(proof.archive_root(), &real).unwrap();
     let handle = gamepkg::file_open(grant, true, &target).unwrap();
     gamepkg::file_write(handle, 0, b"break").unwrap();
     gamepkg::file_close(handle).unwrap();

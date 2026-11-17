@@ -1,18 +1,18 @@
 #[path = "paths.rs"]
-mod paths;
+mod save_paths;
 // Maintainer transition tests. No test attributes/macros enter game source.
 #[path = "state.rs"]
-mod state;
-use state::{Completion, Guard, Work};
+mod save_state;
+use save_state::{Completion, Guard, Work};
 
 fn open(guard: &mut Guard, real: &str, value: u64) {
     let plan = guard.prepare_write(real).unwrap();
-    guard.opened(&plan.ticket, Some(value)).unwrap();
+    guard.save_handle_opened(&plan.ticket, Some(value)).unwrap();
 }
 fn queue(guard: &mut Guard, real: &str, value: u64) {
     open(guard, real, value);
     guard.wrote(value, 9).unwrap();
-    guard.closed(value, Some(value + 1)).unwrap();
+    guard.save_handle_closed(value, Some(value + 1)).unwrap();
 }
 fn work(guard: &mut Guard) -> Work {
     guard.next_work().unwrap().unwrap()
@@ -24,7 +24,7 @@ fn published(guard: &mut Guard, job: Work) {
 }
 fn failed(guard: &mut Guard, job: Work) {
     let preserved = if job.retry {
-        job.shadow
+        job.save_shadow_path
     } else {
         format!("{}.~pend", job.real)
     };
@@ -53,10 +53,10 @@ fn shared_shadow_last_close_queue_and_commit_preserve_the_original_transition_or
     let first = guard.prepare_write("UDATA/profile").unwrap();
     assert_eq!(guard.opened_write_path("UDATA/profile"), Err(-2));
     assert_eq!(first.seed.as_deref(), Some("UDATA/profile"));
-    assert_eq!(first.shadow, "UDATA/profile.~new");
+    assert_eq!(first.save_shadow_path, "UDATA/profile.~new");
     assert!(!first.preserve_shadow);
     assert_eq!(guard.busy(), 1);
-    guard.opened(&first.ticket, Some(10)).unwrap();
+    guard.save_handle_opened(&first.ticket, Some(10)).unwrap();
     assert_eq!(
         guard.opened_write_path("UDATA/profile").unwrap().as_deref(),
         Some("UDATA/profile.~new")
@@ -64,14 +64,14 @@ fn shared_shadow_last_close_queue_and_commit_preserve_the_original_transition_or
     assert_eq!(guard.busy(), 0);
     let second = guard.prepare_write("UDATA/profile").unwrap();
     assert!(second.seed.is_none());
-    guard.opened(&second.ticket, Some(11)).unwrap();
+    guard.save_handle_opened(&second.ticket, Some(11)).unwrap();
     guard.wrote(10, 123).unwrap();
     guard.wrote(11, 4).unwrap();
     assert_eq!(guard.last_handle(10), Ok(false));
     assert_eq!(guard.read_path("UDATA/profile").unwrap(), "UDATA/profile");
-    guard.closed(10, None).unwrap();
+    guard.save_handle_closed(10, None).unwrap();
     assert_eq!(guard.last_handle(11), Ok(true));
-    guard.closed(11, Some(12)).unwrap();
+    guard.save_handle_closed(11, Some(12)).unwrap();
     assert_eq!(guard.read_path("UDATA/profile"), Err(-2));
     assert_eq!(guard.opened_write_path("UDATA/profile"), Err(-2));
     assert!(matches!(guard.prepare_write("UDATA/profile"), Err(-2)));
@@ -91,22 +91,22 @@ fn failed_opens_stale_tickets_and_pending_reservations_never_discard_dirty_data(
     let mut guard = Guard::new();
     let old = guard.prepare_write("save").unwrap();
     assert_eq!(
-        guard.opened(&old.ticket, None).unwrap().obsolete.as_deref(),
+        guard.save_handle_opened(&old.ticket, None).unwrap().obsolete.as_deref(),
         Some("save.~new")
     );
     let first = guard.prepare_write("save").unwrap();
-    assert!(matches!(guard.opened(&old.ticket, Some(10)), Err(-4)));
-    assert!(matches!(guard.opened(&first.ticket, Some(0)), Err(-1)));
-    guard.opened(&first.ticket, Some(10)).unwrap();
-    assert!(matches!(guard.opened(&first.ticket, Some(11)), Err(-4)));
+    assert!(matches!(guard.save_handle_opened(&old.ticket, Some(10)), Err(-4)));
+    assert!(matches!(guard.save_handle_opened(&first.ticket, Some(0)), Err(-1)));
+    guard.save_handle_opened(&first.ticket, Some(10)).unwrap();
+    assert!(matches!(guard.save_handle_opened(&first.ticket, Some(11)), Err(-4)));
     guard.wrote(10, 1).unwrap();
     let reservation = guard.prepare_write("save").unwrap();
     assert_eq!(guard.last_handle(10), Err(-2));
-    assert_eq!(guard.closed(10, None), Err(-2));
-    guard.opened(&reservation.ticket, None).unwrap();
+    assert_eq!(guard.save_handle_closed(10, None), Err(-2));
+    guard.save_handle_opened(&reservation.ticket, None).unwrap();
     assert_eq!(guard.last_handle(10), Ok(true));
-    assert_eq!(guard.closed(10, None), Err(-1));
-    guard.closed(10, Some(12)).unwrap();
+    assert_eq!(guard.save_handle_closed(10, None), Err(-1));
+    guard.save_handle_closed(10, Some(12)).unwrap();
     let job = work(&mut guard);
     assert_eq!(job.flush, Some(12));
     published(&mut guard, job);
@@ -120,9 +120,9 @@ fn four_handles_and_sixteen_recoverable_paths_apply_backpressure_before_writing(
     }
     assert!(matches!(guard.prepare_write("save"), Err(-2)));
     for value in 1..=3 {
-        guard.closed(value, None).unwrap();
+        guard.save_handle_closed(value, None).unwrap();
     }
-    guard.closed(4, Some(5)).unwrap();
+    guard.save_handle_closed(4, Some(5)).unwrap();
     let job = work(&mut guard);
     failed(&mut guard, job);
     for index in 1..16 {
@@ -132,7 +132,7 @@ fn four_handles_and_sixteen_recoverable_paths_apply_backpressure_before_writing(
     // Reopening an existing pending path does not reserve a seventeenth path.
     let plan = guard.prepare_write("save").unwrap();
     assert_eq!(plan.seed.as_deref(), Some("save.~pend"));
-    guard.opened(&plan.ticket, None).unwrap();
+    guard.save_handle_opened(&plan.ticket, None).unwrap();
     assert_eq!(guard.pending_count(), 1);
 }
 
@@ -147,9 +147,9 @@ fn failed_replacement_redirects_reads_and_seeds_the_next_partial_write() {
     assert!(guard.problem().is_none());
     let next = guard.prepare_write("save").unwrap();
     assert_eq!(next.seed.as_deref(), Some("save.~pend"));
-    guard.opened(&next.ticket, Some(20)).unwrap();
+    guard.save_handle_opened(&next.ticket, Some(20)).unwrap();
     guard.wrote(20, 1).unwrap();
-    guard.closed(20, Some(21)).unwrap();
+    guard.save_handle_closed(20, Some(21)).unwrap();
     let job = work(&mut guard);
     assert!(!job.retry);
     let cleanup = guard
@@ -170,7 +170,7 @@ fn four_attempt_problem_threshold_close_trigger_and_final_exit_retry_match_origi
         trigger(&mut guard, 100 + attempt * 10);
         let retry = work(&mut guard);
         assert!(retry.retry);
-        assert_eq!(retry.shadow, "save.~pend");
+        assert_eq!(retry.save_shadow_path, "save.~pend");
         failed(&mut guard, retry);
         assert_eq!(guard.problem().is_some(), attempt == 4);
         assert!(guard.next_work().unwrap().is_none());
@@ -298,7 +298,7 @@ fn delete_and_prepublication_io_failure_remain_busy_until_worker_finishes() {
     let mut guard = Guard::new();
     open(&mut guard, "save", 10);
     guard.delete_on_close(10).unwrap();
-    guard.closed(10, Some(11)).unwrap();
+    guard.save_handle_closed(10, Some(11)).unwrap();
     let job = work(&mut guard);
     assert!(job.deleted);
     assert!(matches!(
@@ -334,12 +334,12 @@ fn pending_shadow_is_not_removed_on_failed_reopen_or_retried_while_being_written
     let plan = guard.prepare_write("save").unwrap();
     assert!(plan.preserve_shadow);
     assert_eq!(plan.seed.as_deref(), Some("save.~new"));
-    assert!(guard.opened(&plan.ticket, None).unwrap().obsolete.is_none());
+    assert!(guard.save_handle_opened(&plan.ticket, None).unwrap().obsolete.is_none());
     assert_eq!(guard.read_path("save").unwrap(), "save.~new");
     open(&mut guard, "save", 20);
     guard.exit_retry();
     assert!(guard.next_work().unwrap().is_none());
-    guard.closed(20, Some(21)).unwrap();
+    guard.save_handle_closed(20, Some(21)).unwrap();
     let job = work(&mut guard);
     assert!(!job.retry);
     published(&mut guard, job);
@@ -364,17 +364,17 @@ fn handle_aliases_recovery_during_play_and_reserved_paths_are_rejected() {
     ] {
         assert!(matches!(guard.prepare_write(path), Err(-1)), "{path:?}");
     }
-    assert!(state::hidden("dir/save.~new"));
-    assert!(!state::hidden(".~new"));
+    assert!(save_state::hidden("dir/save.~new"));
+    assert!(!save_state::hidden(".~new"));
     open(&mut guard, "first", 10);
     let second = guard.prepare_write("second").unwrap();
-    assert!(matches!(guard.opened(&second.ticket, Some(10)), Err(-1)));
-    guard.opened(&second.ticket, Some(20)).unwrap();
-    assert_eq!(guard.closed(20, Some(10)), Err(-1));
-    guard.closed(20, Some(21)).unwrap();
-    assert_eq!(guard.closed(10, Some(21)), Err(-1));
+    assert!(matches!(guard.save_handle_opened(&second.ticket, Some(10)), Err(-1)));
+    guard.save_handle_opened(&second.ticket, Some(20)).unwrap();
+    assert_eq!(guard.save_handle_closed(20, Some(10)), Err(-1));
+    guard.save_handle_closed(20, Some(21)).unwrap();
+    assert_eq!(guard.save_handle_closed(10, Some(21)), Err(-1));
     assert_eq!(guard.recovered_pending("save", "save.~pend", -3), Err(-2));
-    guard.closed(10, Some(11)).unwrap();
+    guard.save_handle_closed(10, Some(11)).unwrap();
 }
 
 #[test]
@@ -423,7 +423,7 @@ fn missing_shadow_does_not_discard_an_older_complete_pending_save() {
     guard.recovered_pending("save", "save.~pend", -3).unwrap();
     open(&mut guard, "save", 10);
     assert!(guard.owns_handle(10));
-    guard.closed(10, Some(11)).unwrap();
+    guard.save_handle_closed(10, Some(11)).unwrap();
     assert!(!guard.owns_handle(10));
     let job = work(&mut guard);
     guard.complete(job.token, Completion::Abandoned {}).unwrap();

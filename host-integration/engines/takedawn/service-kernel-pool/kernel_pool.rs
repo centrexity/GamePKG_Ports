@@ -194,20 +194,21 @@ pub fn kernel_ordinal(ram: &memory::Memory, slot: u32) -> Result<u32, i32> {
     )?;
     Ok(ordinal)
 }
-pub fn kernel_scoped_file_supported(ordinal: u32, private_directories: bool) -> bool {
+pub fn kernel_scoped_file_supported(ordinal: u32, file_profile: u32) -> bool {
     ordinal == 187
         || ordinal == 190
         || ordinal == 202
         || ordinal == 219
         || ordinal == 233
         || ordinal == 234
-        || (private_directories && ordinal == 218)
+        || (file_profile >= 2 && ordinal == 218)
+        || (file_profile == 3 && (ordinal == 211 || ordinal == 236))
 }
 pub fn kernel_file_ordinal(
     ram: &memory::Memory,
     context: u64,
     marker: u32,
-    private_directories: bool,
+    file_profile: u32,
 ) -> Result<u32, i32> {
     let slot_bytes = marker.checked_sub(0xfe000000).ok_or(-5)?;
     if slot_bytes & 3 != 0 {
@@ -222,7 +223,7 @@ pub fn kernel_file_ordinal(
         return Err(-5);
     }
     let ordinal = pool_word(&route, start + slot as usize * 4)?;
-    if !kernel_scoped_file_supported(ordinal, private_directories) {
+    if !kernel_scoped_file_supported(ordinal, file_profile) {
         return Err(-5);
     }
     let table = pool_word(&route, 16)?;

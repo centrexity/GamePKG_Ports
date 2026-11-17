@@ -1,14 +1,14 @@
 // Synthetic admitted game fixture: no user media and no physical audio output.
-mod adapter;
-mod files;
-mod history;
-mod paths;
-mod recovery;
-mod state;
-mod worker;
+mod save_adapter;
+mod save_files;
+mod save_history;
+mod save_paths;
+mod save_recovery;
+mod save_state;
+mod save_worker;
 mod worker_fixture;
-pub fn save_worker(argument: u64) -> u64 {
-    worker::run(argument)
+pub fn save_worker_entry(argument: u64) -> u64 {
+    save_worker::run(argument)
 }
 
 fn checkpoint(point: i16) {
@@ -56,16 +56,16 @@ pub fn game_main() {
         }
         return;
     }
-    let mut guard = adapter::SaveGuard::new(save);
+    let mut guard = save_adapter::SaveGuard::new(save);
     if byte[0] == 0 {
-        let mut startup = match recovery::Recovery::begin(&mut guard, save, "12345678") {
+        let mut startup = match save_recovery::Recovery::begin(&mut guard, save, "12345678") {
             Ok(data) => data,
             Err(_) => return,
         };
         loop {
             match startup.step() {
-                Ok(recovery::RecoveryStep::Progress {}) => {}
-                Ok(recovery::RecoveryStep::Done { .. }) => {
+                Ok(save_recovery::RecoveryStep::Progress {}) => {}
+                Ok(save_recovery::RecoveryStep::Done { .. }) => {
                     let _ = gamepkg::audio(&[100i16], 1);
                     return;
                 }
@@ -86,7 +86,7 @@ pub fn game_main() {
     if byte[0] == 2 {
         checkpoint(2);
     }
-    if guard.close(handle) != Ok(()) {
+    if guard.save_guard_close(handle) != Ok(()) {
         return;
     }
     if byte[0] == 3 {
@@ -100,17 +100,17 @@ pub fn game_main() {
         _ => return,
     };
     match job.step() {
-        Ok(adapter::Step::History { .. }) => {
+        Ok(save_adapter::Step::History { .. }) => {
             if byte[0] == 4 {
                 checkpoint(4);
             }
         }
-        Ok(adapter::Step::Complete { finished }) => {
+        Ok(save_adapter::Step::Complete { finished }) => {
             let cleanup = match guard.finish(finished) {
                 Ok(data) => data,
                 Err(_) => return,
             };
-            if adapter::clean_obsolete(save, cleanup) != Ok(()) {
+            if save_adapter::clean_obsolete(save, cleanup) != Ok(()) {
                 return;
             }
             if byte[0] == 5 {
