@@ -33,6 +33,7 @@ fn main() {
     let mut startup_copy = None;
     let mut tick_copy = None;
     let mut tick_startup_copy = None;
+    let mut timer_launch_copy = None;
     let mut linux64_only = false;
     while args[cases_start].to_str().unwrap().starts_with("--") {
         match args[cases_start].to_str().unwrap() {
@@ -50,6 +51,10 @@ fn main() {
             }
             "--tick-startup-copy" => {
                 tick_startup_copy = Some(Path::new(&args[cases_start + 1]));
+                cases_start += 2;
+            }
+            "--timer-launch-copy" => {
+                timer_launch_copy = Some(Path::new(&args[cases_start + 1]));
                 cases_start += 2;
             }
             "--linux64-only" => {
@@ -133,6 +138,71 @@ fn main() {
             "tick_probe.rs",
             here.join("../service-kernel-context/tick_probe.rs"),
         ),
+        (
+            "wait_service.rs",
+            here.join("../service-kernel-wait/wait.rs"),
+        ),
+        ("gate.rs", here.join("../service-kernel-gate/gate.rs")),
+        ("irql.rs", here.join("../service-kernel-irql/state.rs")),
+        ("queue.rs", here.join("../service-kernel-dpc/queue.rs")),
+        (
+            "callback.rs",
+            here.join("../service-kernel-dpc/callback.rs"),
+        ),
+        ("drain.rs", here.join("../service-kernel-dpc/drain.rs")),
+        ("dpc_clock.rs", here.join("../service-kernel-dpc/clock.rs")),
+        ("stacks.rs", here.join("../service-worker-stacks/stacks.rs")),
+        ("shadow.rs", here.join("../service-kernel-shadow/shadow.rs")),
+        ("events.rs", here.join("../service-kernel-shadow/events.rs")),
+        ("timers.rs", here.join("../service-kernel-timers/timers.rs")),
+        ("firing.rs", here.join("../service-kernel-timers/firing.rs")),
+        (
+            "timer_clock.rs",
+            here.join("../service-kernel-timers/clock.rs"),
+        ),
+        (
+            "production_clock.rs",
+            here.join("../service-kernel-timers/clock.rs"),
+        ),
+        (
+            "thread_tib.rs",
+            here.join("../service-thread-tib/thread_tib.rs"),
+        ),
+        (
+            "worker_setup.rs",
+            here.join("../service-timer-worker/worker.rs"),
+        ),
+        (
+            "dispatching.rs",
+            here.join("../service-timer-worker/dispatch.rs"),
+        ),
+        (
+            "dpc_observer.rs",
+            here.join("../service-timer-worker/dispatch-tests/observer.rs"),
+        ),
+        (
+            "irq_hooks.rs",
+            here.join("../service-timer-worker/dispatch-tests/hooks.rs"),
+        ),
+        (
+            "dpc_routes.rs",
+            here.join("../service-timer-worker/dispatch-tests/routes.rs"),
+        ),
+        ("pacing.rs", here.join("../service-kernel-pacing/pacing.rs")),
+        (
+            "schedule.rs",
+            here.join("../service-kernel-pacing/shared.rs"),
+        ),
+        (
+            "timer_startup.rs",
+            timer_launch_copy
+                .map(Path::to_path_buf)
+                .unwrap_or_else(|| here.join("../service-kernel-context/timer_startup.rs")),
+        ),
+        (
+            "timer_probe.rs",
+            here.join("../service-kernel-context/timer_probe.rs"),
+        ),
         ("disc.rs", here.join("../service-disc/disc.rs")),
         ("sha256.rs", here.join("../service-image/sha256.rs")),
         ("xbe.rs", here.join("../service-image/image.rs")),
@@ -171,10 +241,12 @@ fn main() {
         fs::write(path, data).unwrap();
     }
     fs::write(source.join("source/src/lib.rs"),r#"
-mod layout;mod memory;mod registers;mod call_state;mod calls_runtime;mod vector;mod scalar;mod debug;mod heap;mod contiguous;mod heap_service;mod kernel_pool;mod kernel_data;mod signature;mod imports;mod cases;mod probe;mod controls;mod game;mod dispatch;mod targets;mod disc;mod sha256;mod xbe;mod bootstrap;mod image_imports;mod image_probe;mod kernel_startup;mod startup_probe;mod tick_service;mod tick_startup;mod tick_probe;
+mod layout;mod memory;mod registers;mod call_state;mod calls_runtime;mod vector;mod scalar;mod debug;mod heap;mod contiguous;mod heap_service;mod kernel_pool;mod kernel_data;mod signature;mod imports;mod cases;mod probe;mod controls;mod game;mod dispatch;mod targets;mod disc;mod sha256;mod xbe;mod bootstrap;mod image_imports;mod image_probe;mod kernel_startup;mod startup_probe;mod tick_service;mod tick_startup;mod tick_probe;mod wait_service;mod gate;mod irql;mod queue;mod callback;mod drain;mod dpc_clock;mod stacks;mod shadow;mod events;mod timers;mod firing;mod timer_clock;mod production_clock;mod thread_tib;mod worker_setup;mod dispatching;mod dpc_observer;mod irq_hooks;mod dpc_routes;mod pacing;mod schedule;mod timer_startup;mod timer_probe;
 pub fn heap_worker(arg:u64)->u64{heap_service::heap_serve(arg)}
 pub fn startup_worker(arg:u64)->u64{startup_probe::startup_worker(arg)}
 pub fn tick_worker(arg:u64)->u64{tick_service::tick_worker(arg)}
+pub fn timer_worker(arg:u64)->u64{timer_probe::timer_worker(arg)}
+pub fn timer_holder(arg:u64)->u64{timer_probe::timer_holder(arg)}
 pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,Err(code)=>code as i64 as u64};let _=gamepkg::diagnostic(1,0x544b0fff,&[code]);}
 "#).unwrap();
     let mut manifest =
@@ -255,6 +327,8 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                 "heap_worker".into(),
                 "startup_worker".into(),
                 "tick_worker".into(),
+                "timer_worker".into(),
+                "timer_holder".into(),
             ],
             LocalLayout::TakedawnMemory,
             true,
@@ -286,7 +360,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
         }
         for pair in args[cases_start..].chunks_exact(2) {
             let mode = pair[0].to_str().unwrap().parse::<u8>().unwrap();
-            assert!(mode <= 31);
+            assert!(mode <= 41);
             let selected = fs::File::open(&pair[1]).unwrap();
             let mut indexed =
                 gamepkg::xbox_disc::Disc::from_file(selected.try_clone().unwrap()).unwrap();
@@ -395,10 +469,11 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                 );
             }
             for event in &events {
-                assert!(
-                    [0x544b0f00, 0x544b0f10, 0x544b0fff, 0x544b1300, 0x544b3200, 0x544b1710]
-                        .contains(&event.code)
-                );
+                assert!([
+                    0x544b0f00, 0x544b0f10, 0x544b0fff, 0x544b1300, 0x544b3200, 0x544b1710,
+                    0x544b1800, 0x544b1801
+                ]
+                .contains(&event.code));
                 if event.code == 0x544b1300 {
                     assert!(mode == 8 || mode == 10);
                     assert!(event.values == vec![8, 4] || event.values == vec![9, 4]);

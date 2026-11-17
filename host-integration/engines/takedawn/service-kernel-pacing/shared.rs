@@ -109,6 +109,28 @@ impl Schedule {
         let state = pacing::Pacing::pacing_decode(&bytes[40..])?;
         Ok((version, bytes, state))
     }
+    pub fn schedule_start_ready(&self, ram: &memory::Memory) -> Result<(), i32> {
+        self.schedule_creator(ram)?;
+        let (_, bytes, _) = self.schedule_snapshot(ram)?;
+        if self.assigned != 0 || schedule_u64(&bytes, 32)? != 0 {
+            return Err(-1);
+        }
+        Ok(())
+    }
+    // Copied assignment observation, not a lease or a consuming join.
+    pub fn schedule_worker(&self, ram: &memory::Memory) -> Result<u64, i32> {
+        let (_, bytes, _) = self.schedule_snapshot(ram)?;
+        Ok(schedule_u64(&bytes, 24)?)
+    }
+    // Cleanup-only owner observation. True join state is only set by an actual
+    // consuming SDK join or its private typed proof, never finished snapshots.
+    pub fn schedule_joined_task(&self, ram: &memory::Memory) -> Result<u64, i32> {
+        self.schedule_creator(ram)?;
+        if self.assigned == 0 || !self.joined {
+            return Err(-2);
+        }
+        Ok(self.assigned)
+    }
     // Publish the actual reviewed task ID before resuming its suspended entry.
     pub fn schedule_assign(&mut self, ram: &memory::Memory, task: u64) -> Result<(), i32> {
         self.schedule_creator(ram)?;

@@ -57,7 +57,7 @@ pub fn image_import_run() -> Result<(), i32> {
         None,
     )?;
     if mode[0] >= 12 {
-        startup_probe::startup_image(&mut ram, &image, &data, mode[0])?;
+        startup_probe::startup_image(&mut ram, &image, &data, mode[0], shape)?;
         probe::imports_cleanup(&mut ram, job)?;
         return Ok(());
     }

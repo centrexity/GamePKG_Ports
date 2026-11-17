@@ -201,6 +201,19 @@ impl Timers {
         }
         Ok(())
     }
+    pub fn timers_start_ready(
+        &self,
+        ram: &memory::Memory,
+        pending: &queue::Queue,
+    ) -> Result<(), i32> {
+        self.timers_creator(ram)?;
+        pending.queue_start_ready(ram)?;
+        let (_, bytes) = self.timers_snapshot(ram)?;
+        if self.queue != pending.queue_id() || self.worker != 0 || timer_word(&bytes, 48)? != 0 {
+            return Err(-1);
+        }
+        Ok(())
+    }
     // Publish the same actual suspended worker already assigned to the DPC queue.
     pub fn timers_start(
         &mut self,

@@ -239,6 +239,15 @@ impl Queue {
         }
         Ok(())
     }
+    // Coordinator preflight only: does not reserve a slot or publish a worker.
+    pub fn queue_start_ready(&self, ram: &memory::Memory) -> Result<(), i32> {
+        self.queue_creator(ram)?;
+        let (_, bytes) = self.queue_snapshot(ram)?;
+        if self.worker != 0 || queue_u64(&bytes, 40)? != 0 {
+            return Err(-1);
+        }
+        Ok(())
+    }
     pub fn queue_assign(&mut self, ram: &memory::Memory, task: u64) -> Result<(), i32> {
         self.queue_creator(ram)?;
         if task == 0 || self.worker != 0 || gamepkg::local_task_finished(task)? {

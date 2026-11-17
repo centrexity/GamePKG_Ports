@@ -8,6 +8,7 @@ use crate::layout;
 use crate::memory;
 use crate::registers;
 use crate::tick_probe;
+use crate::timer_probe;
 use crate::xbe;
 fn startup_need(ok: bool) -> Result<(), i32> {
     if ok {
@@ -151,8 +152,14 @@ pub fn startup_image(
     image: &xbe::Image,
     data: &kernel_data::Data,
     mode: u8,
+    shape: [u32; 14],
 ) -> Result<(), i32> {
     let mut owner = kernel_startup::Startup::startup_new(ram)?;
+    let mut idle_startup = if mode >= 32 {
+        Some(kernel_startup::Startup::startup_new(ram)?)
+    } else {
+        None
+    };
     startup_need(
         owner.startup_phase() == 0 && !owner.startup_closed() && owner.startup_ids(ram) == Err(-4),
     )?;
@@ -275,6 +282,16 @@ pub fn startup_image(
             && owner.startup_prepare(ram, image, data, &[], 0x10000, 2) == Err(-1)
             && owner.startup_ids(ram)? == ids,
     )?;
+    if mode >= 32 {
+        return timer_probe::startup_timer_case(
+            &mut owner,
+            idle_startup.as_mut().ok_or(-3)?,
+            ram,
+            data,
+            mode,
+            shape,
+        );
+    }
     if mode >= 24 {
         return tick_probe::startup_clock_case(&mut owner, ram, data, mode);
     }

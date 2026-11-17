@@ -61,6 +61,21 @@ impl Startup {
         }
         Ok(())
     }
+    // Creator-only cleanup observations. They neither revive a closed owner nor
+    // turn copied IDs into leases; shared consumers must match this exact owner.
+    pub fn startup_lifetime(&self, ram: &memory::Memory) -> Result<[u64; 2], i32> {
+        self.startup_owner(ram)?;
+        let services = if let Some(owner) = self.services.as_ref() {
+            owner.service_handle()
+        } else {
+            0
+        };
+        Ok([services, self.map])
+    }
+    pub fn startup_has_task(&self, ram: &memory::Memory, task: u64) -> Result<bool, i32> {
+        self.startup_owner(ram)?;
+        Ok(self.jobs.contains(&task))
+    }
     pub fn startup_prepare(
         &mut self,
         ram: &mut memory::Memory,

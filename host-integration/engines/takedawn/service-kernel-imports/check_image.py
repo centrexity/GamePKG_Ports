@@ -13,7 +13,7 @@ def main():
   root=Path(temp);probe=root/'admission';cmd=['rustc','--edition=2021','-D','warnings',str(here/'image_admission.rs'),'--extern','gamepkg='+str(lib),'-L','dependency='+str(lib.parent),'-o',str(probe)]
   for name in ['cap_std','tempfile','toml','serde_json']:cmd+=['--extern',name+'='+str(helpers.dependency(lib,name))]
   subprocess.run(cmd,check=True);cases=[]
-  for mode in [0,1,2,3,5,6,7,8,9,10,11,*range(12,23),*range(24,32)]:
+  for mode in [0,1,2,3,5,6,7,8,9,10,11,*range(12,23),*range(24,42)]:
    data=images.image();images.word(data,0x10c,0x770000);images.word(data,0x1b8+8,0x76e000);images.word(data,0x1b8+16,0x1000)
    images.word(data,0x158,0x12400^(0xefb1f152 if mode==1 else 0x5b6d40b6))
    if mode==1:images.word(data,0x128,0x11020^0x94859d4b)
@@ -22,6 +22,9 @@ def main():
    if mode>=11:
     for index,ordinal in enumerate([14,16,23,109,98]):images.word(data,0x1000+index*4,0x80000000|ordinal)
    if mode==13:images.word(data,0x1000+4*4,0x800000b5)
+   if mode>=32 and mode!=40:
+    images.word(data,0x12c,0x12000)
+    for at,value in [(0xc00,0),(0xc04,0),(0xc08,0x12100),(0xc0c,0),(0xc10,144),(0xc14,0)]:images.word(data,at,value)
    images.word(data,0xffc,0x8000000e)
    image=root/(str(mode)+'.iso');discs.fixture(image)
    with image.open('r+b') as f:f.truncate(100*2048);f.seek(40*2048+4);f.write(struct.pack('<II',80,len(data)));f.seek(80*2048);f.write(data)
@@ -88,9 +91,34 @@ def main():
      (a.evidence/(name+'.log')).write_text(result.stdout+result.stderr)
      (a.evidence/(name+'.rs')).write_text(variant.read_text())
     print('PASS required failing '+name+' clock integration control; no policy exemption',flush=True)
+   launch_path=here/'../service-kernel-context/timer_startup.rs';original=launch_path.read_text()
+   launch_variants=[
+    ('ignore-timer-schedule-binding','display_pacing.schedule_worker(ram)? != self.task','display_pacing.schedule_worker(ram)? != display_pacing.schedule_worker(ram)?',36),
+    ('forget-partial-timer-job','', '',37),
+    ('close-timer-before-witness','', '',32),
+    ('accept-wrong-timer-join','joined.task_id() != self.task || self.joined','joined.task_id() != joined.task_id() || self.joined',32),
+    ('ignore-timer-startup-owner','owner.startup_lifetime(ram)? != self.lifetime','owner.startup_lifetime(ram)? != owner.startup_lifetime(ram)?',32),
+    ('leave-unresumed-timer-running','if !self.resumed {','if false {',37),
+   ]
+   for name,old,new,mode in launch_variants:
+    if name=='forget-partial-timer-job':
+     start=original.index('    pub fn launch_prepare(');end=original.index('    // The reviewed caller',start);old=original[start:end]
+     new=old.replace('self.task = owner.startup_spawn','let staged_task = owner.startup_spawn',1).replace('pending.queue_assign(ram, self.task)?','pending.queue_assign(ram, staged_task)?').replace('display_pacing.schedule_assign(ram, self.task)?','display_pacing.schedule_assign(ram, staged_task)?').replace('        Ok(())','        self.task = staged_task;\n        Ok(())',1)
+    elif name=='close-timer-before-witness':
+     start=original.index('        if self.task != 0',original.index('    pub fn launch_close('));end=original.index('        self.closed = true;',start);old=original[start:end];new=''
+    assert original.count(old)==1,(name,old)
+    variant=root/(name+'.rs');variant.write_text(original.replace(old,new,1))
+    result=subprocess.run([*prefix,'--linux64-only','--timer-launch-copy',str(variant),str(mode),str(root/(str(mode)+'.iso'))],capture_output=True,text=True)
+    assert result.returncode!=0,(name,'broken timer launch accepted')
+    assert 'PASS Linux64: complete image/import/helper source admission and all-object audit before trusted linking' in result.stdout,(name,result.stderr)
+    assert 'error:' not in result.stderr and 'BuildError' not in result.stderr,(name,result.stderr)
+    assert 'assertion' in result.stderr or 'panicked at' in result.stderr,(name,result.stderr)
+    if a.evidence:
+     (a.evidence/(name+'.log')).write_text(result.stdout+result.stderr);(a.evidence/(name+'.rs')).write_text(variant.read_text())
+    print('PASS required failing '+name+' retained timer launch control; no policy exemption',flush=True)
   if a.evidence:
    files={str(path.relative_to(a.evidence)):hashlib.sha256(path.read_bytes()).hexdigest() for path in sorted(a.evidence.iterdir())}
-   sources={str(path.relative_to(here.parent)):hashlib.sha256(path.read_bytes()).hexdigest() for path in [here/'check_image.py',here/'image_admission.rs',here/'image_probe.rs',here/'../service-kernel-context/startup.rs',here/'../service-kernel-context/startup_probe.rs',here/'../service-kernel-context/tick_startup.rs',here/'../service-kernel-context/tick_probe.rs',here/'../service-kernel-tick/tick.rs']}
-   (a.evidence/'qualification.json').write_text(json.dumps({'schema':1,'sdk':'fe309935dd602e2cf098e50065f6035de33dac88b51d45a2bc1ba47cf026742f','status':'authenticated-image-startup-with-live-shared-tick-join-lifetimes-not-title-entry','files':files,'sources':sources,'required_failing_variants':11 if a.mutations else 0,'windows':'source/object/link only','linux':'actual confined x64/i686 children','profile_admission':'blocked'},indent=2)+'\n')
+   sources={str(path.relative_to(here.parent)):hashlib.sha256(path.read_bytes()).hexdigest() for path in [here/'check_image.py',here/'image_admission.rs',here/'image_probe.rs',here/'../service-kernel-context/startup.rs',here/'../service-kernel-context/startup_probe.rs',here/'../service-kernel-context/tick_startup.rs',here/'../service-kernel-context/tick_probe.rs',here/'../service-kernel-tick/tick.rs',here/'../service-kernel-context/startup.rs',here/'../service-kernel-context/timer_startup.rs',here/'../service-kernel-context/timer_probe.rs',here/'../service-kernel-dpc/queue.rs',here/'../service-kernel-pacing/shared.rs',here/'../service-kernel-timers/timers.rs']}
+   (a.evidence/'qualification.json').write_text(json.dumps({'schema':1,'sdk':'fe309935dd602e2cf098e50065f6035de33dac88b51d45a2bc1ba47cf026742f','status':'authenticated-image-shared-tick-and-retained-timer-launch-lifetimes-not-title-entry','files':files,'sources':sources,'required_failing_variants':17 if a.mutations else 0,'windows':'source/object/link only','linux':'actual confined x64/i686 children','profile_admission':'blocked'},indent=2)+'\n')
  print('Image/import infrastructure only; private title remains rejected until all actual kernel calls and native entry migrate.')
 if __name__=='__main__':main()

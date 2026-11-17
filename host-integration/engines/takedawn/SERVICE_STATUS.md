@@ -822,3 +822,37 @@ DPC/IRQ/device/profiler/pacing handlers, remaining imports/generated/manual/medi
 renderer code and builders/launchers. The private bound-context main gap stays
 107; no full candidate counts are requalified. SDK/codecs/quotas/public source
 archive/defaults/pinned submodule and both blocked title profiles are unchanged.
+
+## Retained timer job coordinated with authenticated startup
+
+`service-kernel-context/timer_startup.rs::Launch` now preflights creator-owned
+unassigned queue/table/schedule, creates and retains one tracked suspended SDK
+job, publishes each subsystem assignment, and separately revalidates the exact
+full-width bindings before resume. Partial timer-lock startup retains both the
+job and table's private join obligation. One actual join may originate from
+Launch, Queue, Schedule or Startup; exact proof forwarding records successful
+prefixes and refuses substituted owners before mutation. Full APIs and caller
+cleanup obligations: `service-kernel-context/TIMER_STARTUP.md`.
+
+The combined actual-worker fixture uses authenticated image/bootstrap/TLS/data/
+heap/import setup, a simultaneous periodic Tick, retained stack/TIB and real
+ordered DPC/timer dispatch with controlled finite routes/inert IRQ and profiler
+providers. 84 actual confined Linux startup sessions pass (40 synthetic and two
+private ISO checks per architecture), all four target builds pass source and
+both optimized game-object audits, and 17 broken compiled copies fail confined
+Linux64 behavior. Partial setup, all four join consumers, full-u64 substitution,
+wrong Startup identity, callback error, cancellation, absent-TIB denial and
+revoked-KSV cleanup are covered. No production guard was relaxed for fixtures.
+
+Current DPC/timer/pacing/dispatch regressions pass original-C/native/negative
+controls and four-target source/object/link qualification, plus actual confined
+Linux execution. Windows components use Wine; image Windows is build-only.
+Nothing establishes original device/profiler handlers, vblank delivery, physical
+controls, audible audio, graphics fidelity, Windows confinement, gameplay or
+measured frame pacing. The complete original loop and factory still need adoption.
+
+SDK/codecs/quotas/archive/defaults/pinned submodule and blocked profiles remain
+unchanged; source-kit/receipt identities change. The private bound-context main
+gap stays 107, and complete generated-source closure is not requalified by this
+fixture. Full import/source/handler/loop/renderer/media/build/launch/gameplay work
+remains required; no engine/media source or object exemption is introduced.
