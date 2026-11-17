@@ -254,12 +254,20 @@ fn rom_file_wait_actor(argument_record: u64) -> Result<(), i32> {
 }
 
 pub fn run() -> Result<(), i32> {
+    let mut disc_grant = 0;
+    let mut save_grant = 0;
     for grant in gamepkg::grants()? {
         if grant.kind == 3 {
-            return run_handles(grant.id);
+            disc_grant = grant.id;
+        } else if grant.kind == 2 {
+            save_grant = grant.id;
         }
     }
-    Err(-4)
+    if disc_grant == 0 || save_grant == 0 {
+        return Err(-4);
+    }
+    crate::directory_probe::directory_probe_run(save_grant, disc_grant)?;
+    run_handles(disc_grant)
 }
 
 fn call_guest_file(

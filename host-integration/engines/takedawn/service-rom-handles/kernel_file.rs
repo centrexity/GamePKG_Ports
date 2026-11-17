@@ -318,12 +318,12 @@ fn rom_kernel_timeout(ram: &memory::Memory, pointer: u32) -> Result<Option<u32>,
     })
 }
 
-fn rom_kernel_word(raw: &[u8], at: usize) -> Result<u32, i32> {
+pub fn rom_kernel_word(raw: &[u8], at: usize) -> Result<u32, i32> {
     let bytes = raw.get(at..at + 4).ok_or(-1)?;
     Ok(u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
 }
 
-fn rom_kernel_name(ram: &memory::Memory, attributes: u32) -> Result<std::vec::Vec<u8>, i32> {
+pub fn rom_kernel_name(ram: &memory::Memory, attributes: u32) -> Result<std::vec::Vec<u8>, i32> {
     let mut fields = [0u8; 12];
     ram.read_bytes(attributes, &mut fields)?;
     let namespace = rom_kernel_word(&fields, 0)?;

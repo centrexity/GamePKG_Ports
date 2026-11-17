@@ -59,7 +59,7 @@ def main():
     (evidence / "qualification.json").write_text(json.dumps({
         "schema": 1, "native_sdk": sdk, "receipts": receipts,
         "execution": "confined Linux32/64, Windows32/64 source/object/link only",
-        "scope": "synthetic read-only ROM handles, no title entry",
+        "scope": "synthetic read-only ROM handles and private save directory calls, no title entry",
     }, indent=2) + "\n")
 
 

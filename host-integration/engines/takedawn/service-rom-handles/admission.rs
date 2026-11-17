@@ -1,7 +1,7 @@
 // Maintainer-only signed-fixture admission; never injected into game objects.
 use gamepkg::port_host::{
     admission::CheckedSources,
-    owner::{Grants, Owner},
+    owner::{Grants, Owner, SaveGrant},
     preparation::{self, LocalLayout, Plan, Target},
     Backend, Error, Frame, Result, WindowCommand,
 };
@@ -56,6 +56,11 @@ fn main() {
         ("disc", "../service-disc/disc.rs"),
         ("rom_handles", "rom_handles.rs"),
         ("kernel_file", "kernel_file.rs"),
+        (
+            "kernel_directories",
+            "../service-save/kernel_directories.rs",
+        ),
+        ("directory_probe", "../service-save/directory_probe.rs"),
         ("setup", "../service-kernel-mixed-waits/setup.rs"),
     ] {
         fs::copy(
@@ -65,13 +70,14 @@ fn main() {
         .unwrap();
     }
     fs::write(source.join("source/src/lib.rs"),r#"
-mod memory;mod call_state;mod registers;mod heap;mod contiguous;mod heap_service;mod kernel_pool;mod probe;mod setup;mod disc;mod rom_handles;mod kernel_file;
+mod memory;mod call_state;mod registers;mod heap;mod contiguous;mod heap_service;mod kernel_pool;mod probe;mod setup;mod disc;mod rom_handles;mod kernel_file;mod kernel_directories;mod directory_probe;
 pub fn rom_wait_entry(arg:u64)->u64{probe::rom_file_wait_worker(arg)}
 pub fn game_main(){let code=match probe::run(){Ok(())=>0u64,Err(c)=>c as i64 as u64};let _=gamepkg::diagnostic(1,0x544b44ff,&[code]);}
 "#).unwrap();
     let mut manifest =
         gamepkg::manifest::Manifest::parse(&fs::read(source.join("manifest.toml")).unwrap())
             .unwrap();
+    manifest.permissions.save = true;
     manifest.limits.hard_memory_bytes = 384 * 1024 * 1024;
     fs::write(
         source.join("manifest.toml"),
@@ -130,10 +136,13 @@ pub fn game_main(){let code=match probe::run(){Ok(())=>0u64,Err(c)=>c as i64 as 
         if matches!(target, Target::Windows64 | Target::Windows32) {
             continue;
         }
+        let save_root = tempfile::tempdir().unwrap();
+        let private_saves = SaveGrant::open(save_root.path(), checked.manifest(), 65536).unwrap();
         let mut owner = Owner::start(
             &artifact,
             Silent,
             Grants {
+                saves: Some(private_saves),
                 roms: vec![fs::File::open(&args[4]).unwrap()],
                 ..Default::default()
             },
@@ -175,7 +184,15 @@ pub fn game_main(){let code=match probe::run(){Ok(())=>0u64,Err(c)=>c as i64 as 
             owner.diagnostics()
         );
         owner.stop().unwrap();
-        println!("PASS {target:?}: actual confined child, typed ROM opens, independent cursors, busy ownership, revocation and exact cleanup; no window, GPU, title handler or gameplay");
+        let scope = fs::read_dir(save_root.path().join("port-state"))
+            .unwrap()
+            .next()
+            .unwrap()
+            .unwrap()
+            .path();
+        assert!(scope.join("files/UDATA/4541005b").is_dir());
+        assert!(!scope.join("files/quota.seed").exists());
+        println!("PASS {target:?}: actual confined child, typed ROM opens, independent cursors, revocation, typed save directory create/reopen/close and private volume accounting; no window, GPU, title handler or gameplay");
     }
     for profile in ["takedawn", "opence-ce95f7de"] {
         assert!(gamepkg::build_policy::require(Some(profile)).is_err());
