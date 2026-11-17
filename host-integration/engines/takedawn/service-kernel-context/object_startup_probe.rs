@@ -678,7 +678,7 @@ pub fn object_startup_image(
             u64::from(mode),
             expected as i64 as u64,
             if mode == 94 || mode == 95 {
-                24
+                26
             } else if mode == 92 {
                 18
             } else if mode == 90 || mode == 91 {

@@ -561,6 +561,37 @@ impl Memory {
         gamepkg::local_memory_write_segments(&segments, &payload)
     }
 
+    // Publish related outputs together, refusing overlaps in backing storage
+    // even when the guest supplied distinct virtual addresses.
+    pub fn memory_write_disjoint(&mut self, outputs: [(u32, &[u8]); 3]) -> Result<(), i32> {
+        let mut segments: std::vec::Vec<[u64; 3]> = std::vec::Vec::new();
+        let mut payload = std::vec::Vec::new();
+        for (address, bytes) in outputs {
+            if bytes.is_empty() {
+                continue;
+            }
+            if bytes.len().saturating_add(payload.len()) > 1048560 {
+                return Err(-1);
+            }
+            for segment in self.resolve_segments(address, bytes.len() as u64, true)? {
+                for prior in &segments {
+                    if segment[0] == prior[0]
+                        && segment[1] < prior[1] + prior[2]
+                        && prior[1] < segment[1] + segment[2]
+                    {
+                        return Err(-1);
+                    }
+                }
+                segments.push(segment);
+            }
+            payload.extend(bytes);
+        }
+        if segments.is_empty() {
+            return Ok(());
+        }
+        gamepkg::local_memory_write_segments(&segments, &payload)
+    }
+
     pub fn read_u8(&self, address: u32) -> Result<u8, i32> {
         let mut bytes = [0u8; 1];
         self.read_bytes(address, &mut bytes)?;

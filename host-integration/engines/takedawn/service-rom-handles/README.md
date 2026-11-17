@@ -125,8 +125,8 @@ The private image is still checked through the ordinary gate.
 
 ## Scoped DOS drive links
 
-The authenticated regular-save profile supports ordinals 67 and 69. The
-arguments are pointers to Xbox counted ANSI names with little-endian length,
+The authenticated regular-save profile supports IoCreateSymbolicLink (67)
+and IoDeleteSymbolicLink (69). Their arguments are pointers to Xbox counted ANSI names with little-endian length,
 capacity, and buffer address. Create reads both complete names before
 publishing anything. Delete reads the complete alias before changing it.
 Accepted aliases have the form \??\X: for an ASCII letter and are compared
@@ -145,9 +145,26 @@ handles remain valid after deletion. Legacy optical-only and directory-only
 profiles retain their existing path contracts. No native symbolic link,
 new storage capability, or guest-memory rewriting is involved.
 
+NtOpenSymbolicLinkObject (203) accepts a handle output address and scoped
+Xbox object attributes naming a registered DOS alias. It returns a typed
+handle from the same kernel handle table as files, with up to 32 open link
+handles per router. Each open snapshots the exact registered target spelling.
+Deleting or replacing a name does not retarget existing handles. NtClose (187)
+and router teardown release the handles. Other routers and object types
+cannot use them as drive link handles.
+
+NtQuerySymbolicLinkObject (215) accepts a typed link handle, an output counted
+ANSI descriptor, and an optional 32-bit returned-length address. Success
+requires capacity for the target plus a NUL. It writes the target, the
+descriptor Length excluding the NUL, and the optional length in one guest
+memory operation. It preserves the descriptor capacity and buffer address.
+Overlapping output backing ranges are refused. An insufficient buffer
+returns STATUS_BUFFER_TOO_SMALL and supplies the optional required count
+excluding the NUL, matching the pinned bridge's counted-length convention.
+
 The synthetic startup fixture checks malformed descriptors, denied targets,
-case-insensitive collisions and deletion, optical reads after deletion, and
-regular save reopen and metadata through a drive alias. It verifies continued
-rejection of an unmigrated startup profile. Real-media validation prepares the
-import table in place. Original title execution and symbolic-link object
-open/query are outside this checkpoint.
+case-insensitive collisions and deletion, optical reads after deletion,
+regular save reopen and metadata through a drive alias, link handle lifetime,
+and atomic failure on inaccessible or overlapping output. It verifies
+continued rejection of an unmigrated startup profile. Real-media validation
+prepares the import table in place. Original title execution remains gated.

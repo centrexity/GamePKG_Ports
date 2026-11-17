@@ -89,6 +89,21 @@ pub fn rom_startup_calls(
             rom_startup_call(&mut routed, ram, open_marker, stack_va, &optical_open) == Err(-5),
         )?;
         rom_drive_startup(&mut routed, ram, stack_va, create_link, delete_link)?;
+        let open_link = ram.read_u32(image.image_thunk() + 96)?;
+        let query_link = ram.read_u32(image.image_thunk() + 100)?;
+        rom_startup_need([open_link, query_link] == [0xfe000060, 0xfe000064])?;
+        rom_link_query_startup(
+            &mut routed,
+            ram,
+            stack_va,
+            [
+                open_link,
+                query_link,
+                close_marker,
+                create_link,
+                delete_link,
+            ],
+        )?;
     }
 
     let mut rejected = registers::Registers::new();
@@ -447,6 +462,103 @@ fn rom_drive_startup(
         b"\\Device\\Harddisk0\\partition1\\UDATA\\4541005b",
     )?;
     rom_startup_need(rom_startup_call(routed, ram, create_link, stack, &[symbol, target])? == 0)?;
+    Ok(())
+}
+
+fn rom_link_query_startup(
+    routed: &mut startup_file::StartupFiles,
+    ram: &mut memory::Memory,
+    stack: u32,
+    markers: [u32; 5],
+) -> Result<(), i32> {
+    let [open_link, query_link, close_link, create_link, delete_link] = markers;
+    let symbol = stack + 672;
+    let target = stack + 688;
+    let symbol_text = stack + 704;
+    let target_text = stack + 768;
+    let attributes = stack + 832;
+    let output = stack + 848;
+    let descriptor = stack + 864;
+    let payload = stack + 880;
+    let returned = stack + 944;
+
+    save_startup_name(ram, symbol, symbol_text, b"\\??\\w:")?;
+    ram.write_u32(attributes, 0)?;
+    ram.write_u32(attributes + 4, symbol)?;
+    ram.write_u32(attributes + 8, 0x40)?;
+    ram.write_u32(output, 0xcafebabe)?;
+    let open = [output, attributes];
+    rom_startup_need(rom_startup_call(routed, ram, open_link, stack, &open)? == 0xc0000034)?;
+    rom_startup_need(ram.read_u32(output)? == 0xcafebabe)?;
+    let raw_target = b"\\device\\CdRoM0";
+    save_startup_name(ram, target, target_text, raw_target)?;
+    rom_startup_need(rom_startup_call(routed, ram, create_link, stack, &[symbol, target])? == 0)?;
+    rom_startup_need(rom_startup_call(routed, ram, open_link, stack, &[0, attributes]) == Err(-1))?;
+    rom_startup_need(rom_startup_call(routed, ram, open_link, stack, &open)? == 0)?;
+    let original_token = ram.read_u32(output)?;
+    rom_startup_need(original_token != 0)?;
+    rom_startup_need(rom_startup_call(routed, ram, open_link, stack, &open)? == 0)?;
+    let independent_token = ram.read_u32(output)?;
+    rom_startup_need(independent_token != original_token)?;
+
+    rom_startup_need(rom_startup_call(routed, ram, delete_link, stack, &[symbol])? == 0)?;
+    rom_startup_need(rom_startup_call(routed, ram, open_link, stack, &open)? == 0xc0000034)?;
+    save_startup_name(ram, target, target_text, b"\\Device\\Harddisk0\\partition1")?;
+    rom_startup_need(rom_startup_call(routed, ram, create_link, stack, &[symbol, target])? == 0)?;
+
+    ram.write_u16(descriptor, 0x7654)?;
+    ram.write_u16(descriptor + 2, 14)?;
+    ram.write_u32(descriptor + 4, payload)?;
+    ram.write_bytes(payload, b"unchanged")?;
+    let query = [original_token, descriptor, returned];
+    rom_startup_need(rom_startup_call(routed, ram, query_link, stack, &query)? == 0xc0000023)?;
+    rom_startup_need(ram.read_u16(descriptor)? == 0x7654 && ram.read_u32(returned)? == 14)?;
+    rom_startup_need(ram.read_u32(payload)? == 0x68636e75)?;
+
+    ram.write_u16(descriptor + 2, 15)?;
+    rom_startup_need(
+        rom_startup_call(
+            routed,
+            ram,
+            query_link,
+            stack,
+            &[original_token, descriptor, payload],
+        ) == Err(-1),
+    )?;
+    rom_startup_need(
+        rom_startup_call(
+            routed,
+            ram,
+            query_link,
+            stack,
+            &[original_token, descriptor, 0xfffffff0],
+        ) == Err(-4),
+    )?;
+    rom_startup_need(ram.read_u16(descriptor)? == 0x7654 && ram.read_u32(payload)? == 0x68636e75)?;
+    rom_startup_need(rom_startup_call(routed, ram, query_link, stack, &query)? == 0)?;
+    let mut emitted = [0u8; 15];
+    ram.read_bytes(payload, &mut emitted)?;
+    rom_startup_need(
+        &emitted[..14] == raw_target
+            && emitted[14] == 0
+            && ram.read_u16(descriptor)? == 14
+            && ram.read_u16(descriptor + 2)? == 15
+            && ram.read_u32(descriptor + 4)? == payload
+            && ram.read_u32(returned)? == 14,
+    )?;
+    rom_startup_need(rom_startup_call(routed, ram, close_link, stack, &[original_token])? == 0)?;
+    rom_startup_need(rom_startup_call(routed, ram, query_link, stack, &query) == Err(-4))?;
+    rom_startup_need(
+        rom_startup_call(
+            routed,
+            ram,
+            query_link,
+            stack,
+            &[independent_token, descriptor, 0],
+        )? == 0,
+    )?;
+    // Leave both the replacement alias and the independent handle for drain.
+    gamepkg::diagnostic(1, 0x544b4800, &[203, 215, 14, 15])?;
     Ok(())
 }
 

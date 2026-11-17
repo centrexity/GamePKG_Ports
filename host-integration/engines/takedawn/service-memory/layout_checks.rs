@@ -172,6 +172,31 @@ fn layout_protections(
     layout_page(flash, 0, 3, 2)?;
     Ok(())
 }
+fn layout_disjoint_outputs(view: &mut memory::Memory) -> Result<(), i32> {
+    let first = 0x3100;
+    let second = 0x04003104;
+    let third = 0x08003108;
+    view.write_bytes(first, b"abcdefghijkl")?;
+    let mut before = [0; 12];
+    if view.memory_write_disjoint([(first, b"first"), (second, b"2nd"), (third, b"third")])
+        != Err(-1)
+        || view.memory_write_disjoint([(first, b"one"), (second, b"two"), (0xfd000000, b"three")])
+            != Err(-4)
+    {
+        return Err(-3);
+    }
+    view.read_bytes(first, &mut before)?;
+    if &before != b"abcdefghijkl" {
+        return Err(-3);
+    }
+    view.memory_write_disjoint([(first, b"WXYZ"), (second, b"QRST"), (third, b"MNOP")])?;
+    view.read_bytes(first, &mut before)?;
+    if &before != b"WXYZQRSTMNOP" {
+        return Err(-3);
+    }
+    Ok(())
+}
+
 pub fn layout_verify() -> Result<(), i32> {
     let root = memory::Memory::new()?;
     let plan = layout::Layout::layout_current(&root)?;
@@ -200,6 +225,7 @@ pub fn layout_verify() -> Result<(), i32> {
         return Err(-3);
     }
     layout_main_aliases(&mut view)?;
+    layout_disjoint_outputs(&mut view)?;
     layout_secondary(&mut view)?;
     layout_protections(&mut view, banks[0], banks[1], banks[2])?;
     let other = memory::Memory::new()?;

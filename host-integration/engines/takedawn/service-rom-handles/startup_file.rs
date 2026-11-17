@@ -86,8 +86,8 @@ impl<'a, 'b> StartupFiles<'a, 'b> {
         if !cpu.valid() || cpu.esp == 0 {
             return Err(-1);
         }
-        if (ordinal == 67 || ordinal == 69) && self.regular_files.is_some() {
-            return self.drive_links.drive_links_call(ram, cpu, ordinal);
+        if matches_drive_call(ordinal) && self.regular_files.is_some() {
+            return self.drive_links.drive_links_call(ram, table, cpu, ordinal);
         }
         let mut expanded_name = [0u8; 528];
         let resolved_name = if self.regular_files.is_some()
@@ -119,6 +119,9 @@ impl<'a, 'b> StartupFiles<'a, 'b> {
             218 => 1,
             187 | 219 => {
                 let token = ram.read_u32(token_at)?;
+                if ordinal == 187 && self.drive_links.drive_links_own(token) {
+                    return self.drive_links.drive_links_call(ram, table, cpu, ordinal);
+                }
                 if let Some(regular) = self.regular_files.as_ref() {
                     if regular.regular_files_owns(token) {
                         return self
@@ -177,9 +180,12 @@ impl<'a, 'b> StartupFiles<'a, 'b> {
             directories.save_directories_drain(ram, table)?;
         }
         self.rom_adapter.rom_kernel_drain(ram, table)?;
-        self.drive_links = kernel_drive::DriveLinks::drive_links_new();
-        Ok(())
+        self.drive_links.drive_links_drain(ram, table)
     }
+}
+
+fn matches_drive_call(ordinal: u32) -> bool {
+    ordinal == 67 || ordinal == 69 || ordinal == 203 || ordinal == 215
 }
 
 fn startup_open_route(
