@@ -13,7 +13,7 @@ fn mixed_set(id: u64) -> Result<(), i32> {
 }
 pub fn mixed_concurrency() -> Result<(), i32> {
     let mut f = setup::Fixture::mixed_fixture_new()?;
-    for mode in 0..3u64 {
+    for mode in 0..6u64 {
         let event = f.mixed_event(false, 0)?;
         let sem = f.mixed_semaphore(1, 2)?;
         let mut bytes = [0u8; 8];
@@ -55,12 +55,13 @@ pub fn mixed_concurrency() -> Result<(), i32> {
                     .semaphores_remove(&f.ram, &f.table, sem[1] as u32)
                     == Err(-2),
         )?;
+        let action = mode % 3;
         // These typed operations require the same table in another actual task.
         // They prove the worker did not retain its table guard across the host wait.
-        if mode == 0 {
+        if action == 0 {
             f.events
                 .events_set(&f.ram, &f.table, event[1] as u32, true)?;
-        } else if mode == 1 {
+        } else if action == 1 {
             gamepkg::local_call(12, &u64::to_le_bytes(task), &mut [])?;
         } else {
             f.ram.services_link(f.services.service_handle(), 0)?;
@@ -79,9 +80,9 @@ pub fn mixed_concurrency() -> Result<(), i32> {
         }
         setup::mixed_need(
             742,
-            value == Some(if mode == 0 { 0 } else { (-4i64) as u64 }),
+            value == Some(if action == 0 { 0 } else { (-4i64) as u64 }),
         )?;
-        if mode == 2 {
+        if action == 2 {
             f.ram.services_link(0, f.services.service_handle())?;
         }
         setup::mixed_need(
@@ -89,14 +90,14 @@ pub fn mixed_concurrency() -> Result<(), i32> {
             controls::mixed_graph(f.events.events_id())? == [0, 1]
                 && controls::mixed_graph(f.semaphores.semaphores_id())? == [0, 1],
         )?;
-        if mode == 0 {
+        if action == 0 {
             setup::mixed_need(
                 744,
                 !gamepkg::local_event_state(event[0])?.signaled
                     && gamepkg::local_semaphore_state(sem[0])?.count == 0,
             )?;
         }
-        if mode == 1 {
+        if action == 1 {
             setup::mixed_need(
                 745,
                 !gamepkg::local_event_state(event[0])?.signaled
@@ -127,8 +128,28 @@ fn mixed_actor(argument: u64) -> Result<i32, i32> {
             setup::mixed_word(&b, 40)? as u32,
         ],
     )?;
-    mixed_set(setup::mixed_word(&b, 48)?)?;
-    let result = mixed.mixed_wait(&ram, true, 1000);
+    let mode = setup::mixed_word(&b, 56)?;
+    let result = if mode < 3 {
+        mixed_set(setup::mixed_word(&b, 48)?)?;
+        mixed.mixed_wait(&ram, true, 1000)
+    } else {
+        // Notify the owner only after two actual uncommitted slices. All
+        // original leases stay ACTIVE before, between and after these calls.
+        setup::mixed_need(793, mixed.mixed_wait_slice(&ram, true, 0) == Err(-2))?;
+        setup::mixed_need(794, mixed.mixed_wait_slice(&ram, true, 0) == Err(-2))?;
+        mixed_set(setup::mixed_word(&b, 48)?)?;
+        let mut terminal = Err(-2);
+        for _ in 0..1000u32 {
+            terminal = mixed.mixed_wait_slice(&ram, true, 1);
+            if terminal != Err(-2) {
+                break;
+            }
+        }
+        if terminal == Err(-2) {
+            mixed.mixed_wait_timeout(&ram)?;
+        }
+        terminal
+    };
     mixed.mixed_wait_close(&ram)?;
     setup::mixed_need(747, mixed.mixed_wait_closed())?;
     Ok(match result {

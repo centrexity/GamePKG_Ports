@@ -29,7 +29,7 @@ def main():
      if expected is None:expected=data
      else:assert data==expected,triple
     else:
-     for mode in [*range(1,15),*range(20,25),*range(26,31)]:subprocess.run([*prefix,str(mode)],check=True,env=env,timeout=30)
+     for mode in [*range(1,15),*range(20,25),*range(26,31),*range(40,55)]:subprocess.run([*prefix,str(mode)],check=True,env=env,timeout=30)
   (root/'vectors').write_bytes(expected)
   full=(here/'../service-kernel-pool/kernel_pool.rs').read_text();variants=[]
   def change(name,begin,end,old,new,kind='runtime',args=None):
@@ -42,10 +42,10 @@ def main():
   change('forget-accepted-event-lease','fn mixed_stage_event(', 'fn mixed_stage_semaphore(', '    lease.published = true;','    lease.published = false;', 'fault_runtime',['9'])
   change('forget-accepted-semaphore-lease','fn mixed_stage_semaphore(', 'impl MixedWait {','    lease.published = true;','    lease.published = false;', 'fault_runtime',['10'])
   change('forget-observed-native-result','    pub fn mixed_wait(', '    pub fn mixed_wait_native_result(', '        self.observed = true;','        self.observed = false;')
-  change('allow-native-wait-replay','    pub fn mixed_wait(', '    pub fn mixed_wait_native_result(', '        self.waited = true;','        self.waited = false;')
+  change('allow-native-wait-replay','    pub fn mixed_wait(', '    pub fn mixed_wait_timeout(', '        self.waited = true;','        self.waited = false;')
   change('forget-event-completion-outcome','    fn mixed_load_event(', '    fn mixed_load_semaphore(', '            observed: bits & 8 != 0,','            observed: false,')
   change('forget-semaphore-completion-outcome','    fn mixed_load_semaphore(', '    fn mixed_save_event(', '            observed: bits & 8 != 0,','            observed: false,')
-  change('hide-known-postwait-revocation','    pub fn mixed_wait(', '    pub fn mixed_wait_native_result(', '        let effective = match self.mixed_wait_views(ram) {\n            Ok(_) => result,\n            Err(code) => Err(code),\n        };','        let effective = result;', 'fault_runtime',['5'])
+  change('hide-known-postwait-revocation','    pub fn mixed_wait(', '    pub fn mixed_wait_native_result(', '        let effective = match live {\n            Ok(_) => result,\n            Err(code) => Err(code),\n        };','        let effective = result;', 'fault_runtime',['5'])
   change('forget-postpublication-revocation','    pub fn mixed_wait_prepare(', '    pub fn mixed_wait(', '        self.mixed_wait_views(ram)?;\n        self.prepared = true;','        self.prepared = true;', 'fault_runtime',['11'])
   change('claim-close-with-owned-prefix','    pub fn mixed_wait_close(',None,'        if failure != 0 {\n            return Err(failure);\n        }','        let _ = failure;', 'fault_runtime',['7'])
   change('handles-forget-retirement','    pub fn handles_guard_closed(', '// Checked game adapter.','        self.left && !self.held','        !self.held')
@@ -64,6 +64,13 @@ def main():
             if sequential_error==0{Ok(gamepkg::LocalWaitResult{index:0,abandoned:false})}else{Err(sequential_error)}
         }else{gamepkg::local_wait_many(&objects[..self.count],false,milliseconds)};'''
   change('serial-waitall-consumes-prefix','    pub fn mixed_wait(', '    pub fn mixed_wait_native_result(',old,new)
+  change('release-leases-on-busy-slice','    fn mixed_wait_step(', '    pub fn mixed_wait_timeout(', '            return Err(-2);','            return self.mixed_wait_complete(ram, Err(-2));')
+  change('allow-logical-mode-change','    fn mixed_wait_step(', '    pub fn mixed_wait_timeout(', '|| (self.slicing && self.all != all)','|| false')
+  change('replay-after-terminal-slice','    fn mixed_wait_step(', '    pub fn mixed_wait_timeout(', '        self.waited = true;','        self.waited = false;')
+  change('hide-revocation-after-busy-slice','    fn mixed_wait_step(', '    pub fn mixed_wait_timeout(', 'result == Err(-2) && live.is_ok()','result == Err(-2)', 'fault_runtime',['49'])
+  change('timeout-consumes-ready-signal','    pub fn mixed_wait_timeout(', '    fn mixed_wait_complete(', '        self.waited = true;','        let _ = self.mixed_wait_step(ram, self.all, 0, true);\n        self.waited = true;')
+  change('timeout-hides-completion-error','    pub fn mixed_wait_timeout(', '    fn mixed_wait_complete(', '        self.mixed_wait_publish(ram)?;','        let _ = self.mixed_wait_publish(ram);','fault_runtime',['52'])
+  change('timeout-hides-live-busy','    pub fn mixed_wait_timeout(', '    fn mixed_wait_complete(', '        match live {\n            Ok(_) => Ok(()),\n            Err(code) => Err(code),\n        }','        Ok(())','fault_runtime',['53'])
   broken={}
   for name,text,kind,args in variants:
    bad=root/(name+'.rs');bad.write_text(text);broken[name]=bad;source=root/(name+'-main.rs');source.write_text(declarations([(n,bad if n=='kernel_pool'else path)for n,path in modules])+(here/(kind+'.rs')).read_text());exe=root/name;cmd=['rustc','--edition=2021','-D','warnings','-O',str(source),'-o',str(exe)]
@@ -85,6 +92,6 @@ def main():
    assert len(receipts)==4
    for name in broken:shutil.copyfile(broken[name],a.evidence/(name+'.rs'));shutil.copyfile(root/(name+'.log'),a.evidence/(name+'.log'))
    for path in root.glob('admitted-*.log'):shutil.copyfile(path,a.evidence/path.name)
-   (a.evidence/'qualification.json').write_text(json.dumps({'schema':1,'status':'typed-mixed-EVD2-SSD1-ownership-not-NT-or-title-admission','original':pins,'sources':hashes,'test_sources':tests,'receipts':receipts,'vectors_sha256':sha(root/'vectors'),'vector_cases':128,'required_failing_native_copies':len(variants),'audited_confined_broken_copies':len(admitted_bad),'fault_cases_per_target':24,'linux':'native components and actual confined signed Linux32/64 children','windows':'native components Wine if requested; signed artifacts build-only','profile_admission':'blocked','quotas':'unchanged'},indent=2)+'\n')
+   (a.evidence/'qualification.json').write_text(json.dumps({'schema':1,'status':'typed-mixed-EVD2-SSD1-ownership-not-NT-or-title-admission','original':pins,'sources':hashes,'test_sources':tests,'receipts':receipts,'vectors_sha256':sha(root/'vectors'),'vector_cases':128,'required_failing_native_copies':len(variants),'audited_confined_broken_copies':len(admitted_bad),'fault_cases_per_target':39,'linux':'native components and actual confined signed Linux32/64 children','windows':'native components Wine if requested; signed artifacts build-only','profile_admission':'blocked','quotas':'unchanged'},indent=2)+'\n')
  print('Mixed typed-owner component only; NT waits/close, mutex/file/thread owners and APC integration remain required; title blocked.')
 if __name__=='__main__':main()

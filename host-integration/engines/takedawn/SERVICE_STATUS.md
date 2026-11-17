@@ -1110,3 +1110,16 @@ waits/close, mutex/file/thread owners or alert/APC behavior. KIC4's main gap sta
 unchanged. Native/Wine components, confined Linux startup and Windows artifact
 checks are distinct from physical controls, audible audio, original GPU output
 and measured gameplay pacing.
+
+
+## Retained mixed-wait slice checkpoint
+
+Checked `MixedWait` now keeps all original EVD2/SSD1 leases ACTIVE across bounded
+uncommitted Busy slices. Only native Busy plus successful post-call liveness
+permits another attempt; all/any mode stays fixed. Explicit final timeout makes
+no native call. Success, other errors and failed liveness checks are terminal;
+completion failures remain close obligations. The one-shot contract, SDK,
+quotas, 98 pending KIC4 imports and blocked title policy are unchanged. See the
+mixed-wait README for exact APIs and qualification scope. Actual NT timeout and
+status/CPU conversion, alert/APC integration, mutex/file/thread owners and full
+media/build/launcher/gameplay migration remain required.

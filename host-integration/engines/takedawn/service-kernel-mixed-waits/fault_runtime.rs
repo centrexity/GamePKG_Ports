@@ -36,21 +36,39 @@ mod gamepkg {
         let mut fault = FAULT.lock().unwrap();
         let mode = fault[0];
         let root = fault[1];
-        if mode == 5 || mode == 6 || mode >= 20 {
+        if mode == 5 || mode == 6 || (20..=24).contains(&mode) || mode == 31 {
             fault[0] = 0;
         }
         drop(fault);
-        if mode >= 20 {
+        if (20..=24).contains(&mode) {
             return Err(-((mode - 19) as i32));
         }
         let result = crate::client::local_wait_many(objects, all, ms);
+        if mode == 35 && result == Err(-2) {
+            FAULT.lock().unwrap()[5] = 2;
+        }
         if result.is_ok() && mode == 5 {
+            revoke(root);
+        }
+        if result == Err(-2) && mode == 31 {
             revoke(root);
         }
         if result.is_ok() && mode == 6 {
             return Err(-3);
         }
         result
+    }
+    pub fn local_record_snapshot(record: u64, maximum: usize) -> Result<(u64, Vec<u8>), i32> {
+        let mut fault = FAULT.lock().unwrap();
+        if record == fault[1]
+            && maximum == 288
+            && (fault[0] == 34 || (fault[0] == 35 && fault[5] == 2))
+        {
+            fault[0] = 0;
+            return Err(-2);
+        }
+        drop(fault);
+        crate::client::local_record_snapshot(record, maximum)
     }
     pub fn local_record_compare_exchange(
         record: u64,
@@ -77,6 +95,10 @@ mod gamepkg {
             let done = u64::from_le_bytes(bytes[56..64].try_into().unwrap()) == 1;
             hit =
                 done && ((mode == 3 && magic == 0x31544c57) || (mode == 4 && magic == 0x314c5753));
+            if mode == 33 && done && magic == 0x31544c57 {
+                fault[0] = 0;
+                return Err(-2);
+            }
             let unlocked =
                 magic == 0x32525448 && u64::from_le_bytes(bytes[32..40].try_into().unwrap()) == 0;
             hit |= mode == 8 && unlocked;
@@ -187,6 +209,115 @@ fn main() {
     let ksv = f.services.service_handle();
     let mut mixed =
         kernel_pool::MixedWait::mixed_wait_new(&f.ram, &f.table, &f.events, &f.semaphores).unwrap();
+    if (40..=54).contains(&mode) {
+        f.events
+            .events_set(&f.ram, &f.table, event[1] as u32, false)
+            .unwrap();
+        mixed
+            .mixed_wait_prepare(&f.ram, &[event[1] as u32, sem[1] as u32])
+            .unwrap();
+        assert_eq!(mixed.mixed_wait_slice(&f.ram, true, 0), Err(-2));
+        assert_eq!(gamepkg::wait_calls(), 1);
+        assert_eq!(controls::mixed_graph(events).unwrap(), [1, 0]);
+        assert_eq!(controls::mixed_graph(sems).unwrap(), [1, 0]);
+        if mode != 49 && mode != 54 {
+            f.events
+                .events_set(&f.ram, &f.table, event[1] as u32, true)
+                .unwrap();
+        }
+        let injected = match mode {
+            40 => 3,
+            41 => 4,
+            42 => 5,
+            43 => 6,
+            44..=48 => mode - 24,
+            49 => 31,
+            50 => 3,
+            51 => 4,
+            52 => 33,
+            53 => 34,
+            _ => 35,
+        };
+        gamepkg::fault_arm(injected, root, events, sems);
+        let completion = if mode >= 50 && mode <= 53 {
+            assert_eq!(
+                mixed.mixed_wait_timeout(&f.ram),
+                Err(if mode == 53 { -2 } else { -3 })
+            );
+            assert_eq!(gamepkg::wait_calls(), 1);
+            -2
+        } else {
+            let expected = match mode {
+                42 | 49 => -4,
+                54 => -2,
+                44..=48 => -((mode - 43) as i32),
+                _ => -3,
+            };
+            assert_eq!(mixed.mixed_wait_slice(&f.ram, true, 0), Err(expected));
+            assert_eq!(gamepkg::wait_calls(), 2);
+            if mode == 45 {
+                assert_eq!(controls::mixed_graph(events).unwrap(), [1, 0]);
+                assert_eq!(controls::mixed_graph(sems).unwrap(), [1, 0]);
+                mixed.mixed_wait_timeout(&f.ram).unwrap();
+            }
+            if mode <= 42 {
+                if mode == 42 {
+                    -4
+                } else {
+                    0
+                }
+            } else {
+                expected
+            }
+        };
+        assert!(gamepkg::fault_done());
+        let calls = gamepkg::wait_calls();
+        // Liveness restored below cannot authorize replay of an already terminal result.
+        if mode == 42 || mode == 49 {
+            f.ram.services_link(0, ksv).unwrap();
+        }
+        assert_eq!(mixed.mixed_wait_slice(&f.ram, true, 0), Err(-1));
+        assert_eq!(mixed.mixed_wait_timeout(&f.ram), Err(-1));
+        assert_eq!(gamepkg::wait_calls(), calls);
+        assert_eq!(
+            mixed.mixed_wait_native_result(),
+            if mode <= 42 {
+                Ok(client::LocalWaitResult {
+                    index: 0,
+                    abandoned: false,
+                })
+            } else if mode >= 49 {
+                Err(-2)
+            } else {
+                Err(if mode == 43 {
+                    -3
+                } else {
+                    -((mode - 43) as i32)
+                })
+            }
+        );
+        mixed.mixed_wait_close(&f.ram).unwrap();
+        controls::mixed_completion(events, event[0], completion).unwrap();
+        controls::mixed_completion(sems, sem[0], completion).unwrap();
+        assert_eq!(
+            gamepkg::local_event_state(event[0]).unwrap().signaled,
+            mode >= 44 && mode != 49 && mode != 54
+        );
+        assert_eq!(
+            gamepkg::local_semaphore_state(sem[0]).unwrap().count,
+            if mode <= 43 { 0 } else { 1 }
+        );
+        f.events
+            .events_remove(&f.ram, &f.table, event[1] as u32)
+            .unwrap();
+        f.semaphores
+            .semaphores_remove(&f.ram, &f.table, sem[1] as u32)
+            .unwrap();
+        f.mixed_fixture_close().unwrap();
+        local::shutdown();
+        println!("PASS retained logical slice fault {mode}");
+        return;
+    }
     if (26..=30).contains(&mode) {
         let expected = [-1, -3, -4, -5, -6][(mode - 26) as usize];
         let mut guard = f.table.handles_lock(&f.ram).unwrap();

@@ -5755,6 +5755,7 @@ pub struct MixedWait {
     started: bool,
     prepared: bool,
     waited: bool,
+    slicing: bool,
     observed: bool,
     native_error: i32,
     native_index: u32,
@@ -5846,6 +5847,7 @@ impl MixedWait {
             started: false,
             prepared: false,
             waited: false,
+            slicing: false,
             observed: false,
             native_error: -1,
             native_index: u32::MAX,
@@ -5944,8 +5946,35 @@ impl MixedWait {
         all: bool,
         milliseconds: u32,
     ) -> Result<gamepkg::LocalWaitResult, i32> {
+        if self.slicing {
+            return Err(-1);
+        }
+        self.mixed_wait_step(ram, all, milliseconds, false)
+    }
+    // Busy slices retain every ACTIVE participant. Only an actual SDK Busy
+    // followed by a successful live check permits another bounded attempt.
+    pub fn mixed_wait_slice(
+        &mut self,
+        ram: &memory::Memory,
+        all: bool,
+        milliseconds: u32,
+    ) -> Result<gamepkg::LocalWaitResult, i32> {
+        self.mixed_wait_step(ram, all, milliseconds, true)
+    }
+    fn mixed_wait_step(
+        &mut self,
+        ram: &memory::Memory,
+        all: bool,
+        milliseconds: u32,
+        retain_busy: bool,
+    ) -> Result<gamepkg::LocalWaitResult, i32> {
         self.mixed_wait_owner(ram)?;
-        if self.closed || !self.prepared || self.waited || milliseconds > 1000 {
+        if self.closed
+            || !self.prepared
+            || self.waited
+            || milliseconds > 1000
+            || (self.slicing && self.all != all)
+        {
             return Err(-1);
         }
         self.mixed_wait_views(ram)?;
@@ -5968,15 +5997,51 @@ impl MixedWait {
         }
         self.observed = true;
         // Retain the actual native outcome before any fallible live/DONE work.
-        let effective = match self.mixed_wait_views(ram) {
+        let live = self.mixed_wait_views(ram);
+        let effective = match live {
             Ok(_) => result,
             Err(code) => Err(code),
         };
         self.all = all;
+        if retain_busy && result == Err(-2) && live.is_ok() {
+            self.slicing = true;
+            self.waited = false;
+            return Err(-2);
+        }
+        self.mixed_wait_complete(ram, effective)
+    }
+    // The caller owns guest deadline/time-warp policy. Commit its final timeout
+    // only after a known uncommitted slice; never issue an extra host wait here.
+    pub fn mixed_wait_timeout(&mut self, ram: &memory::Memory) -> Result<(), i32> {
+        self.mixed_wait_owner(ram)?;
+        if self.closed || !self.prepared || self.waited || !self.slicing {
+            return Err(-1);
+        }
+        self.waited = true;
+        let live = self.mixed_wait_views(ram);
+        self.effective_error = match live {
+            Ok(_) => -2,
+            Err(code) => code,
+        };
+        self.mixed_wait_publish(ram)?;
+        match live {
+            Ok(_) => Ok(()),
+            Err(code) => Err(code),
+        }
+    }
+    fn mixed_wait_complete(
+        &mut self,
+        ram: &memory::Memory,
+        effective: Result<gamepkg::LocalWaitResult, i32>,
+    ) -> Result<gamepkg::LocalWaitResult, i32> {
         self.effective_error = match effective {
             Ok(_) => 0,
             Err(code) => code,
         };
+        self.mixed_wait_publish(ram)?;
+        effective
+    }
+    fn mixed_wait_publish(&mut self, ram: &memory::Memory) -> Result<(), i32> {
         for index in 0..self.count {
             self.flags[index] |= 8;
         }
@@ -5991,7 +6056,7 @@ impl MixedWait {
         if failure != 0 {
             return Err(failure);
         }
-        effective
+        Ok(())
     }
     pub fn mixed_wait_native_result(&self) -> Result<gamepkg::LocalWaitResult, i32> {
         if !self.observed {

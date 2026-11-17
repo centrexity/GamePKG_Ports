@@ -94,16 +94,39 @@ no native wait, signal, acquisition, failed read or unknown error is retried.
 apply to repeated close as well. Ordinary guard use requires a held depth and an
 unretired accounting claim. No generic host mutex semantics were relaxed.
 
-## Required logical-wait integration
+## Retained logical wait slices
 
-This transaction currently completes one bounded host wait. An actual NT
-finite/infinite/time-warped wait needs a retained logical-wait/slice extension
-that keeps every lease ACTIVE across uncommitted Busy slices and finalizes only
-at the logical result. Recreating transactions between slices would introduce
-last-alias lifetime gaps and is not sufficient. Native successes, protocol
-failures and other errors must never be replayed. Combine that extension with
-the original timeout/status/CPU rules and reviewed alert/APC and resource owners
-before admitting NT waits. The current one-shot API is not that integration.
+`mixed_wait_slice(&mut self,&Memory,all:bool,milliseconds:u32)` performs one
+bounded 0..1000 ms host call. Only an actual SDK Busy (-2), followed by a
+successful post-call liveness check, leaves the transaction nonterminal. Every
+original participant remains ACTIVE across that return; no record is released,
+recreated or marked DONE. Further slices use the same all/any mode. Mode changes,
+out-of-range slices, and switching to the one-shot API return Invalid without a
+native attempt. No table guard is held across any host wait.
+
+Success and every other SDK error terminate acquisition permanently. A failed
+post-call check also terminates, including a liveness error numerically equal to
+Busy: it is not proof that a repeated acquisition is safe. Native observations
+are stored before those checks, and all completion obligations are retained.
+`mixed_wait_native_result()` reports the most recent actual slice's SDK result;
+it is not evidence that cleanup succeeded or that another attempt is permitted.
+
+`mixed_wait_timeout(&mut self,&Memory) -> Result<(),i32>` finalizes a caller-owned
+guest deadline after at least one uncommitted slice. It issues **no** host wait,
+leaves any newly ready signal/permit untouched, and publishes Busy for every
+participant after a successful live check. Ok means timeout completion was
+published; a liveness or completion error remains an error, even Busy. Acquisition
+is terminal before any fallible completion. Close retries cleanup, never the
+acquisition. Timeout before a Busy slice or after a terminal result is Invalid.
+Closing an abandoned logical wait instead publishes Denied. A failed pre-call
+live check executes no wait and leaves existing leases for explicit close.
+
+The one-shot API retains its original semantics: Busy is terminal. These checked
+port methods add no wire operation, host authority, quotas or SDK identity.
+Guest absolute/relative/infinite timeout conversion, time-warped clock policy,
+NT statuses/CPU writes, typed mutex/file/thread owners and alert/APC integration
+remain required before actual NT waits can be admitted. This component does not
+claim those semantics or advance the title's admitted imports.
 
 ## Qualification and limits
 
@@ -119,15 +142,20 @@ semantics are **not** established by this component.
 Native tests cover wrong roots/domains/kinds, aliases, complete-input rejection,
 known revocation, record exhaustion after an accepted prefix, and 32 ACTIVE
 leases held by one caller. The capacity control is not 32 physical waiting jobs.
-Actual workers exercise signal, cancellation, revocation, last-alias lifetime,
-concurrent table access and consuming joins. Twenty-four maintainer-only failure
+Actual workers exercise both one-shot and retained-slice signal, cancellation,
+revocation, last-alias lifetime,
+concurrent table access and consuming joins. Thirty-nine maintainer-only failure
 cases per target exercise stale publication/completion/count retirement,
 failed unlock/release, accepted-acquisition revocation and protocol failure,
-and propagation of the five tested SDK errors (-1 through -5) without replay. Providers are rejected even if
+and propagation of the five tested SDK errors (-1 through -5) without replay.
+Retained-slice cases cover final timeout without another host call, terminal
+protocol/acquisition errors, revocation after Busy, failed DONE publication, and
+separate Busy liveness failures before final timeout and after a native slice.
+Providers are rejected even if
 packaged as unused source. The ordinary fixture also contains explicitly
 synthetic damaged-count/restore controls for both guard types.
 
-Eighteen altered native copies compile and must fail. Three broken signed copies
+Twenty-five altered native copies compile and must fail. Three broken signed copies
 (serial WaitAll and false completed retirement for each guard type) must pass
 ordinary source and all-object admission before failing in confined Linux.
 All eight optimized game objects are audited before trusted runtime/transport

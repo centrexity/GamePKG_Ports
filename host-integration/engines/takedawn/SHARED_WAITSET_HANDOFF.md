@@ -124,3 +124,15 @@ NT timeout/status/CPU conversion and alert/APC integration remain required;
 98 after the separately qualified RTL batch; the earlier 102 count above is the
 historical waitset-prerequisite checkpoint. Full native title qualification is
 still incomplete.
+
+
+## Retained event/semaphore logical waits
+
+The mixed-owner API now adds `mixed_wait_slice` and `mixed_wait_timeout`; see
+`service-kernel-mixed-waits/README.md` for the exact state/error contract. Only
+actual Busy plus a successful live check permits another slice, keeping all
+original leases ACTIVE. Final guest timeout publishes Busy without another
+native acquisition. Success, uncertain/protocol failures and post-wait liveness
+errors are terminal. The one-shot API remains terminal even on Busy. NT clock,
+status/CPU, alert/APC, mutex/file/thread and generic-close integration is still
+port work; no ordinal or title admission follows from this component.

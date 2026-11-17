@@ -27,6 +27,7 @@ fn mixed_unready(f: &setup::Fixture) -> Result<crate::mixed::MixedWait, i32> {
     crate::mixed::MixedWait::mixed_wait_new(&f.ram, &f.table, &f.events, &f.semaphores)
 }
 pub fn mixed_controls() -> Result<(), i32> {
+    mixed_slices()?;
     let mut f = setup::Fixture::mixed_fixture_new()?;
     let event = f.mixed_event(false, 1)?;
     let sem = f.mixed_semaphore(1, 3)?;
@@ -270,4 +271,104 @@ fn mixed_guard_retirement(f: &setup::Fixture) -> Result<(), i32> {
     )?;
     other.shadow_guard_close(&f.ram)?;
     shadow.shadow_close(&f.ram)
+}
+
+// Ordinary checked game source: no provider, direct platform call or test grant.
+fn mixed_slices() -> Result<(), i32> {
+    let mut f = setup::Fixture::mixed_fixture_new()?;
+    let event = f.mixed_event(false, 0)?;
+    let sem = f.mixed_semaphore(1, 2)?;
+    {
+        let mut lease = mixed_unready(&f)?;
+        setup::mixed_need(780, lease.mixed_wait_timeout(&f.ram) == Err(-1))?;
+        lease.mixed_wait_prepare(&f.ram, &[event[1] as u32, sem[1] as u32])?;
+        setup::mixed_need(781, lease.mixed_wait_timeout(&f.ram) == Err(-1))?;
+        for _ in 0..3u32 {
+            setup::mixed_need(782, lease.mixed_wait_slice(&f.ram, true, 0) == Err(-2))?;
+            setup::mixed_need(
+                783,
+                mixed_graph(f.events.events_id())? == [1, 0]
+                    && mixed_graph(f.semaphores.semaphores_id())? == [1, 0]
+                    && lease.mixed_wait_native_result() == Err(-2)
+                    && gamepkg::local_semaphore_state(sem[0])?.count == 1,
+            )?;
+            setup::mixed_need(
+                784,
+                f.events.events_remove(&f.ram, &f.table, event[1] as u32) == Err(-2)
+                    && f.semaphores
+                        .semaphores_remove(&f.ram, &f.table, sem[1] as u32)
+                        == Err(-2),
+            )?;
+        }
+        setup::mixed_need(
+            785,
+            lease.mixed_wait_slice(&f.ram, false, 0) == Err(-1)
+                && lease.mixed_wait_slice(&f.ram, true, 1001) == Err(-1)
+                && lease.mixed_wait(&f.ram, true, 0) == Err(-1),
+        )?;
+        f.events
+            .events_set(&f.ram, &f.table, event[1] as u32, true)?;
+        let result = lease.mixed_wait_slice(&f.ram, true, 0)?;
+        setup::mixed_need(
+            786,
+            result.index == 0
+                && !result.abandoned
+                && !gamepkg::local_event_state(event[0])?.signaled
+                && gamepkg::local_semaphore_state(sem[0])?.count == 0,
+        )?;
+        setup::mixed_need(
+            787,
+            lease.mixed_wait_slice(&f.ram, true, 0) == Err(-1)
+                && lease.mixed_wait_timeout(&f.ram) == Err(-1),
+        )?;
+        lease.mixed_wait_close(&f.ram)?;
+        mixed_completion(f.events.events_id(), event[0], 0)?;
+        mixed_completion(f.semaphores.semaphores_id(), sem[0], 0)?;
+    }
+    {
+        let mut lease = mixed_unready(&f)?;
+        lease.mixed_wait_prepare(&f.ram, &[event[1] as u32, sem[1] as u32])?;
+        setup::mixed_need(788, lease.mixed_wait_slice(&f.ram, false, 0) == Err(-2))?;
+        // A now-ready signal must remain untouched by finalizing the guest timeout.
+        f.events
+            .events_set(&f.ram, &f.table, event[1] as u32, true)?;
+        lease.mixed_wait_timeout(&f.ram)?;
+        setup::mixed_need(
+            789,
+            lease.mixed_wait_native_result() == Err(-2)
+                && gamepkg::local_event_state(event[0])?.signaled
+                && lease.mixed_wait_slice(&f.ram, false, 0) == Err(-1)
+                && lease.mixed_wait_timeout(&f.ram) == Err(-1),
+        )?;
+        lease.mixed_wait_close(&f.ram)?;
+        mixed_completion(f.events.events_id(), event[0], -2)?;
+        mixed_completion(f.semaphores.semaphores_id(), sem[0], -2)?;
+    }
+    f.events
+        .events_set(&f.ram, &f.table, event[1] as u32, false)?;
+    {
+        let mut lease = mixed_unready(&f)?;
+        lease.mixed_wait_prepare(&f.ram, &[event[1] as u32, sem[1] as u32])?;
+        setup::mixed_need(790, lease.mixed_wait_slice(&f.ram, true, 0) == Err(-2))?;
+        // Abandonment after a Busy slice is Denied, never fabricated timeout.
+        lease.mixed_wait_close(&f.ram)?;
+        mixed_completion(f.events.events_id(), event[0], -4)?;
+        mixed_completion(f.semaphores.semaphores_id(), sem[0], -4)?;
+    }
+    {
+        let mut lease = mixed_unready(&f)?;
+        lease.mixed_wait_prepare(&f.ram, &[event[1] as u32, sem[1] as u32])?;
+        setup::mixed_need(791, lease.mixed_wait_slice(&f.ram, true, 0) == Err(-2))?;
+        let ksv = f.services.service_handle();
+        f.ram.services_link(ksv, 0)?;
+        setup::mixed_need(792, lease.mixed_wait_timeout(&f.ram) == Err(-4))?;
+        lease.mixed_wait_close(&f.ram)?;
+        f.ram.services_link(0, ksv)?;
+        mixed_completion(f.events.events_id(), event[0], -4)?;
+        mixed_completion(f.semaphores.semaphores_id(), sem[0], -4)?;
+    }
+    f.events.events_remove(&f.ram, &f.table, event[1] as u32)?;
+    f.semaphores
+        .semaphores_remove(&f.ram, &f.table, sem[1] as u32)?;
+    f.mixed_fixture_close()
 }
