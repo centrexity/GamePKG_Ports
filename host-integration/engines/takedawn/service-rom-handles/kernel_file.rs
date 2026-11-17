@@ -44,6 +44,8 @@ impl RomKernel {
             190 => 36,
             202 => 24,
             219 => 32,
+            233 => 12,
+            234 => 16,
             _ => return Err(-5),
         };
         if !cpu.valid() || cpu.esp == 0 {
@@ -63,6 +65,7 @@ impl RomKernel {
             }
             190 | 202 => self.rom_kernel_open(image, table, ram, &stack, ordinal == 190)?,
             219 => self.rom_kernel_read(table, rom_events, ram, &stack)?,
+            233 | 234 => self.rom_kernel_wait(table, ram, &stack, ordinal == 234)?,
             _ => return Err(-5),
         };
         ram.kernel_set_caller(rom_kernel_word(&stack, 0)?);
@@ -184,9 +187,6 @@ impl RomKernel {
         let read = self.reading.as_mut().ok_or(-3)?;
         let deferred = read.rom_read_deferred(ram)?;
         let event_token = rom_kernel_word(stack, 8)?;
-        if deferred && event_token == 0 {
-            return Err(-5);
-        }
         let offset_va = rom_kernel_word(stack, 32)?;
         let offset = if offset_va == 0 {
             None
@@ -214,6 +214,28 @@ impl RomKernel {
             rom_kernel_word(stack, 20)?,
         )?;
         Ok(if deferred { 0x103 } else { status })
+    }
+
+    fn rom_kernel_wait(
+        &mut self,
+        table: &kernel_pool::Handles,
+        ram: &memory::Memory,
+        stack: &[u8],
+        extended: bool,
+    ) -> Result<u32, i32> {
+        let alert_at = if extended { 12 } else { 8 };
+        if rom_kernel_word(stack, alert_at)? & 255 != 0 {
+            return Err(-5);
+        }
+        let token = rom_kernel_word(stack, 4)?;
+        let timeout_va = rom_kernel_word(stack, alert_at + 4)?;
+        let limit = rom_kernel_timeout(ram, timeout_va)?;
+        let file_wait = self.files.rom_wait_begin(ram, table, token)?;
+        Ok(if file_wait.rom_wait(ram, limit)? {
+            0
+        } else {
+            0x102
+        })
     }
 
     fn rom_kernel_finish_event(&mut self, ram: &memory::Memory) -> Result<(), i32> {
@@ -271,6 +293,29 @@ impl RomKernel {
         self.orphan_attempted = false;
         Ok(())
     }
+}
+
+fn rom_kernel_timeout(ram: &memory::Memory, pointer: u32) -> Result<Option<u32>, i32> {
+    if pointer == 0 {
+        return Ok(None);
+    }
+    let due = ram.read_i64(pointer)?;
+    let millis = if due < 0 {
+        let relative = due.checked_neg().ok_or(-1)? as u64;
+        ((relative / 10000) as u32).max(1)
+    } else if due == 0 {
+        0
+    } else {
+        let stamp = gamepkg::clock_sample()?;
+        let skew = kernel_pool::kernel_service_values(ram)?[2];
+        let now = kernel_pool::kernel_time_value(128, stamp.utc_100ns, 0, skew)?;
+        ((due as u64).saturating_sub(now) / 10000) as u32
+    };
+    Ok(if millis == u32::MAX {
+        None
+    } else {
+        Some(millis)
+    })
 }
 
 fn rom_kernel_word(raw: &[u8], at: usize) -> Result<u32, i32> {

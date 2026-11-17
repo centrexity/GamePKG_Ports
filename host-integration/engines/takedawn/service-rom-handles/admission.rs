@@ -66,6 +66,7 @@ fn main() {
     }
     fs::write(source.join("source/src/lib.rs"),r#"
 mod memory;mod call_state;mod registers;mod heap;mod contiguous;mod heap_service;mod kernel_pool;mod probe;mod setup;mod disc;mod rom_handles;mod kernel_file;
+pub fn rom_wait_entry(arg:u64)->u64{probe::rom_file_wait_worker(arg)}
 pub fn game_main(){let code=match probe::run(){Ok(())=>0u64,Err(c)=>c as i64 as u64};let _=gamepkg::diagnostic(1,0x544b44ff,&[code]);}
 "#).unwrap();
     let mut manifest =
@@ -100,7 +101,7 @@ pub fn game_main(){let code=match probe::run(){Ok(())=>0u64,Err(c)=>c as i64 as 
         let plan = Plan::new(
             target,
             "game_main",
-            vec![],
+            vec!["rom_wait_entry".into()],
             LocalLayout::TakedawnServices,
             true,
         )

@@ -145,7 +145,13 @@ impl Imports {
                 imports_put(&mut patched, 64 + slot * 4, address);
                 continue;
             }
-            if scoped_rom && (ordinal == 187 || ordinal == 190 || ordinal == 202 || ordinal == 219)
+            if scoped_rom
+                && (ordinal == 187
+                    || ordinal == 190
+                    || ordinal == 202
+                    || ordinal == 219
+                    || ordinal == 233
+                    || ordinal == 234)
             {
                 services = true;
             } else {

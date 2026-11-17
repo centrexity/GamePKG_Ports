@@ -15,7 +15,7 @@ def main():
   subprocess.run(cmd,check=True);cases=[]
   for mode in [*range(69,79),80,81,82,83,85,86,87,88,89]:
    data=images.image();images.word(data,0x10c,0x770000);images.word(data,0x1b8+8,0x76e000);images.word(data,0x1b8+16,0x1000);images.word(data,0x158,0x12400^0x5b6d40b6);data[0xfc0:0x1000+379*4]=bytes(64+379*4)
-   for index,ordinal in enumerate(([14,16,23,109,98,113,189,225,193,222]+([269,279,289,290,301] if mode==81 else [291,277,294] if mode==83 or mode==85 else [202,219,187]+([226] if mode==88 else [190] if mode==89 else []) if mode>=86 else []))):images.word(data,0x1000+index*4,0x80000000|ordinal)
+   for index,ordinal in enumerate(([14,16,23,109,98,113,189,225,193,222]+([269,279,289,290,301] if mode==81 else [291,277,294] if mode==83 or mode==85 else [202,219,187]+([226] if mode==88 else [190,233,234] if mode==89 else []) if mode>=86 else []))):images.word(data,0x1000+index*4,0x80000000|ordinal)
    images.word(data,0xffc,0x8000000e);image=root/(str(mode)+'.iso');discs.fixture(image)
    with image.open('r+b')as f:f.truncate(100*2048);f.seek(40*2048+4);f.write(struct.pack('<II',80,len(data)));f.seek(80*2048);f.write(data)
    cases.extend([str(mode),str(image)])

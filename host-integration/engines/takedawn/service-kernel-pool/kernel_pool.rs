@@ -208,7 +208,13 @@ pub fn kernel_rom_ordinal(ram: &memory::Memory, context: u64, marker: u32) -> Re
         return Err(-5);
     }
     let ordinal = pool_word(&route, start + slot as usize * 4)?;
-    if ordinal != 187 && ordinal != 190 && ordinal != 202 && ordinal != 219 {
+    if ordinal != 187
+        && ordinal != 190
+        && ordinal != 202
+        && ordinal != 219
+        && ordinal != 233
+        && ordinal != 234
+    {
         return Err(-5);
     }
     let table = pool_word(&route, 16)?;

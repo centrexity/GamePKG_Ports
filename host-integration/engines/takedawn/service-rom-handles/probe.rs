@@ -1,6 +1,7 @@
 use crate::disc;
 use crate::gamepkg;
 use crate::kernel_file;
+use crate::kernel_pool;
 use crate::memory;
 use crate::registers;
 use crate::rom_handles;
@@ -51,6 +52,9 @@ fn run_handles(grant: u64) -> Result<(), i32> {
     )?;
     second_read.rom_read_finish(&f.ram, true)?;
 
+    let busy_file = files.rom_wait_begin(&f.ram, &f.table, first)?;
+    check(912, busy_file.rom_wait(&f.ram, Some(0)) == Ok(false))?;
+    check(913, busy_file.rom_wait(&f.ram, Some(2)) == Ok(false))?;
     let pending = read.as_mut().ok_or(-3)?;
     let mut expected = [0u8; 4];
     let stream = image.disc_open_file("default.xbe")?;
@@ -66,7 +70,8 @@ fn run_handles(grant: u64) -> Result<(), i32> {
     let foreign = memory::Memory::new()?;
     check(861, pending.rom_read_finish(&foreign, true) == Err(-4))?;
     gamepkg::local_record_release(foreign.call_handle())?;
-    pending.rom_read_finish(&f.ram, true)?;
+    rom_wait_across_tasks(&f, pending, first)?;
+    check(914, busy_file.rom_wait(&f.ram, None) == Ok(true))?;
     pending.rom_read_finish(&f.ram, true)?;
 
     let mut begin = None;
@@ -149,7 +154,16 @@ fn run_handles(grant: u64) -> Result<(), i32> {
     )?;
     f.ram.read_bytes(0x10100, &mut bytes)?;
     check(878, bytes == expected)?;
+    let original_file = files.rom_wait_begin(&f.ram, &f.table, first)?;
+    check(910, original_file.rom_wait_ready(&f.ram) == Ok(true))?;
     files.rom_close(&f.ram, &f.table, first)?;
+    let mut reused_file = 0;
+    files.rom_open(&f.ram, &f.table, &image, "default.xbe", &mut reused_file)?;
+    check(
+        911,
+        reused_file == first && original_file.rom_wait_ready(&f.ram) == Err(-4),
+    )?;
+    files.rom_close(&f.ram, &f.table, reused_file)?;
     check(864, files.rom_close(&f.ram, &f.table, first) == Err(-4))?;
 
     let mut begin = None;
@@ -168,6 +182,75 @@ fn run_handles(grant: u64) -> Result<(), i32> {
     check(867, gamepkg::local_event_state(event[0]).is_ok())?;
     f.events.events_remove(&f.ram, &f.table, wrong)?;
     f.mixed_fixture_close()
+}
+
+fn rom_wait_across_tasks(
+    fixture: &setup::Fixture,
+    reservation: &mut rom_handles::RomRead,
+    guest_file: u32,
+) -> Result<(), i32> {
+    let mut identifier = [0u8; 8];
+    gamepkg::local_call(20, &[1, 0, 0, 0, 0, 0, 0, 0], &mut identifier)?;
+    let rendezvous = u64::from_le_bytes(identifier);
+    let arguments = [
+        u64::to_le_bytes(fixture.ram.call_handle()).as_slice(),
+        &u64::to_le_bytes(fixture.table.handles_id()),
+        &u64::to_le_bytes(u64::from(guest_file)),
+        &u64::to_le_bytes(rendezvous),
+    ]
+    .concat();
+    let argument_record = gamepkg::local_record_create(&arguments)?;
+    let request = [
+        u32::to_le_bytes(0).as_slice(),
+        &u64::to_le_bytes(argument_record),
+        &u32::to_le_bytes(0),
+    ]
+    .concat();
+    gamepkg::local_call(10, &request, &mut identifier)?;
+    let waiter_task = u64::from_le_bytes(identifier);
+    gamepkg::local_event_wait(rendezvous, 1000)?;
+    reservation.rom_read_finish(&fixture.ram, true)?;
+
+    let mut waiter_result = None;
+    for _ in 0..4096 {
+        match gamepkg::local_task_join(waiter_task) {
+            Ok(proof) => {
+                waiter_result = Some(proof.result());
+                break;
+            }
+            Err(-2) => memory::Memory::call_retry_pause()?,
+            Err(error) => return Err(error),
+        }
+    }
+    gamepkg::local_record_release(argument_record)?;
+    gamepkg::local_call(25, &u64::to_le_bytes(rendezvous), &mut [])?;
+    check(915, waiter_result == Some(0))
+}
+
+pub fn rom_file_wait_worker(argument_record: u64) -> u64 {
+    match rom_file_wait_actor(argument_record) {
+        Ok(()) => 0,
+        Err(code) => code as i64 as u64,
+    }
+}
+
+fn rom_file_wait_actor(argument_record: u64) -> Result<(), i32> {
+    let (_, arguments) = gamepkg::local_record_snapshot(argument_record, 32)?;
+    check(916, arguments.len() == 32)?;
+    let ram = memory::Memory::with_call_handle(setup::mixed_word(&arguments, 0)?)?;
+    let table = kernel_pool::Handles::handles_borrow(&ram, setup::mixed_word(&arguments, 8)?)?;
+    let mut files = rom_handles::RomFiles::rom_files_new(&ram, &table)?;
+    let guest_file = setup::mixed_word(&arguments, 16)? as u32;
+    let rendezvous = setup::mixed_word(&arguments, 24)?;
+    let observation = files.rom_wait_begin(&ram, &table, guest_file)?;
+    check(917, observation.rom_wait(&ram, Some(0)) == Ok(false))?;
+    let signal = [
+        u64::to_le_bytes(rendezvous).as_slice(),
+        &u32::to_le_bytes(1),
+    ]
+    .concat();
+    gamepkg::local_call(22, &signal, &mut [])?;
+    check(918, observation.rom_wait(&ram, Some(1000)) == Ok(true))
 }
 
 pub fn run() -> Result<(), i32> {
@@ -319,7 +402,43 @@ fn run_guest_file_calls(image: &disc::Disc, fixture: &mut setup::Fixture) -> Res
     call_guest_file(&mut bridge, image, fixture, 190, &create_args, Ok(0))?;
     let async_token = fixture.ram.read_u32(0x10500)?;
     let mut async_read = [async_token, 0, 0, 0, 0x10510, 0x10520, 4, 0];
-    call_guest_file(&mut bridge, image, fixture, 219, &async_read, Err(-5))?;
+    fixture.ram.write_u64(0x10540, 0)?;
+    async_read[7] = 0x10540;
+    call_guest_file(&mut bridge, image, fixture, 219, &async_read, Ok(0x103))?;
+    check(908, fixture.ram.read_u64(0x10510)? == 0x400000000)?;
+    call_guest_file(
+        &mut bridge,
+        image,
+        fixture,
+        233,
+        &[async_token, 0, 0],
+        Ok(0),
+    )?;
+    call_guest_file(
+        &mut bridge,
+        image,
+        fixture,
+        234,
+        &[async_token, 1, 0, 0x10540],
+        Ok(0),
+    )?;
+    call_guest_file(
+        &mut bridge,
+        image,
+        fixture,
+        233,
+        &[async_token, 1, 0],
+        Err(-5),
+    )?;
+    call_guest_file(
+        &mut bridge,
+        image,
+        fixture,
+        233,
+        &[event_token, 0, 0],
+        Err(-4),
+    )?;
+    check(909, gamepkg::local_event_wait(event_pair[0], 0) == Err(-2))?;
     async_read[1] = async_token;
     call_guest_file(&mut bridge, image, fixture, 219, &async_read, Err(-1))?;
     async_read[1] = event_token;

@@ -136,8 +136,57 @@ pub fn rom_startup_calls(
         rom_startup_need(
             rom_startup_call(&mut routed, ram, close_marker, stack_va, &[token])? == 0,
         )?;
+        rom_startup_need(
+            rom_startup_call(
+                &mut routed,
+                ram,
+                create_marker,
+                stack_va,
+                &[
+                    token_va, 0x80100080, attrib_va, status_va, 0, 0x80, 1, 1, 0x40,
+                ],
+            )? == 0,
+        )?;
+        let file_wait_token = ram.read_u32(token_va)?;
+        let file_wait_marker = ram.read_u32(image.image_thunk() + 56)?;
+        let file_wait_ex_marker = ram.read_u32(image.image_thunk() + 60)?;
+        rom_startup_need([file_wait_marker, file_wait_ex_marker] == [0xfe000038, 0xfe00003c])?;
+        rom_startup_need(
+            rom_startup_call(
+                &mut routed,
+                ram,
+                read_marker,
+                stack_va,
+                &[file_wait_token, 0, 0, 0, status_va, output_va, 4, 0],
+            )? == 0x103,
+        )?;
+        ram.read_bytes(output_va, &mut prefix)?;
+        rom_startup_need(&prefix == b"XBEH" && ram.read_u64(status_va)? == 0x400000000)?;
+        rom_startup_need(gamepkg::local_event_wait(native_event, 0) == Err(-2))?;
+        rom_startup_need(
+            rom_startup_call(
+                &mut routed,
+                ram,
+                file_wait_marker,
+                stack_va,
+                &[file_wait_token, 0, 0],
+            )? == 0,
+        )?;
+        ram.write_u64(stack_va + 200, 0)?;
+        rom_startup_need(
+            rom_startup_call(
+                &mut routed,
+                ram,
+                file_wait_ex_marker,
+                stack_va,
+                &[file_wait_token, 1, 0, stack_va + 200],
+            )? == 0,
+        )?;
+        rom_startup_need(
+            rom_startup_call(&mut routed, ram, close_marker, stack_va, &[file_wait_token])? == 0,
+        )?;
         event_domain.events_remove(ram, &table, event_token)?;
     }
     routed.startup_files_close(ram)?;
-    Ok([1, 4, 1 + u64::from(with_event)])
+    Ok([1, 4, 1 + 2 * u64::from(with_event)])
 }

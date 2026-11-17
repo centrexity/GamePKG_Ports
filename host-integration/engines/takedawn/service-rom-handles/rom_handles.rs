@@ -46,6 +46,32 @@ fn retire(id: u64) -> Result<(), i32> {
     }
 }
 
+fn rom_record(record: u64, table: u64) -> Result<(u64, std::vec::Vec<u8>), i32> {
+    let (version, bytes) = gamepkg::local_record_snapshot(record, RECORD_BYTES)?;
+    if bytes.len() != RECORD_BYTES
+        || word(&bytes, 0)? != RECORD_MAGIC
+        || word(&bytes, 8)? != table
+        || word(&bytes, 16)? == 0
+        || word(&bytes, 24)? > u64::from(u32::MAX)
+        || word(&bytes, 32)? > word(&bytes, 24)?
+        || word(&bytes, 40)? > 1
+        || word(&bytes, 48)? > 1
+    {
+        return Err(-4);
+    }
+    Ok((version, bytes))
+}
+
+pub struct RomFileWait {
+    root: u64,
+    services: u64,
+    table: u64,
+    task: u64,
+    record: u64,
+    range: u64,
+    size: u64,
+}
+
 impl RomFiles {
     pub fn rom_files_new(ram: &memory::Memory, table: &kernel_pool::Handles) -> Result<Self, i32> {
         kernel_pool::kernel_service_values(ram)?;
@@ -183,18 +209,7 @@ impl RomFiles {
         if entry[1] != u64::from(ROM_KIND) {
             return Err(-4);
         }
-        let (version, bytes) = gamepkg::local_record_snapshot(entry[0], RECORD_BYTES)?;
-        if bytes.len() != RECORD_BYTES
-            || word(&bytes, 0)? != RECORD_MAGIC
-            || word(&bytes, 8)? != self.table
-            || word(&bytes, 16)? == 0
-            || word(&bytes, 24)? > u64::from(u32::MAX)
-            || word(&bytes, 32)? > word(&bytes, 24)?
-            || word(&bytes, 40)? > 1
-            || word(&bytes, 48)? > 1
-        {
-            return Err(-4);
-        }
+        let (version, bytes) = rom_record(entry[0], self.table)?;
         if word(&bytes, 40)? != 0 {
             return Err(-2);
         }
@@ -246,6 +261,44 @@ impl RomFiles {
             closed: false,
         });
         released
+    }
+
+    pub fn rom_wait_begin(
+        &mut self,
+        ram: &memory::Memory,
+        table: &kernel_pool::Handles,
+        token: u32,
+    ) -> Result<RomFileWait, i32> {
+        self.rom_cleanup(ram, table)?;
+        let services = ram.services_handle()?;
+        let guard = table.handles_lock(ram)?;
+        let observed = self.rom_wait_binding(ram, &guard, token);
+        let released = self.rom_release_guard(ram, guard);
+        let identity = observed?;
+        released?;
+        Ok(RomFileWait {
+            root: self.root,
+            services,
+            table: self.table,
+            task: self.task,
+            record: identity[0],
+            range: identity[1],
+            size: identity[2],
+        })
+    }
+
+    fn rom_wait_binding(
+        &self,
+        ram: &memory::Memory,
+        guard: &kernel_pool::HandleGuard,
+        token: u32,
+    ) -> Result<[u64; 3], i32> {
+        let entry = guard.handle_guard_lookup(ram, token)?.ok_or(-4)?;
+        if entry[1] != u64::from(ROM_KIND) {
+            return Err(-4);
+        }
+        let (_, bytes) = rom_record(entry[0], self.table)?;
+        Ok([entry[0], word(&bytes, 16)?, word(&bytes, 24)?])
     }
 
     pub fn rom_close(
@@ -307,6 +360,77 @@ impl RomFiles {
             }
         }
         Ok(())
+    }
+}
+
+impl RomFileWait {
+    pub fn rom_wait_ready(&self, ram: &memory::Memory) -> Result<bool, i32> {
+        let (task, cancelled) = gamepkg::local_task_status()?;
+        if task != self.task
+            || cancelled
+            || ram.call_handle() != self.root
+            || ram.services_handle()? != self.services
+        {
+            return Err(-4);
+        }
+        let live = kernel_pool::kernel_service_values(ram);
+        if ram.services_handle()? != self.services {
+            return Err(-4);
+        }
+        live?;
+        let (_, bytes) = rom_record(self.record, self.table)?;
+        if word(&bytes, 16)? != self.range || word(&bytes, 24)? != self.size {
+            return Err(-4);
+        }
+        if word(&bytes, 40)? != 0 {
+            return Ok(false);
+        }
+        // Query the original range only, so closing or reusing the guest slot
+        // cannot cause this wait to observe a different file.
+        if gamepkg::file_size(self.range)? != self.size {
+            return Err(-4);
+        }
+        Ok(true)
+    }
+
+    // Inline ROM reads expose idle as ready. While another task holds a
+    // reservation, use short clock waits and recheck the same record. No
+    // table guard, host event, or cursor is held or consumed by the waiter.
+    pub fn rom_wait(&self, ram: &memory::Memory, millis: Option<u32>) -> Result<bool, i32> {
+        if self.rom_wait_ready(ram)? {
+            return Ok(true);
+        }
+        if millis == Some(0) {
+            return Ok(false);
+        }
+        let initial = gamepkg::local_clock_state()?;
+        let frequency = initial.sample.frequency;
+        let interval = frequency.div_ceil(1000);
+        let deadline = match millis {
+            Some(length) => {
+                let ticks = (u128::from(length) * u128::from(frequency)).div_ceil(1000);
+                let end = u128::from(initial.sample.counter) + ticks;
+                if end > i64::MAX as u128 {
+                    return Err(-1);
+                }
+                Some(end as u64)
+            }
+            None => None,
+        };
+        let mut current = initial;
+        loop {
+            if self.rom_wait_ready(ram)? {
+                return Ok(true);
+            }
+            if let Some(end) = deadline {
+                if current.sample.counter >= end {
+                    return Ok(false);
+                }
+            }
+            let next = current.sample.counter.checked_add(interval).ok_or(-1)?;
+            let slice = next.min(deadline.unwrap_or(i64::MAX as u64));
+            current = gamepkg::local_clock_wait(slice, frequency, current.generation)?.state;
+        }
     }
 }
 

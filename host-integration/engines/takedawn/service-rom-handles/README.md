@@ -27,6 +27,13 @@ child-local record IDs never reuse. A token is scoped to its table.
   Retry a failed finish with the same choice. Always finish, even after
   cancellation. Never replay a native read
   to recover from a completion-record error.
+- `rom_wait_begin` captures the exact ROM record and read-only range for
+  the calling task and memory root. `rom_wait(ram, millis)` returns true
+  when the file is idle and its range is still live, or false on timeout.
+  `Some(0)` polls once and `None` waits until ready or cancelled. While a
+  read is reserved, the waiter rechecks using millisecond monotonic waits
+  on its game worker. It holds no table guard and consumes no completion.
+  A closed or reused token cannot redirect an existing wait.
 - `rom_close` retires the host range before removing the typed token and
   local record. A Denied close of a known owned range also covers host
   revocation. The session owns final teardown if its transport has failed.
@@ -44,8 +51,9 @@ records. The actual host range remains separately revocable and read-only.
 Run `python3 check.py --app <app> --app-lib <current-rlib> --evidence <new-dir>`.
 The signed fixture opens the same synthetic file twice at an image offset
 beyond 4 GiB. It checks typed dispatch, cursor independence, close/read
-contention, discarded cursor updates, wrong-root finish, host revocation and cleanup while an event
-remains live. Linux32/64 execute confined children. Windows32/64 checks
+contention, discarded cursor updates, wrong-root finish, host revocation,
+zero and finite wait timeouts, completion across two actual workers, slot
+reuse, and cleanup while an event remains live. Linux32/64 execute confined children. Windows32/64 checks
 build and audit the same source. Fixture media are temporary.
 
 `RomRead::rom_read_guest` preflights the whole requested output and the
@@ -56,7 +64,7 @@ a zero count. Rejected destinations and transport errors return a service
 error. Backing permissions are checked again under the write lock, and a
 failed publication discards the proposed cursor change.
 
-Guest APC delivery, file-handle waits, saves, normal title launch and
+Guest APC delivery, general waits, saves, normal title launch and
 gameplay have separate integration requirements.
 
 ## Scoped disc import dispatcher
@@ -72,7 +80,8 @@ must handle the error as a failed session operation and avoid replay.
 | --- | --- |
 | 202 NtOpenFile | Counted ASCII path under D:, the DOS device D: alias, or the CdRom0 device prefix. Read-only access, shared readers, regular files only. Keeps synchronous return semantics. Relative root handles, other drives and write access are refused. A missing indexed name returns STATUS_OBJECT_NAME_NOT_FOUND. |
 | 190 NtCreateFile | Read-only FILE_OPEN for the same optical paths and sharing rules. Without a synchronous flag, records the asynchronous return mode. Other dispositions and writes are declined. |
-| 219 NtReadFile | Null or negative byte offset chooses the cursor. A nonnegative offset is positional. A supplied event must be a typed event token. APCs and eventless asynchronous reads are declined. |
+| 219 NtReadFile | Null or negative byte offset chooses the cursor. A nonnegative offset is positional. A supplied event must be a typed event token. APCs are declined. Deferred reads can complete without an event. |
+| 233 NtWaitForSingleObject / 234 NtWaitForSingleObjectEx | A non-alertable wait on one owned ROM file returns success when idle or STATUS_TIMEOUT when still busy after the timeout. Null waits indefinitely, zero polls, negative time is relative and positive time is absolute in guest 100 ns units. The Ex mode argument is ignored, as in the reference bridge. Other handle types and alertable waits are out of scope. |
 | 187 NtClose | Retires an owned ROM file token. Other handle kinds remain with their respective owners. |
 
 An event completion retains the exact typed event with the same lifetime
@@ -82,19 +91,18 @@ reads return the final status even with an event. An asynchronous create-open
 returns STATUS_PENDING after completion, including when the status block
 contains EOF. The I/O itself runs inline on the calling game worker. This
 matches the reference bridge's immediate-completion shape when its pending
-return option is enabled. No APC or file-handle wait is simulated.
+return option is enabled. An eventless read can be followed by a scoped wait on its file token.
 
 The standalone signed fixture executes these frames with a sparse synthetic
 disc. The general kernel import planner still rejects these ordinals without
-a broader file context. Connecting the dispatcher to authenticated startup
-and covering APCs, file-handle waits, save paths and other file types are
-required before enabling the general imports.
+a broader file context. APCs, general object waits, save paths and other
+file types remain separate integration requirements.
 
 ## Authenticated startup routing
 
 `Startup::startup_prepare_with_rom` opts in after creating the KIC5 object
 context. The image planner can then publish main-table markers for 187,
-190, 202 and 219. The planner still checks every other import and rejects
+190, 202, 219, 233 and 234. The planner still checks every other import and rejects
 unsupported ordinals before publishing any markers. The default planner
 and generic kernel dispatcher continue to decline these file ordinals.
 Lookbehind file imports remain unsupported.
@@ -111,6 +119,6 @@ synthetic authenticated XBE. Mode 86 opens, reads and closes a file through
 the published markers. Mode 87 verifies that ordinary KIC5 rejects the
 same file imports. Mode 88 includes an unsupported set-information import and
 verifies that the explicit optical path also rejects the entire table.
-Mode 89 exercises NtCreateFile and an event-backed Pending return through
-the published markers.
+Mode 89 exercises NtCreateFile, both event-backed and eventless Pending
+returns, and the two single-object ROM waits through the published markers.
 The private image is still checked through the ordinary gate.
