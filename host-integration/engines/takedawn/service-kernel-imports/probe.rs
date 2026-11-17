@@ -40,7 +40,7 @@ pub fn imports_owner(
     base: u32,
     physical: bool,
 ) -> Result<u64, i32> {
-    imports_owner_mode(ram, banks, base, physical, false)
+    imports_owner_mode(ram, banks, base, 67108864, physical, false)
 }
 pub fn imports_owner_services(
     ram: &mut memory::Memory,
@@ -48,12 +48,21 @@ pub fn imports_owner_services(
     base: u32,
     physical: bool,
 ) -> Result<u64, i32> {
-    imports_owner_mode(ram, banks, base, physical, true)
+    imports_owner_mode(ram, banks, base, 67108864, physical, true)
+}
+pub fn imports_owner_virtual(
+    ram: &mut memory::Memory,
+    banks: [u64; 3],
+    base: u32,
+) -> Result<u64, i32> {
+    let heap_limit = ram.memory_guest_arena(base)?;
+    imports_owner_mode(ram, banks, base, heap_limit, true, true)
 }
 fn imports_owner_mode(
     ram: &mut memory::Memory,
     banks: [u64; 3],
     base: u32,
+    heap_limit: u32,
     physical: bool,
     services: bool,
 ) -> Result<u64, i32> {
@@ -66,7 +75,7 @@ fn imports_owner_mode(
     gamepkg::local_call(10, &req, &mut result)?;
     let job = u64::from_le_bytes(result);
     let mut client = heap_service::HeapClient::heap_client(inbox, job)?;
-    client.heap_initialize(ram.call_handle(), banks[0], base, 67108864)?;
+    client.heap_initialize(ram.call_handle(), banks[0], base, heap_limit)?;
     if physical {
         if services {
             if client.heap_contiguous_initialize(banks[1]) != Err(-1)

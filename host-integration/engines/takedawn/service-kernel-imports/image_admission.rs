@@ -561,7 +561,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                     &[
                         code,
                         if mode == 94 || mode == 95 {
-                            28
+                            30
                         } else if mode == 92 {
                             18
                         } else if mode == 90 || mode == 91 {
@@ -625,7 +625,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                     0x544b0f00, 0x544b0f10, 0x544b0fff, 0x544b1300, 0x544b3200, 0x544b1710,
                     0x544b1800, 0x544b1801, 0x544b3b00, 0x544b3900, 0x544b3c00, 0x544b3d00,
                     0x544b3f00, 0x544b4100, 0x544b4300, 0x544b4500, 0x544b4600, 0x544b4700,
-                    0x544b4800, 0x544b4900
+                    0x544b4800, 0x544b4900, 0x544b4a00
                 ]
                 .contains(&event.code));
                 if event.code == 0x544b1300 {
@@ -690,9 +690,9 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                     .flat_map(|e| &e.values)
                     .copied()
                     .collect();
-                assert_eq!(unresolved.len(), if mode == 96 { 77 } else { 86 });
+                assert_eq!(unresolved.len(), if mode == 96 { 75 } else { 86 });
                 if mode == 96 {
-                    for ordinal in [67, 69, 198, 203, 210, 211, 215, 226, 236] {
+                    for ordinal in [67, 69, 184, 198, 199, 203, 210, 211, 215, 226, 236] {
                         assert!(!unresolved.contains(&ordinal));
                     }
                 }
@@ -723,6 +723,16 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                     assert!(disk_calls.is_empty());
                     assert_eq!(fs::read_dir(directory).unwrap().count(), 0);
                 }
+            }
+            let vm_calls: Vec<_> = events
+                .iter()
+                .filter(|event| event.code == 0x544b4a00)
+                .collect();
+            if mode == 94 {
+                assert_eq!(vm_calls.len(), 1);
+                assert_eq!(vm_calls[0].values, [184, 199, 1048576, 8192]);
+            } else {
+                assert!(vm_calls.is_empty());
             }
             let protection_calls: Vec<_> = events
                 .iter()

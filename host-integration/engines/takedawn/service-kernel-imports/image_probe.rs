@@ -47,7 +47,9 @@ pub fn image_import_run() -> Result<(), i32> {
     let startup = bootstrap::Bootstrap::boot_plan(&image, &ram)?;
     let shape = startup.boot_layout();
     let mut state = startup.boot_apply(&mut ram)?;
-    let job = if mode[0] >= 51 {
+    let job = if mode[0] >= 94 {
+        probe::imports_owner_virtual(&mut ram, banks, shape[4])?
+    } else if mode[0] >= 51 {
         probe::imports_owner_services(&mut ram, banks, shape[4], true)?
     } else {
         probe::imports_owner(&mut ram, banks, shape[4], true)?

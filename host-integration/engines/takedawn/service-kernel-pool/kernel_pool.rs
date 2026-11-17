@@ -17,9 +17,9 @@ fn pool_argument_bytes(ordinal: u32) -> Result<u32, i32> {
         14 | 17 | 23 | 98 | 165 | 171 | 179 | 180 | 277 | 291 | 294 | 301 | 335 => Ok(4),
         15 | 44 | 113 | 168 | 225 | 289 | 290 | 337 => Ok(8),
         189 | 193 => Ok(16),
-        107 | 182 | 222 | 269 | 279 | 336 | 338 | 339 => Ok(12),
+        107 | 182 | 199 | 222 | 269 | 279 | 336 | 338 | 339 => Ok(12),
         109 | 340 => Ok(28),
-        24 | 166 => Ok(20),
+        24 | 166 | 184 => Ok(20),
         125 | 126 | 127 => Ok(0),
         128 => Ok(4),
         _ => Err(-5),
@@ -32,6 +32,7 @@ pub fn kernel_supported(ordinal: u32) -> Result<u32, i32> {
 // Context-dependent imports require a live typed binding, not classification alone.
 pub fn kernel_requires_context(ordinal: u32) -> bool {
     ordinal == 98
+        || kernel_vm_ordinal(ordinal)
         || ordinal == 277
         || ordinal == 291
         || ordinal == 294
@@ -40,6 +41,9 @@ pub fn kernel_requires_context(ordinal: u32) -> bool {
         || ordinal == 225
         || ordinal == 193
         || ordinal == 222
+}
+pub fn kernel_vm_ordinal(ordinal: u32) -> bool {
+    ordinal == 184 || ordinal == 199
 }
 pub fn kernel_physical(ordinal: u32) -> bool {
     ordinal == 165 || ordinal == 166 || ordinal == 168 || ordinal == 171 || ordinal == 180
@@ -351,6 +355,22 @@ pub fn kernel_invoke(
     let first = pool_word(&args, 0)?;
     if ordinal == 15 {
         let _ = pool_word(&args, 4)?;
+    }
+    if kernel_vm_ordinal(ordinal) {
+        let result = ram.memory_guest_vm_call(
+            ordinal,
+            [
+                first,
+                pool_word(&args, 4)?,
+                pool_word(&args, 8)?,
+                pool_word(&args, 12)?,
+                pool_word(&args, 16)?,
+            ],
+        )?;
+        ram.kernel_set_caller(caller);
+        state.eax = result;
+        state.esp = end as u32;
+        return Ok(());
     }
     if ordinal == 179 || ordinal == 182 {
         let result = if ordinal == 179 {
@@ -2905,6 +2925,9 @@ pub fn kernel_context_ready(ram: &memory::Memory, context: u64, ordinal: u32) ->
         return Err(-5);
     }
     let bound = KernelContext::kernel_context_borrow(ram, context)?;
+    if kernel_vm_ordinal(ordinal) {
+        ram.memory_guest_arena_ready()?;
+    }
     if ordinal == 277 || ordinal == 291 || ordinal == 294 {
         bound.kernel_context_criticals(ram)?;
     }

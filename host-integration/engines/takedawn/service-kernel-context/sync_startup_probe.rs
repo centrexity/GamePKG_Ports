@@ -354,3 +354,104 @@ pub fn protection_fixture(ram: &mut memory::Memory, slots: [u32; 2]) -> Result<(
     gamepkg::diagnostic(1, 0x544b4900, &[179, 182, 8192, 7])?;
     Ok(())
 }
+
+pub fn virtual_startup_fixture(ram: &mut memory::Memory, slots: [u32; 2]) -> Result<(), i32> {
+    let [allocate, free] = slots;
+    let stack = ram.read_u32(0x4008)?.checked_add(0x2200).ok_or(-1)?;
+    let base_at = stack + 80;
+    let size_at = stack + 84;
+    let allocate_args = [base_at, 0, size_at, 0x2000, 4];
+    ram.write_u32(base_at, 0)?;
+    ram.write_u32(size_at, 1048576)?;
+    sync_startup_need(
+        1031,
+        protection_fixture_invoke(ram, stack, allocate, &allocate_args, 0)? == 0,
+    )?;
+    let region = ram.read_u32(base_at)?;
+    let alias = region + 0x04000000;
+    sync_startup_need(
+        1032,
+        region == 0x03800000
+            && ram.read_u32(size_at)? == 1048576
+            && ram.read_u32(region) == Err(-4)
+            && ram.read_u32(alias) == Err(-4),
+    )?;
+    sync_startup_need(
+        1033,
+        protection_fixture_invoke(ram, stack, allocate, &allocate_args, 0)? == 0xc0000018
+            && ram.read_u32(base_at)? == region
+            && ram.read_u32(size_at)? == 1048576,
+    )?;
+    ram.write_u32(size_at, 4096)?;
+    let commit_first = [base_at, 0, size_at, 0x1000, 4];
+    sync_startup_need(
+        1034,
+        protection_fixture_invoke(ram, stack, allocate, &commit_first, 0)? == 0
+            && ram.read_u32(region)? == 0
+            && ram.read_u32(region + 4096) == Err(-4),
+    )?;
+    ram.write_u32(region, 0x76755452)?;
+    ram.write_u32(region + 8, region)?;
+    let free_from_region = [alias + 8, size_at, 0x4000];
+    protection_fixture_invoke(ram, stack, free, &free_from_region, -5)?;
+    sync_startup_need(1035, ram.read_u32(region)? == 0x76755452)?;
+
+    ram.write_u32(size_at, 8192)?;
+    let commit_two = [base_at, 0, size_at, 0x1000, 2];
+    sync_startup_need(
+        1036,
+        protection_fixture_invoke(ram, stack, allocate, &commit_two, 0)? == 0
+            && ram.read_u32(alias)? == 0x76755452
+            && ram.read_u32(region + 4096)? == 0
+            && ram.write_u32(region, 0) == Err(-4),
+    )?;
+    let decommit = [base_at, size_at, 0x4000];
+    sync_startup_need(
+        1037,
+        protection_fixture_invoke(ram, stack, free, &decommit, 0)? == 0
+            && ram.read_u32(alias) == Err(-4)
+            && protection_fixture_invoke(ram, stack, allocate, &commit_first, 0)? == 0
+            && ram.read_u32(alias)? == 0,
+    )?;
+    ram.write_u32(size_at, 0)?;
+    let release = [base_at, size_at, 0x8000];
+    sync_startup_need(
+        1038,
+        protection_fixture_invoke(ram, stack, free, &release, 0)? == 0
+            && ram.read_u32(size_at)? == 1048576
+            && ram.read_u32(region) == Err(-4)
+            && protection_fixture_invoke(ram, stack, allocate, &commit_first, 0)? == 0xc0000018,
+    )?;
+    ram.write_u32(base_at, 0)?;
+    ram.write_u32(size_at, 1048576)?;
+    let create_combined = [base_at, 0, size_at, 0x103000, 4];
+    sync_startup_need(
+        1039,
+        protection_fixture_invoke(ram, stack, allocate, &create_combined, 0)? == 0,
+    )?;
+    let high = ram.read_u32(base_at)?;
+    sync_startup_need(1040, high == 0x03f00000 && ram.read_u32(high)? == 0)?;
+    // Release the second page only, then show that the remaining fragments
+    // retain their bytes while a commit into the released gap is refused.
+    ram.write_u32(high, 0xea123987)?;
+    ram.write_u32(base_at, high + 4096)?;
+    ram.write_u32(size_at, 4096)?;
+    sync_startup_need(
+        1041,
+        protection_fixture_invoke(ram, stack, free, &release, 0)? == 0
+            && ram.read_u32(high)? == 0xea123987
+            && ram.read_u32(high + 4096) == Err(-4)
+            && ram.read_u32(high + 8192)? == 0
+            && protection_fixture_invoke(ram, stack, allocate, &commit_first, 0)? == 0xc0000018,
+    )?;
+    for fragment in [high, high + 8192] {
+        ram.write_u32(base_at, fragment)?;
+        ram.write_u32(size_at, 0)?;
+        sync_startup_need(
+            1042,
+            protection_fixture_invoke(ram, stack, free, &release, 0)? == 0,
+        )?;
+    }
+    gamepkg::diagnostic(1, 0x544b4a00, &[184, 199, 1048576, 8192])?;
+    Ok(())
+}

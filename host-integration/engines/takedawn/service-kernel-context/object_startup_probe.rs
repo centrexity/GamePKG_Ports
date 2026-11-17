@@ -294,6 +294,8 @@ pub fn object_startup_image(
                             if mode == 96 { 3 } else { 2 },
                         ))
                     && (kernel_pool::kernel_supported(ordinal).is_err()
+                        || kernel_pool::kernel_vm_ordinal(ordinal)
+                            && ram.memory_guest_arena_ready().is_err()
                         || mode == 67 && (ordinal == 193 || ordinal == 222)
                         || mode != 84
                             && mode != 93
@@ -426,6 +428,7 @@ pub fn object_startup_image(
         if mode >= 69 {
             if mode == 94 {
                 crate::sync_startup_probe::protection_fixture(ram, [26, 27])?;
+                crate::sync_startup_probe::virtual_startup_fixture(ram, [28, 29])?;
             }
             if mode < 83 {
                 crate::sync_startup_probe::sync_startup_schema(ram, &owner, mode)?;
@@ -681,7 +684,7 @@ pub fn object_startup_image(
             u64::from(mode),
             expected as i64 as u64,
             if mode == 94 || mode == 95 {
-                28
+                30
             } else if mode == 92 {
                 18
             } else if mode == 90 || mode == 91 {

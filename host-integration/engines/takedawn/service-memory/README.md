@@ -139,3 +139,40 @@ The authenticated startup fixture covers read/write, read-only, no-access and
 reserved queries, a two-page unaligned change through an alias, content
 retention, and refusals for invalid flags and ranges. The real disc check
 prepares imports in place. Full title execution remains gated.
+
+## Native startup virtual memory arena
+
+The reviewed bootstrap reserves the top 8 MiB of the existing 64 MiB main
+window for virtual memory before starting the ordinary heap worker. The heap
+worker receives 0x03800000 as its exclusive upper bound. The arena begins
+uncommitted, uses the original main RAM aliases, and cannot replace image,
+kernel-data, stack, or heap backing. The historical native diagnostic returned
+0x00780000 to its first reserve request with no address hint. The checked
+bootstrap places its fixed allocations differently, so the equivalent
+hint-free request returns a free aligned address in the new arena.
+
+NtAllocateVirtualMemory (184) and NtFreeVirtualMemory (199) bind only after
+validating the kernel context and the exact arena owner. The arena belongs to
+the startup task and its primary Memory view. Borrowed views cannot perform
+these operations. The guest passes little-endian 32-bit in/out addresses
+for the base and byte count. The adapter supports bounded bottom-up and
+top-down reservations, fixed hints inside the arena, eligible ZeroBits,
+reserve plus commit, commit inside an existing reservation, decommit, and
+whole or partial release. Reservation bases round to 64 KiB and affected
+pages to 4 KiB. The table supports up to 128 live reservations or fragments.
+Newly committed pages are zeroed. Recommit retains existing contents and
+applies the requested permission. Only no-access, read-only and read/write
+are supported.
+
+The adapter stages both guest outputs together and excludes outputs that
+overlap the affected backing, including mirrored addresses. A recoverable
+page-operation failure restores the original outputs and any earlier
+changes to the page runs. If recovery itself fails, subsequent VM calls
+refuse the poisoned arena. This protocol is for startup-owner dispatch.
+Shared concurrent VM mutations, NtQueryVirtualMemory, and full retail flag
+and failure coverage remain separate work.
+
+The confined fixture exercises the observed 1 MiB reservation and first
+4 KiB commit, plus mixed recommit, retained bytes through aliases, refusing
+overlapping outputs, decommit, top-down allocation, and partial release.
+The ISO import inspection leaves the title entry gated.

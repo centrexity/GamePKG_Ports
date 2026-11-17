@@ -8,6 +8,323 @@ struct Span {
     offset: u64,
     writable: bool,
 }
+const VM_LOW: u32 = 0x03800000;
+const VM_HIGH: u32 = 0x04000000;
+const VM_CONFLICT: u32 = 0xc0000018;
+const VM_INVALID: u32 = 0xc000000d;
+const VM_EXHAUSTED: u32 = 0xc0000017;
+const VM_NOT_ALLOCATED: u32 = 0xc00000a0;
+
+struct GuestArena {
+    task: u64,
+    backing: u64,
+    origin: u64,
+    reservations: std::vec::Vec<[u32; 2]>,
+    poisoned: bool,
+}
+
+fn vm_page_service(
+    operation: u32,
+    window: u64,
+    offset: u64,
+    size: u32,
+    mode: u32,
+) -> Result<(), i32> {
+    let mut request = std::vec::Vec::new();
+    request.extend(u64::to_le_bytes(window));
+    request.extend(u64::to_le_bytes(offset));
+    request.extend(u64::to_le_bytes(u64::from(size)));
+    if operation != 4 {
+        request.extend(u32::to_le_bytes(mode));
+    }
+    if gamepkg::local_call(operation, &request, &mut [])? != 0 {
+        return Err(-3);
+    }
+    Ok(())
+}
+
+impl GuestArena {
+    fn vm_offset(&self, base: u32) -> u64 {
+        self.origin + u64::from(base - VM_LOW)
+    }
+
+    fn vm_page_runs(&self, base: u32, size: u32) -> Result<std::vec::Vec<[u32; 3]>, i32> {
+        let mut runs: std::vec::Vec<[u32; 3]> = std::vec::Vec::new();
+        let mut cursor = base;
+        while cursor < base + size {
+            let count = ((base + size - cursor) / 4096).min(256);
+            for state in
+                gamepkg::local_memory_page_states(self.backing, self.vm_offset(cursor), count)?
+            {
+                if let Some(last_run) = runs.last_mut() {
+                    if last_run[2] == u32::from(state) {
+                        last_run[1] += 4096;
+                        cursor += 4096;
+                        continue;
+                    }
+                }
+                runs.push([cursor, 4096, u32::from(state)]);
+                cursor += 4096;
+            }
+        }
+        Ok(runs)
+    }
+
+    fn vm_commit(&mut self, runs: &[[u32; 3]], mode: u32) -> Result<(), i32> {
+        for (index, span) in runs.iter().enumerate() {
+            if span[2] == mode + 1 {
+                continue;
+            }
+            let operation = if span[2] == 0 { 2 } else { 3 };
+            if let Err(code) = vm_page_service(
+                operation,
+                self.backing,
+                self.vm_offset(span[0]),
+                span[1],
+                mode,
+            ) {
+                for prior in &runs[..index] {
+                    if prior[2] == mode + 1 {
+                        continue;
+                    }
+                    let undo = if prior[2] == 0 { 4 } else { 3 };
+                    if vm_page_service(
+                        undo,
+                        self.backing,
+                        self.vm_offset(prior[0]),
+                        prior[1],
+                        prior[2].saturating_sub(1),
+                    )
+                    .is_err()
+                    {
+                        self.poisoned = true;
+                        return Err(-3);
+                    }
+                }
+                return Err(code);
+            }
+        }
+        Ok(())
+    }
+
+    fn vm_empty_slot(&self) -> Option<usize> {
+        for (index, reservation) in self.reservations.iter().enumerate() {
+            if reservation[1] == 0 {
+                return Some(index);
+            }
+        }
+        None
+    }
+
+    fn vm_find(&self, base: u32, size: u32) -> Option<usize> {
+        for (index, pair) in self.reservations.iter().enumerate() {
+            if pair[1] != 0
+                && base >= pair[0]
+                && u64::from(base) + u64::from(size) <= u64::from(pair[1])
+            {
+                return Some(index);
+            }
+        }
+        None
+    }
+
+    fn vm_free_range(&self, base: u32, size: u32, high: u32) -> bool {
+        if base < VM_LOW || u64::from(base) + u64::from(size) > u64::from(high) {
+            return false;
+        }
+        for pair in &self.reservations {
+            if pair[1] != 0 && base < pair[1] && pair[0] < base + size {
+                return false;
+            }
+        }
+        true
+    }
+
+    fn vm_select(&self, hint: u32, size: u32, high: u32, top_down: bool) -> Option<u32> {
+        if hint != 0 {
+            return if self.vm_free_range(hint, size, high) {
+                Some(hint)
+            } else {
+                None
+            };
+        }
+        for index in 0..((VM_HIGH - VM_LOW) / 65536) {
+            let lane = if top_down {
+                (VM_HIGH - VM_LOW) / 65536 - index - 1
+            } else {
+                index
+            };
+            let candidate = VM_LOW + lane * 65536;
+            if self.vm_free_range(candidate, size, high) {
+                return Some(candidate);
+            }
+        }
+        None
+    }
+
+    fn vm_parameters(&self, ram: &Memory, pointers: [u32; 2], region: [u32; 2]) -> Result<(), i32> {
+        // Check translated backing overlap, including aliases and cross-span
+        // words. The service independently checks both output writes together.
+        let start = self.vm_offset(region[0]);
+        let end = start + u64::from(region[1]);
+        for pointer in pointers {
+            for segment in ram.resolve_segments(pointer, 4, true)? {
+                if segment[0] == self.backing && segment[1] < end && start < segment[1] + segment[2]
+                {
+                    return Err(-5);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn vm_apply(
+        &mut self,
+        ram: &mut Memory,
+        pointers: [u32; 2],
+        old: [u32; 2],
+        range: [u32; 2],
+        operation: u32,
+        mode: u32,
+    ) -> Result<(), i32> {
+        self.vm_parameters(ram, pointers, range)?;
+        let runs = if operation == 2 {
+            self.vm_page_runs(range[0], range[1])?
+        } else {
+            std::vec::Vec::new()
+        };
+        vm_write_parameters(ram, pointers, range)?;
+        let changed = match operation {
+            2 => self.vm_commit(&runs, mode),
+            4 => vm_page_service(4, self.backing, self.vm_offset(range[0]), range[1], 0),
+            _ => Ok(()),
+        };
+        if let Err(error) = changed {
+            if vm_write_parameters(ram, pointers, old).is_err() {
+                self.poisoned = true;
+            }
+            return Err(if self.poisoned { -3 } else { error });
+        }
+        Ok(())
+    }
+
+    fn vm_allocate(&mut self, ram: &mut Memory, request: [u32; 5]) -> Result<u32, i32> {
+        let [base_at, zero_bits, size_at, flags, protection] = request;
+        let pointers = [base_at, size_at];
+        let old = [ram.read_u32(base_at)?, ram.read_u32(size_at)?];
+        if old[1] == 0 || zero_bits > 21 || flags & !0x103000 != 0 || flags & 0x3000 == 0 {
+            return Ok(VM_INVALID);
+        }
+        let mode = match protection {
+            1 => 0,
+            2 => 1,
+            4 => 2,
+            _ => return Err(-5),
+        };
+        let reserve = flags & 0x2000 != 0 || old[0] == 0;
+        let base = old[0] & !(if reserve { 65535 } else { 4095 });
+        if old[0] != 0 && base < VM_LOW {
+            return Ok(VM_CONFLICT);
+        }
+        let span = u64::from(old[0] - base) + u64::from(old[1]);
+        let size = (span + 4095) & !4095u64;
+        if size > u64::from(VM_HIGH - VM_LOW) {
+            return Ok(VM_EXHAUSTED);
+        }
+        let size = size as u32;
+        if !reserve {
+            if self.vm_find(base, size).is_none() {
+                return Ok(VM_CONFLICT);
+            }
+            self.vm_apply(ram, pointers, old, [base, size], 2, mode)?;
+            return Ok(0);
+        }
+        let available = match self.vm_empty_slot() {
+            Some(slot) => slot,
+            None => return Ok(VM_EXHAUSTED),
+        };
+        let high = if base == 0 && zero_bits != 0 {
+            VM_HIGH.min((u32::MAX >> zero_bits) + 1)
+        } else {
+            VM_HIGH
+        };
+        let selected = match self.vm_select(base, size, high, flags & 0x100000 != 0) {
+            Some(selected) => selected,
+            None if old[0] == 0 => return Ok(VM_EXHAUSTED),
+            None => return Ok(VM_CONFLICT),
+        };
+        self.vm_apply(
+            ram,
+            pointers,
+            old,
+            [selected, size],
+            if flags & 0x1000 == 0 { 0 } else { 2 },
+            mode,
+        )?;
+        self.reservations[available] = [selected, selected + size];
+        Ok(0)
+    }
+
+    fn vm_free(&mut self, ram: &mut Memory, request: [u32; 3]) -> Result<u32, i32> {
+        let [base_at, size_at, flags] = request;
+        let pointers = [base_at, size_at];
+        let old = [ram.read_u32(base_at)?, ram.read_u32(size_at)?];
+        if flags != 0x4000 && flags != 0x8000 {
+            return Ok(VM_INVALID);
+        }
+        let base = old[0] & !4095;
+        let size = (u64::from(old[0] - base) + u64::from(old[1]) + 4095) & !4095u64;
+        if size > u64::from(VM_HIGH - VM_LOW) {
+            return Ok(VM_INVALID);
+        }
+        let entry = match self.vm_find(base, if old[1] == 0 { 1 } else { size as u32 }) {
+            Some(index) => index,
+            None => return Ok(VM_NOT_ALLOCATED),
+        };
+        let reservation = self.reservations[entry];
+        if old[1] == 0 && base != reservation[0] {
+            return Ok(0xc000009f);
+        }
+        let size = if old[1] == 0 {
+            reservation[1] - base
+        } else {
+            size as u32
+        };
+        let end = base + size;
+        let split = if flags == 0x8000 && base > reservation[0] && end < reservation[1] {
+            match self.vm_empty_slot() {
+                Some(slot) => Some(slot),
+                None => return Ok(VM_EXHAUSTED),
+            }
+        } else {
+            None
+        };
+        self.vm_apply(ram, pointers, old, [base, size], 4, 0)?;
+        if flags == 0x8000 {
+            self.reservations[entry] = if base > reservation[0] {
+                [reservation[0], base]
+            } else if end < reservation[1] {
+                [end, reservation[1]]
+            } else {
+                [0; 2]
+            };
+            if let Some(slot) = split {
+                self.reservations[slot] = [end, reservation[1]];
+            }
+        }
+        Ok(0)
+    }
+}
+
+fn vm_write_parameters(ram: &mut Memory, pointers: [u32; 2], values: [u32; 2]) -> Result<(), i32> {
+    ram.memory_write_pair(
+        pointers[0],
+        &u32::to_le_bytes(values[0]),
+        pointers[1],
+        &u32::to_le_bytes(values[1]),
+    )
+}
+
 pub struct Memory {
     spans: std::vec::Vec<Span>,
     calls: u64,
@@ -15,6 +332,7 @@ pub struct Memory {
     kernel_caller: u32,
     heap_endpoints: [u64; 2],
     heap_client: Option<crate::heap_service::HeapClient>,
+    vm_arena: Option<GuestArena>,
 }
 impl Memory {
     pub fn new() -> Result<Self, i32> {
@@ -26,6 +344,7 @@ impl Memory {
             kernel_caller: 0,
             heap_endpoints: [0; 2],
             heap_client: None,
+            vm_arena: None,
         })
     }
     // One title's views/tasks explicitly share an opaque GamePKG record ID.
@@ -38,7 +357,59 @@ impl Memory {
             kernel_caller: 0,
             heap_endpoints: self.heap_endpoints,
             heap_client: None,
+            vm_arena: None,
         }
+    }
+    // Reserve the top of the existing main bank before starting the heap
+    // worker. The returned address is the exclusive heap limit.
+    pub fn memory_guest_arena(&mut self, heap_start: u32) -> Result<u32, i32> {
+        self.call_snapshot()?;
+        let (task, cancelled) = gamepkg::local_task_status()?;
+        if cancelled
+            || self.kernel != 0
+            || self.heap_endpoints != [0; 2]
+            || self.vm_arena.is_some()
+            || heap_start < 65536
+            || heap_start >= VM_LOW
+        {
+            return Err(-4);
+        }
+        let (backing, origin) = self.resolve(VM_LOW, u64::from(VM_HIGH - VM_LOW), true)?;
+        if origin != u64::from(VM_LOW) {
+            return Err(-4);
+        }
+        let mut reservations = std::vec::Vec::new();
+        reservations.resize(128, [0; 2]);
+        vm_page_service(4, backing, origin, VM_HIGH - VM_LOW, 0)?;
+        self.vm_arena = Some(GuestArena {
+            task,
+            backing,
+            origin,
+            reservations,
+            poisoned: false,
+        });
+        Ok(VM_LOW)
+    }
+
+    pub fn memory_guest_arena_ready(&self) -> Result<(), i32> {
+        let arena = self.vm_arena.as_ref().ok_or(-5)?;
+        let (task, cancelled) = gamepkg::local_task_status()?;
+        if cancelled || arena.task != task || arena.poisoned {
+            return Err(-4);
+        }
+        Ok(())
+    }
+
+    pub fn memory_guest_vm_call(&mut self, ordinal: u32, args: [u32; 5]) -> Result<u32, i32> {
+        self.memory_guest_arena_ready()?;
+        let mut arena = self.vm_arena.take().ok_or(-5)?;
+        let result = match ordinal {
+            184 => arena.vm_allocate(self, args),
+            199 => arena.vm_free(self, [args[0], args[1], args[2]]),
+            _ => Err(-5),
+        };
+        self.vm_arena = Some(arena);
+        result
     }
     // Install the initialized primary client without copying its response
     // channel/sequence. Failure leaves caller ownership intact for cleanup.
@@ -162,6 +533,7 @@ impl Memory {
             kernel_caller: 0,
             heap_endpoints: [0; 2],
             heap_client: None,
+            vm_arena: None,
         })
     }
     // A stale snapshot has not committed a call or touched game state. Yield
