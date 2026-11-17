@@ -5,8 +5,8 @@ use crate::kernel_pool;
 use crate::memory;
 
 const ROM_KIND: u32 = 4;
-const RECORD_MAGIC: u64 = 0x31464d52;
-const RECORD_BYTES: usize = 48;
+const RECORD_MAGIC: u64 = 0x32464d52;
+const RECORD_BYTES: usize = 56;
 const READ_LIMIT: usize = 65536;
 
 pub struct RomFiles {
@@ -116,6 +116,18 @@ impl RomFiles {
         path: &str,
         output: &mut u32,
     ) -> Result<(), i32> {
+        self.rom_open_with_mode(ram, table, image, path, false, output)
+    }
+
+    pub fn rom_open_with_mode(
+        &mut self,
+        ram: &memory::Memory,
+        table: &kernel_pool::Handles,
+        image: &disc::Disc,
+        path: &str,
+        deferred: bool,
+        output: &mut u32,
+    ) -> Result<(), i32> {
         if *output != 0 {
             return Err(-1);
         }
@@ -129,6 +141,7 @@ impl RomFiles {
             &u64::to_le_bytes(u64::from(stream.disc_file_size())),
             &u64::to_le_bytes(0),
             &u64::to_le_bytes(0),
+            &u64::to_le_bytes(u64::from(deferred)),
         ]
         .concat();
         let created = self.rom_publish(ram, table, &bytes, output);
@@ -178,6 +191,7 @@ impl RomFiles {
             || word(&bytes, 24)? > u64::from(u32::MAX)
             || word(&bytes, 32)? > word(&bytes, 24)?
             || word(&bytes, 40)? > 1
+            || word(&bytes, 48)? > 1
         {
             return Err(-4);
         }
@@ -302,6 +316,14 @@ impl RomRead {
             return Err(-4);
         }
         Ok(())
+    }
+
+    pub fn rom_read_deferred(&self, ram: &memory::Memory) -> Result<bool, i32> {
+        self.rom_read_owner(ram)?;
+        if !self.ready || self.closed {
+            return Err(-4);
+        }
+        Ok(word(&self.bytes, 48)? == 1)
     }
 
     pub fn rom_read_into(

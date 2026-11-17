@@ -199,8 +199,14 @@ fn call_guest_file(
     }
     let mut expected = registers::Registers::new();
     expected.decode(&cpu.encode())?;
-    let result =
-        bridge.rom_kernel_invoke(image, &fixture.table, &mut fixture.ram, &mut cpu, ordinal);
+    let result = bridge.rom_kernel_invoke(
+        image,
+        &fixture.table,
+        &fixture.events,
+        &mut fixture.ram,
+        &mut cpu,
+        ordinal,
+    );
     match outcome {
         Ok(code) => {
             result?;
@@ -250,9 +256,9 @@ fn run_guest_file_calls(image: &disc::Disc, fixture: &mut setup::Fixture) -> Res
         token != 0 && fixture.ram.read_u64(0x10510)? == 0x100000000,
     )?;
 
-    let mut read_args = [token, 1, 0, 0, 0x10510, 0x10520, 4, 0];
+    let mut read_args = [token, 0, 1, 0, 0x10510, 0x10520, 4, 0];
     call_guest_file(&mut bridge, image, fixture, 219, &read_args, Err(-5))?;
-    read_args[1] = 0;
+    read_args[2] = 0;
     call_guest_file(&mut bridge, image, fixture, 219, &read_args, Ok(0))?;
     let mut witness = [0u8; 4];
     fixture.ram.read_bytes(0x10520, &mut witness)?;
@@ -276,5 +282,68 @@ fn run_guest_file_calls(image: &disc::Disc, fixture: &mut setup::Fixture) -> Res
     call_guest_file(&mut bridge, image, fixture, 187, &[token], Ok(0))?;
     call_guest_file(&mut bridge, image, fixture, 219, &read_args, Err(-4))?;
     check(898, crate::kernel_pool::kernel_supported(219) == Err(-5))?;
+    let event_pair = fixture.mixed_event(false, 0)?;
+    let event_token = event_pair[1] as u32;
+    let mut completion =
+        fixture
+            .events
+            .events_completion_begin(&fixture.ram, &fixture.table, event_token)?;
+    completion.completion_prepare(&fixture.ram)?;
+    check(
+        908,
+        fixture
+            .events
+            .events_remove(&fixture.ram, &fixture.table, event_token)
+            == Err(-2),
+    )?;
+    completion.completion_signal(&fixture.ram)?;
+    check(909, completion.completion_signal(&fixture.ram) == Err(-1))?;
+    completion.completion_close(&fixture.ram)?;
+    check(910, gamepkg::local_event_wait(event_pair[0], 0) == Ok(()))?;
+    check(911, gamepkg::local_event_wait(event_pair[0], 0) == Err(-2))?;
+
+    // Synchronous with an event still returns the final status.
+    open_args[5] = 0x60;
+    call_guest_file(&mut bridge, image, fixture, 202, &open_args, Ok(0))?;
+    let sync_token = fixture.ram.read_u32(0x10500)?;
+    let sync_read = [sync_token, event_token, 0, 0, 0x10510, 0x10520, 4, 0];
+    call_guest_file(&mut bridge, image, fixture, 219, &sync_read, Ok(0))?;
+    check(900, gamepkg::local_event_wait(event_pair[0], 0) == Ok(()))?;
+    check(901, gamepkg::local_event_wait(event_pair[0], 0) == Err(-2))?;
+    call_guest_file(&mut bridge, image, fixture, 187, &[sync_token], Ok(0))?;
+
+    // FILE_OPEN through NtCreateFile tracks the asynchronous return mode.
+    let mut create_args = [0x10500, 0x80100080, 0x10400, 0x10510, 0, 0x80, 1, 2, 0x40];
+    call_guest_file(&mut bridge, image, fixture, 190, &create_args, Err(-5))?;
+    create_args[7] = 1;
+    call_guest_file(&mut bridge, image, fixture, 190, &create_args, Ok(0))?;
+    let async_token = fixture.ram.read_u32(0x10500)?;
+    let mut async_read = [async_token, 0, 0, 0, 0x10510, 0x10520, 4, 0];
+    call_guest_file(&mut bridge, image, fixture, 219, &async_read, Err(-5))?;
+    async_read[1] = async_token;
+    call_guest_file(&mut bridge, image, fixture, 219, &async_read, Err(-1))?;
+    async_read[1] = event_token;
+    async_read[5] = 0x12000;
+    call_guest_file(&mut bridge, image, fixture, 219, &async_read, Err(-4))?;
+    check(902, gamepkg::local_event_wait(event_pair[0], 0) == Err(-2))?;
+    async_read[5] = 0x10520;
+    call_guest_file(&mut bridge, image, fixture, 219, &async_read, Ok(0x103))?;
+    fixture.ram.read_bytes(0x10520, &mut witness)?;
+    check(
+        903,
+        &witness == b"XBEH" && fixture.ram.read_u64(0x10510)? == 0x400000000,
+    )?;
+    check(904, gamepkg::local_event_wait(event_pair[0], 0) == Ok(()))?;
+    fixture.ram.write_u64(0x10540, 128)?;
+    async_read[7] = 0x10540;
+    call_guest_file(&mut bridge, image, fixture, 219, &async_read, Ok(0x103))?;
+    check(905, fixture.ram.read_u64(0x10510)? == 0xc0000011)?;
+    check(906, gamepkg::local_event_wait(event_pair[0], 0) == Ok(()))?;
+    call_guest_file(&mut bridge, image, fixture, 187, &[async_token], Ok(0))?;
+    fixture
+        .events
+        .events_remove(&fixture.ram, &fixture.table, event_token)?;
+    check(907, crate::kernel_pool::kernel_supported(190) == Err(-5))?;
+
     bridge.rom_kernel_drain(&fixture.ram, &fixture.table)
 }

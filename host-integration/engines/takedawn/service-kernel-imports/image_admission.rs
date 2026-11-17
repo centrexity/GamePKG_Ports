@@ -425,7 +425,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
         }
         for pair in args[cases_start..].chunks_exact(2) {
             let mode = pair[0].to_str().unwrap().parse::<u8>().unwrap();
-            assert!(mode <= 88);
+            assert!(mode <= 89);
             assert_eq!(objects_layout, mode >= 51);
             let selected = fs::File::open(&pair[1]).unwrap();
             let mut indexed =
@@ -524,7 +524,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                     &values[1..],
                     &[
                         code,
-                        if mode == 88 {
+                        if mode == 88 || mode == 89 {
                             14
                         } else if mode == 83 || mode == 85 || mode == 86 || mode == 87 {
                             13
@@ -636,10 +636,10 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                     95
                 );
             }
-            if mode == 86 {
+            if mode == 86 || mode == 89 {
                 let calls: Vec<_> = events.iter().filter(|e| e.code == 0x544b4500).collect();
                 assert_eq!(calls.len(), 1);
-                assert_eq!(calls[0].values, [1, 4, 1]);
+                assert_eq!(calls[0].values, [1, 4, if mode == 89 { 2 } else { 1 }]);
             }
             if mode == 83 {
                 let calls: Vec<_> = events.iter().filter(|e| e.code == 0x544b4300).collect();

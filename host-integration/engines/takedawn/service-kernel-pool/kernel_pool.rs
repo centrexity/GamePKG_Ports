@@ -208,7 +208,7 @@ pub fn kernel_rom_ordinal(ram: &memory::Memory, context: u64, marker: u32) -> Re
         return Err(-5);
     }
     let ordinal = pool_word(&route, start + slot as usize * 4)?;
-    if ordinal != 187 && ordinal != 202 && ordinal != 219 {
+    if ordinal != 187 && ordinal != 190 && ordinal != 202 && ordinal != 219 {
         return Err(-5);
     }
     let table = pool_word(&route, 16)?;
@@ -4291,6 +4291,35 @@ impl EventCreation {
     }
 }
 
+// A completion pins the same event lifetime as a wait without consuming it.
+pub struct EventCompletion {
+    lease: EventWait,
+}
+impl EventCompletion {
+    pub fn completion_prepare(&mut self, ram: &memory::Memory) -> Result<(), i32> {
+        self.lease.event_publish_lease(ram)?;
+        self.lease.event_wait_unlock(ram)
+    }
+    pub fn completion_signal(&mut self, ram: &memory::Memory) -> Result<(), i32> {
+        self.lease.event_wait_owner(ram)?;
+        events_live(ram, self.lease.root, self.lease.services)?;
+        if !self.lease.published || self.lease.guard.is_some() || self.lease.attempted {
+            return Err(-1);
+        }
+        self.lease.attempted = true;
+        let result = events_signal(self.lease.event, true);
+        self.lease.outcome = match result {
+            Ok(()) => 0,
+            Err(code) => code,
+        };
+        self.lease.observed = true;
+        self.lease.event_wait_finish()?;
+        result
+    }
+    pub fn completion_close(&mut self, ram: &memory::Memory) -> Result<(), i32> {
+        self.lease.event_wait_close(ram)
+    }
+}
 pub struct EventWait {
     root: u64,
     services: u64,
@@ -4344,6 +4373,16 @@ fn events_wait_record(
     Ok((version, b))
 }
 impl Events {
+    pub fn events_completion_begin(
+        &self,
+        ram: &memory::Memory,
+        map: &Handles,
+        token: u32,
+    ) -> Result<EventCompletion, i32> {
+        Ok(EventCompletion {
+            lease: self.events_wait_begin(ram, map, token)?,
+        })
+    }
     pub fn events_wait_begin(
         &self,
         ram: &memory::Memory,
@@ -4519,13 +4558,12 @@ impl EventWait {
         self.guard = None;
         Ok(())
     }
-    pub fn event_wait(&mut self, ram: &memory::Memory, milliseconds: u32) -> Result<(), i32> {
+    fn event_publish_lease(&mut self, ram: &memory::Memory) -> Result<(), i32> {
         self.event_wait_owner(ram)?;
-        if milliseconds > 1000 || self.attempted {
+        if self.published || self.guard.is_none() {
             return Err(-1);
         }
         events_live(ram, self.root, self.services)?;
-        self.attempted = true;
         let (version, mut b) = events_record(
             self.domain,
             self.root,
@@ -4541,6 +4579,16 @@ impl EventWait {
         events_put(&mut b, 2120 + self.slot * 16, 1)?;
         events_commit(self.domain, version, &b)?;
         self.published = true;
+        Ok(())
+    }
+    pub fn event_wait(&mut self, ram: &memory::Memory, milliseconds: u32) -> Result<(), i32> {
+        self.event_wait_owner(ram)?;
+        if milliseconds > 1000 || self.attempted {
+            return Err(-1);
+        }
+        events_live(ram, self.root, self.services)?;
+        self.attempted = true;
+        self.event_publish_lease(ram)?;
         self.event_wait_unlock(ram)?;
         // Never retain the tagged-table guard across the actual host-owned wait.
         let result = gamepkg::local_event_wait(self.event, milliseconds);

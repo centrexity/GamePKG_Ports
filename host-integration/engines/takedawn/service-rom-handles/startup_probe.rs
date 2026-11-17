@@ -1,3 +1,4 @@
+use crate::gamepkg;
 use crate::kernel_pool;
 use crate::kernel_startup;
 use crate::memory;
@@ -41,6 +42,7 @@ pub fn rom_startup_calls(
     ram: &mut memory::Memory,
     owner: &kernel_startup::Startup,
     image: &xbe::Image,
+    with_event: bool,
 ) -> Result<[u64; 3], i32> {
     let mut routed = startup_file::StartupFiles::startup_files_new(owner, image, ram)?;
     let base = ram.read_u32(0x4008)?;
@@ -97,6 +99,45 @@ pub fn rom_startup_calls(
     ram.read_bytes(output_va, &mut prefix)?;
     rom_startup_need(&prefix == b"XBEH" && ram.read_u64(status_va)? == 0x400000000)?;
     rom_startup_need(rom_startup_call(&mut routed, ram, close_marker, stack_va, &[token])? == 0)?;
+    if with_event {
+        let (table, event_domain) = owner.startup_objects(ram)?;
+        let mut incoming = event_domain.events_begin(ram, &table)?;
+        incoming.event_create(ram, 1, 0)?;
+        let native_event = incoming.event_creation_id();
+        let event_token = incoming.event_publish(ram, stack_va + 192)?;
+        incoming.event_creation_close(ram)?;
+        let create_marker = ram.read_u32(image.image_thunk() + 52)?;
+        rom_startup_need(create_marker == 0xfe000034)?;
+        rom_startup_need(
+            rom_startup_call(
+                &mut routed,
+                ram,
+                create_marker,
+                stack_va,
+                &[
+                    token_va, 0x80100080, attrib_va, status_va, 0, 0x80, 1, 1, 0x40,
+                ],
+            )? == 0,
+        )?;
+        let token = ram.read_u32(token_va)?;
+        rom_startup_need(
+            rom_startup_call(
+                &mut routed,
+                ram,
+                read_marker,
+                stack_va,
+                &[token, event_token, 0, 0, status_va, output_va, 4, 0],
+            )? == 0x103,
+        )?;
+        ram.read_bytes(output_va, &mut prefix)?;
+        rom_startup_need(&prefix == b"XBEH" && ram.read_u64(status_va)? == 0x400000000)?;
+        rom_startup_need(gamepkg::local_event_wait(native_event, 0) == Ok(()))?;
+        rom_startup_need(gamepkg::local_event_wait(native_event, 0) == Err(-2))?;
+        rom_startup_need(
+            rom_startup_call(&mut routed, ram, close_marker, stack_va, &[token])? == 0,
+        )?;
+        event_domain.events_remove(ram, &table, event_token)?;
+    }
     routed.startup_files_close(ram)?;
-    Ok([1, 4, 1])
+    Ok([1, 4, 1 + u64::from(with_event)])
 }

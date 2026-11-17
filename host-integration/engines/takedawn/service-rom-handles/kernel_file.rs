@@ -1,4 +1,4 @@
-// Scoped synchronous optical-file ABI. Other handle domains and asynchronous
+// Scoped optical-file ABI. Other handle domains and asynchronous
 // requests remain the responsibility of the surrounding kernel router.
 use crate::disc;
 use crate::gamepkg;
@@ -12,6 +12,7 @@ pub struct RomKernel {
     orphan: u32,
     orphan_attempted: bool,
     reading: Option<rom_handles::RomRead>,
+    notification: Option<kernel_pool::EventCompletion>,
     publish_cursor: bool,
 }
 
@@ -22,6 +23,7 @@ impl RomKernel {
             orphan: 0,
             orphan_attempted: false,
             reading: None,
+            notification: None,
             publish_cursor: false,
         })
     }
@@ -32,12 +34,14 @@ impl RomKernel {
         &mut self,
         image: &disc::Disc,
         table: &kernel_pool::Handles,
+        rom_events: &kernel_pool::Events,
         ram: &mut memory::Memory,
         cpu: &mut registers::Registers,
         ordinal: u32,
     ) -> Result<(), i32> {
         let length = match ordinal {
             187 => 4u32,
+            190 => 36,
             202 => 24,
             219 => 32,
             _ => return Err(-5),
@@ -45,11 +49,11 @@ impl RomKernel {
         if !cpu.valid() || cpu.esp == 0 {
             return Err(-1);
         }
-        if self.orphan != 0 || self.reading.is_some() {
+        if self.orphan != 0 || self.reading.is_some() || self.notification.is_some() {
             return Err(-2);
         }
         let end = cpu.esp.checked_add(length + 4).ok_or(-1)?;
-        let mut stack = [0u8; 36];
+        let mut stack = [0u8; 40];
         ram.read_bytes(cpu.esp, &mut stack[..length as usize + 4])?;
         let result = match ordinal {
             187 => {
@@ -57,8 +61,8 @@ impl RomKernel {
                     .rom_close(ram, table, rom_kernel_word(&stack, 4)?)?;
                 0
             }
-            202 => self.rom_kernel_open(image, table, ram, &stack)?,
-            219 => self.rom_kernel_read(table, ram, &stack)?,
+            190 | 202 => self.rom_kernel_open(image, table, ram, &stack, ordinal == 190)?,
+            219 => self.rom_kernel_read(table, rom_events, ram, &stack)?,
             _ => return Err(-5),
         };
         ram.kernel_set_caller(rom_kernel_word(&stack, 0)?);
@@ -73,22 +77,29 @@ impl RomKernel {
         table: &kernel_pool::Handles,
         ram: &mut memory::Memory,
         stack: &[u8],
+        create: bool,
     ) -> Result<u32, i32> {
         let output_va = rom_kernel_word(stack, 4)?;
         let access = rom_kernel_word(stack, 8)?;
         let attributes = rom_kernel_word(stack, 12)?;
         let status_va = rom_kernel_word(stack, 16)?;
-        let share = rom_kernel_word(stack, 20)?;
-        let options = rom_kernel_word(stack, 24)?;
-        // Read-only rights and shared readers. Adopt explicit synchronous
-        // opens, with non-directory, sequential and no-buffering hints.
-        if access & !0xa01200a9 != 0
-            || share != 1
-            || options & !0x7c != 0
-            || (options & 0x30 != 0x10 && options & 0x30 != 0x20)
+        let (share, options) = if create {
+            let file_attributes = rom_kernel_word(stack, 24)?;
+            let disposition = rom_kernel_word(stack, 32)?;
+            if disposition != 1 || (file_attributes != 0 && file_attributes != 0x80) {
+                return Err(-5);
+            }
+            (rom_kernel_word(stack, 28)?, rom_kernel_word(stack, 36)?)
+        } else {
+            (rom_kernel_word(stack, 20)?, rom_kernel_word(stack, 24)?)
+        };
+        // Read-only regular files and shared readers. A create-open with no
+        // synchronous flag tracks the deferred return mode on its own record.
+        if access & !0xa01200a9 != 0 || share != 1 || options & !0x7c != 0 || options & 0x30 == 0x30
         {
             return Err(-5);
         }
+        let deferred = create && options & 0x30 == 0;
         if output_va == 0 || status_va == 0 || attributes == 0 {
             return Err(-1);
         }
@@ -105,9 +116,9 @@ impl RomKernel {
             ram.write_u64(status_va, 0xc0000034)?;
             return Ok(0xc0000034);
         }
-        let opened = self
-            .files
-            .rom_open(ram, table, image, path, &mut self.orphan);
+        let opened =
+            self.files
+                .rom_open_with_mode(ram, table, image, path, deferred, &mut self.orphan);
         if let Err(code) = opened {
             self.rom_kernel_settle(ram, table)?;
             return Err(code);
@@ -130,19 +141,52 @@ impl RomKernel {
     fn rom_kernel_read(
         &mut self,
         table: &kernel_pool::Handles,
+        rom_events: &kernel_pool::Events,
         ram: &mut memory::Memory,
         stack: &[u8],
     ) -> Result<u32, i32> {
-        if rom_kernel_word(stack, 8)? != 0
-            || rom_kernel_word(stack, 12)? != 0
-            || rom_kernel_word(stack, 16)? != 0
-        {
+        if rom_kernel_word(stack, 12)? != 0 || rom_kernel_word(stack, 16)? != 0 {
             return Err(-5);
         }
         let token = rom_kernel_word(stack, 4)?;
-        let status_va = rom_kernel_word(stack, 20)?;
-        let output_va = rom_kernel_word(stack, 24)?;
-        let length = rom_kernel_word(stack, 28)?;
+        self.publish_cursor = false;
+        let reserved = self
+            .files
+            .rom_read_begin(ram, table, token, &mut self.reading);
+        let result = match reserved {
+            Ok(()) => self.rom_kernel_read_result(table, rom_events, ram, stack),
+            Err(code) => Err(code),
+        };
+        self.publish_cursor = result.is_ok();
+        self.rom_kernel_finish_read(ram, table)?;
+        // Publish completion only after the memory transaction and cursor
+        // commit. An error leaves no notification even if a buffer was staged.
+        let signal = if result.is_ok() {
+            match self.notification.as_mut() {
+                Some(completion) => completion.completion_signal(ram),
+                None => Ok(()),
+            }
+        } else {
+            Ok(())
+        };
+        self.rom_kernel_finish_event(ram)?;
+        signal?;
+        result
+    }
+
+    fn rom_kernel_read_result(
+        &mut self,
+        table: &kernel_pool::Handles,
+        rom_events: &kernel_pool::Events,
+        ram: &mut memory::Memory,
+        stack: &[u8],
+    ) -> Result<u32, i32> {
+        let read = self.reading.as_mut().ok_or(-3)?;
+        let deferred = read.rom_read_deferred(ram)?;
+        let event_token = rom_kernel_word(stack, 8)?;
+        if deferred && event_token == 0 {
+            return Err(-5);
+        }
         let offset_va = rom_kernel_word(stack, 32)?;
         let offset = if offset_va == 0 {
             None
@@ -154,21 +198,30 @@ impl RomKernel {
                 Some(rom_offset as u64)
             }
         };
-        self.publish_cursor = false;
-        let reserved = self
-            .files
-            .rom_read_begin(ram, table, token, &mut self.reading);
-        let result = match reserved {
-            Ok(()) => self
-                .reading
+        if event_token != 0 {
+            self.notification =
+                Some(rom_events.events_completion_begin(ram, table, event_token)?);
+            self.notification
                 .as_mut()
                 .ok_or(-3)?
-                .rom_read_guest(ram, offset, output_va, length, status_va),
-            Err(code) => Err(code),
-        };
-        self.publish_cursor = result.is_ok();
-        self.rom_kernel_settle(ram, table)?;
-        result
+                .completion_prepare(ram)?;
+        }
+        let status = read.rom_read_guest(
+            ram,
+            offset,
+            rom_kernel_word(stack, 24)?,
+            rom_kernel_word(stack, 28)?,
+            rom_kernel_word(stack, 20)?,
+        )?;
+        Ok(if deferred { 0x103 } else { status })
+    }
+
+    fn rom_kernel_finish_event(&mut self, ram: &memory::Memory) -> Result<(), i32> {
+        if let Some(completion) = self.notification.as_mut() {
+            completion.completion_close(ram)?;
+            self.notification = None;
+        }
+        Ok(())
     }
 
     // Teardown retries retirement, never the previous disk or guest write.
@@ -178,6 +231,7 @@ impl RomKernel {
         table: &kernel_pool::Handles,
     ) -> Result<(), i32> {
         self.rom_kernel_finish_read(ram, table)?;
+        self.rom_kernel_finish_event(ram)?;
         if self.orphan != 0 {
             if self.orphan_attempted {
                 return Err(-3);
@@ -209,6 +263,7 @@ impl RomKernel {
         table: &kernel_pool::Handles,
     ) -> Result<(), i32> {
         self.rom_kernel_finish_read(ram, table)?;
+        self.rom_kernel_finish_event(ram)?;
         // Workers have joined. Drain by owned entry, without reusing a token
         // from a close that might already have consumed its table slot.
         self.files.rom_drain(ram, table)?;

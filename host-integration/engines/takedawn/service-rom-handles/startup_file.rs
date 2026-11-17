@@ -34,8 +34,15 @@ impl<'a, 'b> StartupFiles<'a, 'b> {
     ) -> Result<(), i32> {
         let ordinal = self.owner.startup_rom_ordinal(ram, self.image, marker)?;
         let table = self.owner.startup_rom_table(ram, self.image)?;
-        self.adapter
-            .rom_kernel_invoke(self.image.image_rom_source(), table, ram, cpu, ordinal)
+        let (_, rom_events) = self.owner.startup_objects(ram)?;
+        self.adapter.rom_kernel_invoke(
+            self.image.image_rom_source(),
+            table,
+            &rom_events,
+            ram,
+            cpu,
+            ordinal,
+        )
     }
 
     // The creator finishes file requests before releasing the kernel owner.

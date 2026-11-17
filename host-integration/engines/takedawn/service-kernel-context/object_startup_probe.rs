@@ -287,7 +287,7 @@ pub fn object_startup_image(
         }
     }
 
-    let result = if mode == 86 || mode == 88 {
+    let result = if mode == 86 || mode == 88 || mode == 89 {
         owner.startup_prepare_with_rom(ram, image, data, &[], 0x10000, 2, scratch, 0)
     } else if mode == 83 || mode == 84 || mode == 87 {
         owner.startup_prepare_with_criticals(ram, image, data, &[], 0x10000, 2, scratch, 0)
@@ -340,8 +340,9 @@ pub fn object_startup_image(
                 critical_owned = [values[2], values[3], values[4]];
                 gamepkg::diagnostic(1, 0x544b4300, &[values[0], values[1], 1, 1, 1])?;
             }
-            if mode == 86 {
-                let values = crate::rom_startup_probe::rom_startup_calls(ram, &owner, image)?;
+            if mode == 86 || mode == 89 {
+                let values =
+                    crate::rom_startup_probe::rom_startup_calls(ram, &owner, image, mode == 89)?;
                 gamepkg::diagnostic(1, 0x544b4500, &values)?;
             }
             if mode == 81 {
@@ -544,7 +545,7 @@ pub fn object_startup_image(
         &[
             u64::from(mode),
             expected as i64 as u64,
-            if mode == 88 {
+            if mode == 88 || mode == 89 {
                 14
             } else if mode == 83 || mode == 85 || mode == 86 || mode == 87 {
                 13
