@@ -66,7 +66,7 @@ fn main() {
         .unwrap();
     }
     fs::write(source.join("source/src/lib.rs"),r#"
-mod memory;mod call_state;mod registers;mod heap;mod contiguous;mod heap_service;mod kernel_pool;mod handles;mod cases;mod probe;mod controls;
+mod memory;mod call_state;mod registers;mod heap;mod contiguous;mod heap_service;mod kernel_pool;pub mod handles;mod cases;mod probe;mod controls;
 fn run()->Result<(),i32>{let bytes=probe::handle_probe()?;for batch in bytes.chunks(8192){gamepkg::diagnostic_bytes(1,0x544b2a00,batch)?;}Ok(())}
 pub fn handle_worker(arg:u64)->u64{controls::handle_worker(arg)}
 pub fn game_main(){let code=match run(){Ok(())=>0u64,Err(c)=>c as i64 as u64};let _=gamepkg::diagnostic(1,0x544b2aff,&[code]);}

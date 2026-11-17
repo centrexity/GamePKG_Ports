@@ -4,7 +4,17 @@ This is tested integration work, **not a playable Burnout release**. The legacy
 profile remains blocked. No source pin, signature, cached executable or engine
 exception may bypass that block. The source kit and catalog URLs are unchanged.
 
-## Latest checkpoint: authenticated KIC3 object-owner startup
+## Latest checkpoint: actual native event creation and signaling imports
+
+KIC3 now routes 189 NtCreateEvent and 225 NtSetEvent through the same checked
+owned event domain used by standalone callers. Original-C/native SDK comparisons,
+protected-error/fault controls and authenticated image invocation cover return
+status, CPU frame, exact guest writes, ownership and cleanup. The main import gap
+is now **104 with KIC3**; legacy KIC2 remains 106. NtClose/waits and complete title
+entry remain blocked. Exact contracts and qualification scope:
+[service-kernel-event-imports](service-kernel-event-imports/README.md).
+
+## Earlier checkpoint: authenticated KIC3 object-owner startup
 
 The opt-in startup owns the scratch-backed table, typed event domain and strict
 KIC3 binding alongside its existing resources. It validates the exact owned pair,

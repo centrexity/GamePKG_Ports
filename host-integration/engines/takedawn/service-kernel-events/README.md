@@ -5,7 +5,7 @@ mutexes, memory and reviewed jobs. No OS handle, device API, dependency, raw
 pointer or trusted-host engine exemption is introduced. It builds on
 [the tagged metadata table](../service-kernel-handles/README.md).
 It is an ownership component, **not an admitted kernel import or playable title**.
-The main import gap remains 106; legacy profiles remain blocked.
+The main import gap is 104 with KIC3 and 106 with KIC2; profiles remain blocked.
 
 ## Domain and transaction APIs
 
@@ -191,10 +191,11 @@ not established. There is no game window or full-title gameplay in these tests.
 
 The opt-in authenticated KIC3 startup now owns this domain and its table; see
 [OBJECT_STARTUP.md](../service-kernel-context/OBJECT_STARTUP.md). Remaining:
-accurate pulse/NT status and previous-state/import behavior; typed file/thread
+NT wait/pulse and remaining import behavior; typed file/thread
 resources; migrated full native
-source/build/launch/renderer/media and actual gameplay qualification. Do not wire
-ordinal 189 or other imports as ready from this component alone, reinterpret
+source/build/launch/renderer/media and actual gameplay qualification. The actual dispatcher now implements 189/225 through this domain; see
+[service-kernel-event-imports](../service-kernel-event-imports/README.md). Do not
+classify any other import ready from this component alone, reinterpret
 KIC2 reserved fields, allow raw native fallbacks, or enable blocked profiles.
 SDK identity and installed app remain
 `1e15c059ca66907d45e603cec9f993ca54b9ffa66bae72c4a36cee67b944fd3f`.

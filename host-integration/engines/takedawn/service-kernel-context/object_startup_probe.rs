@@ -303,6 +303,14 @@ pub fn object_startup_image(
     if expected == 0 {
         object_need(316, owner.startup_phase() == 2)?;
         object_schema(ram, &owner, mode)?;
+        if mode == 68 {
+            let (map, domain) = owner.startup_objects(ram)?;
+            crate::event_import_probe::event_import_controls(ram, &map, &domain, [6, 7])?;
+            let bytes =
+                crate::event_import_probe::event_import_vectors(ram, &map, &domain, [6, 7])?;
+            gamepkg::diagnostic_bytes(1, 0x544b3b00, &bytes)?;
+        }
+
         owned.push(object_jobs(ram, &mut owner)?);
         let (map, domain) = owner.startup_objects(ram)?;
         let mut incoming = domain.events_begin(ram, &map)?;
@@ -435,7 +443,12 @@ pub fn object_startup_image(
     gamepkg::diagnostic(
         1,
         0x544b0f00,
-        &[u64::from(mode), expected as i64 as u64, 6, 0],
+        &[
+            u64::from(mode),
+            expected as i64 as u64,
+            if mode == 68 { 8 } else { 6 },
+            0,
+        ],
     )?;
     Ok(())
 }

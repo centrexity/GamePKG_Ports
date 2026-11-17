@@ -66,7 +66,7 @@ fn main() {
         .unwrap();
     }
     fs::write(source.join("source/src/lib.rs"),r#"
-mod memory;mod call_state;mod registers;mod heap;mod contiguous;mod heap_service;mod kernel_pool;mod handles;mod events;mod probe;mod wait_probe;
+mod memory;mod call_state;mod registers;mod heap;mod contiguous;mod heap_service;mod kernel_pool;pub mod handles;pub mod events;mod probe;mod wait_probe;
 fn run()->Result<(),i32>{let bytes=probe::events_probe()?;for batch in bytes.chunks(8192){gamepkg::diagnostic_bytes(1,0x544b2a00,batch)?;}Ok(())}
 pub fn event_worker(arg:u64)->u64{probe::event_worker(arg)}
 pub fn wait_worker(arg:u64)->u64{wait_probe::wait_worker(arg)}

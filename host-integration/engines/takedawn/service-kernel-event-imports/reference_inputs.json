@@ -1,0 +1,65 @@
+{
+  "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+  "members": {
+    "toolkit/src/kernel/kernel_bridge.c": {
+      "sha256": "bf62f8787a2e78a0abdb28e10ad8f79c5267dc655491353af231067747ce446e",
+      "functions": {
+        "bridge_handle_token_ex": {
+          "start": 165547,
+          "end": 166175,
+          "sha256": "0235eb23bbda58db1f6d6e1673deffd48a0d3020d66097787a07e87d6103bb06"
+        },
+        "bridge_handle_token": {
+          "start": 166177,
+          "end": 166267,
+          "sha256": "6fe0dab61fd383044bd36ee892b8c33758bd1a5a0a192d927fda70b29661e45e"
+        },
+        "bridge_take_handle": {
+          "start": 168704,
+          "end": 169164,
+          "sha256": "f85ca59bc3a686b08b340c835310235f2a296f1928a17849febf806ca9c27077"
+        },
+        "bridge_untagged_handle": {
+          "start": 167019,
+          "end": 167215,
+          "sha256": "4794b7979c485ec583339dcb2b5a33a9507ea28b1e85b3a67de47f17288f2f63"
+        },
+        "bridge_resolve_handle": {
+          "start": 168420,
+          "end": 168702,
+          "sha256": "79a14c1656fe194193c23432cc19f5d050f23cdb0ec61d6a412fb4af5740ef24"
+        },
+        "bridge_write_handle": {
+          "start": 166342,
+          "end": 166484,
+          "sha256": "1d96b9c48b6cc2d09a5d4e87182148f56c044e62729b2ba0d16f2e119bffb29b"
+        },
+        "bridge_NtCreateEvent": {
+          "start": 79808,
+          "end": 80680,
+          "sha256": "a3894964814276d92bffaedd85a9d6f4f5ee72d012a9ec110793493b11133194"
+        },
+        "bridge_NtSetEvent": {
+          "start": 83724,
+          "end": 83927,
+          "sha256": "1b989471f083474706dcdcde7bb8c1a539b113ed3d3ec93437ff55588f73d9cb"
+        }
+      }
+    },
+    "toolkit/src/kernel/kernel_sync.c": {
+      "sha256": "8fcdcccb4c21e70eb7c836ffb5acac45e7af861df24ca9c76940604afa5f472a",
+      "functions": {
+        "xbox_NtCreateEvent": {
+          "start": 3539,
+          "end": 4498,
+          "sha256": "06226cc8b05660cc9ec243099c8c1fd59f86fe6ac076a5594e9147b752100736"
+        },
+        "xbox_NtSetEvent": {
+          "start": 4500,
+          "end": 4931,
+          "sha256": "748b089b22020d00436f02359555f9662f414be70a23e6cc98584d7087c1c7e4"
+        }
+      }
+    }
+  }
+}

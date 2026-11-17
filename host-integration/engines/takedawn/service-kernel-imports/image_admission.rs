@@ -115,6 +115,10 @@ fn main() {
             here.join("../service-kernel-pool/kernel_pool.rs"),
         ),
         (
+            "event_import_probe.rs",
+            here.join("../service-kernel-event-imports/probe.rs"),
+        ),
+        (
             "handles.rs",
             here.join("../service-kernel-handles/handles.rs"),
         ),
@@ -258,7 +262,7 @@ fn main() {
         fs::write(path, data).unwrap();
     }
     fs::write(source.join("source/src/lib.rs"),r#"
-mod handles;mod typed_events;mod object_startup_probe;mod layout;mod memory;mod registers;mod call_state;mod calls_runtime;mod vector;mod scalar;mod debug;mod heap;mod contiguous;mod heap_service;mod kernel_pool;mod kernel_data;mod signature;mod imports;mod cases;mod probe;mod controls;mod game;mod dispatch;mod targets;mod disc;mod sha256;mod xbe;mod bootstrap;mod image_imports;mod image_probe;mod kernel_startup;mod startup_probe;mod tick_service;mod tick_startup;mod tick_probe;mod wait_service;mod gate;mod irql;mod queue;mod callback;mod drain;mod dpc_clock;mod stacks;mod shadow;mod events;mod timers;mod firing;mod timer_clock;mod production_clock;mod thread_tib;mod worker_setup;mod dispatching;mod dpc_observer;mod irq_hooks;mod dpc_routes;mod pacing;mod schedule;mod timer_startup;mod timer_probe;
+pub mod handles;pub mod typed_events;mod event_import_probe;mod object_startup_probe;mod layout;mod memory;mod registers;mod call_state;mod calls_runtime;mod vector;mod scalar;mod debug;mod heap;mod contiguous;mod heap_service;mod kernel_pool;mod kernel_data;mod signature;mod imports;mod cases;mod probe;mod controls;mod game;mod dispatch;mod targets;mod disc;mod sha256;mod xbe;mod bootstrap;mod image_imports;mod image_probe;mod kernel_startup;mod startup_probe;mod tick_service;mod tick_startup;mod tick_probe;mod wait_service;mod gate;mod irql;mod queue;mod callback;mod drain;mod dpc_clock;mod stacks;mod shadow;mod events;mod timers;mod firing;mod timer_clock;mod production_clock;mod thread_tib;mod worker_setup;mod dispatching;mod dpc_observer;mod irq_hooks;mod dpc_routes;mod pacing;mod schedule;mod timer_startup;mod timer_probe;
 pub fn object_worker(arg:u64)->u64{object_startup_probe::object_worker(arg)}
 pub fn heap_worker(arg:u64)->u64{heap_service::heap_serve(arg)}
 pub fn startup_worker(arg:u64)->u64{startup_probe::startup_worker(arg)}
@@ -383,7 +387,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
         }
         for pair in args[cases_start..].chunks_exact(2) {
             let mode = pair[0].to_str().unwrap().parse::<u8>().unwrap();
-            assert!(mode <= 67);
+            assert!(mode <= 68);
             assert_eq!(objects_layout, mode >= 51);
             let selected = fs::File::open(&pair[1]).unwrap();
             let mut indexed =
@@ -466,7 +470,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                 } else {
                     0
                 };
-                assert_eq!(&values[1..], &[code, 6, 0]);
+                assert_eq!(&values[1..], &[code, if mode == 68 { 8 } else { 6 }, 0]);
             } else if mode >= 12 {
                 let expected = if mode >= 19 && mode <= 21 || mode >= 44 && mode <= 48 {
                     -2i64 as u64
@@ -506,7 +510,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
             for event in &events {
                 assert!([
                     0x544b0f00, 0x544b0f10, 0x544b0fff, 0x544b1300, 0x544b3200, 0x544b1710,
-                    0x544b1800, 0x544b1801
+                    0x544b1800, 0x544b1801, 0x544b3b00, 0x544b3900
                 ]
                 .contains(&event.code));
                 if event.code == 0x544b1300 {
@@ -532,7 +536,18 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                         .filter(|e| e.code == 0x544b0f10)
                         .map(|e| e.values.len())
                         .sum::<usize>(),
-                    106
+                    104
+                );
+            }
+            if mode == 68 {
+                let vectors: Vec<_> = events.iter().filter(|e| e.code == 0x544b3b00).collect();
+                assert_eq!(vectors.len(), 1);
+                let bytes = vectors[0].bytes.as_ref().unwrap();
+                assert_eq!(bytes.len(), 1764);
+                // Pinned original-C fixture result; no game asset or native pointer.
+                assert_eq!(
+                    gamepkg::verify::digest(bytes),
+                    "980b967181bb3ce093bdc54e5a8e62a9abde5ac5a413284f56159351d3255c8c"
                 );
             }
             let connections = events.iter().filter(|e| e.code == 0x544b3200).count();
@@ -549,7 +564,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
             if let Some(out) = evidence {
                 let reports: Vec<_> = events
                     .iter()
-                    .map(|e| serde_json::json!({"code":e.code,"values":e.values}))
+                    .map(|e| serde_json::json!({"code":e.code,"values":e.values,"bytes":e.bytes}))
                     .collect();
                 fs::write(
                     out.join(format!("{target:?}-mode-{mode}.json")),

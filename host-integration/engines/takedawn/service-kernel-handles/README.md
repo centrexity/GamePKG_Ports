@@ -130,9 +130,10 @@ audits all **eight separately optimized objects** before trusted linking on each
 of four targets. Actual confined Linux32/64 repeat the vectors, concurrency and
 ownership controls. Neither Windows process confinement, original native event/
 file/thread semantics, device input, audible audio, GPU fidelity nor measured
-frame pacing is established. **Main import gap remains 106**. Next work must
+frame pacing is established. **Main import gap is 104 with KIC3**. Next work must
 complete native import/NT semantics and typed file/thread ownership. The checked
 event domain now supplies event ownership/waits, and opt-in authenticated KIC3
 startup binds both owners: see [OBJECT_STARTUP.md](../service-kernel-context/OBJECT_STARTUP.md).
-These do not admit event/object imports yet; no legacy raw-handle
+The checked dispatcher now admits 189/225 only with KIC3; see
+[service-kernel-event-imports](../service-kernel-event-imports/README.md). No legacy raw-handle
 fallback, ignored unknown object or engine/media exemption is allowed.

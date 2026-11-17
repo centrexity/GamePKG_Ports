@@ -12,7 +12,7 @@ def main():
  modules=[('client',app/'engines/native-services/client.rs'),('local',app/'engines/native-services/local_bindings.rs')]
  for name,relative in [('memory','../service-native/memory.rs'),('call_state','../service-native/call_state.rs'),('registers','../service-native/registers.rs'),('heap','../service-heap/heap.rs'),('contiguous','../service-contiguous/contiguous.rs'),('heap_service','../service-heap/service.rs'),('kernel_pool','../service-kernel-pool/kernel_pool.rs'),('handles','../service-kernel-handles/handles.rs'),('events','events.rs'),('probe','probe.rs'),('wait_probe','wait_probe.rs')]:modules.append((name,here/relative))
  with tempfile.TemporaryDirectory(prefix='gamepkg-native-event-owner-') as temp:
-  root=Path(temp);driver=root/'main.rs';driver.write_text('#![allow(dead_code)]\n'+''.join('#[path='+json.dumps(str(path))+']mod '+name+';\n' for name,path in modules)+(here/'runtime.rs').read_text());expected=None
+  root=Path(temp);driver=root/'main.rs';driver.write_text('#![allow(dead_code)]\n'+''.join('#[path='+json.dumps(str(path))+']'+('pub mod ' if name in ['handles','events'] else 'mod ')+name+';\n' for name,path in modules)+(here/'runtime.rs').read_text());expected=None
   for target in ['x86_64-unknown-linux-gnu','i686-unknown-linux-gnu','x86_64-pc-windows-gnu','i686-pc-windows-gnu']:
    exe=root/(target+('.exe' if 'windows' in target else ''));cmd=['rustc','--edition=2021','-D','warnings','-O','--target',target,str(driver),'-o',str(exe)]
    if target=='i686-unknown-linux-gnu':cmd+=['-C','linker=gcc-11','-C','link-arg=-lssp_nonshared']
@@ -26,13 +26,13 @@ def main():
   (root/'vectors').write_bytes(expected)
 
   for target in ['x86_64-unknown-linux-gnu','i686-unknown-linux-gnu','x86_64-pc-windows-gnu','i686-pc-windows-gnu']:
-   driver_fault=root/('fault-'+target+'.rs');driver_fault.write_text('#![allow(dead_code)]\n'+''.join('#[path='+json.dumps(str(path))+']mod '+name+';\n' for name,path in modules)+(here/'fault_runtime.rs').read_text())
+   driver_fault=root/('fault-'+target+'.rs');driver_fault.write_text('#![allow(dead_code)]\n'+''.join('#[path='+json.dumps(str(path))+']'+('pub mod ' if name in ['handles','events'] else 'mod ')+name+';\n' for name,path in modules)+(here/'fault_runtime.rs').read_text())
    exe=root/('fault-'+target+('.exe' if 'windows' in target else ''));cmd=['rustc','--edition=2021','-D','warnings','-O','--target',target,str(driver_fault),'-o',str(exe)]
    if target=='i686-unknown-linux-gnu':cmd+=['-C','linker=gcc-11','-C','link-arg=-lssp_nonshared']
    subprocess.run(cmd,check=True)
    if 'windows' not in target:subprocess.run([str(exe)],check=True,timeout=120)
    elif a.wine:subprocess.run(['wine',str(exe)],check=True,timeout=120,env=dict(os.environ,WINEDEBUG='-all',WINEPREFIX='/tmp/gamepkg-port-replace-wine'))
-  text=(here/'events.rs').read_text()
+  implementation=here/'../service-kernel-pool/kernel_pool.rs';full=implementation.read_text();start=full.index('pub struct Events {');end=len(full);prefix=full[:start];suffix=full[end:];text=full[start:end]
   mutations=[
    ('full-width-boolean','initial & 255 != 0','initial != 0'),
    ('wrong-manual-reset','event_type == 0','event_type != 0'),
@@ -46,14 +46,14 @@ def main():
    ('block-signal-with-wait','        self.event_wait_unlock(ram)?;\n        // Never retain','        // Never retain'),
   ]
   for name,old,new in mutations:
-   assert text.count(old)==1,(name,old);bad=root/(name+'.rs');bad.write_text(text.replace(old,new,1));source=root/(name+'-main.rs');source.write_text(driver.read_text().replace(json.dumps(str(here/'events.rs')),json.dumps(str(bad))))
+   assert text.count(old)==1,(name,old);bad=root/(name+'.rs');bad.write_text(prefix+text.replace(old,new,1)+suffix);source=root/(name+'-main.rs');source.write_text(driver.read_text().replace(json.dumps(str(implementation)),json.dumps(str(bad))))
    exe=root/name;subprocess.run(['rustc','--edition=2021','-D','warnings','-O',str(source),'-o',str(exe)],check=True)
    result=subprocess.run([str(exe)],capture_output=True,text=True,timeout=120);assert result.returncode!=0 and 'on an `Err` value:' in result.stderr,(name,result.stderr)
    print('PASS required-failing '+name+' native control; never admitted',flush=True)
 
   fault_mutations=[('forget-transferred-prefix','self.phase = 2;','self.phase = 1;'),('forget-released-prefix','self.released = true;','self.released = false;'),('forget-published-wait','self.published = true;','self.published = false;'),('forget-wait-outcome','self.observed = true;','self.observed = false;')]
   for name,old,new in fault_mutations:
-   assert text.count(old)==1,(name,old);bad=root/(name+'.rs');bad.write_text(text.replace(old,new,1));source=root/(name+'-fault.rs');source.write_text('#![allow(dead_code)]\n'+''.join('#[path='+json.dumps(str(bad if mod=='events' else path))+']mod '+mod+';\n' for mod,path in modules)+(here/'fault_runtime.rs').read_text())
+   assert text.count(old)==1,(name,old);bad=root/(name+'.rs');bad.write_text(prefix+text.replace(old,new,1)+suffix);source=root/(name+'-fault.rs');source.write_text('#![allow(dead_code)]\n'+''.join('#[path='+json.dumps(str(bad if mod=='kernel_pool' else path))+']'+('pub mod ' if mod in ['handles','events'] else 'mod ')+mod+';\n' for mod,path in modules)+(here/'fault_runtime.rs').read_text())
    exe=root/name;subprocess.run(['rustc','--edition=2021','-D','warnings','-O',str(source),'-o',str(exe)],check=True)
    result=subprocess.run([str(exe)],capture_output=True,text=True,timeout=120);assert result.returncode!=0 and ('assertion' in result.stderr or 'on an `Err` value:' in result.stderr),(name,result.stderr)
    print('PASS required-failing '+name+' native fault control; shim never admitted',flush=True)

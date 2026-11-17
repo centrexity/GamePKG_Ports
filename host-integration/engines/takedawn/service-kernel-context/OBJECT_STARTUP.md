@@ -5,7 +5,9 @@ image/import startup owner. This is dependency-free **game code**, not trusted
 host engine code, an event-import implementation or a playable release. KIC1,
 KIC2 and KPL4 remain strict; no reserved field is repurposed. Native profiles stay
 blocked, and event imports are not classified ready merely because this binding
-exists. The remaining full-title main import gap is still 106.
+exists. The current full-title main import gap is 104 with KIC3 and 106 with KIC2.
+Actual creation/signaling dispatch is described in
+[service-kernel-event-imports](../service-kernel-event-imports/README.md).
 
 ## Exact context contract
 
@@ -49,7 +51,7 @@ The owner retains each accepted prefix immediately: KSV, ISR registry, shadow,
 unbound tagged table, partial scratch initialization, event domain, KIC3 and
 finally the published import map. A failed bind or later allocation keeps its
 partial owner for explicit close. Failed startup stays failed and cannot retry,
-issue ready IDs or enter game code. This does not enable additional imports.
+issue ready IDs or enter game code. This binding alone does not enable additional imports.
 
 `startup_objects(&Memory) -> Result<(Handles,Events),i32>` first validates ready
 owner IDs, exact KPL4/context/registry/shadow associations and the exact *owned*
@@ -74,7 +76,8 @@ one. Abandoned jobs/guards or corrupt backing can require session teardown.
 The typed event domain supplies last-alias ownership, null-output orphans and
 bounded cancellable waits; exact contracts are in
 [service-kernel-events](../service-kernel-events/README.md). Startup owns that
-domain and backing; it does not implement Xbox event/NTSTATUS/alert/pulse behavior.
+domain and backing. The dispatcher separately implements 189/225; NT waits,
+alert/pulse and remaining object imports still require migration.
 
 ## Explicit four-window topology and allocator path
 
@@ -120,7 +123,7 @@ children with a synthetic image or an independently authenticated read-only ISO
 in place. No title entry, window, GPU, physical controls, audible audio or measured
 frame pacing is established by these fixtures.
 
-Remaining integration must connect actual event imports and exact NT behavior,
+Remaining integration must complete NT wait/pulse and other object imports,
 then the remaining native source/loop/renderer/media/build/launcher paths and
 actual gameplay. Keep the app's existing ports submodule and public source-kit
 archive pinned until their consumers explicitly adopt a reviewed integration.
@@ -129,8 +132,8 @@ The installed SDK remains
 no app binary update is required for these port-owned APIs. Cache receipts must
 rebuild checked source-kit and exact audited-object identities.
 
-The object-startup qualification covers 16 synthetic modes plus one independently
-host-authenticated private ISO check per Linux architecture: **34 actual confined
+The object-startup qualification covers 17 synthetic modes plus one independently
+host-authenticated private ISO check per Linux architecture: **36 actual confined
 positive sessions**, all four source/optimized-object/link targets and seven
 source-valid/audited required-failing Linux64 copies. It creates real SDK events
 from a tracked native worker and the startup caller, retains a null-output orphan,
@@ -140,7 +143,9 @@ The controls cover six record-quota prefixes, synchronization quota exhaustion,
 wrong/readonly/partly occupied scratch, same-root substitute owners, strict legacy
 formats, forged KIC3 fields, lost setup prefixes, join barriers, incomplete close,
 revocation and full native-sync budget recovery. The private title is authenticated
-and explicitly rejected before entry, with exactly 106 unresolved main imports.
+and explicitly rejected before entry, with exactly 104 unresolved main imports. Mode 68 additionally invokes both
+new imports through the authenticated published map and matches all 1,764
+original-C comparison bytes; legacy KIC2 still has 106 unresolved imports.
 
 Combined-source admission initially rejected colliding local identifiers; bounded
 renaming fixed the game code rather than relaxing checks. Windows32 object audit
