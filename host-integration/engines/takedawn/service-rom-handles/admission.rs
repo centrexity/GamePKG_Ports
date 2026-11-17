@@ -55,6 +55,7 @@ fn main() {
         ("probe", "probe.rs"),
         ("disc", "../service-disc/disc.rs"),
         ("rom_handles", "rom_handles.rs"),
+        ("kernel_file", "kernel_file.rs"),
         ("setup", "../service-kernel-mixed-waits/setup.rs"),
     ] {
         fs::copy(
@@ -64,7 +65,7 @@ fn main() {
         .unwrap();
     }
     fs::write(source.join("source/src/lib.rs"),r#"
-mod memory;mod call_state;mod registers;mod heap;mod contiguous;mod heap_service;mod kernel_pool;mod probe;mod setup;mod disc;mod rom_handles;
+mod memory;mod call_state;mod registers;mod heap;mod contiguous;mod heap_service;mod kernel_pool;mod probe;mod setup;mod disc;mod rom_handles;mod kernel_file;
 pub fn game_main(){let code=match probe::run(){Ok(())=>0u64,Err(c)=>c as i64 as u64};let _=gamepkg::diagnostic(1,0x544b44ff,&[code]);}
 "#).unwrap();
     let mut manifest =

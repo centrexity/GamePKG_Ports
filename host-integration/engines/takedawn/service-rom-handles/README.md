@@ -58,3 +58,24 @@ failed publication discards the proposed cursor change.
 
 Guest kernel import dispatch, asynchronous notification, saves, normal
 title launch and gameplay have separate integration requirements.
+
+## Synchronous disc import dispatcher
+
+`RomKernel::rom_kernel_invoke` accepts a canonical ordinal from its caller.
+It reads the complete 32-bit guest frame before changing registers. On a
+completed call it records the return address and updates EAX and ESP, leaving
+the other registers intact. Driver errors propagate without changing the
+registers. If a native or guest action has already been accepted, the caller
+must handle the error as a failed session operation and avoid replay.
+
+| Ordinal | Supported scope |
+| --- | --- |
+| 202 NtOpenFile | Counted ASCII path under D:, the DOS device D: alias, or the CdRom0 device prefix. Read-only access, shared readers, synchronous regular files only. Relative root handles, other drives and write access are refused. A missing indexed name returns STATUS_OBJECT_NAME_NOT_FOUND. |
+| 219 NtReadFile | Typed ROM tokens with no event or APC. Null or negative byte offset chooses the cursor. A nonnegative offset is positional. The adapter publishes the data and I/O status before accepting the cursor update. |
+| 187 NtClose | Retires an owned ROM file token. Other handle kinds remain with their respective owners. |
+
+The standalone signed fixture executes these frames with a sparse synthetic
+disc. The general kernel import planner still rejects these ordinals without
+a broader file context. Connecting the dispatcher to authenticated startup
+and covering asynchronous completion, save paths and other file types are
+required before enabling the general imports.
