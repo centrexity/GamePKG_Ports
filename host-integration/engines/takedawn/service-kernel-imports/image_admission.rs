@@ -115,6 +115,14 @@ fn main() {
             here.join("../service-kernel-pool/kernel_pool.rs"),
         ),
         (
+            "semaphore_import_probe.rs",
+            here.join("../service-kernel-semaphore-imports/probe.rs"),
+        ),
+        (
+            "sync_startup_probe.rs",
+            here.join("../service-kernel-context/sync_startup_probe.rs"),
+        ),
+        (
             "event_import_probe.rs",
             here.join("../service-kernel-event-imports/probe.rs"),
         ),
@@ -262,8 +270,9 @@ fn main() {
         fs::write(path, data).unwrap();
     }
     fs::write(source.join("source/src/lib.rs"),r#"
-pub mod handles;pub mod typed_events;mod event_import_probe;mod object_startup_probe;mod layout;mod memory;mod registers;mod call_state;mod calls_runtime;mod vector;mod scalar;mod debug;mod heap;mod contiguous;mod heap_service;mod kernel_pool;mod kernel_data;mod signature;mod imports;mod cases;mod probe;mod controls;mod game;mod dispatch;mod targets;mod disc;mod sha256;mod xbe;mod bootstrap;mod image_imports;mod image_probe;mod kernel_startup;mod startup_probe;mod tick_service;mod tick_startup;mod tick_probe;mod wait_service;mod gate;mod irql;mod queue;mod callback;mod drain;mod dpc_clock;mod stacks;mod shadow;mod events;mod timers;mod firing;mod timer_clock;mod production_clock;mod thread_tib;mod worker_setup;mod dispatching;mod dpc_observer;mod irq_hooks;mod dpc_routes;mod pacing;mod schedule;mod timer_startup;mod timer_probe;
+pub mod handles;pub mod typed_events;mod event_import_probe;mod semaphore_import_probe;mod sync_startup_probe;mod object_startup_probe;mod layout;mod memory;mod registers;mod call_state;mod calls_runtime;mod vector;mod scalar;mod debug;mod heap;mod contiguous;mod heap_service;mod kernel_pool;mod kernel_data;mod signature;mod imports;mod cases;mod probe;mod controls;mod game;mod dispatch;mod targets;mod disc;mod sha256;mod xbe;mod bootstrap;mod image_imports;mod image_probe;mod kernel_startup;mod startup_probe;mod tick_service;mod tick_startup;mod tick_probe;mod wait_service;mod gate;mod irql;mod queue;mod callback;mod drain;mod dpc_clock;mod stacks;mod shadow;mod events;mod timers;mod firing;mod timer_clock;mod production_clock;mod thread_tib;mod worker_setup;mod dispatching;mod dpc_observer;mod irq_hooks;mod dpc_routes;mod pacing;mod schedule;mod timer_startup;mod timer_probe;
 pub fn object_worker(arg:u64)->u64{object_startup_probe::object_worker(arg)}
+pub fn sync_worker(arg:u64)->u64{sync_startup_probe::sync_startup_worker(arg)}
 pub fn heap_worker(arg:u64)->u64{heap_service::heap_serve(arg)}
 pub fn startup_worker(arg:u64)->u64{startup_probe::startup_worker(arg)}
 pub fn tick_worker(arg:u64)->u64{tick_service::tick_worker(arg)}
@@ -352,6 +361,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                 "timer_worker".into(),
                 "timer_holder".into(),
                 "object_worker".into(),
+                "sync_worker".into(),
             ],
             if objects_layout {
                 LocalLayout::TakedawnServices
@@ -387,12 +397,12 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
         }
         for pair in args[cases_start..].chunks_exact(2) {
             let mode = pair[0].to_str().unwrap().parse::<u8>().unwrap();
-            assert!(mode <= 68);
+            assert!(mode <= 80);
             assert_eq!(objects_layout, mode >= 51);
             let selected = fs::File::open(&pair[1]).unwrap();
             let mut indexed =
                 gamepkg::xbox_disc::Disc::from_file(selected.try_clone().unwrap()).unwrap();
-            let expected: [u8; 32] = if mode == 4 || mode == 23 || mode == 49 || mode == 67 {
+            let expected: [u8; 32] = if mode == 4 || mode == 23 || mode == 49 || mode == 67 || mode == 79 {
                 let checked = indexed.verify_takedawn().unwrap();
                 assert_eq!(checked.verified_files, 716);
                 let text = checked.executable_sha256;
@@ -463,14 +473,27 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
             if mode >= 51 {
                 let code = if mode == 52 || mode == 53 {
                     (-4i64) as u64
-                } else if mode == 54 || (mode >= 55 && mode <= 61) {
+                } else if mode == 54 || (mode >= 55 && mode <= 61) || (mode >= 76 && mode <= 78) {
                     (-2i64) as u64
-                } else if mode == 67 {
+                } else if mode == 67 || mode == 79 {
                     (-5i64) as u64
                 } else {
                     0
                 };
-                assert_eq!(&values[1..], &[code, if mode == 68 { 8 } else { 6 }, 0]);
+                assert_eq!(
+                    &values[1..],
+                    &[
+                        code,
+                        if mode >= 69 {
+                            10
+                        } else if mode == 68 {
+                            8
+                        } else {
+                            6
+                        },
+                        0
+                    ]
+                );
             } else if mode >= 12 {
                 let expected = if mode >= 19 && mode <= 21 || mode >= 44 && mode <= 48 {
                     -2i64 as u64
@@ -510,7 +533,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
             for event in &events {
                 assert!([
                     0x544b0f00, 0x544b0f10, 0x544b0fff, 0x544b1300, 0x544b3200, 0x544b1710,
-                    0x544b1800, 0x544b1801, 0x544b3b00, 0x544b3900
+                    0x544b1800, 0x544b1801, 0x544b3b00, 0x544b3900, 0x544b3c00, 0x544b3d00
                 ]
                 .contains(&event.code));
                 if event.code == 0x544b1300 {
@@ -522,7 +545,7 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                     assert_eq!(event.values, [3, 0x1d000, 0x1100, 0x89abcdef]);
                 }
                 if event.code == 0x544b0f10 {
-                    assert!(mode == 4 || mode == 23 || mode == 49 || mode == 67);
+                    assert!(mode == 4 || mode == 23 || mode == 49 || mode == 67 || mode == 79);
                     println!(
                         "PRIVATE mode {mode} pending canonical kernel ordinals: {:?}",
                         event.values
@@ -537,6 +560,26 @@ pub fn game_main(){let code=match image_probe::image_import_run(){Ok(())=>0u64,E
                         .map(|e| e.values.len())
                         .sum::<usize>(),
                     104
+                );
+            }
+            if mode == 79 {
+                assert_eq!(
+                    events
+                        .iter()
+                        .filter(|e| e.code == 0x544b0f10)
+                        .map(|e| e.values.len())
+                        .sum::<usize>(),
+                    102
+                );
+            }
+            if mode == 70 {
+                let vectors: Vec<_> = events.iter().filter(|e| e.code == 0x544b3c00).collect();
+                assert_eq!(vectors.len(), 1);
+                let bytes = vectors[0].bytes.as_ref().unwrap();
+                assert_eq!(bytes.len(), 3100);
+                assert_eq!(
+                    gamepkg::verify::digest(bytes),
+                    "90ac7f1f727225e3f9cc67bbc49fbc9680fdddd8f8cdd517dda759cde54dfdc6"
                 );
             }
             if mode == 68 {

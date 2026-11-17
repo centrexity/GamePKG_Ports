@@ -20,6 +20,7 @@ pub struct Startup {
     shadow: Option<kernel_pool::Shadow>,
     handles: Option<handles::Handles>,
     objects: Option<typed_events::Events>,
+    semaphores: Option<kernel_pool::Semaphores>,
     map: u64,
     jobs: std::vec::Vec<u64>,
 }
@@ -46,6 +47,7 @@ impl Startup {
             shadow: None,
             handles: None,
             objects: None,
+            semaphores: None,
             map: 0,
             jobs: std::vec::Vec::new(),
         })
@@ -93,7 +95,7 @@ impl Startup {
         video: u32,
         speakers: u32,
     ) -> Result<(), i32> {
-        self.startup_prepare_mode(ram, image, data, remap, video, speakers, false, [0; 2])
+        self.startup_prepare_mode(ram, image, data, remap, video, speakers, false, [0; 3])
     }
     pub fn startup_prepare_with_shadow(
         &mut self,
@@ -104,7 +106,7 @@ impl Startup {
         video: u32,
         speakers: u32,
     ) -> Result<(), i32> {
-        self.startup_prepare_mode(ram, image, data, remap, video, speakers, true, [0; 2])
+        self.startup_prepare_mode(ram, image, data, remap, video, speakers, true, [0; 3])
     }
     pub fn startup_prepare_with_objects(
         &mut self,
@@ -128,7 +130,32 @@ impl Startup {
             video,
             speakers,
             true,
-            [scratch, offset],
+            [scratch, offset, 0],
+        )
+    }
+    pub fn startup_prepare_with_sync_objects(
+        &mut self,
+        ram: &mut memory::Memory,
+        image: &xbe::Image,
+        data: &kernel_data::Data,
+        remap: &[u16],
+        video: u32,
+        speakers: u32,
+        scratch: u64,
+        offset: u64,
+    ) -> Result<(), i32> {
+        if scratch == 0 {
+            return Err(-1);
+        }
+        self.startup_prepare_mode(
+            ram,
+            image,
+            data,
+            remap,
+            video,
+            speakers,
+            true,
+            [scratch, offset, 1],
         )
     }
     fn startup_prepare_mode(
@@ -140,7 +167,7 @@ impl Startup {
         video: u32,
         speakers: u32,
         with_shadow: bool,
-        objects: [u64; 2],
+        objects: [u64; 3],
     ) -> Result<(), i32> {
         self.startup_owner(ram)?;
         ram.call_snapshot()?;
@@ -182,7 +209,7 @@ impl Startup {
         video: u32,
         speakers: u32,
         with_shadow: bool,
-        objects: [u64; 2],
+        objects: [u64; 3],
     ) -> Result<(), i32> {
         self.services = Some(kernel_pool::kernel_services_initialize(
             ram, video, speakers,
@@ -199,13 +226,30 @@ impl Startup {
                 ram,
                 self.handles.as_ref().ok_or(-3)?,
             )?);
-            Some(kernel_pool::KernelContext::kernel_context_new_with_objects(
-                ram,
-                self.registry.as_ref().ok_or(-3)?,
-                self.shadow.as_ref().ok_or(-3)?,
-                self.handles.as_ref().ok_or(-3)?.handles_id(),
-                self.objects.as_ref().ok_or(-3)?.events_id(),
-            )?)
+            if objects[2] == 1 {
+                self.semaphores = Some(kernel_pool::Semaphores::semaphores_new(
+                    ram,
+                    self.handles.as_ref().ok_or(-3)?,
+                )?);
+                Some(
+                    kernel_pool::KernelContext::kernel_context_new_with_sync_objects(
+                        ram,
+                        self.registry.as_ref().ok_or(-3)?,
+                        self.shadow.as_ref().ok_or(-3)?,
+                        self.handles.as_ref().ok_or(-3)?.handles_id(),
+                        self.objects.as_ref().ok_or(-3)?.events_id(),
+                        self.semaphores.as_ref().ok_or(-3)?.semaphores_id(),
+                    )?,
+                )
+            } else {
+                Some(kernel_pool::KernelContext::kernel_context_new_with_objects(
+                    ram,
+                    self.registry.as_ref().ok_or(-3)?,
+                    self.shadow.as_ref().ok_or(-3)?,
+                    self.handles.as_ref().ok_or(-3)?.handles_id(),
+                    self.objects.as_ref().ok_or(-3)?.events_id(),
+                )?)
+            }
         } else if with_shadow {
             self.shadow = Some(kernel_pool::Shadow::shadow_new(ram)?);
             Some(kernel_pool::KernelContext::kernel_context_new_with_shadow(
@@ -280,6 +324,22 @@ impl Startup {
         } else if context.kernel_context_objects(ram).err() != Some(-5) {
             return Err(-4);
         }
+        if let Some(owned) = self.semaphores.as_ref() {
+            let ids = context.kernel_context_sync_objects(ram)?;
+            if ids
+                != [
+                    self.handles.as_ref().ok_or(-4)?.handles_id(),
+                    self.objects.as_ref().ok_or(-4)?.events_id(),
+                    owned.semaphores_id(),
+                ]
+            {
+                return Err(-4);
+            }
+            let table = handles::Handles::handles_borrow(ram, ids[0])?;
+            kernel_pool::Semaphores::semaphores_borrow(ram, &table, ids[2])?;
+        } else if context.kernel_context_sync_objects(ram).err() != Some(-5) {
+            return Err(-4);
+        }
         Ok([
             services,
             registry.connections_id(),
@@ -305,6 +365,26 @@ impl Startup {
         let map = handles::Handles::handles_borrow(ram, ids[0])?;
         let domain = typed_events::Events::events_borrow(ram, &map, ids[1])?;
         Ok((map, domain))
+    }
+    pub fn startup_sync_objects(
+        &self,
+        ram: &memory::Memory,
+    ) -> Result<
+        (
+            handles::Handles,
+            typed_events::Events,
+            kernel_pool::Semaphores,
+        ),
+        i32,
+    > {
+        let (table, bound_events) = self.startup_objects(ram)?;
+        let ids = self
+            .context
+            .as_ref()
+            .ok_or(-4)?
+            .kernel_context_sync_objects(ram)?;
+        let bound_semaphores = kernel_pool::Semaphores::semaphores_borrow(ram, &table, ids[2])?;
+        Ok((table, bound_events, bound_semaphores))
     }
     // Register every subsystem job before its shared owners can be closed. A
     // completion snapshot, including true, does not replace a consuming join.
@@ -424,6 +504,18 @@ impl Startup {
                 }
             }
             self.context = None;
+        }
+        if let Some(domain) = self.semaphores.as_mut() {
+            let outcome = domain.semaphores_close(ram, self.handles.as_ref().ok_or(-3)?);
+            if !domain.semaphores_closed() {
+                return outcome;
+            }
+            if let Err(code) = outcome {
+                if self.close_error == 0 {
+                    self.close_error = code;
+                }
+            }
+            self.semaphores = None;
         }
         if let Some(domain) = self.objects.as_mut() {
             let outcome = domain.events_close(ram, self.handles.as_ref().ok_or(-3)?);

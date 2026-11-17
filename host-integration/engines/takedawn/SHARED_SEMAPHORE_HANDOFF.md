@@ -33,7 +33,7 @@ reject event/mutex operations. Legacy untyped wait op 23 rejects semaphores; do
 not use it to avoid cancellation or substitute an event for a count. Host IDs
 are full u64; guest tags remain separately checked four-byte values.
 
-## Required next port work
+## Original required port work (now superseded below)
 
 1. Add a checked typed semaphore owner/creation transaction and tagged-table kind,
    preserving accepted creation, tag, guest-write and cleanup prefixes. Register
@@ -54,7 +54,7 @@ are full u64; guest tags remain separately checked four-byte values.
    collective object audit before trusted linking, exact receipts and OS
    confinement. No direct OS/SDL/threading fallback or engine exemption exists.
 
-## Evidence and limits
+## SDK-only evidence (historical scope)
 
 All four native component targets pass runtime/ABI/malformed-reply tests; Windows
 execution is through Wine. Six altered runtime copies compile and then fail the
@@ -69,3 +69,16 @@ KIC3 main import gap remains 104. No physical controller, audible audio, hardwar
 frame fidelity, measured pacing or title gameplay is established. The public
 source archive/catalog, app ports pin, canonical checkout and blocked profiles
 remain unchanged.
+
+## Checked consumer implementation
+
+Items 1..3 now have checked implementations and KIC4 startup integration. Read
+`service-kernel-semaphores/README.md`, `service-kernel-semaphore-imports/README.md`
+and `service-kernel-context/SYNC_STARTUP.md` for exact ownership, statuses, codecs,
+accepted prefixes and qualification boundaries. NT imports 193/222 require KIC4;
+legacy readiness stays denied. Its private main-import gap is 102, versus KIC3
+104. Original-C providers follow documented Windows count/error rules on both
+platforms, deliberately correcting the upstream POSIX invalid-input shim; its
+source hash and comparison scope are pinned. No full-title/profile enablement
+or real device/graphics/audio/pacing result is claimed. Item 4 and full migration
+remain outstanding. The existing matching installed SDK needs no rebuild.

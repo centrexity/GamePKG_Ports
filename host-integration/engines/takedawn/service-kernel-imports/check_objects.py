@@ -27,7 +27,8 @@ def main():
   variants=[]
   if a.mutations:
    original=(here/'../service-kernel-context/startup.rs').read_text()
-   old='kernel_pool::KernelContext::kernel_context_new_with_objects(\n                ram,\n                self.registry.as_ref().ok_or(-3)?,\n                self.shadow.as_ref().ok_or(-3)?,\n                self.handles.as_ref().ok_or(-3)?.handles_id(),\n                self.objects.as_ref().ok_or(-3)?.events_id(),\n            )?'
+   import re
+   old=re.search(r'kernel_pool::KernelContext::kernel_context_new_with_objects\([\s\S]*?self\.objects\.as_ref\(\)\.ok_or\(-3\)\?\.events_id\(\),\s*\)\?',original).group(0)
    variants.append(('omit-object-context',old,'kernel_pool::KernelContext::kernel_context_new_with_shadow(ram,self.registry.as_ref().ok_or(-3)?,self.shadow.as_ref().ok_or(-3)?)?',51))
    start=original.index('        if let Some(domain) = self.objects.as_mut() {');end=original.index('        if let Some(map) = self.handles.as_mut()',start)
    variants.append(('skip-native-domain-drain',original[start:end],'        if self.objects.is_some(){self.objects=None;}\n',51))

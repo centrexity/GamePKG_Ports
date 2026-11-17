@@ -32,7 +32,7 @@ def main():
    subprocess.run(cmd,check=True)
    if 'windows' not in target:subprocess.run([str(exe)],check=True,timeout=120)
    elif a.wine:subprocess.run(['wine',str(exe)],check=True,timeout=120,env=dict(os.environ,WINEDEBUG='-all',WINEPREFIX='/tmp/gamepkg-port-replace-wine'))
-  implementation=here/'../service-kernel-pool/kernel_pool.rs';full=implementation.read_text();start=full.index('pub struct Events {');end=len(full);prefix=full[:start];suffix=full[end:];text=full[start:end]
+  implementation=here/'../service-kernel-pool/kernel_pool.rs';full=implementation.read_text();start=full.index('pub struct Events {');end=full.index('pub struct Semaphores {',start);prefix=full[:start];suffix=full[end:];text=full[start:end]
   mutations=[
    ('full-width-boolean','initial & 255 != 0','initial != 0'),
    ('wrong-manual-reset','event_type == 0','event_type != 0'),

@@ -1027,3 +1027,24 @@ are metadata tests, not native resource ownership or title gameplay. Typed event
 file/thread adapters and context/import/startup wiring still remain. SDK/quotas/
 installed app/pin/archive/catalog/defaults/profile gates stay unchanged; the main
 import gap remains 106. No original controls/audio/graphics/pacing claim is made.
+
+## Checked counted ownership and KIC4 startup
+
+The new `service-kernel-semaphores` owns counted objects independently of EVD2,
+using HTR2 kind 3, SSD1/SWL1 ledgers, retained creation/retirement prefixes and
+bounded typed waits. `service-kernel-semaphore-imports` implements actual 193/222
+with original signed-count/status/output/CPU distinctions and explicit accepted
+count prefixes. Its original-C provider intentionally follows Windows semantics
+on both targets, correcting invalid-input behavior in the upstream POSIX shim;
+see its README and pinned comparison scope.
+
+The opt-in KIC4 Startup owns the exact table/event/semaphore triple, retains
+partial setup, consumes actual worker joins and drains typed domains before
+backing memory. Exact contracts and qualification commands are in
+`service-kernel-context/SYNC_STARTUP.md` and both component READMEs. Current KIC4
+private main-import gap is 102; KIC3 stays 104, KIC2 106 and KIC1 107. Legacy
+contexts cannot admit 193/222. Generic NT close/waits, file/thread adapters and
+full source/handler/loop/renderer/media/build/launcher/gameplay remain required.
+The SDK, app ports pin, public archive/catalog, launch defaults and blocked title
+profiles are unchanged. Components/contained image tests are not physical Windows
+controls, audible sound, visual fidelity or measured pacing.

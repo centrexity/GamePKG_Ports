@@ -16,8 +16,8 @@ fn pool_argument_bytes(ordinal: u32) -> Result<u32, i32> {
     match ordinal {
         14 | 17 | 23 | 98 | 165 | 171 | 180 | 335 => Ok(4),
         15 | 44 | 113 | 168 | 225 | 337 => Ok(8),
-        189 => Ok(16),
-        107 | 336 | 338 | 339 => Ok(12),
+        189 | 193 => Ok(16),
+        107 | 222 | 336 | 338 | 339 => Ok(12),
         109 | 340 => Ok(28),
         24 | 166 => Ok(20),
         125 | 126 | 127 => Ok(0),
@@ -31,7 +31,12 @@ pub fn kernel_supported(ordinal: u32) -> Result<u32, i32> {
 }
 // Context-dependent imports require a live typed binding, not classification alone.
 pub fn kernel_requires_context(ordinal: u32) -> bool {
-    ordinal == 98 || ordinal == 113 || ordinal == 189 || ordinal == 225
+    ordinal == 98
+        || ordinal == 113
+        || ordinal == 189
+        || ordinal == 225
+        || ordinal == 193
+        || ordinal == 222
 }
 pub fn kernel_physical(ordinal: u32) -> bool {
     ordinal == 165 || ordinal == 166 || ordinal == 168 || ordinal == 171 || ordinal == 180
@@ -297,6 +302,38 @@ pub fn kernel_invoke(
         let _ = pool_word(&args, 4)?;
     }
     ram.kernel_set_caller(caller);
+    if ordinal == 193 || ordinal == 222 {
+        let (_, record, _, routing_start) = pool_snapshot(ram)?;
+        if routing_start != 32 {
+            return Err(-5);
+        }
+        let context = KernelContext::kernel_context_borrow(ram, pool_long(&record, 24)?)?;
+        let ids = context.kernel_context_sync_objects(ram)?;
+        let table = Handles::handles_borrow(ram, ids[0])?;
+        let domain = Semaphores::semaphores_borrow(ram, &table, ids[2])?;
+        let status = if ordinal == 193 {
+            pool_nt_create_semaphore(
+                ram,
+                &table,
+                &domain,
+                first,
+                pool_word(&args, 8)?,
+                pool_word(&args, 12)?,
+            )?
+        } else {
+            pool_nt_release_semaphore(
+                ram,
+                &table,
+                &domain,
+                first,
+                pool_word(&args, 4)?,
+                pool_word(&args, 8)?,
+            )?
+        };
+        state.eax = status;
+        state.esp = end as u32;
+        return Ok(());
+    }
     if ordinal == 189 || ordinal == 225 {
         let (_, record, _, routing_start) = pool_snapshot(ram)?;
         if routing_start != 32 {
@@ -903,6 +940,8 @@ pub fn kernel_requires_services(ordinal: u32) -> bool {
         || ordinal == 113
         || ordinal == 189
         || ordinal == 225
+        || ordinal == 193
+        || ordinal == 222
         || ordinal == 107
         || ordinal == 109
         || ordinal == 125
@@ -1527,6 +1566,50 @@ impl KernelContext {
         }
         Ok(result)
     }
+    pub fn kernel_context_new_with_sync_objects(
+        ram: &memory::Memory,
+        registry: &Connections,
+        map: &Shadow,
+        table: u64,
+        event_domain: u64,
+        semaphore_domain: u64,
+    ) -> Result<Self, i32> {
+        registry.connection_snapshot(ram)?;
+        map.shadow_snapshot(ram)?;
+        let services = ram.services_handle()?;
+        let creator = gamepkg::local_task_status()?.0;
+        let mut bytes = [0u8; 88];
+        for (at, value) in [
+            (0usize, 0x3443494bu64),
+            (8, ram.call_handle()),
+            (16, services),
+            (24, registry.connections_id()),
+            (32, map.shadow_id()),
+            (40, table),
+            (48, event_domain),
+            (56, semaphore_domain),
+        ] {
+            let encoded = u64::to_le_bytes(value);
+            for lane in 0..8usize {
+                bytes[at + lane] = encoded[lane];
+            }
+        }
+        let record = gamepkg::local_record_create(&bytes)?;
+        let result = Self {
+            root: ram.call_handle(),
+            services,
+            record,
+            creator,
+            owned: true,
+        };
+        if let Err(code) = result.context_snapshot(ram) {
+            if gamepkg::local_record_release(record).is_err() {
+                return Err(-3);
+            }
+            return Err(code);
+        }
+        Ok(result)
+    }
     pub fn kernel_context_id(&self) -> u64 {
         self.record
     }
@@ -1549,13 +1632,15 @@ impl KernelContext {
             return Err(-4);
         }
         connection_live(ram, self.services)?;
-        let (_, b) = gamepkg::local_record_snapshot(self.record, 80)?;
+        let (_, b) = gamepkg::local_record_snapshot(self.record, 88)?;
         let version = if b.len() == 64 && pool_long(&b, 0)? == 0x3143494b {
             1
         } else if b.len() == 72 && pool_long(&b, 0)? == 0x3243494b {
             2
         } else if b.len() == 80 && pool_long(&b, 0)? == 0x3343494b {
             3
+        } else if b.len() == 88 && pool_long(&b, 0)? == 0x3443494b {
+            4
         } else {
             return Err(-1);
         };
@@ -1566,8 +1651,10 @@ impl KernelContext {
             32usize
         } else if version == 2 {
             40
-        } else {
+        } else if version == 3 {
             56
+        } else {
+            64
         };
         for at in (reserved..b.len()).step_by(8) {
             if pool_long(&b, at)? != 0 {
@@ -1588,6 +1675,8 @@ impl KernelContext {
         }
         if version == 3 {
             self.context_object_records(ram, &b)?;
+        } else if version == 4 {
+            self.context_sync_records(ram, &b)?;
         }
         connection_live(ram, self.services)?;
         Ok(registry)
@@ -1638,22 +1727,74 @@ impl KernelContext {
         connection_live(ram, self.services)?;
         Ok([table, domain])
     }
+    fn context_sync_records(&self, ram: &memory::Memory, b: &[u8]) -> Result<[u64; 3], i32> {
+        if b.len() != 88
+            || pool_long(b, 0)? != 0x3443494b
+            || pool_long(b, 64)? != 0
+            || pool_long(b, 72)? != 0
+            || pool_long(b, 80)? != 0
+        {
+            return Err(-1);
+        }
+        if pool_long(b, 8)? != self.root || pool_long(b, 16)? != self.services {
+            return Err(-4);
+        }
+        let objects = self.context_object_records(ram, b)?;
+        let semaphore = pool_long(b, 56)?;
+        if semaphore == 0 || semaphore == objects[0] || semaphore == objects[1] {
+            return Err(-1);
+        }
+        let (_, domain) = gamepkg::local_record_snapshot(semaphore, 2624)?;
+        if domain.len() != 2624
+            || pool_long(&domain, 0)? != 0x31445353
+            || pool_long(&domain, 40)? != 0
+            || pool_long(&domain, 48)? != 0
+            || pool_long(&domain, 56)? != 0
+        {
+            return Err(-1);
+        }
+        if pool_long(&domain, 8)? != self.root
+            || pool_long(&domain, 16)? != self.services
+            || pool_long(&domain, 24)? != objects[0]
+            || pool_long(&domain, 32)? == u64::MAX
+        {
+            return Err(-4);
+        }
+        connection_live(ram, self.services)?;
+        Ok([objects[0], objects[1], semaphore])
+    }
+    pub fn kernel_context_sync_objects(&self, ram: &memory::Memory) -> Result<[u64; 3], i32> {
+        self.context_snapshot(ram)?;
+        let (_, b) = gamepkg::local_record_snapshot(self.record, 88)?;
+        if b.len() != 88 || pool_long(&b, 0)? != 0x3443494b {
+            return Err(-5);
+        }
+        self.context_sync_records(ram, &b)
+    }
     pub fn kernel_context_registry(&self, ram: &memory::Memory) -> Result<Connections, i32> {
         Connections::connections_borrow(ram, self.context_snapshot(ram)?)
     }
     pub fn kernel_context_shadow(&self, ram: &memory::Memory) -> Result<Shadow, i32> {
         self.context_snapshot(ram)?;
-        let (_, b) = gamepkg::local_record_snapshot(self.record, 80)?;
+        let (_, b) = gamepkg::local_record_snapshot(self.record, 88)?;
         if !((b.len() == 72 && pool_long(&b, 0)? == 0x3243494b)
-            || (b.len() == 80 && pool_long(&b, 0)? == 0x3343494b))
+            || (b.len() == 80 && pool_long(&b, 0)? == 0x3343494b)
+            || (b.len() == 88 && pool_long(&b, 0)? == 0x3443494b))
         {
             return Err(-5);
+        }
+        if b.len() == 88 {
+            self.context_sync_records(ram, &b)?;
         }
         Shadow::shadow_borrow(ram, pool_long(&b, 32)?)
     }
     pub fn kernel_context_objects(&self, ram: &memory::Memory) -> Result<[u64; 2], i32> {
         self.context_snapshot(ram)?;
-        let (_, b) = gamepkg::local_record_snapshot(self.record, 80)?;
+        let (_, b) = gamepkg::local_record_snapshot(self.record, 88)?;
+        if b.len() == 88 && pool_long(&b, 0)? == 0x3443494b {
+            let sync = self.context_sync_records(ram, &b)?;
+            return Ok([sync[0], sync[1]]);
+        }
         if b.len() != 80 || pool_long(&b, 0)? != 0x3343494b {
             return Err(-5);
         }
@@ -2536,6 +2677,11 @@ pub fn kernel_context_ready(ram: &memory::Memory, context: u64, ordinal: u32) ->
         let ids = bound.kernel_context_objects(ram)?;
         let table = Handles::handles_borrow(ram, ids[0])?;
         Events::events_borrow(ram, &table, ids[1])?;
+    }
+    if ordinal == 193 || ordinal == 222 {
+        let ids = bound.kernel_context_sync_objects(ram)?;
+        let table = Handles::handles_borrow(ram, ids[0])?;
+        Semaphores::semaphores_borrow(ram, &table, ids[2])?;
     }
     Ok(())
 }
@@ -4229,6 +4375,1014 @@ impl EventWait {
     }
 }
 
+// Checked semaphore owners: separate SSD1/SWL1 codecs and table kind 3.
+pub struct Semaphores {
+    root: u64,
+    services: u64,
+    table: u64,
+    record: u64,
+    owner: u64,
+    owning: bool,
+    close_error: i32,
+}
+pub struct SemaphoreCreation {
+    root: u64,
+    services: u64,
+    table: u64,
+    record: u64,
+    owner: u64,
+    task: u64,
+    row: usize,
+    semaphore: u64,
+    token: u32,
+    phase: u32,
+    attempted_create: bool,
+    attempted_publish: bool,
+    released: bool,
+    cleared: bool,
+    closed: bool,
+    guard: HandleGuard,
+}
+fn semaphores_word(b: &[u8], at: usize) -> Result<u64, i32> {
+    let p = b.get(at..at + 8).ok_or(-1)?;
+    Ok(u64::from_le_bytes([
+        p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7],
+    ]))
+}
+fn semaphores_put(b: &mut [u8], at: usize, value: u64) -> Result<(), i32> {
+    let target = b.get_mut(at..at + 8).ok_or(-1)?;
+    let bytes = u64::to_le_bytes(value);
+    for lane in 0..8usize {
+        target[lane] = bytes[lane];
+    }
+    Ok(())
+}
+fn semaphores_live(ram: &memory::Memory, root: u64, services: u64) -> Result<(), i32> {
+    if root == 0 || ram.call_handle() != root || services == 0 || ram.services_handle()? != services
+    {
+        return Err(-4);
+    }
+    kernel_service_values(ram)?;
+    if ram.services_handle()? != services || gamepkg::local_task_status()?.1 {
+        return Err(-4);
+    }
+    Ok(())
+}
+fn semaphores_record(
+    record: u64,
+    root: u64,
+    services: u64,
+    table: u64,
+    owner: u64,
+) -> Result<(u64, std::vec::Vec<u8>), i32> {
+    let (version, b) = gamepkg::local_record_snapshot(record, 2624)?;
+    if b.len() != 2624
+        || semaphores_word(&b, 0)? != 0x31445353
+        || semaphores_word(&b, 40)? > 1
+        || semaphores_word(&b, 48)? != 0
+        || semaphores_word(&b, 56)? != 0
+    {
+        return Err(-1);
+    }
+    if root == 0
+        || services == 0
+        || table == 0
+        || owner == u64::MAX
+        || semaphores_word(&b, 8)? != root
+        || semaphores_word(&b, 16)? != services
+        || semaphores_word(&b, 24)? != table
+        || semaphores_word(&b, 32)? != owner
+    {
+        return Err(-4);
+    }
+    for row in 0..128usize {
+        let id = semaphores_word(&b, 64 + row * 16)?;
+        let state = semaphores_word(&b, 72 + row * 16)?;
+        if state > 3 || ((state < 2) != (id == 0)) {
+            return Err(-1);
+        }
+        if id != 0 {
+            for before in 0..row {
+                if semaphores_word(&b, 64 + before * 16)? == id {
+                    return Err(-1);
+                }
+            }
+        }
+    }
+    for slot in 0..32usize {
+        let lease = semaphores_word(&b, 2112 + slot * 16)?;
+        let state = semaphores_word(&b, 2120 + slot * 16)?;
+        if state > 2 || ((state == 0) != (lease == 0)) {
+            return Err(-1);
+        }
+        if lease != 0 {
+            for before in 0..slot {
+                if semaphores_word(&b, 2112 + before * 16)? == lease {
+                    return Err(-1);
+                }
+            }
+        }
+    }
+    Ok((version, b))
+}
+fn semaphores_commit(record: u64, version: u64, b: &[u8]) -> Result<(), i32> {
+    match gamepkg::local_record_compare_exchange(record, version, b) {
+        Ok(_) => Ok(()),
+        Err(-2) => Err(-3),
+        Err(code) => Err(code),
+    }
+}
+fn semaphores_release(id: u64) -> Result<(), i32> {
+    if gamepkg::local_call(25, &u64::to_le_bytes(id), &mut [])? != 0 {
+        return Err(-3);
+    }
+    Ok(())
+}
+fn semaphores_add(id: u64, permits: u32) -> Result<u32, i32> {
+    gamepkg::local_semaphore_state(id)?;
+    gamepkg::local_semaphore_release(id, permits)
+}
+impl Semaphores {
+    pub fn semaphores_new(ram: &memory::Memory, map: &Handles) -> Result<Self, i32> {
+        let root = ram.call_handle();
+        let services = ram.services_handle()?;
+        semaphores_live(ram, root, services)?;
+        // Only the table creator can own its domain and post-revocation cleanup.
+        let mut guard = map.handles_cleanup_lock(ram)?;
+        guard.handles_guard_close(ram)?;
+        semaphores_live(ram, root, services)?;
+        let owner = gamepkg::local_task_status()?.0;
+        let mut b = std::vec::Vec::new();
+        b.resize(2624, 0);
+        for (at, value) in [
+            (0usize, 0x31445353u64),
+            (8, root),
+            (16, services),
+            (24, map.handles_id()),
+            (32, owner),
+        ] {
+            semaphores_put(&mut b, at, value)?;
+        }
+        let record = gamepkg::local_record_create(&b)?;
+        Ok(Self {
+            root,
+            services,
+            table: map.handles_id(),
+            record,
+            owner,
+            owning: true,
+            close_error: 0,
+        })
+    }
+    pub fn semaphores_id(&self) -> u64 {
+        self.record
+    }
+    pub fn semaphores_closed(&self) -> bool {
+        self.record == 0
+    }
+    pub fn semaphores_borrow(
+        ram: &memory::Memory,
+        map: &Handles,
+        record: u64,
+    ) -> Result<Self, i32> {
+        let (_, b) = gamepkg::local_record_snapshot(record, 2624)?;
+        let view = Self {
+            root: ram.call_handle(),
+            services: ram.services_handle()?,
+            table: map.handles_id(),
+            record,
+            owner: semaphores_word(&b, 32)?,
+            owning: false,
+            close_error: 0,
+        };
+        view.semaphores_snapshot(ram, map)?;
+        Ok(view)
+    }
+    fn semaphores_snapshot(
+        &self,
+        ram: &memory::Memory,
+        map: &Handles,
+    ) -> Result<(u64, std::vec::Vec<u8>), i32> {
+        semaphores_live(ram, self.root, self.services)?;
+        if map.handles_id() != self.table {
+            return Err(-4);
+        }
+        let snapshot = semaphores_record(
+            self.record,
+            self.root,
+            self.services,
+            self.table,
+            self.owner,
+        )?;
+        if semaphores_word(&snapshot.1, 40)? != 0 {
+            return Err(-4);
+        }
+        Ok(snapshot)
+    }
+    pub fn semaphores_begin(
+        &self,
+        ram: &memory::Memory,
+        map: &Handles,
+    ) -> Result<SemaphoreCreation, i32> {
+        let task = gamepkg::local_task_status()?.0;
+        let mut guard = map.handles_lock(ram)?;
+        let result = self.semaphores_reserve(ram, map);
+        let row = match result {
+            Ok(row) => row,
+            Err(code) => {
+                let _ = guard.handles_guard_close(ram);
+                return Err(code);
+            }
+        };
+        // No fallible operation follows the accepted reservation before its owner is returned.
+        Ok(SemaphoreCreation {
+            root: self.root,
+            services: self.services,
+            table: self.table,
+            record: self.record,
+            owner: self.owner,
+            task,
+            row,
+            semaphore: 0,
+            token: 0,
+            phase: 0,
+            attempted_create: false,
+            attempted_publish: false,
+            released: false,
+            cleared: false,
+            closed: false,
+            guard,
+        })
+    }
+    fn semaphores_reserve(&self, ram: &memory::Memory, map: &Handles) -> Result<usize, i32> {
+        let (version, mut b) = self.semaphores_snapshot(ram, map)?;
+        for row in 0..128usize {
+            if semaphores_word(&b, 72 + row * 16)? == 0 {
+                semaphores_put(&mut b, 72 + row * 16, 1)?;
+                semaphores_commit(self.record, version, &b)?;
+                return Ok(row);
+            }
+        }
+        Err(-2)
+    }
+    fn semaphores_lookup_locked(
+        &self,
+        ram: &memory::Memory,
+        map: &Handles,
+        guard: &HandleGuard,
+        token: u32,
+    ) -> Result<(usize, u64), i32> {
+        let (_, b) = self.semaphores_snapshot(ram, map)?;
+        let value = guard.handle_guard_lookup(ram, token)?.ok_or(-4)?;
+        if value[1] != 3 {
+            return Err(-1);
+        }
+        for row in 0..128usize {
+            if semaphores_word(&b, 64 + row * 16)? == value[0] {
+                if semaphores_word(&b, 72 + row * 16)? != 2 {
+                    return Err(-2);
+                }
+                gamepkg::local_semaphore_state(value[0])?;
+                return Ok((row, value[0]));
+            }
+        }
+        Err(-4)
+    }
+    pub fn semaphores_state(
+        &self,
+        ram: &memory::Memory,
+        map: &Handles,
+        token: u32,
+    ) -> Result<[u32; 2], i32> {
+        let mut guard = map.handles_lock(ram)?;
+        let result = self.semaphores_state_locked(ram, map, &guard, token);
+        let closed = guard.handles_guard_close(ram);
+        let value = result?;
+        closed?;
+        semaphores_live(ram, self.root, self.services)?;
+        Ok(value)
+    }
+    fn semaphores_state_locked(
+        &self,
+        ram: &memory::Memory,
+        map: &Handles,
+        guard: &HandleGuard,
+        token: u32,
+    ) -> Result<[u32; 2], i32> {
+        let (_, id) = self.semaphores_lookup_locked(ram, map, guard, token)?;
+        let state = gamepkg::local_semaphore_state(id)?;
+        Ok([state.count, state.maximum])
+    }
+    pub fn semaphores_release(
+        &self,
+        ram: &memory::Memory,
+        map: &Handles,
+        token: u32,
+        permits: u32,
+    ) -> Result<u32, i32> {
+        let mut guard = map.handles_lock(ram)?;
+        let result = self.semaphores_release_locked(ram, map, &guard, token, permits);
+        let closed = guard.handles_guard_close(ram);
+        let previous = result?;
+        closed?;
+        semaphores_live(ram, self.root, self.services)?;
+        Ok(previous)
+    }
+    fn semaphores_release_locked(
+        &self,
+        ram: &memory::Memory,
+        map: &Handles,
+        guard: &HandleGuard,
+        token: u32,
+        permits: u32,
+    ) -> Result<u32, i32> {
+        let (_, id) = self.semaphores_lookup_locked(ram, map, guard, token)?;
+        semaphores_add(id, permits)
+    }
+    // None is an ordinary invalid NT handle/count. Metadata/service failures
+    // propagate separately, including errors that share the SDK Invalid code.
+    fn semaphores_nt_release(
+        &self,
+        ram: &memory::Memory,
+        map: &Handles,
+        token: u32,
+        permits: u32,
+    ) -> Result<Option<u32>, i32> {
+        self.semaphores_snapshot(ram, map)?;
+        if handles_decode(token).is_err() {
+            semaphores_live(ram, self.root, self.services)?;
+            return Ok(None);
+        }
+        let mut guard = map.handles_lock(ram)?;
+        let result = self.semaphores_nt_release_locked(ram, map, &guard, token, permits);
+        let closed = guard.handles_guard_close(ram);
+        let released = result?;
+        closed?;
+        semaphores_live(ram, self.root, self.services)?;
+        Ok(released)
+    }
+    fn semaphores_nt_release_locked(
+        &self,
+        ram: &memory::Memory,
+        map: &Handles,
+        guard: &HandleGuard,
+        token: u32,
+        permits: u32,
+    ) -> Result<Option<u32>, i32> {
+        let (_, bytes) = self.semaphores_snapshot(ram, map)?;
+        let value = match guard.handle_guard_lookup(ram, token)? {
+            Some(value) => value,
+            None => return Ok(None),
+        };
+        if value[1] != 3 {
+            return Ok(None);
+        }
+        for row in 0..128usize {
+            if semaphores_word(&bytes, 64 + row * 16)? == value[0] {
+                if semaphores_word(&bytes, 72 + row * 16)? != 2 {
+                    return Err(-2);
+                }
+                match semaphores_add(value[0], permits) {
+                    Ok(previous) => return Ok(Some(previous)),
+                    Err(code) => {
+                        if code != -1 && code != -4 {
+                            return Err(code);
+                        }
+                        let (_, current) = self.semaphores_snapshot(ram, map)?;
+                        if guard.handle_guard_lookup(ram, token)? != Some(value)
+                            || semaphores_word(&current, 64 + row * 16)? != value[0]
+                            || semaphores_word(&current, 72 + row * 16)? != 2
+                        {
+                            return Err(-3);
+                        }
+                        return Ok(None);
+                    }
+                }
+            }
+        }
+        Ok(None)
+    }
+    pub fn semaphores_alias(
+        &self,
+        ram: &memory::Memory,
+        map: &Handles,
+        token: u32,
+        fresh: bool,
+    ) -> Result<u32, i32> {
+        let mut guard = map.handles_lock(ram)?;
+        let result = self.semaphores_alias_locked(ram, map, &guard, token, fresh);
+        let closed = guard.handles_guard_close(ram);
+        let value = result?;
+        closed?;
+        Ok(value)
+    }
+    fn semaphores_alias_locked(
+        &self,
+        ram: &memory::Memory,
+        map: &Handles,
+        guard: &HandleGuard,
+        token: u32,
+        fresh: bool,
+    ) -> Result<u32, i32> {
+        let (_, id) = self.semaphores_lookup_locked(ram, map, guard, token)?;
+        guard.handle_guard_insert(ram, id, 3, fresh)
+    }
+    pub fn semaphores_remove(
+        &self,
+        ram: &memory::Memory,
+        map: &Handles,
+        token: u32,
+    ) -> Result<(), i32> {
+        let mut guard = map.handles_lock(ram)?;
+        let result = self.semaphores_remove_locked(ram, map, &guard, token);
+        let closed = guard.handles_guard_close(ram);
+        result?;
+        closed
+    }
+    fn semaphores_remove_locked(
+        &self,
+        ram: &memory::Memory,
+        map: &Handles,
+        guard: &HandleGuard,
+        token: u32,
+    ) -> Result<(), i32> {
+        let (row, id) = self.semaphores_lookup_locked(ram, map, guard, token)?;
+        let references = guard.handle_guard_references(ram, id, 3)?;
+        if references == 0 {
+            return Err(-3);
+        }
+        if references > 1 {
+            if guard.handle_guard_remove(ram, token)? != Some([id, 3]) {
+                return Err(-3);
+            }
+            return Ok(());
+        }
+        self.semaphores_wait_busy(id)?;
+        self.semaphores_wait_reap()?;
+        let (version, mut b) = self.semaphores_snapshot(ram, map)?;
+        semaphores_put(&mut b, 72 + row * 16, 3)?;
+        semaphores_commit(self.record, version, &b)?;
+        self.semaphores_drain_row(ram, guard, row, id)
+    }
+    fn semaphores_drain_row(
+        &self,
+        ram: &memory::Memory,
+        guard: &HandleGuard,
+        row: usize,
+        id: u64,
+    ) -> Result<(), i32> {
+        let (_, b) = semaphores_record(
+            self.record,
+            self.root,
+            self.services,
+            self.table,
+            self.owner,
+        )?;
+        if semaphores_word(&b, 64 + row * 16)? != id || semaphores_word(&b, 72 + row * 16)? != 3 {
+            return Err(-4);
+        }
+        match gamepkg::local_semaphore_state(id) {
+            Ok(_) => semaphores_release(id)?,
+            Err(-4) => {}
+            Err(code) => return Err(code),
+        }
+        for (index, item) in guard.handle_guard_slots(ram)?.iter().enumerate() {
+            if *item == [id, 3]
+                && guard.handle_guard_remove(ram, 0x48000001 + index as u32)? != Some([id, 3])
+            {
+                return Err(-3);
+            }
+        }
+        let (version, mut b) = semaphores_record(
+            self.record,
+            self.root,
+            self.services,
+            self.table,
+            self.owner,
+        )?;
+        if semaphores_word(&b, 64 + row * 16)? != id || semaphores_word(&b, 72 + row * 16)? != 3 {
+            return Err(-4);
+        }
+        semaphores_put(&mut b, 64 + row * 16, 0)?;
+        semaphores_put(&mut b, 72 + row * 16, 0)?;
+        semaphores_commit(self.record, version, &b)
+    }
+    pub fn semaphores_close(&mut self, ram: &memory::Memory, map: &Handles) -> Result<(), i32> {
+        if !self.owning
+            || ram.call_handle() != self.root
+            || gamepkg::local_task_status()?.0 != self.owner
+        {
+            return Err(-4);
+        }
+        if self.record == 0 {
+            return if self.close_error == 0 {
+                Ok(())
+            } else {
+                Err(self.close_error)
+            };
+        }
+        if map.handles_id() != self.table {
+            return Err(-4);
+        }
+        let validation = semaphores_live(ram, self.root, self.services);
+        let mut guard = map.handles_cleanup_lock(ram)?;
+        let result = self.semaphores_close_locked(ram, &guard);
+        let closed = guard.handles_guard_close(ram);
+        result?;
+        closed?;
+        gamepkg::local_record_release(self.record)?;
+        self.record = 0;
+        if let Err(code) = validation {
+            self.close_error = code;
+        }
+        if self.close_error == 0 {
+            Ok(())
+        } else {
+            Err(self.close_error)
+        }
+    }
+    fn semaphores_close_locked(
+        &mut self,
+        ram: &memory::Memory,
+        guard: &HandleGuard,
+    ) -> Result<(), i32> {
+        let (_, table) = gamepkg::local_record_snapshot(self.table, 80)?;
+        if semaphores_word(&table, 32)? != 1 {
+            return Err(-2);
+        }
+        let (version, mut b) = semaphores_record(
+            self.record,
+            self.root,
+            self.services,
+            self.table,
+            self.owner,
+        )?;
+        for row in 0..128usize {
+            if semaphores_word(&b, 72 + row * 16)? == 1 {
+                return Err(-2);
+            }
+        }
+        self.semaphores_wait_busy(0)?;
+        if semaphores_word(&b, 40)? == 0 {
+            semaphores_put(&mut b, 40, 1)?;
+            semaphores_commit(self.record, version, &b)?;
+        }
+        self.semaphores_wait_reap()?;
+        for row in 0..128usize {
+            let (version, mut b) = semaphores_record(
+                self.record,
+                self.root,
+                self.services,
+                self.table,
+                self.owner,
+            )?;
+            let state = semaphores_word(&b, 72 + row * 16)?;
+            if state == 0 {
+                continue;
+            }
+            let id = semaphores_word(&b, 64 + row * 16)?;
+            if state == 2 {
+                if gamepkg::local_semaphore_state(id).err() == Some(-4) {
+                    self.close_error = -4;
+                }
+                semaphores_put(&mut b, 72 + row * 16, 3)?;
+                semaphores_commit(self.record, version, &b)?;
+            }
+            self.semaphores_drain_row(ram, guard, row, id)?;
+        }
+        Ok(())
+    }
+}
+impl SemaphoreCreation {
+    fn semaphore_creation_owner(&self, ram: &memory::Memory) -> Result<(), i32> {
+        if self.closed
+            || ram.call_handle() != self.root
+            || gamepkg::local_task_status()?.0 != self.task
+        {
+            return Err(-4);
+        }
+        Ok(())
+    }
+    pub fn semaphore_creation_id(&self) -> u64 {
+        self.semaphore
+    }
+    pub fn semaphore_creation_token(&self) -> u32 {
+        self.token
+    }
+    pub fn semaphore_creation_phase(&self) -> u32 {
+        self.phase
+    }
+    pub fn semaphore_creation_closed(&self) -> bool {
+        self.closed
+    }
+    pub fn semaphore_create(
+        &mut self,
+        ram: &memory::Memory,
+        initial: u32,
+        maximum: u32,
+    ) -> Result<(), i32> {
+        self.semaphore_creation_owner(ram)?;
+        semaphores_live(ram, self.root, self.services)?;
+        if self.attempted_create {
+            return Err(-1);
+        }
+        self.attempted_create = true;
+        self.semaphore = gamepkg::local_semaphore_create(initial, maximum)?;
+        self.phase = 1;
+        semaphores_live(ram, self.root, self.services)?;
+        Ok(())
+    }
+    pub fn semaphore_publish(&mut self, ram: &mut memory::Memory, guest: u32) -> Result<u32, i32> {
+        self.semaphore_creation_owner(ram)?;
+        semaphores_live(ram, self.root, self.services)?;
+        if self.phase != 1 || self.attempted_publish {
+            return Err(-1);
+        }
+        self.attempted_publish = true;
+        let (version, mut b) = semaphores_record(
+            self.record,
+            self.root,
+            self.services,
+            self.table,
+            self.owner,
+        )?;
+        if semaphores_word(&b, 40)? != 0
+            || semaphores_word(&b, 64 + self.row * 16)? != 0
+            || semaphores_word(&b, 72 + self.row * 16)? != 1
+        {
+            return Err(-4);
+        }
+        gamepkg::local_semaphore_state(self.semaphore)?;
+        semaphores_put(&mut b, 64 + self.row * 16, self.semaphore)?;
+        semaphores_put(&mut b, 72 + self.row * 16, 2)?;
+        semaphores_commit(self.record, version, &b)?;
+        // Retain transfer immediately: later tag publication or guest write can fail.
+        self.phase = 2;
+        if guest != 0 {
+            self.token = self
+                .guard
+                .handle_guard_insert(ram, self.semaphore, 3, false)?;
+            self.phase = 3;
+            ram.write_u32(guest, self.token)?;
+        }
+        self.phase = 4;
+        Ok(self.token)
+    }
+    pub fn semaphore_creation_close(&mut self, ram: &memory::Memory) -> Result<(), i32> {
+        if self.closed {
+            return Ok(());
+        }
+        self.semaphore_creation_owner(ram)?;
+        if self.phase < 2 && !self.cleared {
+            if self.semaphore != 0 && !self.released {
+                // This private ID was minted by this transaction. Op 25 remains
+                // available to cleanup after task cancellation; a state query
+                // would deny and strand the accepted, untransferred object.
+                semaphores_release(self.semaphore)?;
+                self.released = true;
+            }
+            let (version, mut b) = semaphores_record(
+                self.record,
+                self.root,
+                self.services,
+                self.table,
+                self.owner,
+            )?;
+            if semaphores_word(&b, 64 + self.row * 16)? != 0
+                || semaphores_word(&b, 72 + self.row * 16)? != 1
+            {
+                return Err(-4);
+            }
+            semaphores_put(&mut b, 72 + self.row * 16, 0)?;
+            semaphores_commit(self.record, version, &b)?;
+            self.cleared = true;
+        }
+        self.guard.handles_guard_close(ram)?;
+        self.closed = true;
+        Ok(())
+    }
+}
+
+pub struct SemaphoreWait {
+    root: u64,
+    services: u64,
+    table: u64,
+    domain: u64,
+    owner: u64,
+    task: u64,
+    semaphore: u64,
+    record: u64,
+    slot: usize,
+    published: bool,
+    attempted: bool,
+    outcome: i32,
+    observed: bool,
+    finished: bool,
+    closed: bool,
+    guard: Option<HandleGuard>,
+}
+fn semaphores_wait_record(
+    record: u64,
+    root: u64,
+    services: u64,
+    table: u64,
+    domain: u64,
+) -> Result<(u64, std::vec::Vec<u8>), i32> {
+    let (version, b) = gamepkg::local_record_snapshot(record, 80)?;
+    if b.len() != 80
+        || semaphores_word(&b, 0)? != 0x314c5753
+        || semaphores_word(&b, 56)? > 1
+        || semaphores_word(&b, 72)? != 0
+    {
+        return Err(-1);
+    }
+    if root == 0
+        || services == 0
+        || table == 0
+        || domain == 0
+        || semaphores_word(&b, 8)? != root
+        || semaphores_word(&b, 16)? != services
+        || semaphores_word(&b, 24)? != table
+        || semaphores_word(&b, 32)? != domain
+        || semaphores_word(&b, 40)? == 0
+        || semaphores_word(&b, 48)? == u64::MAX
+    {
+        return Err(-4);
+    }
+    let result = semaphores_word(&b, 64)?;
+    if (semaphores_word(&b, 56)? == 0 && result != 0) || result != (result as i32 as i64 as u64) {
+        return Err(-1);
+    }
+    Ok((version, b))
+}
+impl Semaphores {
+    pub fn semaphores_wait_begin(
+        &self,
+        ram: &memory::Memory,
+        map: &Handles,
+        token: u32,
+    ) -> Result<SemaphoreWait, i32> {
+        let task = gamepkg::local_task_status()?.0;
+        let mut guard = map.handles_lock(ram)?;
+        let result = self.semaphores_wait_reserve(ram, map, &guard, token, task);
+        let (slot, semaphore, record) = match result {
+            Ok(value) => value,
+            Err(code) => {
+                let _ = guard.handles_guard_close(ram);
+                return Err(code);
+            }
+        };
+        Ok(SemaphoreWait {
+            root: self.root,
+            services: self.services,
+            table: self.table,
+            domain: self.record,
+            owner: self.owner,
+            task,
+            semaphore,
+            record,
+            slot,
+            published: false,
+            attempted: false,
+            outcome: -4,
+            observed: false,
+            finished: false,
+            closed: false,
+            guard: Some(guard),
+        })
+    }
+    fn semaphores_wait_reserve(
+        &self,
+        ram: &memory::Memory,
+        map: &Handles,
+        guard: &HandleGuard,
+        token: u32,
+        task: u64,
+    ) -> Result<(usize, u64, u64), i32> {
+        let (_, semaphore) = self.semaphores_lookup_locked(ram, map, guard, token)?;
+        self.semaphores_wait_reap()?;
+        let (_, b) = self.semaphores_snapshot(ram, map)?;
+        let mut slot = 32usize;
+        for index in 0..32usize {
+            if semaphores_word(&b, 2120 + index * 16)? == 0 {
+                slot = index;
+                break;
+            }
+        }
+        if slot == 32 {
+            return Err(-2);
+        }
+        let mut lease = [0u8; 80];
+        for (at, value) in [
+            (0usize, 0x314c5753u64),
+            (8, self.root),
+            (16, self.services),
+            (24, self.table),
+            (32, self.record),
+            (40, semaphore),
+            (48, task),
+        ] {
+            semaphores_put(&mut lease, at, value)?;
+        }
+        // Accepted record ownership is returned without further fallible calls.
+        let record = gamepkg::local_record_create(&lease)?;
+        Ok((slot, semaphore, record))
+    }
+    fn semaphores_wait_busy(&self, semaphore: u64) -> Result<(), i32> {
+        let (_, b) = semaphores_record(
+            self.record,
+            self.root,
+            self.services,
+            self.table,
+            self.owner,
+        )?;
+        for slot in 0..32usize {
+            let state = semaphores_word(&b, 2120 + slot * 16)?;
+            if state == 1 {
+                let (_, lease) = semaphores_wait_record(
+                    semaphores_word(&b, 2112 + slot * 16)?,
+                    self.root,
+                    self.services,
+                    self.table,
+                    self.record,
+                )?;
+                if semaphores_word(&lease, 56)? == 0
+                    && (semaphore == 0 || semaphores_word(&lease, 40)? == semaphore)
+                {
+                    return Err(-2);
+                }
+            }
+        }
+        Ok(())
+    }
+    fn semaphores_wait_reap(&self) -> Result<(), i32> {
+        for slot in 0..32usize {
+            let (version, mut b) = semaphores_record(
+                self.record,
+                self.root,
+                self.services,
+                self.table,
+                self.owner,
+            )?;
+            let mut state = semaphores_word(&b, 2120 + slot * 16)?;
+            if state == 0 {
+                continue;
+            }
+            let record = semaphores_word(&b, 2112 + slot * 16)?;
+            if state == 1 {
+                let (_, lease) = semaphores_wait_record(
+                    record,
+                    self.root,
+                    self.services,
+                    self.table,
+                    self.record,
+                )?;
+                if semaphores_word(&lease, 56)? == 0 {
+                    continue;
+                }
+                semaphores_put(&mut b, 2120 + slot * 16, 2)?;
+                semaphores_commit(self.record, version, &b)?;
+                state = 2;
+            }
+            if state != 2 {
+                return Err(-1);
+            }
+            match gamepkg::local_record_release(record) {
+                Ok(()) | Err(-4) => {}
+                Err(code) => return Err(code),
+            }
+            let (version, mut b) = semaphores_record(
+                self.record,
+                self.root,
+                self.services,
+                self.table,
+                self.owner,
+            )?;
+            if semaphores_word(&b, 2112 + slot * 16)? != record
+                || semaphores_word(&b, 2120 + slot * 16)? != 2
+            {
+                return Err(-4);
+            }
+            semaphores_put(&mut b, 2112 + slot * 16, 0)?;
+            semaphores_put(&mut b, 2120 + slot * 16, 0)?;
+            semaphores_commit(self.record, version, &b)?;
+        }
+        Ok(())
+    }
+}
+impl SemaphoreWait {
+    pub fn semaphore_wait_id(&self) -> u64 {
+        self.record
+    }
+    pub fn semaphore_wait_closed(&self) -> bool {
+        self.closed
+    }
+    pub fn semaphore_wait_published(&self) -> bool {
+        self.published
+    }
+    fn semaphore_wait_owner(&self, ram: &memory::Memory) -> Result<(), i32> {
+        if self.closed
+            || ram.call_handle() != self.root
+            || gamepkg::local_task_status()?.0 != self.task
+        {
+            return Err(-4);
+        }
+        Ok(())
+    }
+    fn semaphore_wait_unlock(&mut self, ram: &memory::Memory) -> Result<(), i32> {
+        if let Some(guard) = self.guard.as_mut() {
+            guard.handles_guard_close(ram)?;
+        }
+        self.guard = None;
+        Ok(())
+    }
+    pub fn semaphore_wait(&mut self, ram: &memory::Memory, milliseconds: u32) -> Result<(), i32> {
+        self.semaphore_wait_owner(ram)?;
+        if milliseconds > 1000 || self.attempted {
+            return Err(-1);
+        }
+        semaphores_live(ram, self.root, self.services)?;
+        self.attempted = true;
+        let (version, mut b) = semaphores_record(
+            self.domain,
+            self.root,
+            self.services,
+            self.table,
+            self.owner,
+        )?;
+        if semaphores_word(&b, 40)? != 0 || semaphores_word(&b, 2120 + self.slot * 16)? != 0 {
+            return Err(-4);
+        }
+        gamepkg::local_semaphore_state(self.semaphore)?;
+        semaphores_put(&mut b, 2112 + self.slot * 16, self.record)?;
+        semaphores_put(&mut b, 2120 + self.slot * 16, 1)?;
+        semaphores_commit(self.domain, version, &b)?;
+        self.published = true;
+        self.semaphore_wait_unlock(ram)?;
+        // Never retain the tagged-table guard across the actual host-owned wait.
+        let result = gamepkg::local_semaphore_wait(self.semaphore, milliseconds);
+        let result = match semaphores_live(ram, self.root, self.services) {
+            Ok(()) => result,
+            Err(code) => Err(code),
+        };
+        self.outcome = match result {
+            Ok(()) => 0,
+            Err(code) => code,
+        };
+        self.observed = true;
+        self.semaphore_wait_finish()?;
+        result
+    }
+    fn semaphore_wait_finish(&mut self) -> Result<(), i32> {
+        if self.finished {
+            return Ok(());
+        }
+        let (version, mut b) = semaphores_wait_record(
+            self.record,
+            self.root,
+            self.services,
+            self.table,
+            self.domain,
+        )?;
+        if semaphores_word(&b, 40)? != self.semaphore
+            || semaphores_word(&b, 48)? != self.task
+            || semaphores_word(&b, 56)? != 0
+        {
+            return Err(-4);
+        }
+        semaphores_put(&mut b, 56, 1)?;
+        semaphores_put(
+            &mut b,
+            64,
+            if self.observed {
+                self.outcome as i64 as u64
+            } else {
+                (-4i64) as u64
+            },
+        )?;
+        semaphores_commit(self.record, version, &b)?;
+        self.finished = true;
+        Ok(())
+    }
+    pub fn semaphore_wait_close(&mut self, ram: &memory::Memory) -> Result<(), i32> {
+        if self.closed {
+            return Ok(());
+        }
+        self.semaphore_wait_owner(ram)?;
+        if self.published {
+            // Actual-task completion publication needs no live KSV or mutex
+            // reacquisition, so cancellation cannot strand a held table lock.
+            self.semaphore_wait_finish()?;
+        } else if self.record != 0 {
+            gamepkg::local_record_release(self.record)?;
+            self.record = 0;
+        }
+        self.semaphore_wait_unlock(ram)?;
+        self.closed = true;
+        Ok(())
+    }
+}
+
 // Checked original event bridges. SDK/control-plane errors remain explicit;
 // only actual creation capacity and invalid-handle conditions become NT status.
 fn pool_nt_create_event(
@@ -4273,5 +5427,58 @@ fn pool_nt_set_event(
         Ok(0)
     } else {
         Ok(0xc0000008)
+    }
+}
+
+fn pool_nt_create_semaphore(
+    ram: &mut memory::Memory,
+    table: &Handles,
+    domain: &Semaphores,
+    output: u32,
+    initial: u32,
+    maximum: u32,
+) -> Result<u32, i32> {
+    let mut incoming = domain.semaphores_begin(ram, table)?;
+    // Original CreateSemaphoreW rejects signed-negative/invalid LONG counts;
+    // xbox_NtCreateSemaphore maps that failure to INSUFFICIENT_RESOURCES.
+    if maximum == 0 || maximum > 0x7fffffff || initial > maximum {
+        incoming.semaphore_creation_close(ram)?;
+        semaphores_live(ram, domain.root, domain.services)?;
+        return Ok(0xc000009a);
+    }
+    if let Err(code) = incoming.semaphore_create(ram, initial, maximum) {
+        incoming.semaphore_creation_close(ram)?;
+        if code != -2 {
+            return Err(code);
+        }
+        // Unlike the event bridge, the semaphore bridge leaves output intact
+        // on failure. It writes its four-byte tag only for successful status.
+        semaphores_live(ram, domain.root, domain.services)?;
+        return Ok(0xc000009a);
+    }
+    let published = incoming.semaphore_publish(ram, output);
+    let closed = incoming.semaphore_creation_close(ram);
+    published?;
+    closed?;
+    semaphores_live(ram, domain.root, domain.services)?;
+    Ok(0)
+}
+fn pool_nt_release_semaphore(
+    ram: &mut memory::Memory,
+    table: &Handles,
+    domain: &Semaphores,
+    token: u32,
+    permits: u32,
+    previous: u32,
+) -> Result<u32, i32> {
+    match domain.semaphores_nt_release(ram, table, token, permits)? {
+        None => Ok(0xc0000008),
+        Some(value) => {
+            if previous != 0 {
+                ram.write_u32(previous, value)?;
+            }
+            semaphores_live(ram, domain.root, domain.services)?;
+            Ok(0)
+        }
     }
 }

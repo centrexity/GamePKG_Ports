@@ -227,7 +227,7 @@ pub fn object_startup_image(
     let mut held = std::vec::Vec::new();
     let mut native = std::vec::Vec::new();
     let mut object_free = 0usize;
-    if mode >= 55 && mode <= 60 {
+    if mode >= 55 && mode <= 60 || mode >= 76 && mode <= 78 {
         for _ in 0..64u32 {
             match gamepkg::local_record_create(&[0u8; 8]) {
                 Ok(id) => held.push(id),
@@ -235,7 +235,11 @@ pub fn object_startup_image(
                 Err(code) => return Err(code),
             }
         }
-        object_free = usize::from(mode - 54);
+        object_free = if mode >= 76 {
+            usize::from(83 - mode)
+        } else {
+            usize::from(mode - 54)
+        };
         for _ in 0..object_free {
             gamepkg::local_record_release(held.pop().ok_or(-3)?)?;
         }
@@ -248,15 +252,15 @@ pub fn object_startup_image(
     let mut owner = kernel_startup::Startup::startup_new(ram)?;
     let expected = if mode == 52 || mode == 53 {
         -4
-    } else if mode == 54 || (mode >= 55 && mode <= 61) {
+    } else if mode == 54 || (mode >= 55 && mode <= 61) || mode >= 76 && mode <= 78 {
         -2
-    } else if mode == 67 {
+    } else if mode == 67 || mode == 79 {
         -5
     } else {
         0
     };
     let before = ram.read_u32(image.image_thunk())?;
-    if mode == 67 {
+    if mode == 67 || mode == 79 {
         let mut missing = std::vec::Vec::new();
         for index in 0..378u32 {
             let value = ram.read_u32(image.image_thunk() + index * 4)?;
@@ -266,7 +270,8 @@ pub fn object_startup_image(
             if value & 0x80000000 != 0 {
                 let ordinal = value & 0x7fffffff;
                 if data.data_address(ram, ordinal)? == 0
-                    && kernel_pool::kernel_supported(ordinal).is_err()
+                    && (kernel_pool::kernel_supported(ordinal).is_err()
+                        || mode == 67 && (ordinal == 193 || ordinal == 222))
                 {
                     missing.push(u64::from(ordinal));
                     if missing.len() == 32 {
@@ -281,28 +286,69 @@ pub fn object_startup_image(
         }
     }
 
-    let result = owner.startup_prepare_with_objects(
-        ram,
-        image,
-        data,
-        &[],
-        0x10000,
-        2,
-        if mode == 52 {
-            scratch | 0x100000000
-        } else {
-            scratch
-        },
-        0,
-    );
+    let result = if mode >= 69 {
+        owner.startup_prepare_with_sync_objects(
+            ram,
+            image,
+            data,
+            &[],
+            0x10000,
+            2,
+            if mode == 52 {
+                scratch | 0x100000000
+            } else {
+                scratch
+            },
+            0,
+        )
+    } else {
+        owner.startup_prepare_with_objects(
+            ram,
+            image,
+            data,
+            &[],
+            0x10000,
+            2,
+            if mode == 52 {
+                scratch | 0x100000000
+            } else {
+                scratch
+            },
+            0,
+        )
+    };
     object_need(
         315,
         result == if expected == 0 { Ok(()) } else { Err(expected) },
     )?;
     let mut owned = std::vec::Vec::new();
+    let mut sync_owned = std::vec::Vec::new();
     if expected == 0 {
         object_need(316, owner.startup_phase() == 2)?;
-        object_schema(ram, &owner, mode)?;
+        if mode >= 69 {
+            crate::sync_startup_probe::sync_startup_schema(ram, &owner, mode)?;
+            if mode == 70 {
+                let (table, _, semaphores) = owner.startup_sync_objects(ram)?;
+                crate::semaphore_import_probe::semaphore_import_controls(
+                    ram,
+                    &table,
+                    &semaphores,
+                    [8, 9],
+                )?;
+                let bytes = crate::semaphore_import_probe::semaphore_import_vectors(
+                    ram,
+                    &table,
+                    &semaphores,
+                    [8, 9],
+                )?;
+                gamepkg::diagnostic_bytes(1, 0x544b3c00, &bytes)?;
+            }
+            sync_owned.push(crate::sync_startup_probe::sync_startup_jobs(
+                ram, &mut owner,
+            )?);
+        } else {
+            object_schema(ram, &owner, mode)?;
+        }
         if mode == 68 {
             let (map, domain) = owner.startup_objects(ram)?;
             crate::event_import_probe::event_import_controls(ram, &map, &domain, [6, 7])?;
@@ -352,7 +398,14 @@ pub fn object_startup_image(
                 && ram.read_u32(image.image_thunk())? == before,
         )?;
     }
-    let close_expected = if mode == 63 { Err(-4) } else { Ok(()) };
+    if mode >= 69 && expected == 0 {
+        crate::sync_startup_probe::sync_startup_before_close(ram, &mut owner, mode)?;
+    }
+    let close_expected = if mode == 63 || mode == 75 {
+        Err(-4)
+    } else {
+        Ok(())
+    };
     object_need(
         320,
         owner.startup_close(ram) == close_expected
@@ -368,6 +421,19 @@ pub fn object_startup_image(
     )?;
     for id in owned {
         object_need(322, gamepkg::local_event_state(id).err() == Some(-4))?;
+    }
+    for id in sync_owned {
+        object_need(333, gamepkg::local_semaphore_state(id).err() == Some(-4))?;
+    }
+    if mode >= 69 {
+        let mut recovered = std::vec::Vec::new();
+        for _ in 0..128u32 {
+            recovered.push(gamepkg::local_semaphore_create(0, 1)?);
+        }
+        object_need(334, gamepkg::local_semaphore_create(0, 1) == Err(-2))?;
+        for id in recovered {
+            gamepkg::local_call(25, &u64::to_le_bytes(id), &mut [])?;
+        }
     }
     if mode == 54 {
         object_need(323, object_read_byte(scratch, 5 * 16384)? == 0x5a)?;
@@ -446,7 +512,13 @@ pub fn object_startup_image(
         &[
             u64::from(mode),
             expected as i64 as u64,
-            if mode == 68 { 8 } else { 6 },
+            if mode >= 69 {
+                10
+            } else if mode == 68 {
+                8
+            } else {
+                6
+            },
             0,
         ],
     )?;
