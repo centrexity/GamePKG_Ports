@@ -137,3 +137,23 @@ startup binds both owners: see [OBJECT_STARTUP.md](../service-kernel-context/OBJ
 The checked dispatcher now admits 189/225 only with KIC3; see
 [service-kernel-event-imports](../service-kernel-event-imports/README.md). No legacy raw-handle
 fallback, ignored unknown object or engine/media exemption is allowed.
+
+
+### Guard retirement after an unlock prefix
+
+See [mixed ownership](../service-kernel-mixed-waits/README.md) for the corrected
+count/unlock lifecycle. A guard now retains accounting retirement independently
+of actual depth release. Close releases the native depth before its count-only
+record CAS; failed unlock retains the count, and a stale count after successful
+unlock remains retryable without releasing another guard. Closed requires both
+steps. The same correction applies to the KSH1 shadow guard; no host API, schema
+or quota changes. The new mixed-owner tests include actual SDK fault cases and
+ordinary signed synthetic damaged-count/restore controls for these prefixes.
+
+
+Count increments and post-unlock retirement now retry only uncommitted record
+version conflicts, up to 64 attempts, returning Busy on exhaustion while retaining
+the claim. Other SDK/read errors are not retried. This avoids manufacturing
+ordinary creation/close failures from concurrent count retirement. The semaphore
+signed fixture executes four fresh confined runs per Linux target to exercise
+concurrent workers and exact original-C results under this lifecycle.

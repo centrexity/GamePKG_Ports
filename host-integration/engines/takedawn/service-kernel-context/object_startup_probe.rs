@@ -331,6 +331,17 @@ pub fn object_startup_image(
                 let values = crate::rtl_image_probe::rtl_image_calls(ram, [10, 11, 12, 13, 14])?;
                 gamepkg::diagnostic(1, 0x544b3f00, &values)?;
             }
+            if mode == 82 {
+                let (table, native_events, semaphores) = owner.startup_sync_objects(ram)?;
+                let values = crate::mixed_image_probe::mixed_image_calls(
+                    ram,
+                    &table,
+                    &native_events,
+                    &semaphores,
+                    [6, 7, 8, 9],
+                )?;
+                gamepkg::diagnostic(1, 0x544b4100, &values)?;
+            }
             if mode == 70 {
                 let (table, _, semaphores) = owner.startup_sync_objects(ram)?;
                 crate::semaphore_import_probe::semaphore_import_controls(

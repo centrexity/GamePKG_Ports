@@ -138,46 +138,56 @@ pub fn game_main(){let code=match run(){Ok(())=>0u64,Err(c)=>c as i64 as u64};le
         if matches!(target, Target::Windows64 | Target::Windows32) {
             continue;
         }
-        let mut owner = Owner::start(
-            &artifact,
-            Silent,
-            Grants::default(),
-            256 * 1024 * 1024,
-            || {},
-        )
-        .unwrap();
-        let end = Instant::now() + Duration::from_secs(120);
-        let mut events = Vec::new();
-        loop {
-            owner.dispatch(16);
+        for _ in 0..4u32 {
+            let mut owner = Owner::start(
+                &artifact,
+                Silent,
+                Grants::default(),
+                256 * 1024 * 1024,
+                || {},
+            )
+            .unwrap();
+            let end = Instant::now() + Duration::from_secs(120);
+            let mut events = Vec::new();
+            loop {
+                owner.dispatch(16);
+                let (batch, lost) = owner.host.take_diagnostics();
+                assert_eq!(lost, 0);
+                events.extend(batch);
+                if let Some(code) = owner.poll().unwrap() {
+                    assert_eq!(code, 0, "{}", owner.diagnostics());
+                    break;
+                }
+                assert!(Instant::now() < end, "{}", owner.diagnostics());
+                std::thread::sleep(Duration::from_millis(1));
+            }
             let (batch, lost) = owner.host.take_diagnostics();
             assert_eq!(lost, 0);
             events.extend(batch);
-            if let Some(code) = owner.poll().unwrap() {
-                assert_eq!(code, 0, "{}", owner.diagnostics());
-                break;
+            assert_eq!(
+                events.len(),
+                2,
+                "{:?}",
+                events
+                    .iter()
+                    .map(|event| (event.code, &event.values))
+                    .collect::<Vec<_>>()
+            );
+            assert_eq!(events.last().unwrap().code, 0x544b2aff);
+            assert_eq!(
+                events.last().unwrap().values,
+                [0],
+                "{}",
+                owner.diagnostics()
+            );
+            let mut actual = Vec::<u8>::new();
+            for event in events.iter().filter(|e| e.code == 0x544b2a00) {
+                actual.extend(event.bytes.as_ref().unwrap());
             }
-            assert!(Instant::now() < end, "{}", owner.diagnostics());
-            std::thread::sleep(Duration::from_millis(1));
+            assert_eq!(actual, vectors);
+            owner.stop().unwrap();
         }
-        let (batch, lost) = owner.host.take_diagnostics();
-        assert_eq!(lost, 0);
-        events.extend(batch);
-        assert_eq!(events.len(), 2);
-        assert_eq!(events.last().unwrap().code, 0x544b2aff);
-        assert_eq!(
-            events.last().unwrap().values,
-            [0],
-            "{}",
-            owner.diagnostics()
-        );
-        let mut actual = Vec::<u8>::new();
-        for event in events.iter().filter(|e| e.code == 0x544b2a00) {
-            actual.extend(event.bytes.as_ref().unwrap());
-        }
-        assert_eq!(actual, vectors);
-        owner.stop().unwrap();
-        println!("PASS {target:?}: actual confined child, real SDK semaphore creation/counts/aliases, null-output/failed-write retention, actual concurrent workers, cancelled creation cleanup and revocation; no window, GPU, title handler or gameplay");
+        println!("PASS {target:?}: actual confined child, real SDK semaphore creation/counts/aliases, null-output/failed-write retention, actual concurrent workers across four fresh confined executions, cancelled creation cleanup and revocation; no window, GPU, title handler or gameplay");
     }
     for profile in ["takedawn", "opence-ce95f7de"] {
         assert!(gamepkg::build_policy::require(Some(profile)).is_err());

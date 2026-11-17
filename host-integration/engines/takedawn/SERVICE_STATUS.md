@@ -1090,3 +1090,23 @@ No physical controls, audible audio, original game rendering or frame pacing is
 claimed. NT waits/close and their typed owners/APC integration, file/thread
 adapters, complete generated source/handler/loop, renderer/media migration and
 Linux/Windows build/launcher/gameplay qualification remain required.
+
+
+## Checked combined EVD2/SSD1 ownership
+
+`service-kernel-mixed-waits` now retains every typed event/semaphore wait
+participant before atomic all/any acquisition, releases table guards before
+blocking, preserves native outcomes before fallible completion and closes every
+accepted prefix without replay. Exact APIs, unchanged record/SDK/budget contract,
+original-C comparison scope and limitations are in its README. HTR2/KSH1 guards
+also retain failed accounting after actual unlock, preventing false completed
+cleanup and accidental repeated unlocks.
+
+The ordinary signed fixture and authenticated KIC4 mode 82 exercise this layer;
+mode 82 consumes actual 189/225/193/222 object imports and fully checks CPU,
+caller, all/any behavior and owned alias removal. This does not admit actual NT
+waits/close, mutex/file/thread owners or alert/APC behavior. KIC4's main gap stays
+98. Public archives/catalog, app pin, launch defaults and blocked profiles remain
+unchanged. Native/Wine components, confined Linux startup and Windows artifact
+checks are distinct from physical controls, audible audio, original GPU output
+and measured gameplay pacing.

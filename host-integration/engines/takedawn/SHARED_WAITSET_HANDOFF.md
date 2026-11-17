@@ -111,3 +111,16 @@ waits against the guest clock; zero/infinite and unwarped waits use their direct
 Windows variants. Preserve those distinct time bases and alert results using bounded host waits;
 repeated Busy is not successful completion. Complete typed ownership/status/CPU comparisons before
 enabling 233/234 or the close path.
+
+
+## Checked event/semaphore consumer checkpoint
+
+`service-kernel-mixed-waits/README.md` now defines the checked combined EVD2/SSD1
+ownership transaction, its failure-prefix and guard-retirement contracts, and
+authenticated KIC4 mode 82. It supplies the event/semaphore portion of items 1/2
+above without new SDK authority or larger quotas. Other typed resources, actual
+NT timeout/status/CPU conversion and alert/APC integration remain required;
+233/234/187 are not admitted by this component. The current KIC4 main gap remains
+98 after the separately qualified RTL batch; the earlier 102 count above is the
+historical waitset-prerequisite checkpoint. Full native title qualification is
+still incomplete.

@@ -1,0 +1,11 @@
+{
+  "source_kit_sha256": "6b37d24c0984c686c7ed6fd73cd3a5b252b5631ceefa2798e5b7a6e0adff8dc4",
+  "member": "toolkit/src/kernel/kernel_sync.c",
+  "member_sha256": "8fcdcccb4c21e70eb7c836ffb5acac45e7af861df24ca9c76940604afa5f472a",
+  "function": "wait_many",
+  "start": 2733,
+  "end": 3217,
+  "function_sha256": "c8ebf0fe5678b9a7c6cd89081e3c6c68721d46325f51b903f54b91af6cda9861",
+  "scope": "Exact original wait_many with real Win32 objects on Windows. Linux provider models the documented Win32 acquisition contract; not upstream POSIX shim or NT import qualification.",
+  "contract": "https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-waitformultipleobjectsex"
+}

@@ -145,3 +145,19 @@ builder/launcher closure remain required before enabling a title.
 
 Preserve the toolkit attribution in `../service-native/UPSTREAM_LICENSES.txt`
 when incorporating these sources into a complete port source kit.
+
+
+### Retained guard retirement
+
+The KSH1 guard now retains native depth release and count retirement separately,
+like the tagged HTR2 guard. Failed unlock keeps its count; stale accounting after
+successful unlock retries only the count CAS. Closed requires both, and another
+guard's depth is never released by that retry. Exact corrected lifecycle and
+scope: [mixed-owner contract](../service-kernel-mixed-waits/README.md).
+
+
+Root-count increments/retirement and guarded root-page linking tolerate bounded
+uncommitted version conflicts (64 attempts), preserving the latest counts and
+all other bindings. Native actions, read failures, non-conflict SDK errors and
+actual page edits do not gain retry/fallback behavior. A retained count remains
+owned on Busy; root-page linking does not allocate another page on each retry.

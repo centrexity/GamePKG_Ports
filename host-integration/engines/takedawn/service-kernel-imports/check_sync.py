@@ -13,7 +13,7 @@ def main():
   root=Path(temp);probe=root/'admission';cmd=['rustc','--edition=2021','-D','warnings',str(here/'image_admission.rs'),'--extern','gamepkg='+str(lib),'-L','dependency='+str(lib.parent),'-o',str(probe)]
   for name in ['cap_std','tempfile','toml','serde_json']:cmd+=['--extern',name+'='+str(helpers.dependency(lib,name))]
   subprocess.run(cmd,check=True);cases=[]
-  for mode in [*range(69,79),80,81]:
+  for mode in [*range(69,79),80,81,82]:
    data=images.image();images.word(data,0x10c,0x770000);images.word(data,0x1b8+8,0x76e000);images.word(data,0x1b8+16,0x1000);images.word(data,0x158,0x12400^0x5b6d40b6);data[0xfc0:0x1000+379*4]=bytes(64+379*4)
    for index,ordinal in enumerate(([14,16,23,109,98,113,189,225,193,222]+([269,279,289,290,301] if mode==81 else []))):images.word(data,0x1000+index*4,0x80000000|ordinal)
    images.word(data,0xffc,0x8000000e);image=root/(str(mode)+'.iso');discs.fixture(image)
@@ -60,8 +60,8 @@ def main():
     print('PASS required failing '+name+' authenticated sync-startup control; no policy exemption',flush=True)
   if a.evidence:
    files={p.name:digest(p)for p in a.evidence.iterdir()if p.is_file()};sources={}
-   for path in [here/'check_sync.py',here/'image_admission.rs',here/'image_probe.rs',here/'probe.rs',here/'../service-kernel-context/startup.rs',here/'../service-kernel-context/object_startup_probe.rs',here/'../service-kernel-context/sync_startup_probe.rs',here/'../service-kernel-pool/kernel_pool.rs',here/'../service-memory/layout.rs',here/'../service-kernel-handles/handles.rs',here/'../service-kernel-events/events.rs',here/'../service-kernel-event-imports/probe.rs',here/'../service-kernel-semaphore-imports/probe.rs',here/'../service-kernel-rtl/image_probe.rs']:sources[str(path.relative_to(here.parent))]=digest(path)
+   for path in [here/'check_sync.py',here/'image_admission.rs',here/'image_probe.rs',here/'probe.rs',here/'../service-kernel-context/startup.rs',here/'../service-kernel-context/object_startup_probe.rs',here/'../service-kernel-context/sync_startup_probe.rs',here/'../service-kernel-pool/kernel_pool.rs',here/'../service-memory/layout.rs',here/'../service-kernel-handles/handles.rs',here/'../service-kernel-events/events.rs',here/'../service-kernel-event-imports/probe.rs',here/'../service-kernel-semaphore-imports/probe.rs',here/'../service-kernel-rtl/image_probe.rs',here/'../service-kernel-mixed-waits/image_probe.rs']:sources[str(path.relative_to(here.parent))]=digest(path)
    receipts=[json.loads(p.read_text())for p in a.evidence.glob('receipt-*.json')];assert len(receipts)==4;sdk={r['game']['sdk']for r in receipts};assert len(sdk)==1
-   (a.evidence/'qualification.json').write_text(json.dumps({'schema':1,'sdk':sdk.pop(),'status':'authenticated-KIC4-startup-not-title-entry' if a.mutations else 'KIC4-positive-startup-only-mutation-qualification-pending','sources':sources,'files':files,'synthetic_modes':[*range(69,79),80,81],'private_mode':79 if a.iso else None,'required_failing_variants':len(variants),'profile_admission':'blocked','main_import_gap':'98 with KIC4; 100 with KIC3; 102 with KIC2','linux':'actual confined children','windows':'source/object/link only'},indent=2)+'\n')
+   (a.evidence/'qualification.json').write_text(json.dumps({'schema':1,'sdk':sdk.pop(),'status':'authenticated-KIC4-startup-not-title-entry' if a.mutations else 'KIC4-positive-startup-only-mutation-qualification-pending','sources':sources,'files':files,'synthetic_modes':[*range(69,79),80,81,82],'private_mode':79 if a.iso else None,'required_failing_variants':len(variants),'profile_admission':'blocked','main_import_gap':'98 with KIC4; 100 with KIC3; 102 with KIC2','linux':'actual confined children','windows':'source/object/link only'},indent=2)+'\n')
  print('KIC4 startup/import checks passed; '+('seven required-failing startup controls passed; 'if a.mutations else'mutation qualification pending; ')+'full title remains blocked.')
 if __name__=='__main__':main()

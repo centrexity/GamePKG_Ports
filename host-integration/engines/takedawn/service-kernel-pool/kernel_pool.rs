@@ -1848,6 +1848,7 @@ pub struct Guard {
     lock: u64,
     task: u64,
     held: bool,
+    left: bool,
     cleanup: bool,
 }
 fn shadow_word(bytes: &[u8], at: usize) -> Result<u64, i32> {
@@ -2058,6 +2059,7 @@ impl Shadow {
                 lock: self.lock,
                 task,
                 held: true,
+                left: false,
                 cleanup: false,
             }),
             Err(code) => {
@@ -2083,6 +2085,7 @@ impl Shadow {
                 lock: self.lock,
                 task,
                 held: true,
+                left: false,
                 cleanup: true,
             }),
             Err(code) => {
@@ -2092,19 +2095,38 @@ impl Shadow {
         }
     }
     fn shadow_cleanup_enter(&self) -> Result<(), i32> {
-        let (version, mut bytes) = shadow_root(self.record, self.root, self.services, self.lock)?;
-        if shadow_word(&bytes, 40)? != 0 {
-            return Err(-4);
+        // Only a failed count comparison is retried; native operations and
+        // every other SDK error retain their original result.
+        for _ in 0..64u32 {
+            let (version, mut bytes) =
+                shadow_root(self.record, self.root, self.services, self.lock)?;
+            if shadow_word(&bytes, 40)? != 0 {
+                return Err(-4);
+            }
+            let active = shadow_word(&bytes, 32)?.checked_add(1).ok_or(-2)?;
+            shadow_put(&mut bytes, 32, active)?;
+            match gamepkg::local_record_compare_exchange(self.record, version, &bytes) {
+                Ok(_) => return Ok(()),
+                Err(-2) => continue,
+                Err(code) => return Err(code),
+            }
         }
-        let active = shadow_word(&bytes, 32)?.checked_add(1).ok_or(-2)?;
-        shadow_put(&mut bytes, 32, active)?;
-        shadow_publish(self.record, version, &bytes)
+        Err(-2)
     }
     fn shadow_enter(&self, ram: &memory::Memory) -> Result<(), i32> {
-        let (version, mut bytes) = self.shadow_snapshot(ram)?;
-        let active = shadow_word(&bytes, 32)?.checked_add(1).ok_or(-2)?;
-        shadow_put(&mut bytes, 32, active)?;
-        shadow_publish(self.record, version, &bytes)
+        // Only a failed count comparison is retried; native operations and
+        // every other SDK error retain their original result.
+        for _ in 0..64u32 {
+            let (version, mut bytes) = self.shadow_snapshot(ram)?;
+            let active = shadow_word(&bytes, 32)?.checked_add(1).ok_or(-2)?;
+            shadow_put(&mut bytes, 32, active)?;
+            match gamepkg::local_record_compare_exchange(self.record, version, &bytes) {
+                Ok(_) => return Ok(()),
+                Err(-2) => continue,
+                Err(code) => return Err(code),
+            }
+        }
+        Err(-2)
     }
     pub fn shadow_close(&mut self, ram: &memory::Memory) -> Result<(), i32> {
         if self.shadow_closed() {
@@ -2174,6 +2196,7 @@ impl Shadow {
 impl Guard {
     fn shadow_guard_owner(&self, ram: &memory::Memory) -> Result<(), i32> {
         if !self.held
+            || self.left
             || self.root != ram.call_handle()
             || gamepkg::local_task_status()?.0 != self.task
         {
@@ -2257,7 +2280,7 @@ impl Guard {
         }
         let index = found[0] as usize;
         let slot = found[1] as usize;
-        let (root_version, mut root) = self.shadow_guard_snapshot(ram)?;
+        let (_, root) = self.shadow_guard_snapshot(ram)?;
         let mut page = shadow_word(&root, 48 + index * 8)?;
         if page == 0 {
             let mut bytes = std::vec::Vec::new();
@@ -2266,8 +2289,7 @@ impl Guard {
             shadow_put32(&mut bytes, 4, index as u32)?;
             shadow_put(&mut bytes, 8, self.record)?;
             page = gamepkg::local_record_create(&bytes)?;
-            shadow_put(&mut root, 48 + index * 8, page)?;
-            if let Err(code) = shadow_publish(self.record, root_version, &root) {
+            if let Err(code) = self.shadow_link_page(ram, index, page) {
                 let _ = gamepkg::local_record_release(page);
                 return Err(code);
             }
@@ -2286,6 +2308,24 @@ impl Guard {
         } else {
             Ok(Some(found[2]))
         }
+    }
+    fn shadow_link_page(&self, ram: &memory::Memory, index: usize, page: u64) -> Result<(), i32> {
+        if index >= 13 || page == 0 {
+            return Err(-1);
+        }
+        for _ in 0..64u32 {
+            let (version, mut root) = self.shadow_guard_snapshot(ram)?;
+            if shadow_word(&root, 48 + index * 8)? != 0 {
+                return Err(-3);
+            }
+            shadow_put(&mut root, 48 + index * 8, page)?;
+            match gamepkg::local_record_compare_exchange(self.record, version, &root) {
+                Ok(_) => return Ok(()),
+                Err(-2) => continue,
+                Err(code) => return Err(code),
+            }
+        }
+        Err(-2)
     }
     pub fn shadow_remove(&self, ram: &memory::Memory, guest: u32) -> Result<Option<u64>, i32> {
         self.shadow_guard_snapshot(ram)?;
@@ -2354,30 +2394,42 @@ impl Guard {
         Ok(result)
     }
     pub fn shadow_guard_close(&mut self, ram: &memory::Memory) -> Result<(), i32> {
-        if !self.held {
-            return Ok(());
+        if self.root != ram.call_handle() || gamepkg::local_task_status()?.0 != self.task {
+            return Err(-4);
         }
-        self.shadow_guard_owner(ram)?;
-        let result = self.shadow_leave();
-        let unlocked = shadow_unlock(self.lock);
-        if unlocked.is_ok() {
+        // Mirror tagged-table retirement: release native depth, then atomically
+        // retire this retained count. Neither accepted prefix may be replayed.
+        if self.held {
+            shadow_unlock(self.lock)?;
             self.held = false;
         }
-        result?;
-        unlocked?;
+        if !self.left {
+            self.shadow_leave()?;
+            self.left = true;
+        }
         Ok(())
     }
     fn shadow_leave(&self) -> Result<(), i32> {
-        let (version, mut root) = shadow_root(self.record, self.root, self.services, self.lock)?;
-        let active = shadow_word(&root, 32)?;
-        if active == 0 {
-            return Err(-3);
+        // Only a failed count comparison is retried; native operations and
+        // every other SDK error retain their original result.
+        for _ in 0..64u32 {
+            let (version, mut root) =
+                shadow_root(self.record, self.root, self.services, self.lock)?;
+            let active = shadow_word(&root, 32)?;
+            if active == 0 {
+                return Err(-3);
+            }
+            shadow_put(&mut root, 32, active - 1)?;
+            match gamepkg::local_record_compare_exchange(self.record, version, &root) {
+                Ok(_) => return Ok(()),
+                Err(-2) => continue,
+                Err(code) => return Err(code),
+            }
         }
-        shadow_put(&mut root, 32, active - 1)?;
-        shadow_publish(self.record, version, &root)
+        Err(-2)
     }
     pub fn shadow_guard_closed(&self) -> bool {
-        !self.held
+        self.left && !self.held
     }
 }
 
@@ -2721,6 +2773,7 @@ pub struct HandleGuard {
     window: u64,
     offset: u64,
     held: bool,
+    left: bool,
     cleanup: bool,
 }
 fn handles_word(b: &[u8], at: usize) -> Result<u64, i32> {
@@ -3106,26 +3159,36 @@ impl Handles {
             window: self.window,
             offset: self.offset,
             held: true,
+            left: false,
             cleanup,
         })
     }
     fn handles_enter_locked(&self, ram: &memory::Memory, cleanup: bool) -> Result<(), i32> {
-        let (version, mut b) = if cleanup {
-            handles_root(self.record, self.root, self.services, self.lock)?
-        } else {
-            self.handles_snapshot(ram)?
-        };
-        if ram.call_handle() != self.root
-            || self.phase != 2
-            || handles_word(&b, 40)? != 2
-            || handles_word(&b, 48)? != self.window
-            || handles_word(&b, 56)? != self.offset
-        {
-            return Err(-4);
+        // Only a failed count comparison is retried; native operations and
+        // every other SDK error retain their original result.
+        for _ in 0..64u32 {
+            let (version, mut b) = if cleanup {
+                handles_root(self.record, self.root, self.services, self.lock)?
+            } else {
+                self.handles_snapshot(ram)?
+            };
+            if ram.call_handle() != self.root
+                || self.phase != 2
+                || handles_word(&b, 40)? != 2
+                || handles_word(&b, 48)? != self.window
+                || handles_word(&b, 56)? != self.offset
+            {
+                return Err(-4);
+            }
+            let count = handles_word(&b, 32)?.checked_add(1).ok_or(-2)?;
+            handles_put(&mut b, 32, count)?;
+            match gamepkg::local_record_compare_exchange(self.record, version, &b) {
+                Ok(_) => return Ok(()),
+                Err(-2) => continue,
+                Err(code) => return Err(code),
+            }
         }
-        let count = handles_word(&b, 32)?.checked_add(1).ok_or(-2)?;
-        handles_put(&mut b, 32, count)?;
-        handles_publish(self.record, version, &b)
+        Err(-2)
     }
     pub fn handles_close(&mut self, ram: &memory::Memory) -> Result<(), i32> {
         self.handles_creator(ram)?;
@@ -3208,6 +3271,7 @@ impl Handles {
 impl HandleGuard {
     fn handles_guard_owner(&self, ram: &memory::Memory) -> Result<(), i32> {
         if !self.held
+            || self.left
             || ram.call_handle() != self.root
             || gamepkg::local_task_status()?.0 != self.task
         {
@@ -3353,29 +3417,45 @@ impl HandleGuard {
         Ok(count)
     }
     pub fn handles_guard_close(&mut self, ram: &memory::Memory) -> Result<(), i32> {
-        if !self.held {
-            return Ok(());
+        if ram.call_handle() != self.root || gamepkg::local_task_status()?.0 != self.task {
+            return Err(-4);
         }
-        self.handles_guard_owner(ram)?;
-        let outcome = self.handles_leave();
-        let unlocked = handles_unlock(self.lock);
-        if unlocked.is_ok() {
+        // Keep the accounting claim until the actual depth has been released.
+        // A failed unlock still blocks owner close. A later stale count CAS is
+        // retained separately and retried without unlocking another guard.
+        if self.held {
+            handles_unlock(self.lock)?;
             self.held = false;
         }
-        outcome?;
-        unlocked
+        if !self.left {
+            self.handles_leave()?;
+            self.left = true;
+        }
+        Ok(())
     }
     fn handles_leave(&self) -> Result<(), i32> {
-        let (version, mut b) = handles_root(self.record, self.root, self.services, self.lock)?;
-        let count = handles_word(&b, 32)?;
-        if count == 0 {
-            return Err(-3);
+        // Only a failed count comparison is retried; native operations and
+        // every other SDK error retain their original result.
+        for _ in 0..64u32 {
+            // Only this guard's retained accounting entry is retired by copied CAS.
+            // It may retire after its actual native depth was released. Other guards
+            // and close observe the pending count and cannot discard its obligation.
+            let (version, mut b) = handles_root(self.record, self.root, self.services, self.lock)?;
+            let count = handles_word(&b, 32)?;
+            if count == 0 {
+                return Err(-3);
+            }
+            handles_put(&mut b, 32, count - 1)?;
+            match gamepkg::local_record_compare_exchange(self.record, version, &b) {
+                Ok(_) => return Ok(()),
+                Err(-2) => continue,
+                Err(code) => return Err(code),
+            }
         }
-        handles_put(&mut b, 32, count - 1)?;
-        handles_publish(self.record, version, &b)
+        Err(-2)
     }
     pub fn handles_guard_closed(&self) -> bool {
-        !self.held
+        self.left && !self.held
     }
 }
 
@@ -5653,4 +5733,424 @@ fn rtl_init_string(
     ram.write_u16(destination.checked_add(2).ok_or(-1)?, maximum)?;
     ram.write_u32(destination.checked_add(4).ok_or(-1)?, source)?;
     Ok(0)
+}
+
+// Port-owned mixed EVD2/SSD1 leases. No NT admission or new trusted primitive.
+pub struct MixedWait {
+    root: u64,
+    services: u64,
+    table: u64,
+    event_domain: u64,
+    semaphore_domain: u64,
+    event_owner: u64,
+    semaphore_owner: u64,
+    task: u64,
+    guard: Option<HandleGuard>,
+    records: [u64; 64],
+    flags: [u8; 64],
+    natives: [u64; 64],
+    all: bool,
+    effective_error: i32,
+    count: usize,
+    started: bool,
+    prepared: bool,
+    waited: bool,
+    observed: bool,
+    native_error: i32,
+    native_index: u32,
+    closed: bool,
+}
+fn mixed_stage_event(
+    ram: &memory::Memory,
+    guard: &HandleGuard,
+    lease: &mut EventWait,
+) -> Result<(), i32> {
+    guard.handles_guard_snapshot(ram)?;
+    lease.event_wait_owner(ram)?;
+    if lease.attempted || guard.record != lease.table {
+        return Err(-4);
+    }
+    events_live(ram, lease.root, lease.services)?;
+    lease.attempted = true;
+    let (version, mut bytes) = events_record(
+        lease.domain,
+        lease.root,
+        lease.services,
+        lease.table,
+        lease.owner,
+    )?;
+    if events_word(&bytes, 40)? != 0 || events_word(&bytes, 2120 + lease.slot * 16)? != 0 {
+        return Err(-4);
+    }
+    gamepkg::local_event_state(lease.event)?;
+    events_put(&mut bytes, 2112 + lease.slot * 16, lease.record)?;
+    events_put(&mut bytes, 2120 + lease.slot * 16, 1)?;
+    events_commit(lease.domain, version, &bytes)?;
+    lease.published = true;
+    Ok(())
+}
+fn mixed_stage_semaphore(
+    ram: &memory::Memory,
+    guard: &HandleGuard,
+    lease: &mut SemaphoreWait,
+) -> Result<(), i32> {
+    guard.handles_guard_snapshot(ram)?;
+    lease.semaphore_wait_owner(ram)?;
+    if lease.attempted || guard.record != lease.table {
+        return Err(-4);
+    }
+    semaphores_live(ram, lease.root, lease.services)?;
+    lease.attempted = true;
+    let (version, mut bytes) = semaphores_record(
+        lease.domain,
+        lease.root,
+        lease.services,
+        lease.table,
+        lease.owner,
+    )?;
+    if semaphores_word(&bytes, 40)? != 0 || semaphores_word(&bytes, 2120 + lease.slot * 16)? != 0 {
+        return Err(-4);
+    }
+    gamepkg::local_semaphore_state(lease.semaphore)?;
+    semaphores_put(&mut bytes, 2112 + lease.slot * 16, lease.record)?;
+    semaphores_put(&mut bytes, 2120 + lease.slot * 16, 1)?;
+    semaphores_commit(lease.domain, version, &bytes)?;
+    lease.published = true;
+    Ok(())
+}
+impl MixedWait {
+    pub fn mixed_wait_new(
+        ram: &memory::Memory,
+        map: &Handles,
+        native_events: &Events,
+        native_semaphores: &Semaphores,
+    ) -> Result<Self, i32> {
+        native_events.events_snapshot(ram, map)?;
+        native_semaphores.semaphores_snapshot(ram, map)?;
+        Ok(Self {
+            root: ram.call_handle(),
+            services: ram.services_handle()?,
+            table: map.handles_id(),
+            event_domain: native_events.events_id(),
+            semaphore_domain: native_semaphores.semaphores_id(),
+            event_owner: native_events.owner,
+            semaphore_owner: native_semaphores.owner,
+            task: gamepkg::local_task_status()?.0,
+            guard: None,
+            records: [0; 64],
+            flags: [0; 64],
+            natives: [0; 64],
+            all: false,
+            effective_error: -4,
+            count: 0,
+            started: false,
+            prepared: false,
+            waited: false,
+            observed: false,
+            native_error: -1,
+            native_index: u32::MAX,
+            closed: false,
+        })
+    }
+    fn mixed_wait_owner(&self, ram: &memory::Memory) -> Result<(), i32> {
+        if ram.call_handle() != self.root || gamepkg::local_task_status()?.0 != self.task {
+            return Err(-4);
+        }
+        Ok(())
+    }
+    fn mixed_wait_views(&self, ram: &memory::Memory) -> Result<(Handles, Events, Semaphores), i32> {
+        self.mixed_wait_owner(ram)?;
+        events_live(ram, self.root, self.services)?;
+        let map = Handles::handles_borrow(ram, self.table)?;
+        let native_events = Events::events_borrow(ram, &map, self.event_domain)?;
+        let native_semaphores = Semaphores::semaphores_borrow(ram, &map, self.semaphore_domain)?;
+        Ok((map, native_events, native_semaphores))
+    }
+    fn mixed_wait_unlock(&mut self, ram: &memory::Memory) -> Result<(), i32> {
+        if let Some(mixed_guard) = self.guard.as_mut() {
+            mixed_guard.handles_guard_close(ram)?;
+        }
+        self.guard = None;
+        Ok(())
+    }
+    pub fn mixed_wait_prepare(&mut self, ram: &memory::Memory, tokens: &[u32]) -> Result<(), i32> {
+        self.mixed_wait_owner(ram)?;
+        if self.closed || self.started || tokens.is_empty() || tokens.len() > 64 {
+            return Err(-1);
+        }
+        self.started = true;
+        let (map, native_events, native_semaphores) = self.mixed_wait_views(ram)?;
+        self.guard = Some(map.handles_lock(ram)?);
+        // Validate the complete set before allocating or publishing any lease.
+        for (index, token) in tokens.iter().enumerate() {
+            let mixed_guard = self.guard.as_ref().ok_or(-4)?;
+            let value = mixed_guard.handle_guard_lookup(ram, *token)?.ok_or(-4)?;
+            if value[1] == 1 {
+                native_events.events_lookup_locked(ram, &map, mixed_guard, *token)?;
+            } else if value[1] == 3 {
+                native_semaphores.semaphores_lookup_locked(ram, &map, mixed_guard, *token)?;
+            } else {
+                return Err(-5);
+            }
+            for earlier in &self.natives[..index] {
+                if *earlier == value[0] {
+                    return Err(-1);
+                }
+            }
+            self.natives[index] = value[0];
+            self.flags[index] = if value[1] == 3 { 32 } else { 0 };
+        }
+        self.count = tokens.len();
+        for (index, token) in tokens.iter().enumerate() {
+            let mixed_guard = self.guard.as_ref().ok_or(-4)?;
+            let (slot, native, record) = if self.flags[index] & 32 == 0 {
+                native_events.events_wait_reserve(ram, &map, mixed_guard, *token, self.task)?
+            } else {
+                native_semaphores.semaphores_wait_reserve(
+                    ram,
+                    &map,
+                    mixed_guard,
+                    *token,
+                    self.task,
+                )?
+            };
+            // Retain every accepted record before staging can fail.
+            self.records[index] = record;
+            self.natives[index] = native;
+            self.flags[index] |= 1;
+            let result = if self.flags[index] & 32 == 0 {
+                let mut wait_event = self.mixed_load_event(index, slot)?;
+                let result =
+                    mixed_stage_event(ram, self.guard.as_ref().ok_or(-4)?, &mut wait_event);
+                self.mixed_save_event(index, &wait_event);
+                result
+            } else {
+                let mut wait_semaphore = self.mixed_load_semaphore(index, slot)?;
+                let result =
+                    mixed_stage_semaphore(ram, self.guard.as_ref().ok_or(-4)?, &mut wait_semaphore);
+                self.mixed_save_semaphore(index, &wait_semaphore);
+                result
+            };
+            result?;
+        }
+        self.mixed_wait_unlock(ram)?;
+        self.mixed_wait_views(ram)?;
+        self.prepared = true;
+        Ok(())
+    }
+    pub fn mixed_wait(
+        &mut self,
+        ram: &memory::Memory,
+        all: bool,
+        milliseconds: u32,
+    ) -> Result<gamepkg::LocalWaitResult, i32> {
+        self.mixed_wait_owner(ram)?;
+        if self.closed || !self.prepared || self.waited || milliseconds > 1000 {
+            return Err(-1);
+        }
+        self.mixed_wait_views(ram)?;
+        self.waited = true;
+        // Exactly one atomic host call, with no table guard or serial acquisition.
+        let mut objects = [gamepkg::LocalWaitObject { id: 0, kind: 0 }; 64];
+        for (index, object) in objects[..self.count].iter_mut().enumerate() {
+            object.id = self.natives[index];
+            object.kind = if self.flags[index] & 32 == 0 { 1 } else { 3 };
+        }
+        let result = gamepkg::local_wait_many(&objects[..self.count], all, milliseconds);
+        match result {
+            Ok(value) => {
+                self.native_index = value.index;
+                self.native_error = 0;
+            }
+            Err(code) => {
+                self.native_error = code;
+            }
+        }
+        self.observed = true;
+        // Retain the actual native outcome before any fallible live/DONE work.
+        let effective = match self.mixed_wait_views(ram) {
+            Ok(_) => result,
+            Err(code) => Err(code),
+        };
+        self.all = all;
+        self.effective_error = match effective {
+            Ok(_) => 0,
+            Err(code) => code,
+        };
+        for index in 0..self.count {
+            self.flags[index] |= 8;
+        }
+        let mut failure = 0;
+        for index in 0..self.count {
+            if let Err(code) = self.mixed_finish_part(index, false, ram) {
+                if failure == 0 {
+                    failure = code;
+                }
+            }
+        }
+        if failure != 0 {
+            return Err(failure);
+        }
+        effective
+    }
+    pub fn mixed_wait_native_result(&self) -> Result<gamepkg::LocalWaitResult, i32> {
+        if !self.observed {
+            return Err(-1);
+        }
+        if self.native_error != 0 {
+            return Err(self.native_error);
+        }
+        Ok(gamepkg::LocalWaitResult {
+            index: self.native_index,
+            abandoned: false,
+        })
+    }
+    pub fn mixed_wait_count(&self) -> usize {
+        self.count
+    }
+    pub fn mixed_wait_closed(&self) -> bool {
+        self.closed
+    }
+    pub fn mixed_wait_close(&mut self, ram: &memory::Memory) -> Result<(), i32> {
+        self.mixed_wait_owner(ram)?;
+        if self.closed {
+            return Ok(());
+        }
+        let mut failure = 0;
+        for index in 0..self.count {
+            if self.flags[index] & 1 != 0 {
+                if let Err(code) = self.mixed_finish_part(index, true, ram) {
+                    if failure == 0 {
+                        failure = code;
+                    }
+                }
+            }
+        }
+        if let Err(code) = self.mixed_wait_unlock(ram) {
+            if failure == 0 {
+                failure = code;
+            }
+        }
+        if failure != 0 {
+            return Err(failure);
+        }
+        self.closed = true;
+        Ok(())
+    }
+
+    fn mixed_part_outcome(&self, index: usize) -> i32 {
+        if self.effective_error != 0 {
+            self.effective_error
+        } else if self.all || self.native_index as usize == index {
+            0
+        } else {
+            -2
+        }
+    }
+    fn mixed_load_event(&self, index: usize, slot: usize) -> Result<EventWait, i32> {
+        if index >= self.count
+            || self.flags[index] & 32 != 0
+            || self.flags[index] & 1 == 0
+            || self.records[index] == 0
+        {
+            return Err(-4);
+        }
+        let bits = self.flags[index];
+        Ok(EventWait {
+            root: self.root,
+            services: self.services,
+            table: self.table,
+            domain: self.event_domain,
+            owner: self.event_owner,
+            task: self.task,
+            event: self.natives[index],
+            record: self.records[index],
+            slot,
+            published: bits & 2 != 0,
+            attempted: bits & 4 != 0,
+            observed: bits & 8 != 0,
+            finished: bits & 16 != 0,
+            closed: false,
+            outcome: self.mixed_part_outcome(index),
+            guard: None,
+        })
+    }
+    fn mixed_load_semaphore(&self, index: usize, slot: usize) -> Result<SemaphoreWait, i32> {
+        if index >= self.count
+            || self.flags[index] & 32 == 0
+            || self.flags[index] & 1 == 0
+            || self.records[index] == 0
+        {
+            return Err(-4);
+        }
+        let bits = self.flags[index];
+        Ok(SemaphoreWait {
+            root: self.root,
+            services: self.services,
+            table: self.table,
+            domain: self.semaphore_domain,
+            owner: self.semaphore_owner,
+            task: self.task,
+            semaphore: self.natives[index],
+            record: self.records[index],
+            slot,
+            published: bits & 2 != 0,
+            attempted: bits & 4 != 0,
+            observed: bits & 8 != 0,
+            finished: bits & 16 != 0,
+            closed: false,
+            outcome: self.mixed_part_outcome(index),
+            guard: None,
+        })
+    }
+    fn mixed_save_event(&mut self, index: usize, lease: &EventWait) {
+        self.records[index] = lease.record;
+        self.flags[index] = if lease.closed {
+            0
+        } else {
+            1 | if lease.published { 2 } else { 0 }
+                | if lease.attempted { 4 } else { 0 }
+                | if lease.observed { 8 } else { 0 }
+                | if lease.finished { 16 } else { 0 }
+        };
+    }
+    fn mixed_save_semaphore(&mut self, index: usize, lease: &SemaphoreWait) {
+        self.records[index] = lease.record;
+        self.flags[index] = if lease.closed {
+            0
+        } else {
+            33 | if lease.published { 2 } else { 0 }
+                | if lease.attempted { 4 } else { 0 }
+                | if lease.observed { 8 } else { 0 }
+                | if lease.finished { 16 } else { 0 }
+        };
+    }
+    fn mixed_finish_part(
+        &mut self,
+        index: usize,
+        close: bool,
+        ram: &memory::Memory,
+    ) -> Result<(), i32> {
+        if self.flags[index] & 32 == 0 {
+            let mut lease = self.mixed_load_event(index, 0)?;
+            let result = if close {
+                lease.event_wait_close(ram)
+            } else {
+                lease.event_wait_finish()
+            };
+            self.mixed_save_event(index, &lease);
+            result
+        } else if self.flags[index] & 32 != 0 {
+            let mut lease = self.mixed_load_semaphore(index, 0)?;
+            let result = if close {
+                lease.semaphore_wait_close(ram)
+            } else {
+                lease.semaphore_wait_finish()
+            };
+            self.mixed_save_semaphore(index, &lease);
+            result
+        } else {
+            Err(-5)
+        }
+    }
 }
