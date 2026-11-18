@@ -91,7 +91,7 @@ not engine/media code relabelled trusted or fixture functions shipped as a game.
 - `spin_wake(&Interrupts,&mut Task,&mut Memory)`
 - `warn(&Interrupts,&mut Task,&mut Memory,kind:u32,old:u8,new:u8)`
 - `dpc_release(&Interrupts,&mut Task,&mut Memory)`
-- `wait(&Interrupts,&Memory,pending:u32,oldest_ns:u64,now_ns:u64,refusals:u32)`
+- `irq_wait_notice(&Interrupts,&Memory,pending:u32,oldest_ns:u64,now_ns:u64,refusals:u32)`
 
 All return `Result<(),i32>`. The wait observer is diagnostic-only/best effort,
 matching original ignored logging failure; its event count still records the
@@ -138,6 +138,27 @@ close. Revocation denies ordinary work, but owned cleanup can finish and still
 return Denied; inspect closed/released state. No creator-supplied finished flag,
 foreign task ID or copied queue token grants a join or another task's ownership.
 
+## Thread-start interrupt shadow
+
+`Interrupts::irq_thread_patch(&mut Memory, &mut irql::Task, &mut Registers)
+-> Result<u32, i32>` takes a live queue view and its attached current task.
+It validates their association before changing memory, flags or gate state.
+
+The reviewed retail executable has CLI at 0x001d3fce, a 32-bit write through
+ESI, STI at 0x001d3fd5, and PUSH EBX at 0x001d3fd6. The adapter masks delivery,
+writes the original word at ESI, remembers the pre-PUSH ESP, applies the
+wrapping 32-bit stack decrement and writes EBX through checked memory. Only
+then does it enable delivery through the IRQL shadow-release operation. It
+returns the remembered ESP for the following traced call's original fallback.
+The later pushes and call remain the generated caller's responsibility.
+
+An error stops the actor. Once CLI has acquired the mask, a failed write
+retains the accepted prefix and leaves the mask held with pending IRQs
+undelivered. Apply `irql_abort` to the same task and follow normal teardown.
+This exact site adapter requires the real caller to attach its task to the
+session queue. The full generated callback and its production queue binding
+remain pending.
+
 ## Validation boundary
 
 `check_differential.py --app APP --app-lib LIB --wine --evidence NEW_PRIVATE_DIR`
@@ -151,7 +172,10 @@ native-width narrowing differences are observed separately as described above.
 
 `check_smoke.py --app APP --app-lib LIB --wine --evidence NEW_PRIVATE_DIR`
 runs 32 suites/target: 128 worker interleavings, 192 option cases, 64 callback/
-new-post/cancellation cases, plus malformed/state/lifetime/quota controls.
+new-post/cancellation cases and 128 thread-start shadow cases, plus
+malformed/state/lifetime/quota controls. A controlled IRQ observes both
+completed writes. Denied patch and stack writes retain pending IRQs if any,
+and an unmasked entry proves CLI acquires its mask before either write.
 Checks cover before-post and after-post release, another holder consuming the
 bit, original release-window post, [0,2,0,1] arrival order during a callback,
 active-close denial, actual cancellation, full sync quota plus a forced stale
@@ -164,7 +188,8 @@ once-only stale-abort seam. Production sources contain neither seam. Production
 and instrumented hashes/receipts are retained separately. The latter uses IRQ
 last-log @96 as a test-only once flag during cancellation. Required-failing
 copies omit the second try, publish release before PCR, drop the exhausted
-current bit, or restore event-dependent abort; none is admitted as game code.
+current bit, restore event-dependent abort, enable delivery before the shadow
+stack store or omit the thread-start CLI. None is admitted as game code.
 `--fault-controls-only` runs native negative controls and cannot issue artifact
 receipts. Fixtures, Python, C/FFI and bootstrap are maintainer-only.
 

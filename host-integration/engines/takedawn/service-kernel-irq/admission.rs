@@ -104,7 +104,7 @@ fn run()->Result<(),i32>{
  for _ in 0..32u32{
  let mut ram=memory::Memory::new()?;ram.attach(0,0x4000000,window,0,true)?;
  let services=kernel_pool::kernel_services_initialize(&ram,0x10000,2)?;
- probe::irq_probe(&mut ram,window)?;races::irq_races(&mut ram,window)?;controls::irq_controls(&mut ram,window)?;options::irq_options(&mut ram,window)?;callbacks::irq_callbacks_probe(&mut ram,window)?;
+ probe::irq_probe(&mut ram,window)?;races::irq_races(&mut ram,window)?;controls::irq_controls(&mut ram,window)?;options::irq_options(&mut ram,window)?;callbacks::irq_callbacks_probe(&mut ram,window)?;callbacks::irq_thread_patch_probe(&mut ram,window)?;
  services.service_close(&ram)?;gamepkg::local_record_release(ram.call_handle())?;
  }Ok(())
 }

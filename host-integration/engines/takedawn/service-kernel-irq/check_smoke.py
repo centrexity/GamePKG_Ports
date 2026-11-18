@@ -42,6 +42,23 @@ def main():
   result=subprocess.run([str(exe)],capture_output=True,text=True,timeout=30)
   assert result.returncode!=0 and 'on an `Err` value: -3' in result.stderr,result.stderr
   print('PASS: required-failing early PCR/release-point control; mutant never admitted',flush=True)
+  current=instrumented.read_text()
+  push='        ram.write_u32(cpu.esp, cpu.ebx)?;\n        task.irql_enable_after_shadow(ram, cpu)?;'
+  assert current.count(push)==1
+  mutant=root/'early_sti.rs';mutant.write_text(current.replace(push,'\n'.join(reversed(push.splitlines()))))
+  native=root/'early_sti_main.rs';native.write_text(wrapper.replace(json.dumps(str(instrumented)),json.dumps(str(mutant))))
+  exe=root/'early_sti';subprocess.run(['rustc','--edition=2021','-D','warnings','-O',str(native),'-o',str(exe)],check=True)
+  result=subprocess.run([str(exe)],capture_output=True,text=True,timeout=30)
+  assert result.returncode!=0 and 'on an `Err` value: -3' in result.stderr,result.stderr
+  print('PASS: required-failing STI release before the shadow stack store; mutant never admitted',flush=True)
+  disable='        task.irql_disable(ram, cpu)?;'
+  assert current.count(disable)==1
+  mutant=root/'missing_cli.rs';mutant.write_text(current.replace(disable,''))
+  native=root/'missing_cli_main.rs';native.write_text(wrapper.replace(json.dumps(str(instrumented)),json.dumps(str(mutant))))
+  exe=root/'missing_cli';subprocess.run(['rustc','--edition=2021','-D','warnings','-O',str(native),'-o',str(exe)],check=True)
+  result=subprocess.run([str(exe)],capture_output=True,text=True,timeout=30)
+  assert result.returncode!=0 and 'on an `Err` value: -3' in result.stderr,result.stderr
+  print('PASS: required-failing omitted CLI before writes; mutant never admitted',flush=True)
   current=irql_instrumented.read_text();start=current.index('    pub fn irql_abort(')
   marker='Err(-2) => {} // Cleanup must not allocate a retry event under quota pressure.'
   at=current.index(marker,start);mutant=root/'quota_event_regression.rs';mutant.write_text(current[:at]+current[at:].replace(marker,'Err(-2) => memory::Memory::call_retry_pause()?,',1))
@@ -61,7 +78,7 @@ def main():
     data=json.loads(receipt.read_text());assert len(data['game']['objects'])==8 and len(data['raw_objects'])==8
     name=receipt.parent.name+'.json';shutil.copyfile(receipt,a.evidence/name);receipts[name]=hashlib.sha256(receipt.read_bytes()).hexdigest()
    if a.app_lib:assert len(receipts)==4
-   report={'schema':1,'status':'controlled-boundaries-qualified-not-production-IRQ','source_variant':'checked after-mark and once-stale-abort test copy','production_irq_sha256':hashlib.sha256(original.encode()).hexdigest(),'instrumented_irq_sha256':hashlib.sha256(instrumented.read_bytes()).hexdigest(),'production_irql_sha256':hashlib.sha256(irql_original.encode()).hexdigest(),'instrumented_irql_sha256':hashlib.sha256(irql_instrumented.read_bytes()).hexdigest(),'receipts':receipts,'scenarios':4,'repeats_each':32,'windows':'Wine' if a.wine else 'compile-only','required_failing_controls':['missing second gate attempt','release before PCR publication','event-dependent abort under sync quota and stale CAS'],'source_hashes':{name:hashlib.sha256(path.read_bytes()).hexdigest() for name,path in mods}}
+   report={'schema':1,'status':'controlled-boundaries-qualified-not-production-IRQ','source_variant':'checked after-mark and once-stale-abort test copy','production_irq_sha256':hashlib.sha256(original.encode()).hexdigest(),'instrumented_irq_sha256':hashlib.sha256(instrumented.read_bytes()).hexdigest(),'production_irql_sha256':hashlib.sha256(irql_original.encode()).hexdigest(),'instrumented_irql_sha256':hashlib.sha256(irql_instrumented.read_bytes()).hexdigest(),'receipts':receipts,'scenarios':4,'repeats_each':32,'thread_patch_cases_per_runtime':128,'windows':'Wine' if a.wine else 'compile-only','required_failing_controls':['missing second gate attempt','release before PCR publication','STI release before the shadow stack store','CLI omitted before writes','event-dependent abort under sync quota and stale CAS'],'source_hashes':{name:hashlib.sha256(path.read_bytes()).hexdigest() for name,path in mods}}
    (a.evidence/'qualification.json').write_text(json.dumps(report,indent=2)+'\n')
  print('SMOKE ONLY: controlled native IRQ/IRQL/guest-stack composition and admission; four controlled worker interleavings; options/lifecycle/quota/callback boundaries included; production handlers/timer/DPC/gameplay remain unqualified.')
 if __name__=='__main__':main()

@@ -30,9 +30,10 @@ fn main() {
         controls::irq_controls(&mut ram, window).unwrap();
         options::irq_options(&mut ram, window).unwrap();
         callbacks::irq_callbacks_probe(&mut ram, window).unwrap();
+        callbacks::irq_thread_patch_probe(&mut ram, window).unwrap();
         services.service_close(&ram).unwrap();
         client::local_record_release(ram.call_handle()).unwrap();
     }
     local::shutdown();
-    println!("PASS: controlled IRQ composition, 128 interleavings, 192 option cases, 64 callback/new-post/cancel cases and lifecycle controls; checked fault seams, not production devices/gameplay");
+    println!("PASS: controlled IRQ composition, 128 interleavings, 192 option cases, 64 callback/new-post/cancel cases, 128 native thread-patch cases and lifecycle controls; checked fault seams, not production devices/gameplay");
 }

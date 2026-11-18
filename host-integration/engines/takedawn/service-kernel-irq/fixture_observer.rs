@@ -95,7 +95,7 @@ pub fn dpc_release(
 ) -> Result<(), i32> {
     observer_increment(ram, 0x741018)
 }
-pub fn wait(
+pub fn irq_wait_notice(
     _queue: &irq_delivery::Interrupts,
     ram: &memory::Memory,
     _pending: u32,

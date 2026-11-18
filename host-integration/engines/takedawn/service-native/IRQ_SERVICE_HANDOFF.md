@@ -142,6 +142,15 @@ candidate has not consumed these IDs and remains unadmitted; see the component's
 WORK_IN_PROGRESS.md. Do not treat controlled callback evidence as a real title,
 hardware display, physical controls, audible audio or measured pacing result.
 
+The retail sub_001D3F2F thread-start patch now has an exact checked adapter
+`Interrupts::irq_thread_patch`. It covers the CLI at 0x001d3fce, the store through
+ESI, STI at 0x001d3fd5 and the complete PUSH EBX at 0x001d3fd6 before delivery
+resumes. The returned pre-PUSH ESP feeds the original traced-call fallback.
+The next conversion must match the complete generated region, including stack
+snapshot, store and control-flow successor. A direct translation of the
+two opcode markers would release the mask too early. The generated caller
+still needs a validated binding to the actual current task and its IRQ queue.
+
 ## Required interrupt and callback integration
 
 The original three lines (vblank, APU, OHCI) coalesce pending bits. A poster tries

@@ -26,6 +26,71 @@ fn callback_reply(id: u64, phase: u64) -> Result<[u64; 3], i32> {
     )?;
     Ok([phase, callback_word(&b, 8)?, callback_word(&b, 16)?])
 }
+pub fn irq_thread_patch_probe(ram: &mut memory::Memory, window: u64) -> Result<(), i32> {
+    for mode in [0u32, 1, 2, 3] {
+        gamepkg::local_memory_fill(window, 0x740000, 65536, 0)?;
+        ram.write_u64(0x741008, 1000000000)?;
+        ram.write_u32(0x741024, 13)?;
+        let mut controller = irql::Controller::controller_new(ram)?;
+        let mut pool = stacks::Pool::stacks_new(ram, 0x780000, 1048576)?;
+        let mut queue =
+            irq_delivery::Interrupts::irq_new(ram, &controller, &pool, 1, true, false, 250, true)?;
+        let mut task = controller.controller_task(ram)?;
+        let mut cpu = registers::Registers::new();
+        cpu.fs_base = 0x740000;
+        cpu.ebx = 0xa1b2c3d4;
+        cpu.esi = if mode == 1 { 0x750000 } else { 0x741080 };
+        cpu.esp = if mode >= 2 { 0x750004 } else { 0x741088 };
+        let call_esp = cpu.esp;
+        let untouched = cpu.encode();
+        callback_need(queue.irq_thread_patch(ram, &mut task, &mut cpu) == Err(-5))?;
+        callback_need(
+            cpu.encode() == untouched && controller.controller_counts(ram)? == [0, 0, 0],
+        )?;
+        queue.irq_attach_task(ram, &mut task)?;
+        let mut foreign =
+            irq_delivery::Interrupts::irq_new(ram, &controller, &pool, 1, true, false, 250, true)?;
+        callback_need(foreign.irq_thread_patch(ram, &mut task, &mut cpu) == Err(-4))?;
+        callback_need(cpu.encode() == untouched && foreign.irq_close(ram, false)? == 0)?;
+        let pending = u32::from(mode != 3);
+        if pending != 0 {
+            task.irql_disable(ram, &mut cpu)?;
+            queue.irq_post(ram, &mut task, &mut cpu, 0)?;
+        }
+        callback_need(queue.irq_pending(ram)? == pending && ram.read_u32(0x741000)? == 0)?;
+        let outcome = queue.irq_thread_patch(ram, &mut task, &mut cpu);
+        if mode == 0 {
+            callback_need(
+                outcome == Ok(call_esp)
+                    && cpu.esp == call_esp - 4
+                    && cpu.eflags & 0x200 != 0
+                    && queue.irq_pending(ram)? == 0
+                    && ram.read_u32(0x741000)? == 1
+                    && ram.read_u32(0x741060)? == 0x28c5048d
+                    && ram.read_u32(0x741064)? == cpu.ebx
+                    && ram.read_u32(0x741084)? == cpu.ebx
+                    && controller.controller_counts(ram)?[..2] == [0, 0],
+            )?;
+        } else {
+            callback_need(
+                outcome == Err(-4)
+                    && cpu.eflags & 0x200 == 0
+                    && cpu.esp == if mode == 1 { call_esp } else { call_esp - 4 }
+                    && queue.irq_pending(ram)? == pending
+                    && ram.read_u32(0x741000)? == 0
+                    && ram.read_u32(0x741080)? == if mode == 1 { 0 } else { 0x28c5048d }
+                    && controller.controller_counts(ram)?[..2] == [0, 1],
+            )?;
+            task.irql_abort(ram)?;
+            callback_need(controller.controller_counts(ram)?[..2] == [0, 0])?;
+        }
+        let discarded = if mode == 0 { 0 } else { pending };
+        callback_need(queue.irq_close(ram, discarded != 0)? == discarded)?;
+        pool.stacks_close(ram)?;
+        controller.controller_close(ram)?;
+    }
+    Ok(())
+}
 pub fn irq_callbacks_probe(ram: &mut memory::Memory, window: u64) -> Result<(), i32> {
     for mode in [11u32, 12] {
         let mut sync_ids = [0u64; 128];

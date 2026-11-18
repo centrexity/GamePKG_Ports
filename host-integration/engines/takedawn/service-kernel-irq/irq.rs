@@ -220,6 +220,23 @@ impl Interrupts {
         task.task_values(ram)?;
         Ok(())
     }
+    // sub_001D3F2F at 0x001d3fce: CLI, MOV [ESI], STI, PUSH EBX.
+    // The pending IRQ release can run only after the PUSH writes its stack word.
+    pub fn irq_thread_patch(
+        &self,
+        ram: &mut memory::Memory,
+        task: &mut irql::Task,
+        cpu: &mut registers::Registers,
+    ) -> Result<u32, i32> {
+        self.irq_task(ram, task)?;
+        task.irql_disable(ram, cpu)?;
+        ram.write_u32(cpu.esi, 0x28c5048d)?;
+        let call_esp = cpu.esp;
+        cpu.esp = call_esp.wrapping_sub(4);
+        ram.write_u32(cpu.esp, cpu.ebx)?;
+        task.irql_enable_after_shadow(ram, cpu)?;
+        Ok(call_esp)
+    }
     pub fn irq_pending(&self, ram: &memory::Memory) -> Result<u32, i32> {
         let (_, b) = self.irq_snapshot(ram, false, false)?;
         Ok(irq_word(&b, 56)? as u32)
@@ -554,7 +571,7 @@ impl Interrupts {
             let refused = irq_word(&b, 104)?;
             match gamepkg::local_record_compare_exchange(self.record, version, &b) {
                 Ok(_) => {
-                    let _ = crate::irq_observer::wait(
+                    let _ = crate::irq_observer::irq_wait_notice(
                         self,
                         ram,
                         pending as u32,

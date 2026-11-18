@@ -53,6 +53,10 @@ fn route_call(
     cpu.fp_stack[3] = f64::from_bits(0x7ff8000000001234);
     cpu.eflags ^= 0x1234;
     let scenario = ram.read_u32(0x741024)?;
+    if scenario == 13 {
+        ram.write_u32(0x741060, ram.read_u32(0x741080)?)?;
+        ram.write_u32(0x741064, ram.read_u32(0x741084)?)?;
+    }
     if line == 0 && count == 0 && (scenario == 7 || scenario == 12) {
         let command = ram.read_u64(0x741040)?;
         let response = ram.read_u64(0x741048)?;
