@@ -2,7 +2,6 @@
 mod model;
 mod render;
 mod solver;
-use std::sync::Mutex;
 struct Session {
     game: model::Game,
     damaged: bool,
@@ -10,9 +9,9 @@ struct Session {
     search: Option<solver::Search>,
     autoplay: bool,
 }
-static GAME: Mutex<Option<Session>> = Mutex::new(None);
+static GAME: gamepkg::GameState<Option<Session>> = gamepkg::GameState::new(None);
 pub fn game_tick(input: u32, state: u64) -> u64 {
-    if let Ok(mut slot) = GAME.lock() {
+    if let Some(mut slot) = GAME.try_lock() {
         if slot.is_none() {
             let size = gamepkg::save_size().unwrap_or(0);
             let mut loaded = None;

@@ -1,6 +1,5 @@
 // Adapted from the pinned 2048-rs solver/evaluators. See CREDITS.md and MIT notice.
 use super::model;
-use std::collections::BTreeMap;
 struct Answer {
     valid: bool,
     direction: u32,
@@ -42,8 +41,60 @@ pub struct Search {
     pub board: [u8; 16],
     frames: Vec<Frame>,
     returned: Option<Answer>,
-    cache: BTreeMap<[u8; 16], (f32, f32)>,
+    cache: SearchCache,
 }
+// Exact board keys and bounded probing keep memoization independent of the
+// standard library's tree allocator and preserve the original search order.
+struct SearchCache {
+    entries: Vec<Option<([u8; 16], f32, f32)>>,
+    used: u32,
+}
+
+impl SearchCache {
+    fn new() -> Self {
+        Self {
+            entries: Vec::new(),
+            used: 0,
+        }
+    }
+    fn cache_slot(&self, board: &[u8; 16]) -> Option<usize> {
+        if self.entries.is_empty() {
+            return None;
+        }
+        let mut hash = 2166136261u32;
+        for tile in board {
+            hash = (hash ^ u32::from(*tile)).wrapping_mul(16777619);
+        }
+        let mut index = (hash & 65535) as usize;
+        for _ in 0..65536 {
+            match self.entries[index] {
+                None => return Some(index),
+                Some((key, _, _)) if &key == board => return Some(index),
+                _ => index = (index + 1) & 65535,
+            }
+        }
+        None
+    }
+    fn get(&self, board: &[u8; 16]) -> Option<(f32, f32)> {
+        let (_, value, probability) = self.entries[self.cache_slot(board)?]?;
+        Some((value, probability))
+    }
+    fn insert(&mut self, board: [u8; 16], value: f32, probability: f32) {
+        if self.entries.is_empty() {
+            self.entries.resize(65536, None);
+        }
+        if let Some(index) = self.cache_slot(&board) {
+            if self.entries[index].is_none() {
+                if self.used == 32768 {
+                    return;
+                }
+                self.used += 1;
+            }
+            self.entries[index] = Some((board, value, probability));
+        }
+    }
+}
+
 pub fn search_depth(board: &[u8; 16]) -> u8 {
     let mut seen = [false; 64];
     let mut maximum = 0;
@@ -115,7 +166,7 @@ impl Search {
             board,
             frames,
             returned: None,
-            cache: BTreeMap::new(),
+            cache: SearchCache::new(),
         }
     }
     pub fn done(&self) -> bool {
@@ -179,11 +230,11 @@ impl Search {
                         continue;
                     }
                     if let Some((value, probability)) = self.cache.get(&frame.board) {
-                        if *probability >= frame.probability {
+                        if probability >= frame.probability {
                             self.returned = Some(Answer {
                                 valid: true,
                                 direction: 0,
-                                value: *value,
+                                value,
                             });
                             continue;
                         }
@@ -210,9 +261,7 @@ impl Search {
                     let value = frame.value / f32::from(frame.count);
                     // Bound memoization only. Uncached branches still run the
                     // original search; no fallback depth or node cutoff exists.
-                    if self.cache.len() < 32768 || self.cache.contains_key(&frame.board) {
-                        self.cache.insert(frame.board, (value, frame.probability));
-                    }
+                    self.cache.insert(frame.board, value, frame.probability);
                     self.returned = Some(Answer {
                         valid: true,
                         direction: 0,

@@ -5,6 +5,7 @@ homepage = "https://github.com/adrienball/2048-rs"
 genres = ["Puzzle", "Strategy"]
 engine_version = ">=0.1.18, <0.2.0"
 format_version = 1
+native_tick = true
 id = "com.gamepkg.2048"
 version = "0.1.5"
 entry_world = "game"
@@ -14,7 +15,7 @@ shader_profile = "slang"
 
 [limits]
 recommended_memory_bytes = 8388608
-hard_memory_bytes = 16777216
+hard_memory_bytes = 536870912
 
 [permissions]
 input = true
