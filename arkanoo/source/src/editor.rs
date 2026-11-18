@@ -20,12 +20,19 @@ impl NameEdit {
     fn name_edit_pop(&mut self) {
         if !self.suffix.is_empty() {
             self.suffix.pop();
-        } else if let Some(character) = self.base.get(..self.end).unwrap_or("").chars().next_back() {
+        } else if let Some(character) = self.base.get(..self.end).unwrap_or("").chars().next_back()
+        {
             self.end -= character.len_utf8();
         }
     }
     fn name_edit_push(&mut self, character: char) {
-        if self.suffix.is_empty() && self.base.get(self.end..).unwrap_or("").starts_with(character) {
+        if self.suffix.is_empty()
+            && self
+                .base
+                .get(self.end..)
+                .unwrap_or("")
+                .starts_with(character)
+        {
             self.end += character.len_utf8();
         } else {
             self.suffix.push(character);
@@ -45,7 +52,10 @@ impl Name {
         match self {
             Self::Compact(value) => [value.as_ref(), ""],
             Self::Large(value, end) => [value.get(..*end).unwrap_or(""), ""],
-            Self::Edited(value) => [value.base.get(..value.end).unwrap_or(""), value.suffix.as_str()],
+            Self::Edited(value) => [
+                value.base.get(..value.end).unwrap_or(""),
+                value.suffix.as_str(),
+            ],
         }
     }
     pub fn len(&self) -> usize {
@@ -236,7 +246,10 @@ impl Pattern {
             }
             row += 1;
         }
-        let mut pattern = Self { name: Name::from_string(String::from(name)), cells: [255; 100] };
+        let mut pattern = Self {
+            name: Name::from_string(String::from(name)),
+            cells: [255; 100],
+        };
         pattern.pattern_pack(cells);
         pattern
     }

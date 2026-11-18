@@ -549,7 +549,9 @@ fn viewport_composition(first: u32, second: u32) -> u32 {
     let second_length = mark_character
         .encode_utf8(&mut encoded[first_length..])
         .len();
-    let Ok(viewport_text) = crate::gamepkg::text_from_utf8(&encoded[..first_length + second_length]) else {
+    let Ok(viewport_text) =
+        crate::gamepkg::text_from_utf8(&encoded[..first_length + second_length])
+    else {
         return u32::MAX;
     };
     let Some(points) = unicode_shape(viewport_text) else {
@@ -1415,7 +1417,8 @@ fn composed_missing_viewport(parts: &[&str], right: i32) -> Option<String> {
                         .encode_utf8(&mut encoded[bytes..])
                         .len();
                 }
-                for point in unicode_shape(crate::gamepkg::text_from_utf8(&encoded[..bytes]).ok()?)? {
+                for point in unicode_shape(crate::gamepkg::text_from_utf8(&encoded[..bytes]).ok()?)?
+                {
                     if point as usize >= used.len() {
                         return None;
                     }

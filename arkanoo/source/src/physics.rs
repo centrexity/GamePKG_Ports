@@ -1485,7 +1485,9 @@ impl Game {
         if kind == 1 && self.mode == 1 && x.is_finite() && y.is_finite() {
             let original_x = (x.clamp(0.0, 640.0) * 2.0) as i32;
             let half_width = (self.width * 2.0) as i32 / 2;
-            self.paddle = ((original_x - half_width) as f32 * 0.5).max(0.0).min(640.0 - self.width);
+            self.paddle = ((original_x - half_width) as f32 * 0.5)
+                .max(0.0)
+                .min(640.0 - self.width);
         }
         if kind == 2 && code == 1 && (self.mode == 3 || self.mode == 5) {
             self.update(4);
