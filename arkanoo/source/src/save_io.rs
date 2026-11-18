@@ -80,7 +80,7 @@ pub fn load_saved_editor(size: u32) -> Option<(editor::Editor, [u32; 3])> {
         name.resize(length as usize, 0);
         reader.read_piece(offset, &mut name)?;
         offset += length;
-        let name = String::from_utf8(name).ok()?;
+        let name = crate::gamepkg::text_from_utf8_owned(name).ok()?;
         let mut cells = [255; 200];
         reader.read_piece(offset, &mut cells)?;
         offset += 200;

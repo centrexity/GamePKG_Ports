@@ -15,13 +15,12 @@ mod speed_font;
 mod editor_font;
 mod dynamic_font;
 mod dynamic_font_data;
-use std::sync::Mutex;
-static GAME: Mutex<Option<physics::Game>> = Mutex::new(None);
-static MUSIC: Mutex<Option<music::Music>> = Mutex::new(None);
+static GAME: gamepkg::GameState<Option<physics::Game>> = gamepkg::GameState::new(None);
+static MUSIC: gamepkg::GameState<Option<music::Music>> = gamepkg::GameState::new(None);
 
 pub fn game_tick(input: u32, state: u64) -> u64 {
-    if let Ok(mut slot) = GAME.lock() {
-        let Ok(mut music_slot) = MUSIC.lock() else { return state; };
+    if let Some(mut slot) = GAME.try_lock() {
+        let Some(mut music_slot) = MUSIC.try_lock() else { return state; };
         if let Some(manager) = music_slot.as_mut() { manager.begin_tick(); }
         if slot.is_none() || state == 0 {
             let mut manager = music::Music::from_package();
@@ -160,7 +159,7 @@ fn pattern_filename_segments(pieces: [&str; 2]) -> String {
         if filename.len() + character.len_utf8() > 240 {
             break;
         }
-        if character.is_control() || "<>:\"/\\|?*".contains(character) {
+        if character.is_control() || (character == '<' || character == '>' || character == ':' || character == '"' || character == '/' || character == '\\' || character == '|' || character == '?' || character == '*') {
             filename.push('_');
         } else {
             filename.push(character);
@@ -207,7 +206,10 @@ fn pattern_files(game: &mut physics::Game) {
             let handle = if operation == 1 {
                 gamepkg::file_import(0)
             } else {
-                let pattern = editor::Pattern::pattern_from_cells(game.editor.name.clone(), game.editor.cells).unwrap();
+                let Some(pattern) = editor::Pattern::pattern_from_cells(game.editor.name.clone(), game.editor.cells) else {
+                    game.editor.editor_message("PATTERN HAS INVALID CELLS");
+                    return;
+                };
                 let ascii = pattern.ascii_write();
                 let filename = pattern_filename_segments(pattern.name.name_segments());
                 gamepkg::file_export(0, &filename, ascii.as_bytes())
@@ -253,8 +255,8 @@ fn pattern_files(game: &mut physics::Game) {
                 }
                 let received = gamepkg::file_name(handle, &mut names);
                 if read_ok && received == Some(result.name_bytes) {
-                    if let Ok(filename) = str::from_utf8(&names[..result.name_bytes as usize]) {
-                        if let Ok(content) = str::from_utf8(&bytes) {
+                    if let Ok(filename) = crate::gamepkg::text_from_utf8(&names[..result.name_bytes as usize]) {
+                        if let Ok(content) = crate::gamepkg::text_from_utf8(&bytes) {
                             let name = if let Some((stem, _)) = filename.rsplit_once('.') {
                                 stem
                             } else {

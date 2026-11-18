@@ -20,12 +20,12 @@ impl NameEdit {
     fn name_edit_pop(&mut self) {
         if !self.suffix.is_empty() {
             self.suffix.pop();
-        } else if let Some(character) = self.base[..self.end].chars().next_back() {
+        } else if let Some(character) = self.base.get(..self.end).unwrap_or("").chars().next_back() {
             self.end -= character.len_utf8();
         }
     }
     fn name_edit_push(&mut self, character: char) {
-        if self.suffix.is_empty() && self.base[self.end..].starts_with(character) {
+        if self.suffix.is_empty() && self.base.get(self.end..).unwrap_or("").starts_with(character) {
             self.end += character.len_utf8();
         } else {
             self.suffix.push(character);
@@ -44,8 +44,8 @@ impl Name {
     pub fn name_segments(&self) -> [&str; 2] {
         match self {
             Self::Compact(value) => [value.as_ref(), ""],
-            Self::Large(value, end) => [&value[..*end], ""],
-            Self::Edited(value) => [&value.base[..value.end], value.suffix.as_str()],
+            Self::Large(value, end) => [value.get(..*end).unwrap_or(""), ""],
+            Self::Edited(value) => [value.base.get(..value.end).unwrap_or(""), value.suffix.as_str()],
         }
     }
     pub fn len(&self) -> usize {
@@ -84,17 +84,15 @@ impl Name {
     }
     pub fn into_string(self) -> String {
         match self {
-            Self::Compact(value) => value.to_string(),
+            Self::Compact(value) => String::from(value.as_ref()),
             Self::Large(value, end) => match std::sync::Arc::try_unwrap(value) {
-                Ok(mut owned) => {
-                    owned.truncate(end);
-                    owned
-                }
-                Err(shared) => shared[..end].to_string(),
+                Ok(owned) if end == owned.len() => owned,
+                Ok(owned) => String::from(owned.get(..end).unwrap_or("")),
+                Err(shared) => String::from(shared.get(..end).unwrap_or("")),
             },
             Self::Edited(value) => {
                 let mut result = String::with_capacity(value.end + value.suffix.len());
-                result.push_str(&value.base[..value.end]);
+                result.push_str(value.base.get(..value.end).unwrap_or(""));
                 result.push_str(&value.suffix);
                 result
             }
@@ -111,12 +109,12 @@ impl Name {
     pub fn pop(&mut self) {
         match self {
             Self::Compact(value) => {
-                let mut owned = value.to_string();
+                let mut owned = String::from(value.as_ref());
                 owned.pop();
                 *self = Self::from_string(owned);
             }
             Self::Large(value, end) => {
-                if let Some(character) = value[..*end].chars().next_back() {
+                if let Some(character) = value.get(..*end).unwrap_or("").chars().next_back() {
                     *end -= character.len_utf8();
                 }
             }
@@ -134,15 +132,17 @@ impl Name {
     pub fn push(&mut self, character: char) {
         match self {
             Self::Compact(value) => {
-                let mut owned = value.to_string();
+                let mut owned = String::from(value.as_ref());
                 owned.push(character);
                 *self = Self::from_string(owned);
             }
             Self::Large(value, end) => {
-                if value[*end..].starts_with(character) {
+                if value.get(*end..).unwrap_or("").starts_with(character) {
                     *end += character.len_utf8();
                 } else if let Some(owned) = std::sync::Arc::get_mut(value) {
-                    owned.truncate(*end);
+                    if *end != owned.len() {
+                        *owned = String::from(owned.get(..*end).unwrap_or(""));
+                    }
                     owned.push(character);
                     *end = owned.len();
                 } else {
@@ -236,7 +236,9 @@ impl Pattern {
             }
             row += 1;
         }
-        Self::pattern_from_cells(Name::from_string(name.to_string()), cells).unwrap()
+        let mut pattern = Self { name: Name::from_string(String::from(name)), cells: [255; 100] };
+        pattern.pattern_pack(cells);
+        pattern
     }
     pub fn ascii_write(&self) -> String {
         let mut content = String::from("# Pattern: ");
@@ -319,7 +321,7 @@ impl Editor {
         }
     }
     pub fn editor_message(&mut self, message: &str) {
-        self.message = message.to_string();
+        self.message = String::from(message);
         self.message_time = 180;
     }
     pub fn editor_tick(&mut self) {
@@ -421,10 +423,10 @@ impl Editor {
         while index < self.patterns.len() && self.patterns[index].name.less_than(&self.name) {
             index += 1;
         }
-        self.patterns.insert(
-            index,
-            Pattern::pattern_from_cells(self.name.clone(), self.cells).unwrap(),
-        );
+        let Some(pattern) = Pattern::pattern_from_cells(self.name.clone(), self.cells) else {
+            return false;
+        };
+        self.patterns.insert(index, pattern);
         if let Some(undo) = self.backup.as_mut() {
             undo.push((index, None));
         }
@@ -757,7 +759,7 @@ impl Editor {
             let length = bytes.len() - 224;
             bytes.copy_within(24..24 + length, 0);
             bytes.truncate(length);
-            if let Ok(name) = String::from_utf8(bytes) {
+            if let Ok(name) = crate::gamepkg::text_from_utf8_owned(bytes) {
                 self.patterns[0].name = Name::from_string(name);
             }
         }
@@ -795,7 +797,7 @@ impl Editor {
         header.extend_from_slice(&u32::to_le_bytes(0));
         let mut decoded = Self::new();
         let metadata = decoded.save_decode(&header)?;
-        if str::from_utf8(&bytes[24..24 + length]).is_err() {
+        if crate::gamepkg::text_from_utf8(&bytes[24..24 + length]).is_err() {
             return None;
         }
         let mut cells = [255; 200];
@@ -807,7 +809,7 @@ impl Editor {
         }
         bytes.truncate(24 + length);
         bytes.drain(..24);
-        let name = String::from_utf8(bytes).ok()?;
+        let name = crate::gamepkg::text_from_utf8_owned(bytes).ok()?;
         let patterns = Vec::from([Pattern::pattern_from_cells(Name::from_string(name), cells)?]);
         self.patterns = patterns;
         self.sfx_volume = decoded.sfx_volume;
@@ -881,7 +883,7 @@ impl Editor {
             if length > bytes.len() - offset || bytes.len() - offset - length < 200 {
                 return None;
             }
-            let Ok(name) = str::from_utf8(&bytes[offset..offset + length]) else {
+            let Ok(name) = crate::gamepkg::text_from_utf8(&bytes[offset..offset + length]) else {
                 return None;
             };
             offset += length;
@@ -895,7 +897,7 @@ impl Editor {
             }
             if !Self::pattern_insert(
                 &mut patterns,
-                Pattern::pattern_from_cells(Name::from_string(name.to_string()), cells)?,
+                Pattern::pattern_from_cells(Name::from_string(String::from(name)), cells)?,
             ) {
                 return None;
             }

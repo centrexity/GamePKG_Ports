@@ -3,6 +3,7 @@
 // Pinned Roboto Medium 26 layout, independently checked against SDL_ttf.
 // Font-aware canonical composition, selected font substitutions and GPOS kern.
 use crate::dynamic_font_data;
+use crate::gamepkg;
 fn unicode_word(data: &[u8], at: usize) -> u32 {
     u32::from_le_bytes([data[at], data[at + 1], data[at + 2], data[at + 3]])
 }
@@ -429,9 +430,9 @@ pub fn unicode_raster_slice(
 
 // Derive a conservative visible-prefix bound from this immutable font, rather
 // than imposing a text-length limit. Unproven shaping cases retain the full path.
-static ASCII_VIEWPORT_BOUNDS: std::sync::Mutex<Option<[i32; 2]>> = std::sync::Mutex::new(None);
+static ASCII_VIEWPORT_BOUNDS: gamepkg::GameState<Option<[i32; 2]>> = gamepkg::GameState::new(None);
 fn ascii_viewport_bounds() -> Option<[i32; 2]> {
-    let Ok(mut cached) = ASCII_VIEWPORT_BOUNDS.lock() else {
+    let Some(mut cached) = ASCII_VIEWPORT_BOUNDS.try_lock() else {
         return None;
     };
     if let Some(font_bounds) = *cached {
@@ -444,7 +445,7 @@ fn ascii_viewport_bounds() -> Option<[i32; 2]> {
     let mut glyphs = Vec::new();
     for byte in 32u8..=126 {
         let encoded = [byte];
-        let viewport_text = str::from_utf8(&encoded).ok()?;
+        let viewport_text = crate::gamepkg::text_from_utf8(&encoded).ok()?;
         let points = unicode_shape(viewport_text)?;
         if points.len() != 1 || unicode_is_mark(points[0]) || unicode_zero_glyph(points[0]) {
             return None;
@@ -496,8 +497,8 @@ fn ascii_viewport_bounds() -> Option<[i32; 2]> {
 }
 // The table contains every scalar whose single-character normalization can
 // differ from the nominal missing glyph. Never retain a copy of input names.
-static UNICODE_VIEWPORT_SCALARS: std::sync::Mutex<Option<Vec<[u32; 3]>>> =
-    std::sync::Mutex::new(None);
+static UNICODE_VIEWPORT_SCALARS: gamepkg::GameState<Option<Vec<[u32; 3]>>> =
+    gamepkg::GameState::new(None);
 fn viewport_singleton(cp: u32) -> u32 {
     if cp == 0
         || unicode_mark_char(cp)
@@ -548,7 +549,7 @@ fn viewport_composition(first: u32, second: u32) -> u32 {
     let second_length = mark_character
         .encode_utf8(&mut encoded[first_length..])
         .len();
-    let Ok(viewport_text) = str::from_utf8(&encoded[..first_length + second_length]) else {
+    let Ok(viewport_text) = crate::gamepkg::text_from_utf8(&encoded[..first_length + second_length]) else {
         return u32::MAX;
     };
     let Some(points) = unicode_shape(viewport_text) else {
@@ -575,7 +576,7 @@ fn viewport_variation(cp: u32) -> bool {
     let mut encoded = [0u8; 5];
     encoded[0] = b'A';
     let length = character.encode_utf8(&mut encoded[1..]).len();
-    let Ok(viewport_text) = str::from_utf8(&encoded[..length + 1]) else {
+    let Ok(viewport_text) = crate::gamepkg::text_from_utf8(&encoded[..length + 1]) else {
         return false;
     };
     let Some(points) = unicode_shape(viewport_text) else {
@@ -591,7 +592,7 @@ fn viewport_variation(cp: u32) -> bool {
     metrics[0] == 0 && metrics[1] == 0 && metrics[2] == 0 && metrics[3] == 0 && metrics[4] == 0
 }
 fn unicode_viewport_limit(parts: &[&str], right: i32, total: usize) -> usize {
-    let Ok(mut cached) = UNICODE_VIEWPORT_SCALARS.lock() else {
+    let Some(mut cached) = UNICODE_VIEWPORT_SCALARS.try_lock() else {
         return total;
     };
     if cached.is_none() {
@@ -891,7 +892,7 @@ fn viewport_glyph_limit(
 // clusters retain full shaping; this cache never limits stored input length.
 fn viewport_next_character(parts: &[&str], part: &mut usize, offset: &mut usize) -> Option<char> {
     while *part < parts.len() {
-        if let Some(character) = parts[*part][*offset..].chars().next() {
+        if let Some(character) = parts[*part].get(*offset..).unwrap_or("").chars().next() {
             *offset += character.len_utf8();
             return Some(character);
         }
@@ -937,7 +938,7 @@ fn viewport_missing_mark(
         };
         let first = base_character.encode_utf8(&mut encoded).len();
         let second = mark_character.encode_utf8(&mut encoded[first..]).len();
-        let Ok(pair) = str::from_utf8(&encoded[..first + second]) else {
+        let Ok(pair) = crate::gamepkg::text_from_utf8(&encoded[..first + second]) else {
             return false;
         };
         let Some(points) = unicode_shape(pair) else {
@@ -1044,7 +1045,7 @@ fn cluster_viewport_limit(parts: &[&str], right: i32, total: usize) -> usize {
             };
             bytes += character.encode_utf8(&mut encoded[bytes..]).len();
         }
-        let Ok(cluster_text) = str::from_utf8(&encoded[..bytes]) else {
+        let Ok(cluster_text) = crate::gamepkg::text_from_utf8(&encoded[..bytes]) else {
             return total;
         };
         let Some(points) = unicode_shape(cluster_text) else {
@@ -1207,7 +1208,7 @@ pub fn compact_selector_runs(parts: &[&str]) -> Option<String> {
 }
 pub fn viewport_label_slice(label: &str, right: i32) -> &str {
     let limit = viewport_prefix_limit(&[label], right);
-    &label[..limit]
+    label.get(..limit).unwrap_or("")
 }
 // The pinned composition graph has a maximum of two supported transitions.
 // Keep those candidates plus the first blocking mark of each canonical class.
@@ -1414,7 +1415,7 @@ fn composed_missing_viewport(parts: &[&str], right: i32) -> Option<String> {
                         .encode_utf8(&mut encoded[bytes..])
                         .len();
                 }
-                for point in unicode_shape(str::from_utf8(&encoded[..bytes]).ok()?)? {
+                for point in unicode_shape(crate::gamepkg::text_from_utf8(&encoded[..bytes]).ok()?)? {
                     if point as usize >= used.len() {
                         return None;
                     }
@@ -1451,10 +1452,9 @@ fn composed_missing_viewport(parts: &[&str], right: i32) -> Option<String> {
     Some(output)
 }
 pub fn viewport_label_parts(parts: &[&str], right: i32) -> String {
-    if let Some(mut display_text) = compact_selector_runs(parts) {
+    if let Some(display_text) = compact_selector_runs(parts) {
         let limit = viewport_prefix_limit(&[&display_text], right);
-        display_text.truncate(limit);
-        return display_text;
+        return String::from(display_text.get(..limit).unwrap_or(""));
     }
     let [mut limit, total, non_ascii] = viewport_initial_limit(parts, right);
     if non_ascii != 0 && limit == total {
@@ -1466,7 +1466,7 @@ pub fn viewport_label_parts(parts: &[&str], right: i32) -> String {
     let mut viewport_text = String::with_capacity(limit);
     for part in parts {
         let length = part.len().min(limit - viewport_text.len());
-        viewport_text.push_str(&part[..length]);
+        viewport_text.push_str(part.get(..length).unwrap_or(""));
         if viewport_text.len() == limit {
             break;
         }

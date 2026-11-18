@@ -51,10 +51,10 @@ impl Music {
             }
             bytes.extend_from_slice(&block[..count as usize]);
         }
-        let Ok(playlist_text) = String::from_utf8(bytes) else {
+        let Ok(playlist_text) = crate::gamepkg::text_from_utf8_owned(bytes) else {
             return Self::new(Vec::new()).packaged();
         };
-        let mut songs = Vec::new();
+        let mut songs = Vec::with_capacity(playlist_text.lines().count());
         for path in playlist_text.lines() {
             let mut portable =
                 path.starts_with("music/") && path.ends_with(".mp3") && path.len() <= 1024;
@@ -84,7 +84,10 @@ impl Music {
                 }
             }
             if portable {
-                songs.push(path.to_string());
+                let track = String::from(path);
+                if songs.len() < songs.capacity() {
+                    songs.push(track);
+                }
             }
         }
         Self::new(songs).packaged()

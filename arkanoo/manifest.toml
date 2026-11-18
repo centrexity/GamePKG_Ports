@@ -5,6 +5,7 @@ homepage = "https://github.com/c0m4r/arkanoo"
 genres = ["Arcade", "Action"]
 engine_version = ">=0.1.18, <0.2.0"
 format_version = 1
+native_tick = true
 id = "com.gamepkg.arkanoo"
 version = "0.1.76"
 entry_world = "game"
@@ -18,7 +19,7 @@ effects_memory_bytes = 3145728
 music_memory_bytes = 7340032
 recommended_storage_bytes = 73400320
 recommended_memory_bytes = 268435456
-hard_memory_bytes = 268435456
+hard_memory_bytes = 536870912
 
 [permissions]
 input = true

@@ -238,13 +238,13 @@ struct FireRaster {
     frame: u64,
     pixels: Vec<u8>,
 }
-static FIRE_RASTER: std::sync::Mutex<Option<FireRaster>> = std::sync::Mutex::new(None);
+static FIRE_RASTER: gamepkg::GameState<Option<FireRaster>> = gamepkg::GameState::new(None);
 pub fn draw_fire_brick(frame: u64, x: f32, y: f32) -> bool {
     let bx = (x * 2.0) as i32;
     let by = ((y - 60.0) * 2.0) as i32;
-    let mut cache = match FIRE_RASTER.lock() {
-        Ok(cache) => cache,
-        Err(_) => return false,
+    let mut cache = match FIRE_RASTER.try_lock() {
+        Some(cache) => cache,
+        None => return false,
     };
     let rebuild = match cache.as_ref() {
         Some(cached) => cached.frame != frame,
@@ -856,8 +856,8 @@ fn draw_viewport_label(
     } else {
         original_y
     };
-    let visible_left = (-left).clamp(0, layout_data.width);
-    let visible_right = (1280 - left).clamp(0, layout_data.width);
+    let visible_left = (-left).max(0).min(layout_data.width);
+    let visible_right = (1280 - left).max(0).min(layout_data.width);
     let clip_top = top.max(0);
     let clip_bottom = (top + layout_data.height).min(bottom);
     if visible_left >= visible_right || clip_top >= clip_bottom {
