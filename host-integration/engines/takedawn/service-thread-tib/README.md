@@ -116,7 +116,7 @@ sub_001D18B0. In the authenticated image its import cell at guest address
 The image fixture reports the original cell before import publication.
 It does not execute the parent or the requested routine.
 
-The prepared graph retains the parent and sub_001D18B0. It excludes
+The earlier prepared graph retains the parent and sub_001D18B0. It excludes
 sub_001D1818 because of pointer-based operations still outside the lowering
 rules. It excludes sub_001D2793 because sub_001D3F2F still has unreviewed
 CLI/STI lowering and pointer types. A recognized guest address therefore
@@ -125,3 +125,8 @@ routine_available from the same accepted address partitions used for
 direct dispatch. Both the launcher and the actual worker require that
 proof. The confined fixture submits the known but absent 0x001D1818 route
 and verifies that no task is created and the guest outputs remain untouched.
+
+The checked indexed byte-copy lowering now supplies sub_001D1818 in the
+whole-kit candidate. This adds the compiled wrapper body only. The separate
+real start callback still needs its CLI/STI shadow, pointer and IRQ integration,
+and the production import route remains gated.

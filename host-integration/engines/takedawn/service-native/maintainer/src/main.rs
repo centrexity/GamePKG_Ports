@@ -131,6 +131,7 @@ fn pointer_primitive(expr: &Expr) -> Option<&'static str> {
 }
 #[derive(Default)]
 struct Lower {
+    reviewed_indexed_copy: bool,
     tls: BTreeMap<String, String>,
     locals: BTreeMap<String, String>,
     enums: BTreeMap<String, Arc<BTreeMap<String, u32>>>,
@@ -570,11 +571,7 @@ impl Lower {
         self.visit_expr_mut(&mut value);
         Some(parse_quote!(Some(#value)))
     }
-    fn pointer_operand(&mut self, expr: &Expr) -> Option<Expr> {
-        if let Some(name) = self.pointer_name(expr) {
-            let name = format_ident!("{name}");
-            return Some(parse_quote!(crate::memory::guest_position(#name)?));
-        }
+    fn pointer_index(&mut self, expr: &Expr) -> Option<(syn::Ident, Expr)> {
         let Expr::MethodCall(call) = plain(expr) else {
             return None;
         };
@@ -594,8 +591,28 @@ impl Lower {
         }
         let mut length = *count.expr.clone();
         self.visit_expr_mut(&mut length);
-        let name = format_ident!("{name}");
+        Some((format_ident!("{name}"), length))
+    }
+    fn pointer_operand(&mut self, expr: &Expr) -> Option<Expr> {
+        if let Some(name) = self.pointer_name(expr) {
+            let name = format_ident!("{name}");
+            return Some(parse_quote!(crate::memory::guest_position(#name)?));
+        }
+        let (name, length) = self.pointer_index(expr)?;
         Some(parse_quote!(crate::memory::guest_offset(#name,#length)?))
+    }
+    fn indexed_byte(&mut self, expr: &Expr) -> Option<Expr> {
+        if !self.reviewed_indexed_copy {
+            return None;
+        }
+        let Expr::Unary(unary) = plain(expr) else {
+            return None;
+        };
+        if !unary.attrs.is_empty() || !matches!(unary.op, syn::UnOp::Deref(_)) {
+            return None;
+        }
+        let (name, length) = self.pointer_index(&unary.expr)?;
+        Some(parse_quote!(crate::memory::guest_byte_address(#name,#length)?))
     }
     fn fill_call(&mut self, call: &syn::ExprCall) -> Option<Expr> {
         struct Attributes(bool);
@@ -1029,6 +1046,17 @@ impl VisitMut for Lower {
             false
         };
         if let Expr::Assign(assignment) = expr {
+            if let Some(destination) = self.indexed_byte(&assignment.left) {
+                if let Some(source) = self.indexed_byte(&assignment.right) {
+                    // Rust evaluates the source before the destination place.
+                    *expr = parse_quote!(crate::memory::guest_store_byte(
+                        guest_ram.read_u8(#source)?, #destination, guest_ram
+                    )?);
+                } else {
+                    self.reject("unreviewed indexed guest byte source");
+                }
+                return;
+            }
             if self.pointer_name(&assignment.left).is_some() {
                 if let Some(value) = self.pointer_value(&assignment.right) {
                     assignment.right = Box::new(value);
@@ -1391,7 +1419,12 @@ fn enum_pattern(pattern: &syn::Pat, lower: &Lower) -> bool {
     }
 }
 fn lower(mut function: ItemFn) -> Result<(ItemFn, BTreeSet<String>), BTreeSet<String>> {
-    let mut pass = Lower::default();
+    let mut pass = Lower {
+        // Whole-kit input is hash pinned. Other byte-copy routines stay out
+        // until their newly reachable dependencies fit source admission.
+        reviewed_indexed_copy: function.sig.ident == "sub_001D1818",
+        ..Lower::default()
+    };
     for attr in &function.attrs {
         if !attr.path().is_ident("no_mangle") && !attr.path().is_ident("inline") {
             pass.reject("unreviewed function attribute");
@@ -1791,6 +1824,42 @@ mod tests {
         assert!(lowered("XMM_ZERO(1u32);").is_err());
         assert!(lowered("let a:RecompXmm=XMM_ZERO();let lane=a.u[0usize];").is_ok());
     }
+    #[test]
+    fn indexed_guest_byte_dereferences_keep_access_order_and_width() {
+        let prefix = "let mut offset:uint32_t=0;let destination:*mut uint8_t=::core::ptr::null_mut::<uint8_t>();let source:*mut uint8_t=::core::ptr::null_mut::<uint8_t>();";
+        let lower_thread_wrapper = |body: &str| {
+            lower(
+                syn::parse_str(&format!(
+                    "pub unsafe extern \"C\" fn sub_001D1818(){{{prefix}{body}}}"
+                ))
+                .unwrap(),
+            )
+        };
+        let copy = "*destination.offset(offset as isize)=*source.offset(offset as isize);";
+        let (function, _) = lower_thread_wrapper(copy).unwrap();
+        assert!(lowered(&format!("{prefix}{copy}")).is_err());
+        let lowered_body = function.to_token_stream().to_string();
+        assert!(lowered_body.contains("guest_store_byte (guest_ram . read_u8"));
+        assert!(lowered_body.contains("guest_byte_address (source , offset)"));
+        assert!(lowered_body.contains("guest_byte_address (destination , offset)"));
+        assert!(!lowered_body.contains("isize") && !lowered_body.contains("* mut"));
+        for rejected in [
+            "*destination.offset(-1isize)=*source.offset(offset as isize);",
+            "*destination.offset(0x100000000u64 as isize)=3;",
+            "*destination.wrapping_offset(offset as isize)=3;",
+            "*destination.offset(offset as i32)=3;",
+            "let leaked=destination.offset(offset as isize);",
+            "let leaked=&mut *destination.offset(offset as isize);",
+            "*destination.offset(offset as isize)+=1;",
+            "let loaded=*source.offset(offset as isize);",
+            "*destination.offset(offset as isize)=3;",
+            "*(destination as *mut u32).offset(offset as isize)=3;",
+            "*destination=3;",
+        ] {
+            assert!(lower_thread_wrapper(rejected).is_err(), "{rejected}");
+        }
+    }
+
     #[test]
     fn guest_copy_temporaries_are_values_and_only_reviewed_uses_survive() {
         let make = |value: &str| {

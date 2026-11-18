@@ -1138,3 +1138,26 @@ full Windows builds are compile/object/link qualification, not gameplay.
 also runs the isolated state source/object audit on four targets and 4096
 preservation controls in actual confined Linux32/64. It rejects its unused
 maintainer harness. Neither suite enables production Burnout.
+
+## Indexed guest byte copy in system-thread startup
+
+The converter now accepts a byte assignment between two tracked guest
+temporaries indexed by the original unsigned 32-bit count cast to isize.
+The generated code reads the source before calculating and writing the
+destination. The original loop and its direction stay in the generated
+function, so an overlapping forward loop still observes its earlier writes.
+The existing nonoverlapping bulk-copy route is unchanged.
+
+The address adapter rejects null scratch values, offsets wider than positive
+i686 isize, and dereferences of one-past guest addresses. Ordinary Memory
+checks still enforce permissions and alias mapping for each byte. Standalone
+pointer loads, reference creation, arbitrary pointer offsets, and compound
+writes through a pointer remain outside this lowering.
+
+This lowering is scoped to the pinned system-thread wrapper sub_001D1818,
+which uses this assignment alongside two already-supported bulk copies.
+Extending it to other routines needs a separate check of the newly reachable
+source. The separate callback sub_001D2793
+still depends on sub_001D3F2F, whose CLI/STI and CPU-state handling remains
+outside the closed graph. Full thread import routing and title launch
+remain gated.

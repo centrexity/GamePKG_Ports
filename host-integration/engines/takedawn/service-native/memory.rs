@@ -1190,3 +1190,17 @@ pub fn guest_offset(pointer: Option<u32>, bytes: u32) -> Result<u64, i32> {
     }
     Ok(end)
 }
+
+// Dereferencing the one-past value is invalid even though a comparison may use it.
+pub fn guest_byte_address(pointer: Option<u32>, index: u32) -> Result<u32, i32> {
+    let address = guest_offset(pointer, index)?;
+    if address > u64::from(u32::MAX) {
+        return Err(-1);
+    }
+    Ok(address as u32)
+}
+
+// The converted assignment evaluates its source byte before the destination.
+pub fn guest_store_byte(value: u8, address: u32, ram: &mut Memory) -> Result<(), i32> {
+    ram.write_u8(address, value)
+}

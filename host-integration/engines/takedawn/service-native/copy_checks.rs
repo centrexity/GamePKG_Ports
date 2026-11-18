@@ -55,7 +55,7 @@ pub fn verify(ram: &mut memory::Memory, window: u64) -> Result<(), i32> {
     }
     ram.write_u32(0, original)?;
     verify_segments(ram, window)?;
-    Ok(())
+    verify_indexed_bytes(ram, window)
 }
 
 fn verify_segments(ram: &mut memory::Memory, window: u64) -> Result<(), i32> {
@@ -125,4 +125,44 @@ fn verify_segments(ram: &mut memory::Memory, window: u64) -> Result<(), i32> {
     ram.write_u32(0, saved_low)?;
     ram.write_u32(4094, saved_high)?;
     Ok(())
+}
+
+fn verify_indexed_bytes(ram: &mut memory::Memory, window: u64) -> Result<(), i32> {
+    if memory::guest_byte_address(None, 0) != Err(-1)
+        || memory::guest_byte_address(Some(0), 0) != Ok(0)
+        || memory::guest_byte_address(Some(u32::MAX), 0) != Ok(u32::MAX)
+        || memory::guest_byte_address(Some(u32::MAX), 1) != Err(-1)
+        || memory::guest_byte_address(Some(0), 0x80000000) != Err(-1)
+    {
+        return Err(-3);
+    }
+
+    let start = 0x3000;
+    let original = ram.read_u32(start)?;
+    ram.write_bytes(start, b"abcd")?;
+    for byte_index in 0..3 {
+        memory::guest_store_byte(
+            ram.read_u8(memory::guest_byte_address(Some(start), byte_index)?)?,
+            memory::guest_byte_address(Some(start + 1), byte_index)?,
+            ram,
+        )?;
+    }
+    // The original forward loop observes its earlier writes on overlap.
+    if ram.read_u32(start)? != 0x61616161 {
+        return Err(-3);
+    }
+    let mut protected_view = ram.call_view();
+    protected_view.attach(start, 4, window, u64::from(start), true)?;
+    protected_view.attach(0x4000, 4, window, u64::from(start), false)?;
+    if memory::guest_store_byte(
+        protected_view.read_u8(start)?,
+        memory::guest_byte_address(Some(0x4000), 1)?,
+        &mut protected_view,
+    ) != Err(-4)
+        || protected_view.read_u8(0x4004) != Err(-4)
+        || ram.read_u32(start)? != 0x61616161
+    {
+        return Err(-3);
+    }
+    ram.write_u32(start, original)
 }
