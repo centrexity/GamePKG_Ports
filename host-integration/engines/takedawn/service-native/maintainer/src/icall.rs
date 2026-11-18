@@ -368,7 +368,7 @@ pub(super) fn rewrite_flat_jump(statements: &[Stmt], pass: &Lower) -> Option<Stm
     let [binding, native, kernel, Stmt::Expr(Expr::Block(outcome), Some(_))] = statements else {
         return None;
     };
-    if !outcome.attrs.is_empty() {
+    if !matches!(binding, Stmt::Local(_)) || !outcome.attrs.is_empty() {
         return None;
     }
     let [missing, invoke] = outcome.block.stmts.as_slice() else {
@@ -631,7 +631,7 @@ mod tests {
             );
             lower(syn::parse_str(&source).unwrap())
         };
-        for name in ["sub_001D7024", "sub_001D9280", "sub_001CFF7A"] {
+        for name in ["sub_001D7012", "sub_001D7024", "sub_001D9290", "sub_100"] {
             let (mut lowered, deps) = convert(name, &flattened, "").unwrap();
             assert!(deps.is_empty());
             assert_eq!(count(&mut lowered), 1);
@@ -641,7 +641,6 @@ mod tests {
             );
         }
         let subject = "sub_001D7024";
-        assert!(convert("sub_001D3F2F", &flattened, "").is_err());
         assert!(convert(subject, &format!("{flattened} _va.wrapping_add(1);"), "").is_err());
         assert!(convert(subject, &flattened, "let recomp_lookup:uint32_t=0;").is_err());
         assert!(convert(subject, &flattened, "let _va:uint64_t=0;").is_err());
@@ -652,6 +651,8 @@ mod tests {
                 "wrapping_add (8 as uint32_t)",
             ),
             ("non-null function pointer", "unexpected diagnostic"),
+            ("break 's_jump_0", "break 's_jump_2"),
+            ("recomp_lookup_manual (_va)", "recomp_lookup (_va)"),
         ] {
             assert!(flattened.contains(from));
             assert!(convert(subject, &flattened.replace(from, to), "").is_err());

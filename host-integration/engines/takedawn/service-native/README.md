@@ -1177,12 +1177,13 @@ worker and IRQ queue before dispatch. The port remains gated.
 
 ## Flattened untraced startup tail calls
 
-The pinned sub_001D7024, sub_001D9280 and sub_001CFF7A wrappers use the
-same manual, native and kernel lookup sequence as the checked untraced
-jump. Their generated source places lookup statements before the labeled
-final outcome. The converter accepts the four-statement tail only after
-reconstructing and verifying the complete existing shape. The source-side
-guest loads, preceding stores and saved SEH values remain in order.
+The pinned wrappers use the same manual, native and kernel lookup sequence
+as the checked untraced jump. Their generated source places lookup statements
+before the labeled final outcome. The converter accepts the four-statement
+tail after reconstructing and verifying the complete existing shape, including
+the exit label and known TLS bindings. The structural proof applies regardless
+of the function's name. The source-side guest loads, preceding stores and
+saved SEH values remain in order.
 
 An absent address retains the original diagnostic, wrapping four-byte ESP
 pop and EAX zero. Known generated and configured kernel addresses use
@@ -1190,10 +1191,16 @@ existing checked dispatch. These wrappers neither emit trace entries nor
 enforce traced-call code bounds. The two fixed import slots are at
 0x0036b7d8 and 0x0036b820. The authenticated retail image identifies them
 as ordinal 24 (ExQueryNonVolatileSetting) and 171 (MmFreeContiguousMemory).
-The dynamic wrapper reads its target at guest object+0x1c. The tests use
-controlled native and absent addresses to compare the wrappers' original
-effects. Original import publication and gameplay are separate checks.
+Two dynamic wrappers read guest object slots +0x1c and +0x18. The original
+SHA wrappers read slots 0x0036b7c0, 0x0036b7c4 and 0x0036b7c8, whose
+authenticated retail ordinals are 336, 335 and 337. The reference fixtures
+exercise seven wrappers with controlled present and absent targets. In
+confined replay a small synthetic import table publishes the three SHA
+slots and calls their actual generated wrappers, checking the independently
+known SHA-1 digest of `abc`, exact result/stack behavior and untouched
+trace. Full retail image startup and gameplay are separate checks.
 
-The whole-kit inventory now closes 19,514 functions, up 93 from the prior
-checkpoint. The new wrappers and newly reachable callers are all emitted
-through the usual dependency and source-size checks.
+The whole-kit inventory now closes 19,861 functions, up 347 from the prior
+checkpoint. The new wrappers and newly reachable callers use the same
+dependency and source-size checks. The start callback still needs the
+remaining descriptor table, MMX, pointer and legacy state-machine lowering.

@@ -319,7 +319,7 @@ fn main() {
             fixture,
             text.replace(
                 marker,
-                &format!("{marker}crate::fs_checks::thread_memory_verify(&mut ram,window)?;"),
+                &format!("{marker}crate::fs_checks::thread_memory_verify(&mut ram,window)?;crate::jump_checks::jump_sha_verify(window)?;"),
             ),
         )
         .unwrap();
@@ -522,6 +522,9 @@ fn main() {
         reject_bad_vectors(&artifact);
         println!("PASS {target:?}: malformed/old vector formats, batch counts and truncated records rejected by the same audited confined child");
         println!("PASS {target:?}: actual confined native execution of every generated reference vector through host-owned RAM services; in-memory output only");
+        if prepared.is_some() {
+            println!("PASS {target:?}: the three generated SHA tail wrappers reached published guest imports with exact stack pops, unchanged trace, and the abc digest");
+        }
         if call_targets.is_some() {
             println!("PASS {target:?}: original-target lookup vectors, exact diagnostics, untraced jumps and four configured pool ordinals with concurrent shared-heap callers; other kernel/manual routes remain unsupported");
         }

@@ -132,7 +132,6 @@ fn pointer_primitive(expr: &Expr) -> Option<&'static str> {
 #[derive(Default)]
 struct Lower {
     reviewed_indexed_copy: bool,
-    reviewed_flat_jump: bool,
     thread_patch_pattern: Option<syn::Block>,
     tls: BTreeMap<String, String>,
     locals: BTreeMap<String, String>,
@@ -178,11 +177,9 @@ impl Lower {
         let mut statements = Vec::new();
         let mut remaining = std::mem::take(&mut block.stmts).into_iter();
         while !remaining.as_slice().is_empty() {
-            if self.reviewed_flat_jump {
-                if let Some(statement) = icall::rewrite_flat_jump(remaining.as_slice(), self) {
-                    statements.push(statement);
-                    break;
-                }
+            if let Some(statement) = icall::rewrite_flat_jump(remaining.as_slice(), self) {
+                statements.push(statement);
+                break;
             }
             if let Some(replacement) = self.lower_thread_patch(remaining.as_slice()) {
                 for _ in 0..7 {
@@ -1518,9 +1515,6 @@ fn lower(mut function: ItemFn) -> Result<(ItemFn, BTreeSet<String>), BTreeSet<St
         // Whole-kit input is hash pinned. Other byte-copy routines stay out
         // until their newly reachable dependencies fit source admission.
         reviewed_indexed_copy: function.sig.ident == "sub_001D1818",
-        reviewed_flat_jump: ["sub_001D7024", "sub_001D9280", "sub_001CFF7A"]
-            .iter()
-            .any(|name| function.sig.ident == *name),
         thread_patch_pattern: (function.sig.ident == "sub_001D3F2F").then(thread_patch_pattern),
         ..Lower::default()
     };

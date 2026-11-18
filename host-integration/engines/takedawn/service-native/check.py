@@ -62,7 +62,15 @@ def main():
     if hashlib.sha256(kit.read_bytes()).hexdigest()!=KIT:raise RuntimeError('Changed source kit requires review')
     with tempfile.TemporaryDirectory(prefix='gamepkg-native-source-') as name:
         scratch=Path(name)
-        tail_units={'sub_001D7024':'recomp_0004_015.rs','sub_001D9280':'recomp_0004_016.rs','sub_001CFF7A':'recomp_0004_012.rs'}
+        tail_units = {
+            'sub_001D7024': 'recomp_0004_015.rs',
+            'sub_001D9280': 'recomp_0004_016.rs',
+            'sub_001CFF7A': 'recomp_0004_012.rs',
+            'sub_001D7012': 'recomp_0004_015.rs',
+            'sub_001D7018': 'recomp_0004_015.rs',
+            'sub_001D701E': 'recomp_0004_015.rs',
+            'sub_001D9290': 'recomp_0004_016.rs',
+        }
         tail_originals=[]
         with tarfile.open(kit) as archive:
             original=archive.extractfile(UNIT).read()
@@ -86,10 +94,15 @@ def main():
             for helper in ['recomp_icall_not_code_log','recomp_icall_fail_log']:
                 extra_helpers.append(pinned_function(manual_data.decode(),'pub unsafe extern "C" fn '+helper+'('))
             if args.prepared:
-                for symbol, unit_name in tail_units.items():
-                    data=archive.extractfile('prepared/src/'+unit_name).read()
-                    assert hashlib.sha256(data).hexdigest()==pins[unit_name]
-                    tail_originals.append(pinned_function(data.decode(),'pub unsafe extern "C" fn '+symbol+'('))
+                for unit_name in dict.fromkeys(tail_units.values()):
+                    data = archive.extractfile('prepared/src/' + unit_name).read()
+                    assert hashlib.sha256(data).hexdigest() == pins[unit_name]
+                    source = data.decode()
+                    for symbol, source_unit in tail_units.items():
+                        if source_unit == unit_name:
+                            tail_originals.append(
+                                pinned_function(source, 'pub unsafe extern "C" fn ' + symbol + '(')
+                            )
                 debug_data=archive.extractfile('prepared/src/recomp_0004_014.rs').read()
                 assert hashlib.sha256(debug_data).hexdigest()==pins['recomp_0004_014.rs']
                 debug_original=pinned_function(debug_data.decode(),'pub unsafe extern "C" fn sub_001D2955(')

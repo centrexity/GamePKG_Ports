@@ -6,7 +6,8 @@ fn reference_case_count(address: u32) -> u32 {
         0x1fbae0 => 512,
         0x243450 => 256,
         0x15570 => 128,
-        0x2447bf | 0x1d2955 | 0x1d7024 | 0x1d9280 | 0x1cff7a => 128,
+        0x2447bf | 0x1d2955 | 0x1d7012 | 0x1d7018 | 0x1d701e | 0x1d7024 | 0x1d9280 | 0x1d9290
+        | 0x1cff7a => 128,
         0x24490a => 512,
         0x13d10 | 0x13e50 => 128,
         _ => 32,
@@ -117,7 +118,13 @@ fn compare_case(
     if address == 0x243450 {
         r.eax = 0x10000 + (iteration / 16 % 6) * 4;
     }
-    let tail_case = matches!(address, 0x1d7024 | 0x1d9280 | 0x1cff7a);
+    let import_cell = vector_spans::vector_import_cell(address);
+    let object_slot = match address {
+        0x1d9280 => Some(0x1c),
+        0x1d9290 => Some(0x18),
+        _ => None,
+    };
+    let tail_case = import_cell.is_some() || object_slot.is_some();
     let bounds = if tail_case {
         // These paths must run even when the destination is outside traced bounds.
         (0x20000, 0x30000)
@@ -325,19 +332,17 @@ fn compare_case(
         if tail_case {
             let target = [0x15590u32, 0x155e0, 0x8000, 0, 0x155a0, 0x15600, 0xffff0000]
                 [iteration as usize % 7];
-            if (address == 0x1d7024 && base == 0x36b7d8)
-                || (address == 0x1cff7a && base == 0x36b820)
-            {
+            if import_cell == Some(base) {
                 bytes[..4].copy_from_slice(&target.to_le_bytes());
             }
-            if address == 0x1d9280 {
+            if let Some(slot) = object_slot {
                 let object = 0x11080u32 + (iteration & 3);
                 if base == 0x1fe00 {
                     let at = (r.esp - base) as usize;
                     bytes[at + 4..at + 8].copy_from_slice(&object.to_le_bytes());
                 }
                 if base == 0x11000 {
-                    let at = (object + 0x1c - base) as usize;
+                    let at = (object + slot - base) as usize;
                     bytes[at..at + 4].copy_from_slice(&target.to_le_bytes());
                 }
             }

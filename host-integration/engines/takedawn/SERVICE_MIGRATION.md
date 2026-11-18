@@ -1,5 +1,14 @@
 # Burnout shared-service migration handoff — 2026-11-14
 
+## Native compatibility layer
+
+Run Burnout's window, Vulkan graphics, audio, input, file and network services
+inside its own native process. GamePKG provides the shared, versioned
+source for those functions for each supported target. Build and audit the game
+objects separately, then link the GamePKG implementation into the executable.
+GamePKG verifies and starts the game and establishes its permissions and
+resource scope. The launcher-side service plans below record earlier tests.
+
 Current component results and superseding app contracts:
 [SERVICE_STATUS.md](SERVICE_STATUS.md). Interface tables below preserve the
 earlier review and must not be used as the current SDK specification.
