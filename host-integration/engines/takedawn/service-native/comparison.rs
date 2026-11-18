@@ -1,23 +1,12 @@
 // Maintainer harness only. Module paths are supplied by check.py in the wrapper.
 use std::{fs::File, io::Write, path::Path};
-const SPANS: [(u32, usize); 9] = [
-    (0x10000, 1024),
-    (0x11000, 1024),
-    (0x1fe00, 1024),
-    (0x3b1680, 64),
-    (0x4a1c40, 64),
-    (0x463b00, 64),
-    (0x3a34a0, 64),
-    (0x3c6100, 64),
-    (0x36c0e0, 64),
-];
 fn reference_case_count(address: u32) -> u32 {
     match address {
         0x13f10 | 0x244df0 | 0x2490e1 => 1024,
         0x1fbae0 => 512,
         0x243450 => 256,
         0x15570 => 128,
-        0x2447bf | 0x1d2955 => 128,
+        0x2447bf | 0x1d2955 | 0x1d7024 | 0x1d9280 | 0x1cff7a => 128,
         0x24490a => 512,
         0x13d10 | 0x13e50 => 128,
         _ => 32,
@@ -128,7 +117,11 @@ fn compare_case(
     if address == 0x243450 {
         r.eax = 0x10000 + (iteration / 16 % 6) * 4;
     }
-    let bounds = if address == 0x243450 {
+    let tail_case = matches!(address, 0x1d7024 | 0x1d9280 | 0x1cff7a);
+    let bounds = if tail_case {
+        // These paths must run even when the destination is outside traced bounds.
+        (0x20000, 0x30000)
+    } else if address == 0x243450 {
         if iteration % 2 == 0 {
             (0, 0)
         } else {
@@ -158,7 +151,8 @@ fn compare_case(
     }
     let input_state = r.encode();
     let mut initial = Vec::new();
-    for &(base, count) in &SPANS {
+    let case_spans = vector_spans::vector_spans(address);
+    for &(base, count) in &case_spans {
         let mut bytes = vec![0; count];
         // The added history span uses a fork so existing case input RNG stays
         // unchanged. Original cases remain before the appended loop cases.
@@ -328,6 +322,26 @@ fn compare_case(
                 bytes[at + 8..at + 12].copy_from_slice(&stop.to_le_bytes());
             }
         }
+        if tail_case {
+            let target = [0x15590u32, 0x155e0, 0x8000, 0, 0x155a0, 0x15600, 0xffff0000]
+                [iteration as usize % 7];
+            if (address == 0x1d7024 && base == 0x36b7d8)
+                || (address == 0x1cff7a && base == 0x36b820)
+            {
+                bytes[..4].copy_from_slice(&target.to_le_bytes());
+            }
+            if address == 0x1d9280 {
+                let object = 0x11080u32 + (iteration & 3);
+                if base == 0x1fe00 {
+                    let at = (r.esp - base) as usize;
+                    bytes[at + 4..at + 8].copy_from_slice(&object.to_le_bytes());
+                }
+                if base == 0x11000 {
+                    let at = (object + 0x1c - base) as usize;
+                    bytes[at..at + 4].copy_from_slice(&target.to_le_bytes());
+                }
+            }
+        }
         if address == 0x2490e1 {
             let edges = [
                 0u64,
@@ -379,7 +393,7 @@ fn compare_case(
     );
     // Prove that replaying the nine captured spans is sufficient: no other
     // observable RAM byte may change in either original or converted code.
-    let mut spans = SPANS;
+    let mut spans = case_spans;
     spans.sort_unstable_by_key(|s| s.0);
     let mut previous = 0usize;
     for (base, count) in spans {
@@ -405,7 +419,7 @@ fn compare_case(
         file.write_all(&bounds.1.to_le_bytes()).unwrap();
         file.write_all(&initial).unwrap();
         file.write_all(&expected).unwrap();
-        for &(base, count) in &SPANS {
+        for &(base, count) in &case_spans {
             file.write_all(&reference[base as usize..base as usize + count])
                 .unwrap();
         }

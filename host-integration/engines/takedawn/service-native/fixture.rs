@@ -216,17 +216,7 @@ fn fixture_execute() -> Result<(), i32> {
             let mut bounds = [0u8; 8];
             fixture_read(handle, &mut offset, &mut bounds)?;
             ram.call_bounds(fixture_word(&bounds, 0), fixture_word(&bounds, 4))?;
-            for (guest, count) in [
-                (65536u32, 1024usize),
-                (69632, 1024),
-                (130560, 1024),
-                (3872384, 64),
-                (4856896, 64),
-                (4602624, 64),
-                (3814560, 64),
-                (0x3c6100, 64),
-                (0x36c0e0, 64),
-            ] {
+            for (guest, count) in crate::vector_spans::vector_spans(address) {
                 let mut bytes = std::vec::Vec::new();
                 bytes.resize(count, 0u8);
                 fixture_read(handle, &mut offset, &mut bytes)?;
@@ -252,17 +242,7 @@ fn fixture_execute() -> Result<(), i32> {
                 )?;
                 return Err(-3);
             }
-            for (guest, count) in [
-                (65536u32, 1024usize),
-                (69632, 1024),
-                (130560, 1024),
-                (3872384, 64),
-                (4856896, 64),
-                (4602624, 64),
-                (3814560, 64),
-                (0x3c6100, 64),
-                (0x36c0e0, 64),
-            ] {
+            for (guest, count) in crate::vector_spans::vector_spans(address) {
                 let mut expected = std::vec::Vec::new();
                 expected.resize(count, 0u8);
                 fixture_read(handle, &mut offset, &mut expected)?;

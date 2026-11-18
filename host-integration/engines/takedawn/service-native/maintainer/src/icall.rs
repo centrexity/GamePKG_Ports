@@ -362,6 +362,28 @@ pub(super) fn rewrite_jump(statements: &[Stmt], pass: &Lower) -> Option<Stmt> {
     let va = format_ident!("{va}");
     Some(parse_quote!(crate::calls_runtime::invoke_jump(native_state,guest_ram,#va)?;))
 }
+// Some pinned tail wrappers put the three lookup statements just before
+// the labeled outcome block. Reconstruct the existing checked shape.
+pub(super) fn rewrite_flat_jump(statements: &[Stmt], pass: &Lower) -> Option<Stmt> {
+    let [binding, native, kernel, Stmt::Expr(Expr::Block(outcome), Some(_))] = statements else {
+        return None;
+    };
+    if !outcome.attrs.is_empty() {
+        return None;
+    }
+    let [missing, invoke] = outcome.block.stmts.as_slice() else {
+        return None;
+    };
+    let mut outer = outcome.clone();
+    outer.block.stmts = vec![
+        binding.clone(),
+        native.clone(),
+        kernel.clone(),
+        missing.clone(),
+        invoke.clone(),
+    ];
+    rewrite_jump(&[Stmt::Expr(Expr::Block(outer), None)], pass)
+}
 pub(super) fn label_used(block: &mut syn::Block, name: &str) -> bool {
     struct Used<'a> {
         name: &'a str,
@@ -588,6 +610,52 @@ mod tests {
             .replace("_fn", "_fn_2")
             .replace("'s_jump_", "'renamed_");
         assert!(candidate(&changed, "let _va_7:uint32_t=1;").is_ok());
+    }
+    #[test]
+    fn flattened_tail_uses_the_same_untraced_lookup_proof() {
+        let canonical: syn::ExprBlock =
+            syn::parse_str(include_str!("icall_jump_template.inc")).unwrap();
+        let label = canonical.label.unwrap();
+        let parts = canonical.block.stmts;
+        let (prefix, exit) = parts.split_at(3);
+        let flattened = quote!(#(#prefix)* #label { #(#exit)* };).to_string();
+        let convert = |name: &str, pattern: &str, bindings: &str| {
+            let source = format!(
+                "pub unsafe extern \"C\" fn {name}() {{
+                    let __gamepkg_tls_g_esp=unsafe{{gamepkg_tls_g_esp()}};
+                    let __gamepkg_tls_g_eax=unsafe{{gamepkg_tls_g_eax()}};
+                    let _va:uint32_t=1;
+                    {bindings}
+                    {pattern}
+                }}"
+            );
+            lower(syn::parse_str(&source).unwrap())
+        };
+        for name in ["sub_001D7024", "sub_001D9280", "sub_001CFF7A"] {
+            let (mut lowered, deps) = convert(name, &flattened, "").unwrap();
+            assert!(deps.is_empty());
+            assert_eq!(count(&mut lowered), 1);
+            let text = lowered.to_token_stream().to_string();
+            assert!(
+                text.contains("calls_runtime :: invoke_jump") && !text.contains("recomp_func_t")
+            );
+        }
+        let subject = "sub_001D7024";
+        assert!(convert("sub_001D3F2F", &flattened, "").is_err());
+        assert!(convert(subject, &format!("{flattened} _va.wrapping_add(1);"), "").is_err());
+        assert!(convert(subject, &flattened, "let recomp_lookup:uint32_t=0;").is_err());
+        assert!(convert(subject, &flattened, "let _va:uint64_t=0;").is_err());
+        for (from, to) in [
+            ("recomp_lookup_kernel", "recomp_lookup"),
+            (
+                "wrapping_add (4 as uint32_t)",
+                "wrapping_add (8 as uint32_t)",
+            ),
+            ("non-null function pointer", "unexpected diagnostic"),
+        ] {
+            assert!(flattened.contains(from));
+            assert!(convert(subject, &flattened.replace(from, to), "").is_err());
+        }
     }
     fn leaving_pattern(body: &str) -> String {
         format!(

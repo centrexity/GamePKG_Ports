@@ -1170,7 +1170,30 @@ statement order or successor does not lower. The original three traced
 calls and the direct dependency on sub_001D3ECB remain.
 
 The closed graph still excludes sub_001D3F2F through sub_001D6AAC,
-which has separate guest SGDT and far-reload behavior. The start callback's
-other branches through sub_00156400 and sub_001D2EE5 still need MMX, guest
-pointer and finite call lowering. Startup still needs to bind the live
+which has separate guest SGDT and far-reload behavior. The branch through
+sub_00156400 still needs MMX and guest-pointer lowering. The branch through
+sub_001D2EE5 has further dependencies. Startup still needs to bind the live
 worker and IRQ queue before dispatch. The port remains gated.
+
+## Flattened untraced startup tail calls
+
+The pinned sub_001D7024, sub_001D9280 and sub_001CFF7A wrappers use the
+same manual, native and kernel lookup sequence as the checked untraced
+jump. Their generated source places lookup statements before the labeled
+final outcome. The converter accepts the four-statement tail only after
+reconstructing and verifying the complete existing shape. The source-side
+guest loads, preceding stores and saved SEH values remain in order.
+
+An absent address retains the original diagnostic, wrapping four-byte ESP
+pop and EAX zero. Known generated and configured kernel addresses use
+existing checked dispatch. These wrappers neither emit trace entries nor
+enforce traced-call code bounds. The two fixed import slots are at
+0x0036b7d8 and 0x0036b820. The authenticated retail image identifies them
+as ordinal 24 (ExQueryNonVolatileSetting) and 171 (MmFreeContiguousMemory).
+The dynamic wrapper reads its target at guest object+0x1c. The tests use
+controlled native and absent addresses to compare the wrappers' original
+effects. Original import publication and gameplay are separate checks.
+
+The whole-kit inventory now closes 19,514 functions, up 93 from the prior
+checkpoint. The new wrappers and newly reachable callers are all emitted
+through the usual dependency and source-size checks.

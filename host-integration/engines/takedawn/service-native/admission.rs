@@ -174,6 +174,7 @@ fn main() {
         "irq_state_checks.rs",
         "fixture.rs",
         "vector.rs",
+        "vector_spans.rs",
         "scalar.rs",
         "copy_checks.rs",
         "fill_checks.rs",
@@ -240,7 +241,7 @@ fn main() {
             .unwrap();
         }
     }
-    let mut library="mod memory;mod heap;mod contiguous;mod heap_service;mod kernel_pool;mod call_state;mod call_checks;mod copy_checks;mod fill_checks;mod debug;mod debug_checks;mod vector;mod scalar;mod registers;mod irq_state_checks;mod game;mod dispatch;mod fixture;pub fn game_main(){fixture::game_main();}\n".to_owned();
+    let mut library="mod memory;mod heap;mod contiguous;mod heap_service;mod kernel_pool;mod call_state;mod call_checks;mod copy_checks;mod fill_checks;mod debug;mod debug_checks;mod vector;mod vector_spans;mod scalar;mod registers;mod irq_state_checks;mod game;mod dispatch;mod fixture;pub fn game_main(){fixture::game_main();}\n".to_owned();
     if let Some(directory) = call_targets {
         let directory = Path::new(directory);
         let report: serde_json::Value =
