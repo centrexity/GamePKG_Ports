@@ -146,10 +146,26 @@ The retail sub_001D3F2F thread-start patch now has an exact checked adapter
 `Interrupts::irq_thread_patch`. It covers the CLI at 0x001d3fce, the store through
 ESI, STI at 0x001d3fd5 and the complete PUSH EBX at 0x001d3fd6 before delivery
 resumes. The returned pre-PUSH ESP feeds the original traced-call fallback.
-The next conversion must match the complete generated region, including stack
-snapshot, store and control-flow successor. A direct translation of the
-two opcode markers would release the mask too early. The generated caller
-still needs a validated binding to the actual current task and its IRQ queue.
+The converter matches that complete generated region, including stack
+snapshot, store and control-flow successor. Its emitted
+`irq_thread_patch_current` call requires a per-view dispatch binding.
+The launcher must install it for the actual current task through
+`Interrupts::irq_bind_dispatch` after attaching its Task view. A copied RAM
+context carries no dispatch binding. The remaining direct dependency is
+sub_001D3ECB through sub_001D6AAC. The latter needs checked guest GDTR and
+descriptor exchanges plus a far reload while STI delivery stays masked.
+The earlier `native-gen` witness qualifies an isolated prepared frame only.
+Neither host descriptor state nor the old native bridge can stand in for
+the port's owned guest state.
+
+The authenticated retail bytes at 0x001d6aac show a six-byte SGDT store
+to ESP+6, then two memory XCHGs to the descriptor at GDTR base+8 and +12
+under CLI. The instruction following STI is the far jump to selector 8
+and offset 0x001d6acc. Keep delivery masked until that reload succeeds,
+including any descriptor accessed-bit update. Preserve the previous
+descriptor in EDX:EAX and the original RET 8 behavior. The existing
+native-gen component has independent descriptor and near-transfer fault
+witnesses to reuse when migrating these operations to checked Rust.
 
 ## Required interrupt and callback integration
 

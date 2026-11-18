@@ -1157,7 +1157,20 @@ writes through a pointer remain outside this lowering.
 This lowering is scoped to the pinned system-thread wrapper sub_001D1818,
 which uses this assignment alongside two already-supported bulk copies.
 Extending it to other routines needs a separate check of the newly reachable
-source. The separate callback sub_001D2793
-still depends on sub_001D3F2F, whose CLI/STI and CPU-state handling remains
-outside the closed graph. Full thread import routing and title launch
-remain gated.
+source.
+
+## Thread-start interrupt lowering
+
+For sub_001D3F2F in the pinned kit, the converter matches all seven source
+statements corresponding to the CLI, memory patch, STI, saved original ESP,
+and complete PUSH EBX. It verifies the register bindings and generated
+successor, then emits one call to the checked task-bound IRQ adapter and
+continues at the original next state. A changed address, width, register,
+statement order or successor does not lower. The original three traced
+calls and the direct dependency on sub_001D3ECB remain.
+
+The closed graph still excludes sub_001D3F2F through sub_001D6AAC,
+which has separate guest SGDT and far-reload behavior. The start callback's
+other branches through sub_00156400 and sub_001D2EE5 still need MMX, guest
+pointer and finite call lowering. Startup still needs to bind the live
+worker and IRQ queue before dispatch. The port remains gated.

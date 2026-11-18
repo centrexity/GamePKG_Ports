@@ -155,9 +155,19 @@ The later pushes and call remain the generated caller's responsibility.
 An error stops the actor. Once CLI has acquired the mask, a failed write
 retains the accepted prefix and leaves the mask held with pending IRQs
 undelivered. Apply `irql_abort` to the same task and follow normal teardown.
-This exact site adapter requires the real caller to attach its task to the
-session queue. The full generated callback and its production queue binding
-remain pending.
+For generated callers, attach the actual Task view to the queue and call
+`Interrupts::irq_bind_dispatch(&mut Memory, &Task)`. This validates the live
+queue/root/task association and installs one queue and actual task identity on
+that RAM view. Repeating the binding is idempotent. Replacing either identity
+returns Denied. Call-view clones and serialized thread contexts start unbound.
+
+`irq_thread_patch_current(&mut Memory,&mut Registers)` returns Unsupported for
+an unbound view, rejects cancelled/foreign tasks and revalidates stale queue
+records before changing state. It reacquires and attaches the current Task
+view. If the site fails after attachment it calls `irql_abort` and returns the
+site error, or the cleanup error if abort fails. The actor must stop on either.
+Pending IRQs remain pending after abort. Tests cover the generated-call adapter
+with controlled queues. The production start path still needs this binding.
 
 ## Validation boundary
 

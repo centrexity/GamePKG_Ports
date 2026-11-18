@@ -62,7 +62,19 @@ fn race_worker_run(id: u64) -> Result<(), i32> {
             )?;
             race_send(response, 3, 0, 0)?;
             race_need(gamepkg::local_mailbox_receive(command, 1000, &mut message)? == 8)?;
-            race_send(response, 4, 0, 0)?;
+            cpu.esp = 0x741098;
+            cpu.esi = 0x741090;
+            cpu.ebx = 0xc1d2e3f4;
+            let before = cpu.encode();
+            race_need(irq_delivery::irq_thread_patch_current(&mut ram, &mut cpu) == Err(-5))?;
+            race_need(cpu.encode() == before)?;
+            queue.irq_bind_dispatch(&mut ram, &task)?;
+            race_need(
+                irq_delivery::irq_thread_patch_current(&mut ram, &mut cpu)? == 0x741098
+                    && cpu.esp == 0x741094
+                    && cpu.eflags & 0x200 != 0,
+            )?;
+            race_send(response, 4, task.task_key()[1], 0)?;
             return Ok(());
         }
         let original_cpu = cpu.encode();

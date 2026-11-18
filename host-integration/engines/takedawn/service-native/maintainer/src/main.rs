@@ -132,6 +132,7 @@ fn pointer_primitive(expr: &Expr) -> Option<&'static str> {
 #[derive(Default)]
 struct Lower {
     reviewed_indexed_copy: bool,
+    thread_patch_pattern: Option<syn::Block>,
     tls: BTreeMap<String, String>,
     locals: BTreeMap<String, String>,
     enums: BTreeMap<String, Arc<BTreeMap<String, u32>>>,
@@ -144,6 +145,31 @@ enum FlowLabel<'a> {
     Loop(&'a str),
 }
 impl Lower {
+    fn lower_thread_patch(&mut self, statements: &[Stmt]) -> Option<[Stmt; 2]> {
+        let pattern = self.thread_patch_pattern.as_ref()?;
+        if !statements.starts_with(&pattern.stmts)
+            || self.locals.get("_icall_esp_1").map(String::as_str) != Some("u32")
+            || self.locals.get("_pv_8").map(String::as_str) != Some("u32")
+            || !self.locals.contains_key("c2rust_current_block_45")
+            || [
+                ("__gamepkg_tls_g_esi", "esi"),
+                ("__gamepkg_tls_g_esp", "esp"),
+                ("__gamepkg_tls_g_ebx", "ebx"),
+            ]
+            .iter()
+            .any(|(binding, field)| self.tls.get(*binding).map(String::as_str) != Some(*field))
+        {
+            return None;
+        }
+        let successor = self.enum_variant(&parse_quote!(C2Rust_Block_45::S_658))?;
+        self.thread_patch_pattern = None;
+        let successor =
+            syn::LitInt::new(&format!("{successor}u32"), proc_macro2::Span::call_site());
+        Some([
+            parse_quote!(_icall_esp_1 = crate::irq_delivery::irq_thread_patch_current(guest_ram, native_state)?;),
+            parse_quote!(c2rust_current_block_45 = #successor;),
+        ])
+    }
     fn lower_block(&mut self, block: &mut syn::Block, label: Option<FlowLabel<'_>>) {
         let outer_locals = self.locals.clone();
         let outer_tls = self.tls.clone();
@@ -151,6 +177,13 @@ impl Lower {
         let mut statements = Vec::new();
         let mut remaining = std::mem::take(&mut block.stmts).into_iter();
         while !remaining.as_slice().is_empty() {
+            if let Some(replacement) = self.lower_thread_patch(remaining.as_slice()) {
+                for _ in 0..7 {
+                    remaining.next();
+                }
+                statements.extend(replacement);
+                continue;
+            }
             if let Some(statement) = icall::rewrite_jump(remaining.as_slice(), self) {
                 remaining.next();
                 statements.push(statement);
@@ -1418,11 +1451,67 @@ fn enum_pattern(pattern: &syn::Pat, lower: &Lower) -> bool {
         _ => false,
     }
 }
+fn thread_patch_pattern() -> syn::Block {
+    // The retail STI shadow is the complete PUSH EBX, including its RAM store.
+    // Match the exact generated prefix, including every state transition.
+    syn::parse_str(
+        r#"{
+        {
+            recomp_unimpl(
+                b"cli\0".as_ptr() as *const ::core::ffi::c_char,
+                0x1d3fce as uint32_t,
+            );
+            c2rust_current_block_45 = C2Rust_Block_45::S_633;
+        };
+        {
+            ::core::ptr::write_volatile(
+                ::core::ptr::with_exposed_provenance_mut::<uint32_t,>(
+                    ((*__gamepkg_tls_g_esi) as uintptr_t)
+                        .wrapping_add(g_xbox_mem_offset as uintptr_t) as usize,
+                ),
+                0x28c5048d as uint32_t,
+            );
+            c2rust_current_block_45 = C2Rust_Block_45::S_635;
+        };
+        {
+            recomp_unimpl(
+                b"sti\0".as_ptr() as *const ::core::ffi::c_char,
+                0x1d3fd5 as uint32_t,
+            );
+            c2rust_current_block_45 = C2Rust_Block_45::S_638;
+        };
+        {
+            _icall_esp_1 = (*__gamepkg_tls_g_esp);
+            c2rust_current_block_45 = C2Rust_Block_45::S_644;
+        };
+        {
+            _pv_8 = (*__gamepkg_tls_g_ebx);
+            c2rust_current_block_45 = C2Rust_Block_45::S_646;
+        };
+        {
+            (*__gamepkg_tls_g_esp) = (*__gamepkg_tls_g_esp).wrapping_sub(4 as uint32_t);
+            c2rust_current_block_45 = C2Rust_Block_45::S_648;
+        };
+        {
+            ::core::ptr::write_volatile(
+                ::core::ptr::with_exposed_provenance_mut::<uint32_t,>(
+                    ((*__gamepkg_tls_g_esp) as uintptr_t)
+                        .wrapping_add(g_xbox_mem_offset as uintptr_t) as usize,
+                ),
+                _pv_8,
+            );
+            c2rust_current_block_45 = C2Rust_Block_45::S_658;
+        };
+    }"#,
+    )
+    .expect("reviewed thread shadow template")
+}
 fn lower(mut function: ItemFn) -> Result<(ItemFn, BTreeSet<String>), BTreeSet<String>> {
     let mut pass = Lower {
         // Whole-kit input is hash pinned. Other byte-copy routines stay out
         // until their newly reachable dependencies fit source admission.
         reviewed_indexed_copy: function.sig.ident == "sub_001D1818",
+        thread_patch_pattern: (function.sig.ident == "sub_001D3F2F").then(thread_patch_pattern),
         ..Lower::default()
     };
     for attr in &function.attrs {
@@ -1438,6 +1527,9 @@ fn lower(mut function: ItemFn) -> Result<(ItemFn, BTreeSet<String>), BTreeSet<St
     }
     icall_compacted::rewrite(&mut function);
     pass.visit_block_mut(&mut function.block);
+    if pass.thread_patch_pattern.is_some() {
+        pass.reject("unreviewed thread-start interrupt shadow");
+    }
     if !pass.errors.is_empty() {
         return Err(pass.errors);
     }
@@ -1622,6 +1714,45 @@ mod tests {
     use super::*;
     fn lowered(body: &str) -> Result<(ItemFn, BTreeSet<String>), BTreeSet<String>> {
         lower(syn::parse_str(&format!("pub unsafe extern \"C\" fn sub_100(){{{body}}}")).unwrap())
+    }
+    #[test]
+    fn native_thread_patch_requires_the_whole_reviewed_shadow() {
+        let fixture = |name: &str, block: &syn::Block| {
+            let name = format_ident!("{name}");
+            lower(parse_quote!(
+                pub unsafe extern "C" fn #name() {
+                    let __gamepkg_tls_g_esi = unsafe { gamepkg_tls_g_esi() };
+                    let __gamepkg_tls_g_esp = unsafe { gamepkg_tls_g_esp() };
+                    let __gamepkg_tls_g_ebx = unsafe { gamepkg_tls_g_ebx() };
+                    let mut _icall_esp_1: uint32_t = 0;
+                    let mut _pv_8: uint32_t = 0;
+                    enum C2Rust_Block_45 { S_633, S_635, S_638, S_644, S_646, S_648, S_658 }
+                    let mut c2rust_current_block_45: C2Rust_Block_45;
+                    #block
+                }
+            ))
+        };
+        let exact = thread_patch_pattern();
+        let (lowered, deps) = fixture("sub_001D3F2F", &exact).unwrap();
+        let text = lowered.to_token_stream().to_string();
+        assert!(deps.is_empty());
+        assert!(!text.contains("recomp_unimpl") && !text.contains("write_volatile"));
+        assert!(text.contains("_icall_esp_1 = crate :: irq_delivery :: irq_thread_patch_current"));
+        assert!(text.contains("c2rust_current_block_45 = 6u32"));
+        assert!(fixture("sub_001D6AAC", &exact).is_err());
+        for (from, to) in [
+            ("0x1d3fd5", "0x1d3fd6"),
+            ("0x28c5048d", "0x28c5048c"),
+            ("S_658", "S_648"),
+            ("g_ebx", "g_esi"),
+            ("wrapping_sub", "wrapping_add"),
+        ] {
+            let altered = exact.to_token_stream().to_string().replace(from, to);
+            assert!(fixture("sub_001D3F2F", &syn::parse_str(&altered).unwrap()).is_err());
+        }
+        let mut altered = exact.clone();
+        altered.stmts.swap(5, 6);
+        assert!(fixture("sub_001D3F2F", &altered).is_err());
     }
     #[test]
     fn guest_tsc_requires_exact_direct_zero_argument_call() {

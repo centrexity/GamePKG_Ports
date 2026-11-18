@@ -126,7 +126,10 @@ direct dispatch. Both the launcher and the actual worker require that
 proof. The confined fixture submits the known but absent 0x001D1818 route
 and verifies that no task is created and the guest outputs remain untouched.
 
-The checked indexed byte-copy lowering now supplies sub_001D1818 in the
-whole-kit candidate. This adds the compiled wrapper body only. The separate
-real start callback still needs its CLI/STI shadow, pointer and IRQ integration,
-and the production import route remains gated.
+The checked indexed byte-copy lowering supplies sub_001D1818 in the whole-kit
+candidate. The separate start callback's interrupt shadow now converts
+locally through a checked per-task adapter. One dependency chain reaches
+sub_001D6AAC and needs guest descriptor-table and far-reload support.
+Separate branches through sub_00156400 and sub_001D2EE5 expose unconverted
+MMX, memory and call patterns. The launcher still needs to bind the queue
+to the live task's RAM view. The production import route remains gated.

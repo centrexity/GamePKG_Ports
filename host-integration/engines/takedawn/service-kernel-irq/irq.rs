@@ -220,6 +220,14 @@ impl Interrupts {
         task.task_values(ram)?;
         Ok(())
     }
+    pub fn irq_bind_dispatch(
+        &self,
+        ram: &mut memory::Memory,
+        task: &irql::Task,
+    ) -> Result<(), i32> {
+        self.irq_task(ram, task)?;
+        ram.bind_dispatch_irq(self.record, task.task_key()[1])
+    }
     // sub_001D3F2F at 0x001d3fce: CLI, MOV [ESI], STI, PUSH EBX.
     // The pending IRQ release can run only after the PUSH writes its stack word.
     pub fn irq_thread_patch(
@@ -498,6 +506,27 @@ impl Interrupts {
             }
         }
         crate::irq_observer::dpc_release(self, task, ram)
+    }
+}
+
+pub fn irq_thread_patch_current(
+    ram: &mut memory::Memory,
+    cpu: &mut registers::Registers,
+) -> Result<u32, i32> {
+    let (actor, cancelled) = gamepkg::local_task_status()?;
+    if cancelled {
+        return Err(-4);
+    }
+    let queue = Interrupts::irq_borrow(ram, ram.dispatch_irq_record(actor)?)?;
+    let controller = irql::Controller::controller_borrow(ram, queue.controller)?;
+    let mut task = controller.controller_task(ram)?;
+    queue.irq_attach_task(ram, &mut task)?;
+    match queue.irq_thread_patch(ram, &mut task, cpu) {
+        Ok(saved) => Ok(saved),
+        Err(cause) => {
+            task.irql_abort(ram)?;
+            Err(cause)
+        }
     }
 }
 impl Interrupts {

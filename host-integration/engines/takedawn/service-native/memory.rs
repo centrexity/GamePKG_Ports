@@ -404,6 +404,7 @@ pub struct Memory {
     heap_endpoints: [u64; 2],
     heap_client: Option<crate::heap_service::HeapClient>,
     vm_arena: Option<GuestArena>,
+    dispatch_irq: Option<(u64, u64)>,
 }
 impl Memory {
     pub fn new() -> Result<Self, i32> {
@@ -416,6 +417,7 @@ impl Memory {
             heap_endpoints: [0; 2],
             heap_client: None,
             vm_arena: None,
+            dispatch_irq: None,
         })
     }
     // One title's views/tasks explicitly share an opaque GamePKG record ID.
@@ -429,7 +431,29 @@ impl Memory {
             heap_endpoints: self.heap_endpoints,
             heap_client: None,
             vm_arena: None,
+            dispatch_irq: None,
         }
+    }
+    // Per-view and per-task only. Shared RAM contexts do not carry this binding.
+    pub(crate) fn bind_dispatch_irq(&mut self, queue: u64, actor: u64) -> Result<(), i32> {
+        if queue == 0 {
+            return Err(-1);
+        }
+        match self.dispatch_irq {
+            Some(binding) if binding != (queue, actor) => Err(-4),
+            Some(_) => Ok(()),
+            None => {
+                self.dispatch_irq = Some((queue, actor));
+                Ok(())
+            }
+        }
+    }
+    pub(crate) fn dispatch_irq_record(&self, actor: u64) -> Result<u64, i32> {
+        let (queue, owner) = self.dispatch_irq.ok_or(-5)?;
+        if owner != actor {
+            return Err(-4);
+        }
+        Ok(queue)
     }
     // Reserve the top of the existing main bank before starting the heap
     // worker. The returned address is the exclusive heap limit.
@@ -606,6 +630,7 @@ impl Memory {
             heap_endpoints: [0; 2],
             heap_client: None,
             vm_arena: None,
+            dispatch_irq: None,
         })
     }
     // A stale snapshot has not committed a call or touched game state. Yield

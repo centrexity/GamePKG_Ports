@@ -44,13 +44,26 @@ pub fn irq_thread_patch_probe(ram: &mut memory::Memory, window: u64) -> Result<(
         let call_esp = cpu.esp;
         let untouched = cpu.encode();
         callback_need(queue.irq_thread_patch(ram, &mut task, &mut cpu) == Err(-5))?;
+        callback_need(irq_delivery::irq_thread_patch_current(ram, &mut cpu) == Err(-5))?;
         callback_need(
             cpu.encode() == untouched && controller.controller_counts(ram)? == [0, 0, 0],
         )?;
         queue.irq_attach_task(ram, &mut task)?;
+        let mut dispatch_ram = ram.call_view();
+        dispatch_ram.attach(0, 0x4000000, window, 0, true)?;
+        queue.irq_bind_dispatch(&mut dispatch_ram, &task)?;
+        queue.irq_bind_dispatch(&mut dispatch_ram, &task)?;
+        let actor = task.task_key()[1];
+        callback_need(dispatch_ram.dispatch_irq_record(actor.wrapping_add(1)) == Err(-4))?;
+        let mut copied_ram = memory::Memory::with_context(dispatch_ram.thread_context())?;
+        callback_need(
+            irq_delivery::irq_thread_patch_current(&mut copied_ram, &mut cpu) == Err(-5),
+        )?;
         let mut foreign =
             irq_delivery::Interrupts::irq_new(ram, &controller, &pool, 1, true, false, 250, true)?;
-        callback_need(foreign.irq_thread_patch(ram, &mut task, &mut cpu) == Err(-4))?;
+        let mut foreign_task = controller.controller_task(ram)?;
+        foreign.irq_attach_task(ram, &mut foreign_task)?;
+        callback_need(foreign.irq_bind_dispatch(&mut dispatch_ram, &foreign_task) == Err(-4))?;
         callback_need(cpu.encode() == untouched && foreign.irq_close(ram, false)? == 0)?;
         let pending = u32::from(mode != 3);
         if pending != 0 {
@@ -58,7 +71,7 @@ pub fn irq_thread_patch_probe(ram: &mut memory::Memory, window: u64) -> Result<(
             queue.irq_post(ram, &mut task, &mut cpu, 0)?;
         }
         callback_need(queue.irq_pending(ram)? == pending && ram.read_u32(0x741000)? == 0)?;
-        let outcome = queue.irq_thread_patch(ram, &mut task, &mut cpu);
+        let outcome = irq_delivery::irq_thread_patch_current(&mut dispatch_ram, &mut cpu);
         if mode == 0 {
             callback_need(
                 outcome == Ok(call_esp)
@@ -79,13 +92,16 @@ pub fn irq_thread_patch_probe(ram: &mut memory::Memory, window: u64) -> Result<(
                     && queue.irq_pending(ram)? == pending
                     && ram.read_u32(0x741000)? == 0
                     && ram.read_u32(0x741080)? == if mode == 1 { 0 } else { 0x28c5048d }
-                    && controller.controller_counts(ram)?[..2] == [0, 1],
+                    && controller.controller_counts(ram)?[..2] == [0, 0],
             )?;
-            task.irql_abort(ram)?;
-            callback_need(controller.controller_counts(ram)?[..2] == [0, 0])?;
         }
         let discarded = if mode == 0 { 0 } else { pending };
         callback_need(queue.irq_close(ram, discarded != 0)? == discarded)?;
+        let after_close = cpu.encode();
+        callback_need(
+            irq_delivery::irq_thread_patch_current(&mut dispatch_ram, &mut cpu).is_err(),
+        )?;
+        callback_need(cpu.encode() == after_close)?;
         pool.stacks_close(ram)?;
         controller.controller_close(ram)?;
     }
@@ -154,7 +170,13 @@ pub fn irq_callbacks_probe(ram: &mut memory::Memory, window: u64) -> Result<(), 
             }
             callback_need(queue.irq_stats(ram, false)?[..6] == [2, 1, 1, 2, 1, 1])?;
             gamepkg::local_mailbox_send(command, &u64::to_le_bytes(2))?;
-            callback_reply(response, 4)?;
+            let worker_patch = callback_reply(response, 4)?;
+            callback_need(
+                worker != 0
+                    && worker_patch[1] == worker
+                    && ram.read_u32(0x741090)? == 0x28c5048d
+                    && ram.read_u32(0x741094)? == 0xc1d2e3f4,
+            )?;
         } else {
             gamepkg::local_mailbox_send(command, &u64::to_le_bytes(0))?;
             callback_reply(response, 2)?;
